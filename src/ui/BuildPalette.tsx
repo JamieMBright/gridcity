@@ -94,7 +94,8 @@ export function BuildPalette() {
         left: 12,
         width: 230,
         padding: '8px 4px',
-        maxHeight: 'calc(100vh - 160px)',
+        // stay clear of the fleet panel + status bar below
+        maxHeight: 'calc(100vh - 330px)',
         overflowY: 'auto',
       }}
     >

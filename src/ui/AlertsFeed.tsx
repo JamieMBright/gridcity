@@ -21,13 +21,13 @@ export function AlertsFeed() {
       style={{
         ...panelStyle,
         position: 'absolute',
-        bottom: 268,
-        left: 12,
+        bottom: 320,
+        right: 12,
         width: 250,
         padding: '6px 10px',
         fontSize: 11,
         lineHeight: 1.5,
-        maxHeight: 140,
+        maxHeight: 120,
         overflowY: 'auto',
       }}
     >

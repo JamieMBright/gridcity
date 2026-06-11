@@ -107,7 +107,7 @@ function step(): void {
 function isSaveData(d: unknown): d is SaveData {
   if (typeof d !== 'object' || d === null) return false;
   const v = (d as { v?: unknown }).v;
-  return v === 1 || v === 2;
+  return typeof v === 'number' && v >= 1 && v <= 3;
 }
 
 function start(save: unknown): void {

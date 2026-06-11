@@ -198,6 +198,17 @@ export class MapRenderer {
     );
   }
 
+  /** Client (screen) coordinates of a tile centre — used by e2e tests to
+   *  drive real canvas clicks. */
+  tileToScreen(x: number, y: number): { x: number; y: number } {
+    const c = this.tileCentre(x, y);
+    const rect = this.app.canvas.getBoundingClientRect();
+    return {
+      x: rect.left + c.x * this.world.scale.x + this.world.x,
+      y: rect.top + c.y * this.world.scale.y + this.world.y,
+    };
+  }
+
   private drawFleet(vans: VanView[], jobs: JobView[]): void {
     // job site markers
     this.jobsG.clear();

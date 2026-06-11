@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { getLondonMap } from '../data/londonMap';
 import { MapRenderer, type Ghost } from '../render/MapRenderer';
+import { installTestHook } from '../app/testHook';
 import { useAppStore, type Tool } from '../app/store';
 import { sendCommand } from '../app/workerBridge';
 import { assetAtTile, checkBuild, type BuildSpec } from '../sim/commands';
@@ -101,7 +102,10 @@ export function MapView() {
     rendererRef.current = renderer;
     renderer.onHover = (tile) => useAppStore.getState().setHoveredTile(tile);
     renderer.onTileClick = (tile) => handleTileClick(tile.x, tile.y);
-    void renderer.init(host, getLondonMap());
+    void renderer.init(host, getLondonMap()).then(() => {
+      // StrictMode double-mounts: only the surviving renderer gets the hook
+      if (rendererRef.current === renderer) installTestHook(renderer);
+    });
     return () => {
       rendererRef.current = undefined;
       renderer.destroy();
