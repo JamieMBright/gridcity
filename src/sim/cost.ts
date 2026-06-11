@@ -2,7 +2,7 @@
 // underground-only enforcement, and line pricing. Pure functions shared by
 // command validation (worker) and ghost previews (UI).
 
-import { LINES, type LineBuild } from './catalog';
+import { LINES, PYLON_SPACING, type LineBuild } from './catalog';
 import type { VoltageLevel } from './grid/types';
 import { TERRAIN, ZONE, type CityMap } from './map/types';
 
@@ -54,6 +54,47 @@ export function routeTiles(ax: number, ay: number, bx: number, by: number): Arra
     }
   }
   return tiles;
+}
+
+/** True if a tile can carry an overhead-line support. Pylons stand on open
+ *  ground: not water, not a road, not a building plot, not already taken. */
+export function pylonSiteOk(map: CityMap, x: number, y: number, taken: Set<number>): boolean {
+  if (x < 0 || x >= map.width || y < 0 || y >= map.height) return false;
+  const i = y * map.width + x;
+  return (
+    map.terrain[i] !== TERRAIN.water &&
+    map.road[i] !== 1 &&
+    (map.customers[i] ?? 0) === 0 &&
+    (map.landmark === undefined || map.landmark[i] === 0) &&
+    !taken.has(i)
+  );
+}
+
+/** Place supports along an overhead route at the level's spacing, snapping
+ *  each one to the nearest available square along the route (slide up to
+ *  two tiles onward; an unplaceable support just leaves a longer span).
+ *  Endpoints are excluded — the line lands on the asset's own gantry. */
+export function placePylons(
+  map: CityMap,
+  level: VoltageLevel,
+  route: Array<[number, number]>,
+  taken: Set<number>,
+): number[] {
+  const spacing = PYLON_SPACING[level];
+  const pylons: number[] = [];
+  const placed = new Set(taken);
+  for (let k = spacing; k < route.length - 1; k += spacing) {
+    for (let slide = 0; slide <= 2 && k + slide < route.length - 1; slide++) {
+      const [x, y] = route[k + slide] ?? [-1, -1];
+      if (pylonSiteOk(map, x, y, placed)) {
+        const i = y * map.width + x;
+        pylons.push(i);
+        placed.add(i);
+        break;
+      }
+    }
+  }
+  return pylons;
 }
 
 export function priceLine(

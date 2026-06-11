@@ -324,6 +324,16 @@ export function solveTick(
     }
   }
 
+  if (dtMin > 0) {
+    // construction completing this tick → the plant is commissioned
+    for (const a of state.assets.values()) {
+      if (a.kind !== 'gen' || a.liveAtMin === undefined) continue;
+      if (a.liveAtMin <= state.simTimeMin && a.liveAtMin > state.simTimeMin - dtMin) {
+        pushEvent(state, 'info', `${GENS[a.gen].name} commissioned — first power`, a.x, a.y);
+      }
+    }
+  }
+
   applyOutages(derived.net, state);
   let { dispatch, pf } = runPowerFlow(state, ctx, derived, dtMin);
 

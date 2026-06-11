@@ -19,6 +19,7 @@ const ZONE_NAMES: Record<Zone, string> = {
   [ZONE.solarSite]: 'Solar farm site',
   [ZONE.windSite]: 'Offshore wind zone',
   [ZONE.nuclearSite]: 'Nuclear-capable site',
+  [ZONE.cbd]: 'Skyscraper district',
 };
 
 const TERRAIN_NAMES: Record<Terrain, string> = {

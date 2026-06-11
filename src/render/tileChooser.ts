@@ -1,7 +1,21 @@
 // Decides which atlas sprite represents each map tile. Shared by the Pixi
 // renderer and the Node preview tool so both always agree.
 
-import { TERRAIN, ZONE, type CityMap } from '../sim/map/types';
+import { LANDMARK, TERRAIN, ZONE, type CityMap, type Landmark } from '../sim/map/types';
+
+const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {
+  [LANDMARK.parliament]: 'lm_parliament',
+  [LANDMARK.eye]: 'lm_eye',
+  [LANDMARK.dome]: 'lm_dome',
+  [LANDMARK.spire]: 'lm_spire',
+  [LANDMARK.fortress]: 'lm_fortress',
+  [LANDMARK.towerBridge]: 'lm_bridge',
+  [LANDMARK.stadium]: 'lm_stadium',
+  [LANDMARK.arena]: 'lm_arena',
+  [LANDMARK.mall]: 'lm_mall',
+  [LANDMARK.zoo]: 'lm_zoo',
+  [LANDMARK.powerstation]: 'lm_power',
+};
 
 function at(map: CityMap, x: number, y: number, arr: Uint8Array): number {
   if (x < 0 || x >= map.width || y < 0 || y >= map.height) return 255;
@@ -36,12 +50,23 @@ export function spriteNameFor(map: CityMap, x: number, y: number): string {
   const zone = map.zone[i];
   const v = map.variant[i] ?? 0;
 
-  if (terrain === TERRAIN.water) return `water_${landMask(map, x, y)}`;
+  const lm = (map.landmark?.[i] ?? LANDMARK.none) as Landmark;
+  if (lm !== LANDMARK.none) {
+    const name = LANDMARK_SPRITE[lm];
+    if (name) return lm === LANDMARK.zoo ? `${name}_${x % 2}` : name;
+  }
+  if (terrain === TERRAIN.water) {
+    // a road over water is a bridge deck on stilts
+    if (map.road[i] === 1) return `bridge_${roadMask(map, x, y)}`;
+    return `water_${landMask(map, x, y)}`;
+  }
   if (map.road[i] === 1) return `road_${roadMask(map, x, y)}`;
   if (terrain === TERRAIN.hill) return `hill_${v % 2}`;
   if (terrain === TERRAIN.trees) return `trees_${v % 3}`;
 
   switch (zone) {
+    case ZONE.cbd:
+      return `sky_${v % 3}`;
     case ZONE.urbanCore:
       if (v % 7 < 2) return `tower_${v % 2}`;
       if (v % 7 === 2) return `office_${v % 2}`;

@@ -17,6 +17,7 @@ import {
   hpProfile,
   processProfile,
   sunFactor,
+  tideFactor,
   windFactor,
   type WeatherState,
 } from '../events/weather';
@@ -84,6 +85,14 @@ interface Unit {
   isBattery: boolean;
 }
 
+/** Still in planning/construction: on the network, generating nothing. */
+export function underConstruction(
+  a: { liveAtMin?: number | undefined },
+  simTimeMin: number,
+): boolean {
+  return a.liveAtMin !== undefined && a.liveAtMin > simTimeMin;
+}
+
 function availability(a: PlacedAsset & { kind: 'gen' }, inp: DispatchInputs): number {
   const spec = GENS[a.gen];
   switch (a.gen) {
@@ -93,6 +102,8 @@ function availability(a: PlacedAsset & { kind: 'gen' }, inp: DispatchInputs): nu
       return spec.capacityMW * windFactor(inp.weather, false);
     case 'windOffshore':
       return spec.capacityMW * windFactor(inp.weather, true);
+    case 'tidal':
+      return spec.capacityMW * tideFactor(inp.simTimeMin);
     default:
       return spec.capacityMW;
   }
@@ -143,24 +154,30 @@ export function runDispatch(
       const bus = busId(a.id, spec.level);
       const gi = islandOf.get(bus);
       if (gi === undefined) continue;
+      const building = underConstruction(a, inp.simTimeMin);
       if (a.gen === 'battery') {
-        agg(gi).batteries.push({
-          id: a.id,
-          bus,
-          rateMW: spec.capacityMW,
-          energyMWh: spec.energyMWh ?? 0,
-        });
+        if (!building) {
+          agg(gi).batteries.push({
+            id: a.id,
+            bus,
+            rateMW: spec.capacityMW,
+            energyMWh: spec.energyMWh ?? 0,
+          });
+        }
       } else {
         const renewable =
-          a.gen === 'solarFarm' || a.gen === 'windOnshore' || a.gen === 'windOffshore';
+          a.gen === 'solarFarm' ||
+          a.gen === 'windOnshore' ||
+          a.gen === 'windOffshore' ||
+          a.gen === 'tidal';
         agg(gi).units.push({
           id: a.id,
           bus,
-          availMW: availability(a, inp),
+          availMW: building ? 0 : availability(a, inp),
           costK: spec.marginalCostK,
           carbonG: spec.carbonG,
-          mustRun: renewable && !a.flex,
-          flex: a.flex === true,
+          mustRun: renewable && !a.flex && !building,
+          flex: a.flex === true && !building,
           isBattery: false,
         });
       }

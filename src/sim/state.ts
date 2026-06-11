@@ -155,18 +155,20 @@ export function newContext(): SimContext {
 
 // --- save / load -----------------------------------------------------------
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 /** Guard for untrusted save payloads; lives beside SAVE_VERSION so the two
  *  can never drift apart again (a stale guard silently discarded saves). */
 export function isSaveData(d: unknown): d is SaveData {
   if (typeof d !== 'object' || d === null) return false;
   const v = (d as { v?: unknown }).v;
-  return typeof v === 'number' && v >= 1 && v <= SAVE_VERSION;
+  // v6 rebuilt the map (bigger region, new geography); older saves
+  // reference tiles that no longer exist, so they can't be migrated.
+  return typeof v === 'number' && v >= 6 && v <= SAVE_VERSION;
 }
 
 export interface SaveData {
-  v: 1 | 2 | 3 | 4 | 5;
+  v: 6;
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;

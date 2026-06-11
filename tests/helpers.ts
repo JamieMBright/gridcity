@@ -45,6 +45,13 @@ export function mustApply(state: GameState, map: CityMap, cmd: Command): number 
   return r.assetId ?? -1;
 }
 
+/** Skip planning/construction lead times so fixtures power up at once. */
+export function commissionAll(state: GameState): void {
+  for (const a of state.assets.values()) {
+    if (a.kind === 'gen') a.liveAtMin = 0;
+  }
+}
+
 /** A 30x30 map with a 3x3 suburb block at (20,20) and a powered network:
  *  gas plant (5,5) → 132 kV line → grid sub (15,15) → 33 kV line →
  *  dist sub (20,20 area). Returns the asset ids. */
@@ -79,5 +86,6 @@ export function poweredFixture(): {
     type: 'build',
     spec: { kind: 'line', level: 33, build: 'overhead', ax: 15, ay: 15, bx: 18, by: 18 },
   });
+  commissionAll(state);
   return { state, ctx, ids: { gas, grid, dist, line132, line33 } };
 }

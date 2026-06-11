@@ -25,6 +25,9 @@ export interface GenAsset {
   flex?: boolean | undefined;
   /** Customer-owned (arrived via a connection application). */
   customer?: boolean | undefined;
+  /** Game-minute the plant is commissioned (planning + construction).
+   *  Until then it exists on the network but generates nothing. */
+  liveAtMin?: number | undefined;
 }
 
 export interface SubAsset {
@@ -45,6 +48,9 @@ export interface LineAsset {
   b: number;
   lengthTiles: number;
   capexK: number;
+  /** Support tile indices along the route (pylons at 400/132 kV, wooden
+   *  poles at 33 kV). Empty for underground cables. */
+  pylons?: number[] | undefined;
 }
 
 const LEVEL_SLOT: Record<VoltageLevel, number> = { 400: 0, 132: 1, 33: 2 };
