@@ -1,30 +1,22 @@
 import { useEffect } from 'react';
+import { BillPanel } from '../ui/BillPanel';
+import { BuildPalette } from '../ui/BuildPalette';
+import { Hud } from '../ui/Hud';
 import { InfoPanel } from '../ui/InfoPanel';
 import { MapView } from '../ui/MapView';
-import { theme } from '../ui/theme';
+import { panelStyle, theme } from '../ui/theme';
 import { useAppStore } from './store';
-import { initWorker } from './workerBridge';
-
-function formatGameClock(simTimeMin: number): string {
-  const day = Math.floor(simTimeMin / (24 * 60)) + 1;
-  const minOfDay = simTimeMin % (24 * 60);
-  const h = String(Math.floor(minOfDay / 60)).padStart(2, '0');
-  const m = String(Math.floor(minOfDay % 60)).padStart(2, '0');
-  return `day ${day} · ${h}:${m}`;
-}
+import { initWorker, setSimSpeed } from './workerBridge';
 
 function Wordmark() {
   return (
     <div
       style={{
+        ...panelStyle,
         position: 'absolute',
         top: 12,
         left: 12,
         padding: '8px 14px',
-        background: `${theme.navy}e6`,
-        border: `1px solid ${theme.navyLight}`,
-        borderRadius: 8,
-        fontFamily: theme.font,
         fontSize: 18,
         fontWeight: 800,
         letterSpacing: '0.05em',
@@ -40,19 +32,14 @@ function Wordmark() {
 function StatusBar() {
   const workerStatus = useAppStore((s) => s.workerStatus);
   const workerError = useAppStore((s) => s.workerError);
-  const snapshot = useAppStore((s) => s.snapshot);
   return (
     <div
       style={{
+        ...panelStyle,
         position: 'absolute',
         bottom: 12,
         left: 12,
         padding: '6px 12px',
-        background: `${theme.navy}e6`,
-        border: `1px solid ${theme.navyLight}`,
-        borderRadius: 8,
-        color: theme.offWhite,
-        fontFamily: theme.font,
         fontSize: 12,
         pointerEvents: 'none',
       }}
@@ -61,20 +48,62 @@ function StatusBar() {
       {workerStatus === 'error' && (
         <span style={{ color: theme.danger }}>sim error: {workerError}</span>
       )}
-      {workerStatus === 'ready' && snapshot && (
-        <span>
-          <span style={{ color: theme.ok }}>●</span> {formatGameClock(snapshot.simTimeMin)}
-          <span style={{ color: theme.slate }}> · drag to pan · scroll to zoom</span>
-        </span>
+      {workerStatus === 'ready' && (
+        <span style={{ color: theme.slate }}>drag to pan · scroll to zoom · G for grid view</span>
       )}
     </div>
   );
+}
+
+function Toast() {
+  const toast = useAppStore((s) => s.toast);
+  if (!toast) return null;
+  return (
+    <div
+      style={{
+        ...panelStyle,
+        position: 'absolute',
+        top: 70,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        padding: '8px 16px',
+        border: `1px solid ${theme.danger}`,
+        color: theme.danger,
+        pointerEvents: 'none',
+      }}
+    >
+      {toast}
+    </div>
+  );
+}
+
+function useKeyboard(): void {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      const s = useAppStore.getState();
+      if (e.key === 'Escape') {
+        if (s.tool.t === 'line' && s.tool.fromAssetId !== undefined) {
+          s.setTool({ ...s.tool, fromAssetId: undefined });
+        } else {
+          s.setTool({ t: 'inspect' });
+        }
+      } else if (e.key === 'g' || e.key === 'G') {
+        s.setGridView(!s.gridView);
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        setSimSpeed(s.snapshot?.speed === 0 ? 1 : 0);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 }
 
 export function App() {
   useEffect(() => {
     initWorker();
   }, []);
+  useKeyboard();
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
@@ -90,8 +119,12 @@ export function App() {
         }}
       />
       <Wordmark />
+      <BuildPalette />
       <InfoPanel />
+      <BillPanel />
+      <Hud />
       <StatusBar />
+      <Toast />
     </div>
   );
 }

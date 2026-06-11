@@ -16,6 +16,14 @@ import {
   warehouseTile,
 } from './buildingSprites';
 import {
+  gasPlantTile,
+  nuclearTile,
+  subBulkTile,
+  subDistTile,
+  subGridTile,
+  windTurbineTile,
+} from './networkSprites';
+import {
   fieldTile,
   grassTile,
   hillTile,
@@ -65,6 +73,15 @@ function buildSpriteCells(): Map<string, Uint8ClampedArray<ArrayBuffer>> {
   m.set('greenhouse_0', greenhouseTile(161));
   m.set('greenhouse_1', greenhouseTile(162));
   m.set('solarfarm_0', solarFarmTile(171));
+  // network assets (the player's kit)
+  m.set('sub_dist', subDistTile(181));
+  m.set('sub_grid', subGridTile(182));
+  m.set('sub_bulk', subBulkTile(183));
+  m.set('gen_gas', gasPlantTile(191));
+  m.set('gen_nuclear', nuclearTile(192));
+  m.set('gen_windon', windTurbineTile(193, false));
+  m.set('gen_windoff', windTurbineTile(194, true));
+  m.set('gen_solar', solarFarmTile(195));
   return m;
 }
 

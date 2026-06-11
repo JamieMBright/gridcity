@@ -23,3 +23,19 @@ export const theme = {
 
   font: "'Iosevka', 'JetBrains Mono', ui-monospace, 'Cascadia Code', Menlo, monospace",
 } as const;
+
+/** Standard floating panel chrome. */
+export const panelStyle: React.CSSProperties = {
+  background: `${theme.navy}e6`,
+  border: `1px solid ${theme.navyLight}`,
+  borderRadius: 8,
+  color: theme.offWhite,
+  fontFamily: theme.font,
+  fontSize: 13,
+};
+
+export function fmtMoneyK(k: number): string {
+  if (k >= 1_000_000) return `£${(k / 1_000_000).toFixed(2)}bn`;
+  if (k >= 1_000) return `£${(k / 1_000).toFixed(1)}m`;
+  return `£${Math.round(k)}k`;
+}

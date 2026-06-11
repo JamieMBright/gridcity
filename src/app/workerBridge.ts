@@ -1,13 +1,16 @@
+import { localStorageStore } from '../persistence/localStorageStore';
+import type { Command } from '../sim/commands';
 import type { MainToWorker, SimSpeed, WorkerToMain } from '../sim/protocol';
 import { useAppStore } from './store';
 
 let worker: Worker | undefined;
+let seq = 0;
 
 function send(msg: MainToWorker): void {
   worker?.postMessage(msg);
 }
 
-/** Spin up the sim worker, verify it responds, and start streaming snapshots. */
+/** Spin up the sim worker, restore any save, and start streaming snapshots. */
 export function initWorker(): void {
   if (worker) return;
   worker = new Worker(new URL('../sim/worker.ts', import.meta.url), { type: 'module' });
@@ -20,16 +23,23 @@ export function initWorker(): void {
 
   worker.onmessage = (e: MessageEvent<WorkerToMain>) => {
     const msg = e.data;
+    const s = useAppStore.getState();
     switch (msg.type) {
       case 'pong':
-        useAppStore.getState().setWorkerStatus('ready');
-        send({ type: 'start' });
+        s.setWorkerStatus('ready');
+        send({ type: 'start', save: localStorageStore.load() });
         break;
       case 'snapshot':
-        useAppStore.getState().setSnapshot(msg.snapshot);
+        s.setSnapshot(msg.snapshot);
+        break;
+      case 'cmdResult':
+        if (!msg.ok && msg.error) s.setToast(msg.error);
+        break;
+      case 'saveData':
+        localStorageStore.store(msg.data);
         break;
       case 'fatal':
-        useAppStore.getState().setWorkerStatus('error', msg.message);
+        s.setWorkerStatus('error', msg.message);
         break;
     }
   };
@@ -37,6 +47,10 @@ export function initWorker(): void {
   send({ type: 'ping', t: performance.now() });
 }
 
+export function sendCommand(cmd: Command): void {
+  send({ type: 'command', seq: ++seq, cmd });
+}
+
 export function setSimSpeed(speed: SimSpeed): void {
-  send({ type: 'setSpeed', speed });
+  sendCommand({ type: 'setSpeed', speed });
 }

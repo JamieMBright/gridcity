@@ -1,0 +1,55 @@
+import { useAppStore } from '../app/store';
+import { fmtMoneyK, panelStyle, theme } from './theme';
+
+export function BillPanel() {
+  const snapshot = useAppStore((s) => s.snapshot);
+  if (!snapshot) return null;
+  const b = snapshot.bill;
+  const st = snapshot.stats;
+
+  return (
+    <div
+      style={{
+        ...panelStyle,
+        position: 'absolute',
+        bottom: 12,
+        right: 12,
+        width: 230,
+        padding: '10px 14px',
+        lineHeight: 1.55,
+      }}
+    >
+      <div style={{ color: theme.slate, fontSize: 10, letterSpacing: '0.12em' }}>
+        AVG ANNUAL BILL
+      </div>
+      <div style={{ fontSize: 26, fontWeight: 800, color: theme.gold }}>
+        {b.servedCustomers > 0 ? `£${b.perCustomerYr.toFixed(0)}` : '—'}
+        <span style={{ fontSize: 12, fontWeight: 400, color: theme.slate }}> /home/yr</span>
+      </div>
+      <div style={{ fontSize: 11, marginTop: 6 }}>
+        <Row label="network capex" value={`${fmtMoneyK(b.capexYrK)}/yr`} />
+        <Row label="operations" value={`${fmtMoneyK(b.opexYrK)}/yr`} />
+        <Row label="wholesale energy" value={`${fmtMoneyK(b.energyYrK)}/yr`} />
+        <div style={{ borderTop: `1px solid ${theme.navyLight}`, margin: '4px 0' }} />
+        <Row label="total cost" value={`${fmtMoneyK(b.totalYrK)}/yr`} />
+        <Row
+          label="on supply"
+          value={`${st.servedCustomers.toLocaleString()} / ${st.totalCustomers.toLocaleString()}`}
+        />
+        <Row
+          label="demand met"
+          value={`${st.servedMW.toFixed(1)} / ${st.totalDemandMW.toFixed(1)} MW`}
+        />
+      </div>
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+      <span style={{ color: theme.slate }}>{label}</span>
+      <span>{value}</span>
+    </div>
+  );
+}
