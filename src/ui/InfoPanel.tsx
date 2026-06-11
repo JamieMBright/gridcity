@@ -78,6 +78,7 @@ export function InfoPanel() {
           <div style={{ color: theme.slate, fontSize: 11, fontStyle: 'italic' }}>
             {council.blurb}
           </div>
+          <CouncilStats councilId={council.id} />
         </div>
       )}
       {customers > 0 && (
@@ -89,6 +90,22 @@ export function InfoPanel() {
         </div>
       )}
       {asset && snapshot && <AssetInfo assetId={asset.id} />}
+    </div>
+  );
+}
+
+function CouncilStats({ councilId }: { councilId: number }) {
+  const snapshot = useAppStore((s) => s.snapshot);
+  const cs = snapshot?.councils.find(([id]) => id === councilId)?.[1];
+  if (!cs) return null;
+  return (
+    <div style={{ fontSize: 11, marginTop: 3 }}>
+      <span style={{ color: theme.ok }}>☺ {cs.satisfaction.toFixed(0)}</span>
+      <span style={{ color: theme.slate }}>
+        {' '}
+        · EV {(cs.ev * 100).toFixed(0)}% · HP {(cs.hp * 100).toFixed(0)}% · PV{' '}
+        {(cs.pv * 100).toFixed(0)}%
+      </span>
     </div>
   );
 }

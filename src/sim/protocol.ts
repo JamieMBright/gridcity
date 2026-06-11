@@ -5,6 +5,9 @@
 import type { PlacedAsset } from './assets';
 import type { VegPolicy } from './catalog';
 import type { Command } from './commands';
+import type { Application } from './events/applications';
+import type { Pitch, TechState } from './events/innovation';
+import type { CouncilState } from './customers/adoption';
 import type { BillBreakdown } from './regulation/bill';
 import type { KpiRates } from './regulation/kpis';
 import type { GameEvent, SaveData } from './state';
@@ -43,10 +46,13 @@ export interface SimSnapshot {
     priceMWh: number;
     /** Rolling carbon intensity, g/kWh. */
     carbonG: number;
-    /** Lifetime curtailed renewable energy, MWh. */
-    curtailedMWh: number;
+    /** Lifetime curtailed energy by connection type, MWh. */
+    curtailedFirmMWh: number;
+    curtailedFlexMWh: number;
     /** Indicative system frequency, Hz. */
     freqHz: number;
+    /** Customer-weighted council satisfaction, 0..100. */
+    satisfactionAvg: number;
   };
   weather: { sun: number; wind: number; cloud: number };
   bill: BillBreakdown;
@@ -60,6 +66,15 @@ export interface SimSnapshot {
   kpis: KpiRates & { worstVegPct: number };
   /** Recent event log (ring buffer; dedupe by seq). */
   events: GameEvent[];
+  inbox: {
+    applications: Application[];
+    pitches: Pitch[];
+    tech: TechState;
+    innovationFundK: number;
+    levyPct: number;
+  };
+  /** [council id, adoption + satisfaction]. */
+  councils: Array<[number, CouncilState]>;
 }
 
 export type MainToWorker =

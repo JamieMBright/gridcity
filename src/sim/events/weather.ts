@@ -58,3 +58,20 @@ export function processProfile(simTimeMin: number): number {
   const daytime = Math.exp(-(((h - 13) / 5) ** 2));
   return 0.72 + 0.28 * daytime;
 }
+
+/** EV charging multiplier — everyone plugs in when they get home. The
+ *  smart-charging innovation spreads the peak into the night. */
+export function evProfile(simTimeMin: number, smartCharging: boolean): number {
+  const h = hourOf(simTimeMin);
+  const peak = Math.exp(-(((h - 19.4) / 1.9) ** 2));
+  const overnight = h < 6 ? 0.35 : 0.08;
+  return smartCharging ? 0.5 * peak + overnight + 0.25 : peak + overnight * 0.4;
+}
+
+/** Heat-pump multiplier — cold mornings and evenings, worse under cloud. */
+export function hpProfile(simTimeMin: number, cloud: number): number {
+  const h = hourOf(simTimeMin);
+  const morning = Math.exp(-(((h - 7) / 2.2) ** 2));
+  const evening = Math.exp(-(((h - 19.5) / 2.6) ** 2));
+  return 0.35 + 0.3 * morning + 0.3 * evening + 0.25 * cloud;
+}

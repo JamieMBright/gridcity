@@ -113,7 +113,9 @@ describe('dispatch dynamics', () => {
       spec: { kind: 'line', level: 33, build: 'overhead', ax: 5, ay: 5, bx: 10, by: 10 },
     });
     const out = solveTick(state, ctx, derive(state, ctx), false);
-    expect(out.dispatch.curtailedMW).toBeGreaterThan(30); // ~50 MW farm, <1 MW load
+    // firm connection: ~50 MW farm, <1 MW load → heavy compensated curtailment
+    expect(out.dispatch.curtailedFirmMW).toBeGreaterThan(30);
+    expect(out.dispatch.constraintKPerHour).toBeGreaterThan(0);
     expect(out.dispatch.carbonG).toBe(0);
   });
 

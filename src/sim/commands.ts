@@ -12,6 +12,7 @@ import {
   type SubType,
   type VegPolicy,
 } from './catalog';
+import { CONNECT_DAYS, GEN_OF_KIND } from './events/applications';
 import { MAX_VANS } from './fleet/fleet';
 import type { VoltageLevel } from './grid/types';
 import { priceLine } from './cost';
@@ -24,7 +25,10 @@ export type Command =
   | { type: 'build'; spec: BuildSpec }
   | { type: 'demolish'; assetId: number }
   | { type: 'setFleet'; vans: number }
-  | { type: 'setVegPolicy'; policy: VegPolicy };
+  | { type: 'setVegPolicy'; policy: VegPolicy }
+  | { type: 'respondApplication'; appId: number; response: 'firm' | 'flex' | 'decline' }
+  | { type: 'fundPitch'; pitchId: number }
+  | { type: 'setLevy'; pct: number };
 
 export type BuildSpec =
   | { kind: 'gen'; gen: GenType; x: number; y: number }
@@ -166,6 +170,9 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
     case 'demolish': {
       const asset = state.assets.get(cmd.assetId);
       if (!asset) return { ok: false, error: 'no such asset' };
+      if (asset.kind === 'gen' && asset.customer) {
+        return { ok: false, error: "that's customer-owned plant — you only own the wires" };
+      }
       state.assets.delete(cmd.assetId);
       if (asset.kind !== 'line' && asset.kind !== 'depot') {
         // cascade: remove lines that referenced this endpoint
@@ -189,5 +196,65 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
     case 'setVegPolicy':
       state.vegPolicy = cmd.policy;
       return { ok: true };
+
+    case 'respondApplication': {
+      const app = state.applications.find((a) => a.id === cmd.appId);
+      if (!app) return { ok: false, error: 'no such application' };
+      if (app.status !== 'open') return { ok: false, error: 'application already decided' };
+      if (cmd.response === 'decline') {
+        app.status = 'declined';
+        return { ok: true };
+      }
+      const gen = GEN_OF_KIND[app.kind];
+      if (gen) {
+        if (assetAtTile(state.assets.values(), app.x, app.y)) {
+          return { ok: false, error: 'the site has been built over' };
+        }
+        const id = state.nextAssetId++;
+        state.assets.set(id, {
+          id,
+          kind: 'gen',
+          gen,
+          x: app.x,
+          y: app.y,
+          customer: true,
+          flex: cmd.response === 'flex',
+        });
+        app.assetId = id;
+        state.assetsVersion++;
+      } else {
+        state.loadSites.push({
+          id: app.id,
+          x: app.x,
+          y: app.y,
+          mw: app.mw,
+          customers: app.customers,
+          name: app.name,
+        });
+        state.sitesVersion++;
+      }
+      app.status = cmd.response;
+      app.connectByMin = state.simTimeMin + CONNECT_DAYS * 1440;
+      return { ok: true };
+    }
+
+    case 'fundPitch': {
+      const pitch = state.pitches.find((p) => p.id === cmd.pitchId);
+      if (!pitch) return { ok: false, error: 'no such pitch' };
+      if (pitch.status !== 'open') return { ok: false, error: 'pitch already decided' };
+      if (state.innovationFundK < pitch.costK) {
+        return { ok: false, error: 'innovation fund too small — raise the levy and wait' };
+      }
+      state.innovationFundK -= pitch.costK;
+      pitch.status = 'funded';
+      pitch.completesAtMin = state.simTimeMin + pitch.durationDays * 1440;
+      return { ok: true };
+    }
+
+    case 'setLevy': {
+      if (cmd.pct < 0 || cmd.pct > 3) return { ok: false, error: 'levy must be 0–3%' };
+      state.levyPct = Math.round(cmd.pct * 2) / 2;
+      return { ok: true };
+    }
   }
 }

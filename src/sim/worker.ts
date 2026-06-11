@@ -11,15 +11,8 @@ import {
   type SimSnapshot,
   type WorkerToMain,
 } from './protocol';
-import {
-  deserialize,
-  newContext,
-  newGame,
-  serialize,
-  type GameState,
-  type SaveData,
-} from './state';
-import { advanceTime, derive, solveTick, weatherView, type Derived } from './tick';
+import { deserialize, isSaveData, newContext, newGame, serialize, type GameState } from './state';
+import { advanceTime, derive, deriveKey, solveTick, weatherView, type Derived } from './tick';
 
 const AUTOSAVE_TICKS = 120; // every 30 real seconds
 
@@ -33,7 +26,7 @@ function post(msg: WorkerToMain): void {
 }
 
 function ensureDerived(): Derived {
-  if (!derived || derived.version !== state.assetsVersion) {
+  if (!derived || derived.version !== deriveKey(state)) {
     derived = derive(state, ctx);
   }
   return derived;
@@ -61,8 +54,10 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
       costKPerHour: out.dispatch.costKPerHour,
       priceMWh: out.dispatch.priceMWh,
       carbonG: state.carbonEMA,
-      curtailedMWh: state.curtailedMWh,
+      curtailedFirmMWh: state.curtailedFirmMWh,
+      curtailedFlexMWh: state.curtailedFlexMWh,
       freqHz: out.freqHz,
+      satisfactionAvg: out.satisfactionAvg,
     },
     weather: weatherView(state),
     bill: out.bill,
@@ -87,6 +82,14 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
       worstVegPct: Math.max(0, ...[...state.lineVeg.values()]) * 100,
     },
     events: state.events,
+    inbox: {
+      applications: state.applications.map((a) => ({ ...a })),
+      pitches: state.pitches.map((p) => ({ ...p })),
+      tech: { ...state.tech },
+      innovationFundK: state.innovationFundK,
+      levyPct: state.levyPct,
+    },
+    councils: [...state.councils.entries()].map(([k, c]) => [k, { ...c }]),
   };
 }
 
@@ -102,12 +105,6 @@ function step(): void {
     state.speed = 0;
     post({ type: 'fatal', message: err instanceof Error ? err.message : String(err) });
   }
-}
-
-function isSaveData(d: unknown): d is SaveData {
-  if (typeof d !== 'object' || d === null) return false;
-  const v = (d as { v?: unknown }).v;
-  return typeof v === 'number' && v >= 1 && v <= 3;
 }
 
 function start(save: unknown): void {

@@ -4,6 +4,7 @@ import { BillPanel } from '../ui/BillPanel';
 import { BuildPalette } from '../ui/BuildPalette';
 import { FleetPanel } from '../ui/FleetPanel';
 import { Hud } from '../ui/Hud';
+import { InboxPanel } from '../ui/InboxPanel';
 import { InfoPanel } from '../ui/InfoPanel';
 import { MapView } from '../ui/MapView';
 import { panelStyle, theme } from '../ui/theme';
@@ -125,6 +126,7 @@ export function App() {
       <InfoPanel />
       <BillPanel />
       <FleetPanel />
+      <InboxPanel />
       <AlertsFeed />
       <Hud />
       <StatusBar />

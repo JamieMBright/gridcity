@@ -21,6 +21,10 @@ export interface GenAsset {
   gen: GenType;
   x: number;
   y: number;
+  /** Flexible (curtailable) connection — cheaper, no constraint comp. */
+  flex?: boolean | undefined;
+  /** Customer-owned (arrived via a connection application). */
+  customer?: boolean | undefined;
 }
 
 export interface SubAsset {
@@ -65,8 +69,9 @@ export function assetLevels(asset: PlacedAsset): VoltageLevel[] {
   return [];
 }
 
-/** Derive the solvable network from the placed assets. */
-export function deriveNetwork(assets: Iterable<PlacedAsset>): Network {
+/** Derive the solvable network from the placed assets. `lineRatingMul`
+ *  scales line thermal ratings (dynamic line ratings innovation). */
+export function deriveNetwork(assets: Iterable<PlacedAsset>, lineRatingMul = 1): Network {
   const buses: Bus[] = [];
   const branches: Branch[] = [];
   const byId = new Map<number, PlacedAsset>();
@@ -111,7 +116,7 @@ export function deriveNetwork(assets: Iterable<PlacedAsset>): Network {
       kind: a.build === 'underground' ? 'underground' : 'overhead',
       x: spec.xPerTile * Math.max(1, a.lengthTiles),
       r: spec.rPerTile * Math.max(1, a.lengthTiles),
-      ratingMW: spec.ratingMW,
+      ratingMW: spec.ratingMW * lineRatingMul,
       inService: true,
     });
   }

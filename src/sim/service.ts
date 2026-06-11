@@ -1,18 +1,37 @@
-// Service areas: every customer tile is fed by its nearest in-range
-// distribution substation. The assignment is geometric (recomputed only
-// when assets change); electrical reality — whether that substation is
-// actually energized and at what voltage — is decided by the power flow.
+// Service areas: every customer tile (and accepted large-load site) is fed
+// by its nearest in-range distribution substation. The geometric
+// assignment is cached on asset changes; the aggregated loads are
+// recomputed every tick because council electrification keeps reshaping
+// them. Whether a substation is actually energized is the power flow's
+// call.
 
 import { SUBS } from './catalog';
 import type { PlacedAsset } from './assets';
 import type { CityMap } from './map/types';
-import { tileDemand } from './map/demand';
+import { tileDemand, tileDemandMW } from './map/demand';
+import type { CouncilAdoption } from './customers/adoption';
 
 export interface SubLoad {
-  /** Domestic peak load, MW (follows the diurnal household profile). */
+  /** Domestic peak load, MW (diurnal household profile). */
   domMW: number;
-  /** Process load, MW (industry/glasshouses; flatter profile). */
+  /** Process load, MW (industry/glasshouses/large sites; flatter). */
   procMW: number;
+  /** EV charging peak, MW (evening). */
+  evMW: number;
+  /** Heat pump peak, MW (cold mornings/evenings). */
+  hpMW: number;
+  /** Rooftop PV export peak, MW (sunny midday). */
+  pvMW: number;
+}
+
+/** An accepted large-demand connection (data centre, EV hub…). */
+export interface LoadSite {
+  id: number;
+  x: number;
+  y: number;
+  mw: number;
+  customers: number;
+  name: string;
 }
 
 export interface ServiceAreas {
@@ -20,17 +39,21 @@ export interface ServiceAreas {
   subOfTile: Map<number, number>;
   /** dist-sub asset id → served tile indices. */
   tilesOfSub: Map<number, number[]>;
-  /** dist-sub asset id → aggregate peak load. */
-  loadOfSub: Map<number, SubLoad>;
   /** dist-sub asset id → customers served. */
   customersOfSub: Map<number, number>;
+  /** Every tile with demand (incl. load sites), served or not. */
+  demandTiles: number[];
   /** Total customers on the map (served or not). */
   totalCustomers: number;
-  /** Total peak demand on the map, MW (served or not). */
+  /** Total base peak demand, MW (served or not). */
   totalDemandMW: number;
 }
 
-export function assignServiceAreas(map: CityMap, assets: Iterable<PlacedAsset>): ServiceAreas {
+export function assignServiceAreas(
+  map: CityMap,
+  assets: Iterable<PlacedAsset>,
+  loadSites: LoadSite[],
+): ServiceAreas {
   const subs: Array<{ id: number; x: number; y: number; r2: number }> = [];
   for (const a of assets) {
     if (a.kind !== 'sub') continue;
@@ -38,21 +61,26 @@ export function assignServiceAreas(map: CityMap, assets: Iterable<PlacedAsset>):
     if (r !== undefined) subs.push({ id: a.id, x: a.x, y: a.y, r2: r * r });
   }
 
+  const siteOfTile = new Map<number, LoadSite>();
+  for (const s of loadSites) siteOfTile.set(s.y * map.width + s.x, s);
+
   const subOfTile = new Map<number, number>();
   const tilesOfSub = new Map<number, number[]>();
-  const loadOfSub = new Map<number, SubLoad>();
   const customersOfSub = new Map<number, number>();
+  const demandTiles: number[] = [];
   let totalCustomers = 0;
   let totalDemandMW = 0;
 
   for (let y = 0; y < map.height; y++) {
     for (let x = 0; x < map.width; x++) {
       const i = y * map.width + x;
-      const d = tileDemand(map, i);
-      const demand = d.domMW + d.procMW;
+      const site = siteOfTile.get(i);
+      const demand = tileDemandMW(map, i) + (site?.mw ?? 0);
       if (demand <= 0) continue;
-      totalCustomers += map.customers[i] ?? 0;
+      const tileCustomers = (map.customers[i] ?? 0) + (site?.customers ?? 0);
+      totalCustomers += tileCustomers;
       totalDemandMW += demand;
+      demandTiles.push(i);
 
       let best = -1;
       let bestD2 = Infinity;
@@ -73,13 +101,36 @@ export function assignServiceAreas(map: CityMap, assets: Iterable<PlacedAsset>):
         tilesOfSub.set(best, tiles);
       }
       tiles.push(i);
-      const load = loadOfSub.get(best) ?? { domMW: 0, procMW: 0 };
-      load.domMW += d.domMW;
-      load.procMW += d.procMW;
-      loadOfSub.set(best, load);
-      customersOfSub.set(best, (customersOfSub.get(best) ?? 0) + (map.customers[i] ?? 0));
+      customersOfSub.set(best, (customersOfSub.get(best) ?? 0) + tileCustomers);
     }
   }
 
-  return { subOfTile, tilesOfSub, loadOfSub, customersOfSub, totalCustomers, totalDemandMW };
+  return { subOfTile, tilesOfSub, customersOfSub, demandTiles, totalCustomers, totalDemandMW };
+}
+
+/** Aggregate each substation's load components for this moment's adoption
+ *  state — recomputed per tick (cheap: only assigned tiles). */
+export function computeSubLoads(
+  map: CityMap,
+  tilesOfSub: Map<number, number[]>,
+  councils: Map<number, CouncilAdoption>,
+  loadSites: LoadSite[],
+): Map<number, SubLoad> {
+  const siteOfTile = new Map<number, number>();
+  for (const s of loadSites) siteOfTile.set(s.y * map.width + s.x, s.mw);
+
+  const out = new Map<number, SubLoad>();
+  for (const [subId, tiles] of tilesOfSub) {
+    const load: SubLoad = { domMW: 0, procMW: 0, evMW: 0, hpMW: 0, pvMW: 0 };
+    for (const i of tiles) {
+      const d = tileDemand(map, i, councils);
+      load.domMW += d.domMW;
+      load.procMW += d.procMW + (siteOfTile.get(i) ?? 0);
+      load.evMW += d.evMW;
+      load.hpMW += d.hpMW;
+      load.pvMW += d.pvMW;
+    }
+    out.set(subId, load);
+  }
+  return out;
 }

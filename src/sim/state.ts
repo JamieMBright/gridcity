@@ -5,7 +5,11 @@ import { GENS, SUBS, type GenType, type SubType, type VegPolicy } from './catalo
 import type { CityMap } from './map/types';
 import { buildDemandField, type DemandField } from './map/demand';
 import { newWeather, type WeatherState } from './events/weather';
+import type { Application } from './events/applications';
+import { newTech, type Pitch, type TechState } from './events/innovation';
+import type { CouncilState } from './customers/adoption';
 import type { RepairJob, Van } from './fleet/fleet';
+import type { LoadSite } from './service';
 import type { ReliabilityTotals } from './regulation/kpis';
 import { getLondonMap } from '../data/londonMap';
 import type { SimSpeed } from './protocol';
@@ -40,8 +44,6 @@ export interface GameState {
   outages: Map<number, number>;
   /** rolling carbon intensity, g/kWh (exponentially smoothed). */
   carbonEMA: number;
-  /** lifetime curtailed renewable energy, MWh. */
-  curtailedMWh: number;
   /** Paid-for crewed vans. */
   fleetSize: number;
   /** Vegetation management programme (index into VEG_POLICY). */
@@ -58,6 +60,25 @@ export interface GameState {
   eventSeq: number;
   /** True while the current storm has already been announced. */
   stormAnnounced: boolean;
+  /** council id → adoption + satisfaction. */
+  councils: Map<number, CouncilState>;
+  applications: Application[];
+  loadSites: LoadSite[];
+  /** bumped when loadSites change → service re-assignment. */
+  sitesVersion: number;
+  pitches: Pitch[];
+  tech: TechState;
+  innovationFundK: number;
+  /** Innovation levy, % of the bill (0–3 in 0.5 steps). */
+  levyPct: number;
+  /** rolling flexibility-market spend, £k/yr. */
+  flexYrK: number;
+  /** rolling constraint compensation, £k/yr. */
+  constraintYrK: number;
+  /** lifetime curtailed energy by connection type, MWh. */
+  curtailedFirmMWh: number;
+  curtailedFlexMWh: number;
+  nextAppId: number;
 }
 
 export interface SimContext {
@@ -80,7 +101,6 @@ export function newGame(): GameState {
     heat: new Map(),
     outages: new Map(),
     carbonEMA: 0,
-    curtailedMWh: 0,
     fleetSize: 2,
     vegPolicy: 0,
     lineVeg: new Map(),
@@ -91,6 +111,19 @@ export function newGame(): GameState {
     events: [],
     eventSeq: 0,
     stormAnnounced: false,
+    councils: new Map(),
+    applications: [],
+    loadSites: [],
+    sitesVersion: 0,
+    pitches: [],
+    tech: newTech(),
+    innovationFundK: 0,
+    levyPct: 0.5,
+    flexYrK: 0,
+    constraintYrK: 0,
+    curtailedFirmMWh: 0,
+    curtailedFlexMWh: 0,
+    nextAppId: 1,
   };
 }
 
@@ -112,8 +145,18 @@ export function newContext(): SimContext {
 
 // --- save / load -----------------------------------------------------------
 
+export const SAVE_VERSION = 4;
+
+/** Guard for untrusted save payloads; lives beside SAVE_VERSION so the two
+ *  can never drift apart again (a stale guard silently discarded saves). */
+export function isSaveData(d: unknown): d is SaveData {
+  if (typeof d !== 'object' || d === null) return false;
+  const v = (d as { v?: unknown }).v;
+  return typeof v === 'number' && v >= 1 && v <= SAVE_VERSION;
+}
+
 export interface SaveData {
-  v: 1 | 2 | 3;
+  v: 1 | 2 | 3 | 4;
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;
@@ -126,7 +169,6 @@ export interface SaveData {
   heat?: Array<[number, number]>;
   outages?: Array<[number, number]>;
   carbonEMA?: number;
-  curtailedMWh?: number;
   fleetSize?: number;
   vegPolicy?: VegPolicy;
   lineVeg?: Array<[number, number]>;
@@ -136,11 +178,23 @@ export interface SaveData {
   offTiles?: number[];
   events?: GameEvent[];
   eventSeq?: number;
+  councils?: Array<[number, CouncilState]>;
+  applications?: Application[];
+  loadSites?: LoadSite[];
+  pitches?: Pitch[];
+  tech?: TechState;
+  innovationFundK?: number;
+  levyPct?: number;
+  flexYrK?: number;
+  constraintYrK?: number;
+  curtailedFirmMWh?: number;
+  curtailedFlexMWh?: number;
+  nextAppId?: number;
 }
 
 export function serialize(s: GameState): SaveData {
   return {
-    v: 3,
+    v: SAVE_VERSION,
     tick: s.tick,
     simTimeMin: s.simTimeMin,
     speed: s.speed,
@@ -153,7 +207,6 @@ export function serialize(s: GameState): SaveData {
     heat: [...s.heat.entries()],
     outages: [...s.outages.entries()],
     carbonEMA: s.carbonEMA,
-    curtailedMWh: s.curtailedMWh,
     fleetSize: s.fleetSize,
     vegPolicy: s.vegPolicy,
     lineVeg: [...s.lineVeg.entries()],
@@ -163,6 +216,18 @@ export function serialize(s: GameState): SaveData {
     offTiles: [...s.offTiles],
     events: s.events.map((e) => ({ ...e })),
     eventSeq: s.eventSeq,
+    councils: [...s.councils.entries()].map(([k, c]) => [k, { ...c }]),
+    applications: s.applications.map((a) => ({ ...a })),
+    loadSites: s.loadSites.map((l) => ({ ...l })),
+    pitches: s.pitches.map((p) => ({ ...p })),
+    tech: { ...s.tech },
+    innovationFundK: s.innovationFundK,
+    levyPct: s.levyPct,
+    flexYrK: s.flexYrK,
+    constraintYrK: s.constraintYrK,
+    curtailedFirmMWh: s.curtailedFirmMWh,
+    curtailedFlexMWh: s.curtailedFlexMWh,
+    nextAppId: s.nextAppId,
   };
 }
 
@@ -183,7 +248,6 @@ export function deserialize(d: SaveData): GameState {
     heat: new Map(d.heat ?? []),
     outages: new Map(d.outages ?? []),
     carbonEMA: d.carbonEMA ?? 0,
-    curtailedMWh: d.curtailedMWh ?? 0,
     fleetSize: d.fleetSize ?? 2,
     vegPolicy: d.vegPolicy ?? 0,
     lineVeg: new Map(d.lineVeg ?? []),
@@ -194,6 +258,19 @@ export function deserialize(d: SaveData): GameState {
     events: (d.events ?? []).map((e) => ({ ...e })),
     eventSeq: d.eventSeq ?? 0,
     stormAnnounced: false,
+    councils: new Map((d.councils ?? []).map(([k, c]) => [k, { ...c }])),
+    applications: (d.applications ?? []).map((a) => ({ ...a })),
+    loadSites: (d.loadSites ?? []).map((l) => ({ ...l })),
+    sitesVersion: 1,
+    pitches: (d.pitches ?? []).map((p) => ({ ...p })),
+    tech: d.tech ? { ...d.tech } : newTech(),
+    innovationFundK: d.innovationFundK ?? 0,
+    levyPct: d.levyPct ?? 0.5,
+    flexYrK: d.flexYrK ?? 0,
+    constraintYrK: d.constraintYrK ?? 0,
+    curtailedFirmMWh: d.curtailedFirmMWh ?? 0,
+    curtailedFlexMWh: d.curtailedFlexMWh ?? 0,
+    nextAppId: d.nextAppId ?? 1,
   };
 }
 

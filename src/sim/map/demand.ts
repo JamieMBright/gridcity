@@ -1,9 +1,11 @@
-// Demand model: domestic load (scales with the diurnal household profile)
-// and process load (industry/glasshouses, flatter). DER adoption reshapes
-// these per-tile in M6.
+// Demand model: domestic load (diurnal household profile), process load
+// (industry/glasshouses, flatter), and DER components that appear as the
+// councils electrify — EVs (evening), heat pumps (cold/morning), rooftop
+// PV (midday export, weather-dependent).
 
 import { ADMD_KW } from '../catalog';
-import { ZONE, type CityMap, type Zone } from './types';
+import { EV_KW, HP_KW, PV_EXPORT_KW, type CouncilAdoption } from '../customers/adoption';
+import { NO_COUNCIL, ZONE, type CityMap, type Zone } from './types';
 
 /** Extra process load (MW per tile) beyond domestic customers. */
 const PROCESS_MW: Partial<Record<Zone, number>> = {
@@ -14,18 +16,43 @@ const PROCESS_MW: Partial<Record<Zone, number>> = {
 export interface TileDemand {
   domMW: number;
   procMW: number;
+  /** Peak EV charging load at full diversity, MW. */
+  evMW: number;
+  /** Peak heat-pump load, MW. */
+  hpMW: number;
+  /** Peak rooftop-PV export, MW. */
+  pvMW: number;
 }
 
-export function tileDemand(map: CityMap, i: number): TileDemand {
+export function tileDemand(
+  map: CityMap,
+  i: number,
+  councils?: Map<number, CouncilAdoption>,
+): TileDemand {
   const customers = map.customers[i] ?? 0;
   const zone = (map.zone[i] ?? ZONE.none) as Zone;
-  return { domMW: (customers * ADMD_KW) / 1000, procMW: PROCESS_MW[zone] ?? 0 };
+  const d: TileDemand = {
+    domMW: (customers * ADMD_KW) / 1000,
+    procMW: PROCESS_MW[zone] ?? 0,
+    evMW: 0,
+    hpMW: 0,
+    pvMW: 0,
+  };
+  const councilId = map.council[i] ?? NO_COUNCIL;
+  const a = councilId === NO_COUNCIL ? undefined : councils?.get(councilId);
+  if (a && customers > 0) {
+    d.evMW = (customers * a.ev * EV_KW) / 1000;
+    d.hpMW = (customers * a.hp * HP_KW) / 1000;
+    d.pvMW = (customers * a.pv * PV_EXPORT_KW) / 1000;
+  }
+  return d;
 }
 
-/** Peak demand of a tile, MW. */
+/** Base peak demand of a tile (no DER), MW. */
 export function tileDemandMW(map: CityMap, i: number): number {
-  const d = tileDemand(map, i);
-  return d.domMW + d.procMW;
+  const customers = map.customers[i] ?? 0;
+  const zone = (map.zone[i] ?? ZONE.none) as Zone;
+  return (customers * ADMD_KW) / 1000 + (PROCESS_MW[zone] ?? 0);
 }
 
 export interface DemandField {

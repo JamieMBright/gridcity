@@ -65,7 +65,14 @@ describe('end-to-end tick: power flows from plant to homes', () => {
     const out = solveTick(state, ctx, derive(state, ctx), false);
     const b = out.bill;
     expect(b.totalYrK).toBeCloseTo(
-      b.capexYrK + b.opexYrK + b.fleetYrK + b.vegYrK + b.energyYrK,
+      b.capexYrK +
+        b.opexYrK +
+        b.fleetYrK +
+        b.vegYrK +
+        b.energyYrK +
+        b.flexYrK +
+        b.constraintYrK +
+        b.innovationYrK,
       9,
     );
     expect(b.servedCustomers).toBe(360);
