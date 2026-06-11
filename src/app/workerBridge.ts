@@ -1,18 +1,33 @@
 import { playSfx } from '../audio/audio';
+import { pullCloudSave, pushCloudSave, submitScore } from '../online/cloud';
 import { localStorageStore } from '../persistence/localStorageStore';
 import type { Command } from '../sim/commands';
 import type { MainToWorker, SimSpeed, WorkerToMain } from '../sim/protocol';
+import { isSaveData } from '../sim/state';
 import { useAppStore } from './store';
 
 let worker: Worker | undefined;
 let seq = 0;
 let lastEventSeq = 0;
+let lastReportIndex = -1; // -1 = not yet initialized from the first snapshot
 
 function send(msg: MainToWorker): void {
   worker?.postMessage(msg);
 }
 
-/** Spin up the sim worker, restore any save, and start streaming snapshots. */
+/** Pick whichever save has lived longer (cross-device source of truth). */
+async function chooseSave(): Promise<unknown> {
+  const local = localStorageStore.load();
+  const cloud = await Promise.race([
+    pullCloudSave().catch(() => undefined),
+    new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), 4000)),
+  ]);
+  if (!cloud) return local;
+  if (!isSaveData(local)) return cloud;
+  return cloud.tick >= local.tick ? cloud : local;
+}
+
+/** Spin up the sim worker, restore the best save, stream snapshots. */
 export function initWorker(): void {
   if (worker) return;
   worker = new Worker(new URL('../sim/worker.ts', import.meta.url), { type: 'module' });
@@ -29,7 +44,7 @@ export function initWorker(): void {
     switch (msg.type) {
       case 'pong':
         s.setWorkerStatus('ready');
-        send({ type: 'start', save: localStorageStore.load() });
+        void chooseSave().then((save) => send({ type: 'start', save }));
         break;
       case 'snapshot': {
         s.setSnapshot(msg.snapshot);
@@ -40,6 +55,14 @@ export function initWorker(): void {
         if (lastEventSeq > 0 && fresh.length > 0) playSfx('chime');
         const lastEv = msg.snapshot.events[msg.snapshot.events.length - 1];
         if (lastEv) lastEventSeq = Math.max(lastEventSeq, lastEv.seq);
+        // a freshly closed period goes to the leaderboard
+        const reportIndex = msg.snapshot.riio.lastReport?.index ?? 0;
+        if (lastReportIndex === -1) {
+          lastReportIndex = reportIndex; // saves replay old reports: don't resubmit
+        } else if (msg.snapshot.riio.lastReport && reportIndex > lastReportIndex) {
+          lastReportIndex = reportIndex;
+          submitScore(msg.snapshot.riio.lastReport);
+        }
         break;
       }
       case 'cmdResult':
@@ -50,6 +73,7 @@ export function initWorker(): void {
         break;
       case 'saveData':
         localStorageStore.store(msg.data);
+        pushCloudSave(msg.data);
         break;
       case 'fatal':
         s.setWorkerStatus('error', msg.message);

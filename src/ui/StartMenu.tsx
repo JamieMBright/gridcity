@@ -5,6 +5,7 @@ import { useAppStore } from '../app/store';
 import { newGameCommand } from '../app/workerBridge';
 import { startMusic } from '../audio/audio';
 import { localStorageStore } from '../persistence/localStorageStore';
+import { AccountPanel } from './AccountPanel';
 import { panelStyle, theme } from './theme';
 
 const bigBtn = (primary: boolean): React.CSSProperties => ({
@@ -77,6 +78,7 @@ export function StartMenu() {
         <div style={{ color: theme.slate, marginTop: 18, fontSize: 11 }}>
           you are the network operator — generation, wires, vans and all
         </div>
+        <AccountPanel />
       </div>
     </div>
   );

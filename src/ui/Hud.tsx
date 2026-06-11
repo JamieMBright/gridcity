@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAppStore } from '../app/store';
 import { setSimSpeed } from '../app/workerBridge';
 import { getAudioSettings, updateAudioSettings } from '../audio/audio';
+import { pushSettings } from '../online/cloud';
 import type { SimSpeed } from '../sim/protocol';
 import { panelStyle, theme } from './theme';
 
@@ -89,7 +90,7 @@ function SoundButton() {
   return (
     <button
       onClick={() => {
-        updateAudioSettings({ musicOn: !on, sfxOn: !on });
+        pushSettings(updateAudioSettings({ musicOn: !on, sfxOn: !on }));
         force((n) => n + 1);
       }}
       title="Music & sound"
