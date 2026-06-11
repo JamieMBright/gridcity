@@ -6,8 +6,12 @@ import { FleetPanel } from '../ui/FleetPanel';
 import { Hud } from '../ui/Hud';
 import { InboxPanel } from '../ui/InboxPanel';
 import { InfoPanel } from '../ui/InfoPanel';
+import { KpiDashboard } from '../ui/KpiDashboard';
 import { MapView } from '../ui/MapView';
+import { StartMenu } from '../ui/StartMenu';
+import { Tutorial } from '../ui/Tutorial';
 import { panelStyle, theme } from '../ui/theme';
+import { playSfx } from '../audio/audio';
 import { useAppStore } from './store';
 import { initWorker, setSimSpeed } from './workerBridge';
 
@@ -92,6 +96,8 @@ function useKeyboard(): void {
         }
       } else if (e.key === 'g' || e.key === 'G') {
         s.setGridView(!s.gridView);
+      } else if (e.key === 'k' || e.key === 'K') {
+        s.setKpiOpen(!s.kpiOpen);
       } else if (e.key === ' ') {
         e.preventDefault();
         setSimSpeed(s.snapshot?.speed === 0 ? 1 : 0);
@@ -99,6 +105,15 @@ function useKeyboard(): void {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // every button click gets the soft lofi tick
+  useEffect(() => {
+    const onClick = (e: MouseEvent): void => {
+      if ((e.target as HTMLElement | null)?.closest?.('button')) playSfx('click');
+    };
+    document.addEventListener('click', onClick);
+    return () => document.removeEventListener('click', onClick);
   }, []);
 }
 
@@ -131,6 +146,9 @@ export function App() {
       <Hud />
       <StatusBar />
       <Toast />
+      <Tutorial />
+      <KpiDashboard />
+      <StartMenu />
     </div>
   );
 }

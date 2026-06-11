@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useAppStore } from '../app/store';
 import { setSimSpeed } from '../app/workerBridge';
+import { getAudioSettings, updateAudioSettings } from '../audio/audio';
 import type { SimSpeed } from '../sim/protocol';
 import { panelStyle, theme } from './theme';
 
@@ -57,6 +59,56 @@ function MarketTicker() {
   );
 }
 
+function RiioButton() {
+  const kpiOpen = useAppStore((s) => s.kpiOpen);
+  const setKpiOpen = useAppStore((s) => s.setKpiOpen);
+  return (
+    <button
+      onClick={() => setKpiOpen(!kpiOpen)}
+      title="Regulatory KPIs and report card (K)"
+      style={{
+        padding: '3px 10px',
+        borderRadius: 5,
+        border: `1px solid ${kpiOpen ? theme.orange : theme.navyLight}`,
+        background: kpiOpen ? theme.orange : 'transparent',
+        color: kpiOpen ? theme.navy : theme.slate,
+        fontFamily: theme.font,
+        fontSize: 12,
+        cursor: 'pointer',
+      }}
+    >
+      RIIO
+    </button>
+  );
+}
+
+function SoundButton() {
+  const [, force] = useState(0);
+  const s = getAudioSettings();
+  const on = s.musicOn || s.sfxOn;
+  return (
+    <button
+      onClick={() => {
+        updateAudioSettings({ musicOn: !on, sfxOn: !on });
+        force((n) => n + 1);
+      }}
+      title="Music & sound"
+      style={{
+        padding: '3px 8px',
+        borderRadius: 5,
+        border: `1px solid ${theme.navyLight}`,
+        background: 'transparent',
+        color: on ? theme.gold : theme.slate,
+        fontFamily: theme.font,
+        fontSize: 12,
+        cursor: 'pointer',
+      }}
+    >
+      {on ? '♪' : '♪̸'}
+    </button>
+  );
+}
+
 export function Hud() {
   const snapshot = useAppStore((s) => s.snapshot);
   const gridView = useAppStore((s) => s.gridView);
@@ -105,6 +157,8 @@ export function Hud() {
           );
         })}
       </span>
+      <RiioButton />
+      <SoundButton />
       <button
         onClick={() => setGridView(!gridView)}
         title="Grid view: dim the city, highlight the network (G)"

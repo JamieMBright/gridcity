@@ -11,6 +11,12 @@ import type { CouncilState } from './customers/adoption';
 import type { RepairJob, Van } from './fleet/fleet';
 import type { LoadSite } from './service';
 import type { ReliabilityTotals } from './regulation/kpis';
+import {
+  initialTargets,
+  newPeriod,
+  type PeriodState,
+  type ReportCard,
+} from './regulation/riio';
 import { getLondonMap } from '../data/londonMap';
 import type { SimSpeed } from './protocol';
 
@@ -79,6 +85,8 @@ export interface GameState {
   curtailedFirmMWh: number;
   curtailedFlexMWh: number;
   nextAppId: number;
+  period: PeriodState;
+  lastReport?: ReportCard | undefined;
 }
 
 export interface SimContext {
@@ -124,6 +132,8 @@ export function newGame(): GameState {
     curtailedFirmMWh: 0,
     curtailedFlexMWh: 0,
     nextAppId: 1,
+    period: newPeriod(1, 0, initialTargets()),
+    lastReport: undefined,
   };
 }
 
@@ -145,7 +155,7 @@ export function newContext(): SimContext {
 
 // --- save / load -----------------------------------------------------------
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 /** Guard for untrusted save payloads; lives beside SAVE_VERSION so the two
  *  can never drift apart again (a stale guard silently discarded saves). */
@@ -156,7 +166,7 @@ export function isSaveData(d: unknown): d is SaveData {
 }
 
 export interface SaveData {
-  v: 1 | 2 | 3 | 4;
+  v: 1 | 2 | 3 | 4 | 5;
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;
@@ -190,6 +200,8 @@ export interface SaveData {
   curtailedFirmMWh?: number;
   curtailedFlexMWh?: number;
   nextAppId?: number;
+  period?: PeriodState;
+  lastReport?: ReportCard;
 }
 
 export function serialize(s: GameState): SaveData {
@@ -228,6 +240,8 @@ export function serialize(s: GameState): SaveData {
     curtailedFirmMWh: s.curtailedFirmMWh,
     curtailedFlexMWh: s.curtailedFlexMWh,
     nextAppId: s.nextAppId,
+    period: { ...s.period, targets: { ...s.period.targets } },
+    ...(s.lastReport ? { lastReport: { ...s.lastReport, scores: { ...s.lastReport.scores } } } : {}),
   };
 }
 
@@ -271,6 +285,10 @@ export function deserialize(d: SaveData): GameState {
     curtailedFirmMWh: d.curtailedFirmMWh ?? 0,
     curtailedFlexMWh: d.curtailedFlexMWh ?? 0,
     nextAppId: d.nextAppId ?? 1,
+    period: d.period
+      ? { ...d.period, targets: { ...d.period.targets } }
+      : newPeriod(1, d.simTimeMin, initialTargets()),
+    lastReport: d.lastReport ? { ...d.lastReport, scores: { ...d.lastReport.scores } } : undefined,
   };
 }
 

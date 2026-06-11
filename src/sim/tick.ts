@@ -35,6 +35,14 @@ import { growVegetation, isStorm, rollFaults } from './reliability/faults';
 import { stepFleet, syncVans } from './fleet/fleet';
 import { computeBill, type BillBreakdown } from './regulation/bill';
 import { updateReliability } from './regulation/kpis';
+import {
+  closePeriod,
+  newPeriod,
+  nextTargets,
+  PERIOD_MIN,
+  PERIOD_YEARS,
+  type PeriodActuals,
+} from './regulation/riio';
 import { Rng } from './rng';
 import { assetAtTile } from './commands';
 import { assignServiceAreas, computeSubLoads, type ServiceAreas } from './service';
@@ -409,6 +417,29 @@ export function solveTick(
 
   if (dtMin > 0) {
     state.innovationFundK += (bill.innovationYrK * dtMin) / MIN_PER_YEAR;
+
+    // regulatory period bookkeeping + report card at period end
+    const p = state.period;
+    p.billIntegral += bill.perCustomerYr * dtMin;
+    p.carbonIntegral += state.carbonEMA * dtMin;
+    p.satIntegral += satisfactionAvg * dtMin;
+    p.custIntegral += servedCustomers * dtMin;
+    p.weightMin += dtMin;
+    if (state.simTimeMin >= p.startMin + PERIOD_MIN) {
+      const actuals = currentPeriodActuals(state);
+      const card = closePeriod(p, actuals);
+      state.lastReport = card;
+      pushEvent(
+        state,
+        card.composite >= 55 ? 'info' : 'bad',
+        `RIIO-${card.index} closed: grade ${card.grade} (${card.composite}/100)`,
+      );
+      const next = newPeriod(p.index + 1, p.startMin + PERIOD_MIN, nextTargets(p.targets, actuals));
+      next.ciStart = state.reliability.ciCustomers;
+      next.cmlStart = state.reliability.cmlCustomerMin;
+      next.curtailedFirmStart = state.curtailedFirmMWh;
+      state.period = next;
+    }
   }
 
   // indicative frequency: sags with unserved connected demand
@@ -527,6 +558,22 @@ function stepCouncils(
   }
 
   return satDen > 0 ? satNum / satDen : 0;
+}
+
+/** Running KPI actuals for the current regulatory period. */
+export function currentPeriodActuals(state: GameState): PeriodActuals {
+  const p = state.period;
+  const w = Math.max(p.weightMin, 1);
+  const avgCust = Math.max(p.custIntegral / w, 1);
+  const years = Math.max(p.weightMin / (PERIOD_YEARS * 525_600), 1e-6) * PERIOD_YEARS;
+  return {
+    bill: p.billIntegral / w,
+    ci: ((state.reliability.ciCustomers - p.ciStart) / (avgCust * years)) * 100,
+    cml: (state.reliability.cmlCustomerMin - p.cmlStart) / (avgCust * years),
+    carbon: p.carbonIntegral / w,
+    curtailedFirm: (state.curtailedFirmMWh - p.curtailedFirmStart) / years,
+    satisfaction: p.satIntegral / w,
+  };
 }
 
 /** Current weather/renewable factors for the HUD. */

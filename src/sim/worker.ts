@@ -12,7 +12,15 @@ import {
   type WorkerToMain,
 } from './protocol';
 import { deserialize, isSaveData, newContext, newGame, serialize, type GameState } from './state';
-import { advanceTime, derive, deriveKey, solveTick, weatherView, type Derived } from './tick';
+import {
+  advanceTime,
+  currentPeriodActuals,
+  derive,
+  deriveKey,
+  solveTick,
+  weatherView,
+  type Derived,
+} from './tick';
 
 const AUTOSAVE_TICKS = 120; // every 30 real seconds
 
@@ -90,6 +98,13 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
       levyPct: state.levyPct,
     },
     councils: [...state.councils.entries()].map(([k, c]) => [k, { ...c }]),
+    riio: {
+      index: state.period.index,
+      elapsedMin: Math.max(0, state.simTimeMin - state.period.startMin),
+      targets: { ...state.period.targets },
+      current: currentPeriodActuals(state),
+      lastReport: state.lastReport,
+    },
   };
 }
 
@@ -131,6 +146,12 @@ self.onmessage = (e: MessageEvent<MainToWorker>) => {
         break;
       case 'start':
         start(msg.save);
+        break;
+      case 'newGame':
+        state = newGame();
+        derived = undefined;
+        post({ type: 'snapshot', snapshot: makeSnapshot(false) });
+        post({ type: 'saveData', data: serialize(state) });
         break;
       case 'command': {
         const result = applyCommand(state, ctx.map, msg.cmd);

@@ -8,15 +8,26 @@ export interface Tile {
   y: number;
 }
 
-/** Wait until the app booted: sim ready, canvas up, test hook installed. */
+/** Wait until the app booted (sim ready, hook installed) and dismiss the
+ *  start menu — continue a save when one exists, else start fresh. */
 export async function boot(page: Page): Promise<void> {
   await page.goto('/');
-  await expect(page.getByText('ELECTRI')).toBeVisible();
   await expect
     .poll(async () => page.evaluate(() => window.__ec?.getState().snapshot !== undefined), {
       timeout: 30_000,
     })
     .toBe(true);
+  if (await page.evaluate(() => window.__ec?.getState().menuOpen)) {
+    const cont = page.getByRole('button', { name: 'continue' });
+    if ((await cont.count()) > 0) {
+      await cont.dispatchEvent('click');
+    } else {
+      await page.getByRole('button', { name: 'new game' }).dispatchEvent('click');
+    }
+    await expect
+      .poll(async () => page.evaluate(() => window.__ec?.getState().menuOpen))
+      .toBe(false);
+  }
 }
 
 /** Read a slice of the zustand store from inside the page. */

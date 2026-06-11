@@ -10,6 +10,7 @@ import type { Pitch, TechState } from './events/innovation';
 import type { CouncilState } from './customers/adoption';
 import type { BillBreakdown } from './regulation/bill';
 import type { KpiRates } from './regulation/kpis';
+import type { PeriodActuals, PeriodTargets, ReportCard } from './regulation/riio';
 import type { GameEvent, SaveData } from './state';
 import type { BranchView } from './tick';
 
@@ -75,11 +76,20 @@ export interface SimSnapshot {
   };
   /** [council id, adoption + satisfaction]. */
   councils: Array<[number, CouncilState]>;
+  riio: {
+    index: number;
+    /** Game-minutes into the 5-year period. */
+    elapsedMin: number;
+    targets: PeriodTargets;
+    current: PeriodActuals;
+    lastReport?: ReportCard | undefined;
+  };
 }
 
 export type MainToWorker =
   | { type: 'ping'; t: number }
   | { type: 'start'; save?: unknown }
+  | { type: 'newGame' }
   | { type: 'command'; seq: number; cmd: Command }
   | { type: 'requestSave' };
 

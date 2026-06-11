@@ -1,3 +1,4 @@
+import { playSfx } from '../audio/audio';
 import { localStorageStore } from '../persistence/localStorageStore';
 import type { Command } from '../sim/commands';
 import type { MainToWorker, SimSpeed, WorkerToMain } from '../sim/protocol';
@@ -5,6 +6,7 @@ import { useAppStore } from './store';
 
 let worker: Worker | undefined;
 let seq = 0;
+let lastEventSeq = 0;
 
 function send(msg: MainToWorker): void {
   worker?.postMessage(msg);
@@ -29,11 +31,22 @@ export function initWorker(): void {
         s.setWorkerStatus('ready');
         send({ type: 'start', save: localStorageStore.load() });
         break;
-      case 'snapshot':
+      case 'snapshot': {
         s.setSnapshot(msg.snapshot);
+        // chime once per fresh bad-news event
+        const fresh = msg.snapshot.events.filter(
+          (ev) => ev.seq > lastEventSeq && ev.sev === 'bad',
+        );
+        if (lastEventSeq > 0 && fresh.length > 0) playSfx('chime');
+        const lastEv = msg.snapshot.events[msg.snapshot.events.length - 1];
+        if (lastEv) lastEventSeq = Math.max(lastEventSeq, lastEv.seq);
         break;
+      }
       case 'cmdResult':
-        if (!msg.ok && msg.error) s.setToast(msg.error);
+        if (!msg.ok && msg.error) {
+          s.setToast(msg.error);
+          playSfx('error');
+        }
         break;
       case 'saveData':
         localStorageStore.store(msg.data);
@@ -53,4 +66,9 @@ export function sendCommand(cmd: Command): void {
 
 export function setSimSpeed(speed: SimSpeed): void {
   sendCommand({ type: 'setSpeed', speed });
+}
+
+/** Wipe progress and start over (the worker posts a fresh save). */
+export function newGameCommand(): void {
+  send({ type: 'newGame' });
 }

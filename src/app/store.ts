@@ -35,6 +35,10 @@ interface AppState {
   toast: string | undefined;
   /** Camera jump request (alert click); seq forces re-trigger. */
   panTarget: { x: number; y: number; seq: number } | undefined;
+  menuOpen: boolean;
+  /** Current tutorial step index, or undefined when not in the tutorial. */
+  tutorialStep: number | undefined;
+  kpiOpen: boolean;
   setWorkerStatus: (status: WorkerStatus, error?: string) => void;
   setSnapshot: (snapshot: SimSnapshot) => void;
   setHoveredTile: (tile: TileHover | undefined) => void;
@@ -43,6 +47,9 @@ interface AppState {
   setGhostInfo: (info: GhostInfo | undefined) => void;
   setToast: (msg: string | undefined) => void;
   requestPan: (x: number, y: number) => void;
+  setMenuOpen: (open: boolean) => void;
+  setTutorialStep: (step: number | undefined) => void;
+  setKpiOpen: (open: boolean) => void;
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -57,6 +64,9 @@ export const useAppStore = create<AppState>((set) => ({
   ghostInfo: undefined,
   toast: undefined,
   panTarget: undefined,
+  menuOpen: true,
+  tutorialStep: undefined,
+  kpiOpen: false,
   setWorkerStatus: (workerStatus, workerError) => set({ workerStatus, workerError }),
   setSnapshot: (snapshot) => set({ snapshot }),
   setHoveredTile: (hoveredTile) => set({ hoveredTile }),
@@ -70,4 +80,7 @@ export const useAppStore = create<AppState>((set) => ({
   },
   requestPan: (x, y) =>
     set((s) => ({ panTarget: { x, y, seq: (s.panTarget?.seq ?? 0) + 1 } })),
+  setMenuOpen: (menuOpen) => set({ menuOpen }),
+  setTutorialStep: (tutorialStep) => set({ tutorialStep }),
+  setKpiOpen: (kpiOpen) => set({ kpiOpen }),
 }));
