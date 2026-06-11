@@ -1,1 +1,0 @@
-{"root":["./src/main.tsx","./src/app/App.tsx","./src/app/store.ts","./src/app/workerBridge.ts","./src/sim/protocol.ts","./src/sim/worker.ts","./src/ui/theme.ts","./tests/protocol.test.ts"],"version":"5.9.3"}
