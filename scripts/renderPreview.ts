@@ -1,44 +1,71 @@
-// Renders the sprite sheet and map mockups to PNG for art review.
-// Usage: npx tsx scripts/renderPreview.ts
+// Renders the sprite sheet and isometric map mockups to PNG for art
+// review. Usage: npx tsx scripts/renderPreview.ts
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { buildLondonMap } from '../src/data/londonMap';
 import { buildAtlas, type SpriteAtlas } from '../src/render/sprites/atlas';
-import { TILE } from '../src/render/sprites/spriteBuilder';
+import { CELL_H, CELL_W, FLOOR_H } from '../src/render/sprites/iso';
 import { spriteNameFor } from '../src/render/tileChooser';
-import { hexToRgb } from '../src/render/sprites/palette';
 import { encodePng } from './png';
 
-const NAVY = hexToRgb('#101630');
+const HALF_W = CELL_W / 2;
+const HALF_H = FLOOR_H / 2;
+
+// dusk sky gradient backdrop
+const SKY_TOP = [58, 43, 80] as const;
+const SKY_BOTTOM = [27, 20, 48] as const;
 
 class Canvas {
-  pixels: Uint8ClampedArray;
+  pixels: Uint8ClampedArray<ArrayBuffer>;
   constructor(
     public width: number,
     public height: number,
   ) {
     this.pixels = new Uint8ClampedArray(width * height * 4);
-    for (let i = 0; i < width * height; i++) {
-      this.pixels[i * 4] = NAVY[0];
-      this.pixels[i * 4 + 1] = NAVY[1];
-      this.pixels[i * 4 + 2] = NAVY[2];
-      this.pixels[i * 4 + 3] = 255;
+    for (let y = 0; y < height; y++) {
+      const t = y / height;
+      const r = SKY_TOP[0] + (SKY_BOTTOM[0] - SKY_TOP[0]) * t;
+      const g = SKY_TOP[1] + (SKY_BOTTOM[1] - SKY_TOP[1]) * t;
+      const b = SKY_TOP[2] + (SKY_BOTTOM[2] - SKY_TOP[2]) * t;
+      for (let x = 0; x < this.width; x++) {
+        const o = (y * this.width + x) * 4;
+        this.pixels[o] = r;
+        this.pixels[o + 1] = g;
+        this.pixels[o + 2] = b;
+        this.pixels[o + 3] = 255;
+      }
     }
   }
 
+  /** Alpha-composite an atlas cell at (dx, dy). */
   blit(atlas: SpriteAtlas, name: string, dx: number, dy: number): void {
     const frame = atlas.frames.get(name);
     if (!frame) throw new Error(`unknown sprite: ${name}`);
-    for (let y = 0; y < TILE; y++) {
-      for (let x = 0; x < TILE; x++) {
+    for (let y = 0; y < CELL_H; y++) {
+      const ty = dy + y;
+      if (ty < 0 || ty >= this.height) continue;
+      for (let x = 0; x < CELL_W; x++) {
+        const tx = dx + x;
+        if (tx < 0 || tx >= this.width) continue;
         const s = ((frame.y + y) * atlas.width + frame.x + x) * 4;
-        if ((atlas.pixels[s + 3] ?? 0) === 0) continue;
-        const d = ((dy + y) * this.width + dx + x) * 4;
-        this.pixels[d] = this.pixels[d] = atlas.pixels[s] ?? 0;
-        this.pixels[d + 1] = atlas.pixels[s + 1] ?? 0;
-        this.pixels[d + 2] = atlas.pixels[s + 2] ?? 0;
+        const sa = (atlas.pixels[s + 3] ?? 0) / 255;
+        if (sa === 0) continue;
+        const d = (ty * this.width + tx) * 4;
+        for (let i = 0; i < 3; i++) {
+          const sc = atlas.pixels[s + i] ?? 0;
+          const dc = this.pixels[d + i] ?? 0;
+          this.pixels[d + i] = sc * sa + dc * (1 - sa);
+        }
         this.pixels[d + 3] = 255;
       }
+    }
+  }
+
+  /** Composite the full atlas sheet (for sprite review). */
+  blitSheet(atlas: SpriteAtlas): void {
+    for (const name of atlas.frames.keys()) {
+      const f = atlas.frames.get(name);
+      if (f) this.blit(atlas, name, f.x, f.y);
     }
   }
 
@@ -57,10 +84,32 @@ function renderMapRegion(
   path: string,
 ): void {
   const map = buildLondonMap();
-  const c = new Canvas(w * TILE, h * TILE);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      c.blit(atlas, spriteNameFor(map, x0 + x, y0 + y), x * TILE, y * TILE);
+  // bounding box of all cells in the region
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  const place = (x: number, y: number): { px: number; py: number } => {
+    const cx = (x - y) * HALF_W;
+    const cy = (x + y) * HALF_H;
+    return { px: cx - HALF_W, py: cy + HALF_H - CELL_H };
+  };
+  for (let y = y0; y < y0 + h; y++) {
+    for (let x = x0; x < x0 + w; x++) {
+      const { px, py } = place(x, y);
+      minX = Math.min(minX, px);
+      minY = Math.min(minY, py);
+      maxX = Math.max(maxX, px + CELL_W);
+      maxY = Math.max(maxY, py + CELL_H);
+    }
+  }
+  const c = new Canvas(Math.ceil(maxX - minX), Math.ceil(maxY - minY));
+  // painter order along diagonals
+  for (let k = x0 + y0; k <= x0 + w - 1 + (y0 + h - 1); k++) {
+    for (let x = Math.max(x0, k - (y0 + h - 1)); x <= Math.min(x0 + w - 1, k - y0); x++) {
+      const y = k - x;
+      const { px, py } = place(x, y);
+      c.blit(atlas, spriteNameFor(map, x, y), Math.round(px - minX), Math.round(py - minY));
     }
   }
   c.save(path);
@@ -69,36 +118,21 @@ function renderMapRegion(
 mkdirSync('preview', { recursive: true });
 const atlas = buildAtlas();
 
-// 1) Sprite sheet, 4x scale for inspection
+// 1) Sprite sheet
 {
-  const scale = 4;
-  const c = new Canvas(atlas.width * scale, atlas.height * scale);
-  for (let y = 0; y < atlas.height; y++) {
-    for (let x = 0; x < atlas.width; x++) {
-      const s = (y * atlas.width + x) * 4;
-      if ((atlas.pixels[s + 3] ?? 0) === 0) continue;
-      for (let dy = 0; dy < scale; dy++) {
-        for (let dx = 0; dx < scale; dx++) {
-          const d = ((y * scale + dy) * c.width + x * scale + dx) * 4;
-          c.pixels[d] = atlas.pixels[s] ?? 0;
-          c.pixels[d + 1] = atlas.pixels[s + 1] ?? 0;
-          c.pixels[d + 2] = atlas.pixels[s + 2] ?? 0;
-          c.pixels[d + 3] = 255;
-        }
-      }
-    }
-  }
+  const c = new Canvas(atlas.width, atlas.height);
+  c.blitSheet(atlas);
   c.save('preview/spritesheet.png');
 }
 
-// 2) City core close-up (40x28 tiles around the Thames)
-renderMapRegion(atlas, 30, 44, 40, 28, 'preview/city-core.png');
+// 2) City core close-up (Thames, towers, terraces)
+renderMapRegion(atlas, 38, 50, 22, 18, 'preview/city-core.png');
 
-// 3) Essex: greenhouses, villages, solar sites, nuclear coast
-renderMapRegion(atlas, 128, 28, 60, 40, 'preview/essex.png');
+// 3) Suburbia + posh fringe
+renderMapRegion(atlas, 20, 26, 22, 18, 'preview/suburbs.png');
 
-// 4) Posh district and suburbs
-renderMapRegion(atlas, 16, 22, 40, 28, 'preview/suburbs.png');
+// 4) Essex: greenhouses, villages, fields
+renderMapRegion(atlas, 138, 32, 26, 20, 'preview/essex.png');
 
-// 5) Full map
-renderMapRegion(atlas, 0, 0, 192, 128, 'preview/full-map.png');
+// 5) Wide city view
+renderMapRegion(atlas, 28, 40, 48, 44, 'preview/city-wide.png');

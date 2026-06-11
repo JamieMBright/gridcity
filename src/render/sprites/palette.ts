@@ -1,65 +1,77 @@
-// Master pixel-art palette. Every sprite is a grid of these characters.
-// The whole world lives in golden-hour light: warm-lit faces use the "lit"
-// member of each pair, shaded faces the darker one; shadows lean warm
-// purple rather than black, per the lofi sunset art direction.
+// Colour system for the clean low-poly look: vivid colour-blocked
+// buildings under lofi sunset light. All sprites pull from here so the
+// whole world stays in one gamut.
 
-export const PALETTE: Record<string, string> = {
-  // structure
-  K: '#2e2240', // outline / deep warm shadow
-  k: '#1f1a2e', // unlit window glass
-  y: '#ffd277', // lit window, warm
-  Y: '#ffb347', // lit window, hot core
-  b: '#c26a4a', // brick, sun side
-  B: '#934e3a', // brick, shade side
-  z: '#d98a5e', // terracotta ridge tiles / chimney pots
-  s: '#555273', // slate roof, shade slope
-  S: '#807c9e', // slate roof, lit slope
-  l: '#8a6a52', // brown tile roof, lit
-  L: '#6b4f3e', // brown tile roof, shade
-  c: '#ecdcc0', // cream render, lit
-  C: '#c3ab8e', // cream render, shade
-  a: '#a8a0b8', // concrete, lit
-  A: '#7b7390', // concrete, shade
-  i: '#b4bcc8', // steel, lit
-  I: '#707a8c', // steel, shade
-  D: '#3f6f6a', // front doors (teal)
-  o: '#ff8a1e', // brand orange (vans, hi-vis, beacons)
-  O: '#c96a14', // brand orange, shade
+import { hex, type RGBA } from './raster';
 
+export const COLORS = {
   // nature
-  g: '#97a05c', // grass, lit
-  G: '#7a8a4c', // grass, mid
-  f: '#5e6e3d', // grass, dark
-  t: '#6a7d45', // tree canopy, lit
-  T: '#4c5e35', // tree canopy, shade
-  n: '#6f4a33', // trunk / bare earth
-  e: '#cfa75c', // field stubble, gold
-  E: '#b08a48', // field, shade rows
-  u: '#8a7a58', // moorland hill
-  U: '#6f6248', // hill shade
-  d: '#cfb288', // sand / shoreline
-  w: '#2f3e68', // water, dusk navy
-  W: '#4a5d96', // water, light ripple
-  p: '#d98a9e', // sunset glint on water/glass
+  grass: hex('#8fb35c'),
+  grassDark: hex('#79a04e'),
+  field: hex('#e3b863'),
+  fieldDark: hex('#cda052'),
+  moor: hex('#a08c62'),
+  treeGreen: hex('#5f9e4e'),
+  treeDeep: hex('#47833f'),
+  treeLime: hex('#7cb35a'),
+  trunk: hex('#6f4a33'),
+  sand: hex('#e8cf9e'),
+
+  // water
+  water: hex('#3d7ec2'),
+  waterDeep: hex('#2c5fa3'),
+  waterGlint: hex('#9fd0e8'),
 
   // fabric
-  r: '#564f60', // asphalt
-  R: '#433d4d', // asphalt shade / kerb
-  m: '#9a8d74', // road markings, faded warm
-  q: '#b9d2cf', // glasshouse glass
-  Q: '#e2ece2', // glasshouse glass, lit pane
-  v: '#4a5f9e', // solar panel
-  V: '#7d92cc', // solar panel glint
-  x: '#d9ced6', // smoke / steam
-};
+  road: hex('#5d5a6e'),
+  roadDark: hex('#4c4a5c'),
+  marking: hex('#e8e2d2'),
+  pavement: hex('#cfc7b8'),
+  concrete: hex('#b8b2c4'),
 
-export type PaletteChar = keyof typeof PALETTE;
+  // building walls (vivid colour-block set, per-variant)
+  walls: [
+    hex('#e8694a'), // coral
+    hex('#3f8f8a'), // teal
+    hex('#e8a23f'), // mustard
+    hex('#d6566e'), // pink-red
+    hex('#7a6fae'), // lilac
+    hex('#e0d6c2'), // cream
+    hex('#c25b3f'), // brick
+    hex('#5e8fc2'), // sky blue
+  ] as RGBA[],
 
-/** Parse '#rrggbb' to [r,g,b]. */
-export function hexToRgb(hex: string): [number, number, number] {
-  return [
-    parseInt(hex.slice(1, 3), 16),
-    parseInt(hex.slice(3, 5), 16),
-    parseInt(hex.slice(5, 7), 16),
-  ];
+  // roofs
+  roofs: [
+    hex('#c9453a'), // red
+    hex('#46518f'), // navy-blue
+    hex('#7d7494'), // slate
+    hex('#b8743f'), // tan
+  ] as RGBA[],
+
+  white: hex('#f4f1ea'),
+  glassDark: hex('#27324d'),
+  glassLit: hex('#ffd277'),
+  glassHot: hex('#ffb347'),
+  glassSky: hex('#a8cbe0'),
+  glassSunset: hex('#e8a0a8'),
+  steel: hex('#9aa4b5'),
+  steelDark: hex('#6e7888'),
+  orange: hex('#ff8a1e'),
+  greenhouseGlass: hex('#a9d2bb'),
+  panel: hex('#3b5089'),
+  panelGlint: hex('#7d9bd6'),
+} as const;
+
+export function wallColor(variant: number): RGBA {
+  return COLORS.walls[variant % COLORS.walls.length] ?? COLORS.walls[0]!;
+}
+
+export function roofColor(variant: number): RGBA {
+  return COLORS.roofs[variant % COLORS.roofs.length] ?? COLORS.roofs[0]!;
+}
+
+/** Parse '#rrggbb' to [r,g,b] (kept for theme interop). */
+export function hexToRgb(h: string): [number, number, number] {
+  return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 }

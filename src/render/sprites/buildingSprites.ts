@@ -1,262 +1,317 @@
-// Building tiles, drawn top-down oblique (SNES-SimCity style): you see the
-// roof plus a sunlit front facade. Sun sits low in the west — back slopes
-// are lit ('S'), front slopes shaded ('s'), shadows warm purple ('K').
-// Lit windows ('y'/'Y') are sprinkled per-seed; the renderer picks seeds
-// from the map's per-tile variant byte so streets never repeat exactly.
+// Building tiles in the clean low-poly style: colour-blocked walls, white
+// frames and floor bands, gable/hip roofs, faceted garden trees, soft cast
+// shadows, and warm windows that glow against the dusk. Variants rotate
+// wall/roof colours so streets feel hand-placed, never tiled.
 
 import { Rng } from '../../sim/rng';
-import { Px, TILE } from './spriteBuilder';
+import { Iso, lit, P, shaded, top } from './iso';
+import { COLORS, roofColor, wallColor } from './palette';
+import { alpha, darken, lighten, type RGBA } from './raster';
 
-const M = TILE - 1;
-
-function lawnBase(p: Px): Px {
-  return p.rect(0, 0, M, M, 'g').speckle(0, 0, M, M, 'G', 0.22).speckle(0, 0, M, M, 'f', 0.05);
+function glass(rng: Rng, litP: number): RGBA {
+  return rng.chance(litP) ? (rng.chance(0.4) ? COLORS.glassHot : COLORS.glassLit) : COLORS.glassDark;
 }
 
-function pavement(p: Px, y0: number): Px {
-  return p.rect(0, y0, M, M, 'r').hline(0, M, y0, 'R').speckle(0, y0 + 1, M, M, 'R', 0.06);
+function grassFloor(iso: Iso): void {
+  iso.floor(lighten(COLORS.grass, 0.06), COLORS.grassDark);
 }
 
-/** 3x3 window with per-seed chance of being warmly lit. */
-function win(p: Px, x: number, y: number, rng: Rng, litP = 0.3): void {
-  const lit = rng.chance(litP);
-  p.rect(x, y, x + 2, y + 2, lit ? 'y' : 'k');
-  if (lit) p.set(x + 1, y + 1, 'Y');
-  p.hline(x, x + 2, y + 3, 'K'); // sill shadow
+function pavedFloor(iso: Iso): void {
+  iso.floor(COLORS.pavement, darken(COLORS.pavement, 0.08));
 }
 
-/** A row of three Victorian terraced houses. wall: 'b' brick or 'c' render;
- *  roof: 's' slate or 'l' brown tile. */
-export function terraceTile(seed: number, wall: 'b' | 'c', roof: 's' | 'l' = 's'): string[] {
+/** Row of three attached townhouses (urban terraces / high street). */
+export function terraceTile(seed: number, shops: boolean): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
   const rng = new Rng(seed * 7919 + 13);
-  const shade = wall === 'b' ? 'B' : 'C';
-  const roofLit = roof === 's' ? 'S' : 'l';
-  const roofShade = roof === 's' ? 's' : 'L';
-  const p = lawnBase(new Px(seed));
-  // chimney stacks rise behind the ridge
-  for (const cx of [4, 15, 26]) {
-    p.rect(cx, 3, cx + 1, 8, shade).set(cx, 2, 'z').set(cx + 1, 2, 'z');
+  pavedFloor(iso);
+  const v0 = 0.12;
+  const v1 = 0.78;
+  const H = 40;
+  iso.shadow(0, v0, 1, v1, 0.2, 0.22);
+  for (let i = 0; i < 3; i++) {
+    const u0 = i / 3;
+    const u1 = (i + 1) / 3;
+    const wall = wallColor(seed + i);
+    iso.box(u0, v0, u1, v1, 0, H, wall);
+    // windows on the left (street-facing) wall
+    if (shops) {
+      // shopfront: big window + striped awning, flat with sign band
+      iso.windowsLeft(v1, u0 + 0.04, u1 - 0.04, 6, 16, 1, glass(rng, 0.7), COLORS.white);
+      const awn: RGBA = rng.chance(0.5) ? COLORS.orange : (COLORS.walls[1] ?? COLORS.orange);
+      iso.r.poly(
+        [P(u0 + 0.02, v1, 22), P(u1 - 0.02, v1, 22), P(u1 - 0.02, v1 + 0.09, 17), P(u0 + 0.02, v1 + 0.09, 17)],
+        awn,
+      );
+      iso.r.poly(
+        [P(u0 + 0.02, v1, 27), P(u1 - 0.02, v1, 27), P(u1 - 0.02, v1, 22), P(u0 + 0.02, v1, 22)],
+        COLORS.white,
+      );
+      iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, 30, 37, 2, glass(rng, 0.4), COLORS.white);
+    } else {
+      iso.windowsLeft(v1, u0 + 0.05, u1 - 0.05, 24, 34, 2, glass(rng, 0.4), COLORS.white);
+      iso.windowsLeft(v1, u0 + 0.05, u1 - 0.16, 6, 17, 1, glass(rng, 0.35), COLORS.white);
+      // front door
+      iso.r.poly(
+        [P(u1 - 0.13, v1, 14), P(u1 - 0.05, v1, 14), P(u1 - 0.05, v1, 0), P(u1 - 0.13, v1, 0)],
+        darken(wall, 0.35),
+      );
+    }
   }
-  // roof: lit back slope, terracotta ridge, shaded front slope
-  p.rect(0, 5, M, 8, roofLit);
-  for (const cx of [4, 15, 26]) p.rect(cx, 5, cx + 1, 8, shade); // stacks overlap roof
-  p.hline(0, M, 9, 'z');
-  p.rect(0, 10, M, 14, roofShade).speckle(0, 10, M, 14, roofLit, 0.05);
-  p.hline(0, M, 15, 'K'); // eaves
-  // facade with party walls
-  p.rect(0, 16, M, 27, wall);
-  p.vline(10, 16, 27, shade).vline(21, 16, 27, shade);
-  for (const ox of [0, 11, 22]) {
-    win(p, ox + 2, 17, rng);
-    win(p, ox + 6, 17, rng);
-    win(p, ox + 2, 22, rng);
-    // front door with lintel
-    p.rect(ox + 7, 23, ox + 8, 27, 'D').hline(ox + 6, ox + 9, 22, 'K');
+  // windows on the right gable-end wall of the last house
+  iso.windowsRight(1, v0 + 0.08, v1 - 0.08, 22, 34, 2, glass(rng, 0.3), COLORS.white);
+  // continuous roof with chimneys
+  const roof = roofColor(seed);
+  iso.gable(0, v0, 1, v1, H, 16, 'u', roof, wallColor(seed + 2));
+  for (const cu of [0.18, 0.5, 0.82]) {
+    iso.box(cu, (v0 + v1) / 2 - 0.05, cu + 0.05, (v0 + v1) / 2 + 0.05, H + 12, H + 24, COLORS.concrete);
   }
-  p.hline(0, M, 28, 'K');
-  return pavement(p, 29).build();
+  return iso.build();
 }
 
-/** Two suburban semis with bay windows and front gardens. */
-export function semiTile(seed: number, wall: 'b' | 'c'): string[] {
+/** Two suburban semis with gardens and hedges. */
+export function semiTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
   const rng = new Rng(seed * 104729 + 7);
-  const p = lawnBase(new Px(seed));
-  for (const ox of [1, 17]) {
-    // hipped roof
-    p.hline(ox, ox + 13, 5, 'K');
-    p.rect(ox, 6, ox + 13, 8, 'S');
-    p.hline(ox + 1, ox + 12, 9, 'z');
-    p.rect(ox, 10, ox + 13, 12, 's');
-    p.hline(ox, ox + 13, 13, 'K');
-    p.set(ox + 11, 4, 'z').rect(ox + 11, 5, ox + 12, 8, wall === 'b' ? 'B' : 'C'); // chimney
-    // facade
-    p.rect(ox, 14, ox + 13, 21, wall);
-    win(p, ox + 2, 15, rng);
-    win(p, ox + 8, 15, rng);
-    // bay window with cream frame
-    p.rect(ox + 1, 19, ox + 5, 21, 'c').rect(ox + 2, 19, ox + 4, 20, rng.chance(0.5) ? 'y' : 'k');
-    p.rect(ox + 9, 18, ox + 10, 21, 'D').hline(ox + 8, ox + 11, 17, 'K'); // door
-    p.hline(ox, ox + 13, 22, 'K');
-    // garden path to the door
-    p.vline(ox + 9, 23, M, 'd').vline(ox + 10, 23, M, 'd');
+  grassFloor(iso);
+  for (const [u0, u1] of [
+    [0.06, 0.45],
+    [0.55, 0.94],
+  ] as const) {
+    const wall = wallColor(seed + (u0 < 0.5 ? 0 : 3));
+    const roof = roofColor(seed + (u0 < 0.5 ? 1 : 2));
+    const v0 = 0.18;
+    const v1 = 0.62;
+    const H = 26;
+    iso.shadow(u0, v0, u1, v1, 0.16, 0.2);
+    iso.box(u0, v0, u1, v1, 0, H, wall);
+    iso.gable(u0 - 0.015, v0 - 0.015, u1 + 0.015, v1 + 0.015, H, 13, 'u', roof, wall);
+    iso.windowsLeft(v1, u0 + 0.04, u1 - 0.12, 15, 23, 2, glass(rng, 0.4), COLORS.white);
+    // bay window + door
+    iso.box(u0 + 0.04, v1, u0 + 0.16, v1 + 0.05, 0, 12, COLORS.white);
+    iso.r.poly(
+      [P(u1 - 0.1, v1, 12), P(u1 - 0.03, v1, 12), P(u1 - 0.03, v1, 0), P(u1 - 0.1, v1, 0)],
+      darken(wall, 0.4),
+    );
+    // garden path
+    iso.quad(u1 - 0.1, v1 + 0.05, u1 - 0.03, 1, 0, alpha(COLORS.pavement, 0.9));
   }
-  // front hedges along the street
-  p.hline(0, M, M, 'T').speckle(0, M - 1, M, M - 1, 'T', 0.4);
-  return p.build();
+  // street hedge
+  iso.box(0.02, 0.93, 0.98, 0.99, 0, 6, COLORS.treeDeep);
+  if (rng.chance(0.6)) iso.ball(0.5, 0.8, 0.07, 16, COLORS.treeLime);
+  return iso.build();
 }
 
 /** Detached villa in a hedged garden — posh districts. */
-export function villaTile(seed: number): string[] {
+export function villaTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
   const rng = new Rng(seed * 31337 + 3);
-  const p = lawnBase(new Px(seed));
+  grassFloor(iso);
   // perimeter hedge
-  p.hline(0, M, 0, 'T').hline(0, M, M, 'T').vline(0, 0, M, 'T').vline(M, 0, M, 'T');
-  p.speckle(0, 0, M, 1, 't', 0.3).speckle(0, M - 1, M, M, 't', 0.3);
-  // garden trees
-  p.rect(3, 3, 6, 6, 'T').rect(4, 3, 5, 5, 't').set(4, 7, 'n');
-  p.rect(25, 20, 28, 23, 'T').rect(26, 20, 27, 22, 't');
-  // house body x8..24
-  p.hline(8, 24, 6, 'K');
-  p.rect(8, 7, 24, 9, 'S');
-  p.hline(9, 23, 10, 'z');
-  p.rect(8, 11, 24, 13, 's');
-  p.hline(8, 24, 14, 'K');
-  p.rect(8, 15, 24, 22, 'c');
-  win(p, 10, 16, rng);
-  win(p, 15, 16, rng);
-  win(p, 20, 16, rng);
-  p.rect(15, 19, 17, 22, 'D').hline(14, 18, 18, 'K'); // grand door
-  win(p, 10, 19, rng);
-  win(p, 20, 19, rng);
-  p.hline(8, 24, 23, 'K');
-  // gravel drive sweeping to the bottom-right gate
-  for (let y = 24; y < TILE; y++) {
-    const x0 = 16 + Math.round((y - 24) * 1.2);
-    p.hline(x0, x0 + 3, y, 'd');
+  for (const [a, b, c, d] of [
+    [0.02, 0.02, 0.98, 0.06],
+    [0.02, 0.94, 0.98, 0.98],
+    [0.02, 0.02, 0.06, 0.98],
+    [0.94, 0.02, 0.98, 0.98],
+  ] as const) {
+    iso.box(a, b, c, d, 0, 5, COLORS.treeDeep);
   }
-  return p.build();
+  const wall = lighten(COLORS.walls[5] ?? COLORS.white, 0.04); // cream villa
+  const roof = roofColor(seed);
+  iso.shadow(0.24, 0.2, 0.78, 0.66, 0.18, 0.2);
+  // main wing + side wing
+  iso.box(0.24, 0.2, 0.62, 0.66, 0, 30, wall);
+  iso.box(0.62, 0.28, 0.8, 0.66, 0, 22, wall);
+  iso.hip(0.22, 0.18, 0.64, 0.68, 30, 16, roof);
+  iso.gable(0.62, 0.26, 0.82, 0.68, 22, 10, 'u', roof, wall);
+  iso.windowsLeft(0.66, 0.28, 0.58, 17, 26, 3, glass(rng, 0.45), COLORS.white);
+  iso.windowsLeft(0.66, 0.28, 0.46, 4, 13, 2, glass(rng, 0.4), COLORS.white);
+  // grand door
+  iso.r.poly([P(0.52, 0.66, 13), P(0.58, 0.66, 13), P(0.58, 0.66, 0), P(0.52, 0.66, 0)], darken(roof, 0.2));
+  // gravel drive + garden trees
+  iso.quad(0.52, 0.7, 0.6, 1, 0, alpha(COLORS.pavement, 0.85));
+  iso.ball(0.14, 0.76, 0.09, 20, COLORS.treeGreen);
+  iso.cone(0.86, 0.8, 0.08, 22, COLORS.treeDeep);
+  return iso.build();
 }
 
-/** Council tower block — urban core. */
-export function towerTile(seed: number): string[] {
+/** Residential tower block with colour-block walls and floor bands. */
+export function towerTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
   const rng = new Rng(seed * 49157 + 11);
-  const p = lawnBase(new Px(seed));
-  // roof slab with plant room
-  p.rect(3, 1, 28, 6, 'a').rect(3, 1, 28, 1, 'i');
-  p.rect(3, 1, 4, 6, 'A').rect(27, 1, 28, 6, 'A');
-  p.rect(18, 2, 23, 5, 'A').rect(19, 3, 22, 4, 'I');
-  p.set(6, 2, 'o'); // aviation beacon
-  p.hline(3, 28, 7, 'K');
-  // floors: window band + spandrel, repeated
-  for (let fy = 8; fy <= 25; fy += 3) {
-    p.rect(3, fy, 28, fy, 'A');
-    for (let wx = 5; wx <= 25; wx += 4) {
-      const lit = rng.chance(0.3);
-      p.rect(wx, fy + 1, wx + 2, fy + 2, lit ? 'y' : 'k');
-    }
-    p.vline(3, fy, fy + 2, 'A').vline(28, fy, fy + 2, 'A');
-    p.vline(4, fy, fy + 2, 'a').vline(27, fy, fy + 2, 'a');
+  pavedFloor(iso);
+  const wall = wallColor(seed + 4);
+  const u0 = 0.18;
+  const v0 = 0.18;
+  const u1 = 0.82;
+  const v1 = 0.82;
+  const H = 104 + (seed % 3) * 14;
+  iso.shadow(u0, v0, u1, v1, 0.3, 0.26);
+  iso.box(u0, v0, u1, v1, 0, H, wall);
+  // white floor bands + window rows on both visible faces
+  for (let z = 12; z < H - 8; z += 16) {
+    iso.r.poly([P(u0, v1, z + 11), P(u1, v1, z + 11), P(u1, v1, z + 9), P(u0, v1, z + 9)], alpha(COLORS.white, 0.9));
+    iso.r.poly([P(u1, v0, z + 11), P(u1, v1, z + 11), P(u1, v1, z + 9), P(u1, v0, z + 9)], alpha(COLORS.white, 0.75));
+    iso.windowsLeft(v1, u0 + 0.04, u1 - 0.04, z, z + 8, 4, glass(rng, 0.35));
+    iso.windowsRight(u1, v0 + 0.04, v1 - 0.04, z, z + 8, 4, glass(rng, 0.3));
   }
-  p.rect(3, 26, 28, 27, 'A');
-  p.rect(13, 26, 18, 28, 'D'); // lobby
-  p.hline(3, 28, 28, 'K');
-  return pavement(p, 29).build();
+  // parapet + plant room + beacon
+  iso.box(u0 - 0.01, v0 - 0.01, u1 + 0.01, v1 + 0.01, H, H + 4, COLORS.white);
+  iso.box(0.55, 0.3, 0.75, 0.5, H + 4, H + 14, COLORS.concrete);
+  iso.box(0.27, 0.27, 0.3, 0.3, H + 4, H + 12, COLORS.steelDark);
+  iso.quad(0.255, 0.255, 0.315, 0.315, H + 12, COLORS.orange);
+  return iso.build();
 }
 
-/** Glass office tower — the financial heart. */
-export function officeTile(seed: number): string[] {
+/** Glass office tower with a sunset-reflecting curtain wall and setback crown. */
+export function officeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
   const rng = new Rng(seed * 65537 + 5);
-  const p = lawnBase(new Px(seed));
-  p.rect(2, 0, 29, 4, 'A').rect(2, 0, 29, 0, 'a');
-  for (const vx of [6, 12, 18, 24]) p.rect(vx, 1, vx + 1, 3, 'I'); // roof vents
-  p.hline(2, 29, 5, 'K');
-  // curtain-wall facade: glass bays between mullions
-  p.rect(2, 6, 29, 27, 'q');
-  for (let vx = 2; vx <= 29; vx += 4) p.vline(vx, 6, 27, 'I');
-  for (let hy = 9; hy <= 27; hy += 4) p.hline(2, 29, hy, 'I');
-  // sunset reflections and lit floors
-  p.speckle(3, 6, 28, 27, 'Q', 0.18, 'q');
-  p.speckle(3, 6, 28, 27, 'p', 0.05, 'q');
-  for (let hy = 10; hy <= 26; hy += 4) {
-    if (rng.chance(0.35)) p.speckle(3, hy, 28, hy + 2, 'y', 0.25, 'q');
+  pavedFloor(iso);
+  const u0 = 0.16;
+  const v0 = 0.16;
+  const u1 = 0.84;
+  const v1 = 0.84;
+  const H = 124 + (seed % 2) * 18;
+  iso.shadow(u0, v0, u1, v1, 0.34, 0.28);
+  // glass body: left face cool dusk, right face catching the sunset
+  iso.r.poly([P(u0, v1, H), P(u1, v1, H), P(u1, v1, 0), P(u0, v1, 0)], COLORS.glassDark, shaded(COLORS.glassSky, 0.2));
+  iso.r.poly([P(u1, v0, H), P(u1, v1, H), P(u1, v1, 0), P(u1, v0, 0)], COLORS.glassSunset, COLORS.glassSky);
+  iso.quad(u0, v0, u1, v1, H, COLORS.white);
+  // white mullion bands
+  for (let z = 14; z < H - 6; z += 14) {
+    iso.r.poly([P(u0, v1, z + 1.6), P(u1, v1, z + 1.6), P(u1, v1, z), P(u0, v1, z)], alpha(COLORS.white, 0.85));
+    iso.r.poly([P(u1, v0, z + 1.6), P(u1, v1, z + 1.6), P(u1, v1, z), P(u1, v0, z)], alpha(COLORS.white, 0.7));
   }
-  p.rect(12, 24, 19, 27, 'D').hline(11, 20, 23, 'K'); // entrance
-  p.hline(2, 29, 28, 'K');
-  return pavement(p, 29).build();
+  // lit floors scattered through the dusk face
+  for (let z = 16; z < H - 10; z += 14) {
+    if (rng.chance(0.4)) {
+      const a = rng.range(u0 + 0.05, 0.55);
+      iso.r.poly([P(a, v1, z + 9), P(a + 0.2, v1, z + 9), P(a + 0.2, v1, z + 2), P(a, v1, z + 2)], alpha(COLORS.glassLit, 0.8));
+    }
+  }
+  // setback crown
+  iso.box(0.3, 0.3, 0.7, 0.7, H, H + 16, COLORS.white, { topC: COLORS.white });
+  iso.box(0.44, 0.44, 0.56, 0.56, H + 16, H + 26, COLORS.steel);
+  return iso.build();
 }
 
-/** Essex cottage with a vegetable garden. */
-export function cottageTile(seed: number): string[] {
+/** Essex cottage with a vegetable garden and apple tree. */
+export function cottageTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
   const rng = new Rng(seed * 24593 + 9);
-  const p = lawnBase(new Px(seed));
-  // apple tree
-  p.rect(3, 4, 7, 8, 'T').rect(4, 4, 6, 6, 't').set(5, 9, 'n').set(4, 6, 'p');
-  // thatched roof
-  p.hline(9, 24, 6, 'K');
-  p.rect(9, 7, 24, 9, 'e');
-  p.hline(10, 23, 10, 'E');
-  p.rect(9, 11, 24, 12, 'E');
-  p.hline(9, 24, 13, 'K');
-  p.set(21, 5, 'z').rect(21, 6, 22, 9, 'B'); // chimney
-  // whitewashed walls
-  p.rect(9, 14, 24, 20, 'c');
-  win(p, 11, 15, rng);
-  win(p, 19, 15, rng);
-  p.rect(15, 16, 16, 20, 'D').hline(14, 17, 15, 'K');
-  p.hline(9, 24, 21, 'K');
-  // vegetable patch rows
-  p.rect(18, 25, 29, 30, 'n');
-  for (let y = 25; y <= 30; y += 2) p.hline(18, 29, y, 'f');
-  p.vline(16, 22, M, 'd').vline(15, 22, M, 'd'); // path
-  return p.build();
-}
-
-/** Distribution-shed warehouse. */
-export function warehouseTile(seed: number): string[] {
-  const p = lawnBase(new Px(seed));
-  p.hline(1, 30, 3, 'K');
-  p.rect(1, 4, 30, 21, 'I');
-  for (let vx = 3; vx <= 29; vx += 4) p.vline(vx, 4, 21, 'i'); // roof ribs
-  p.rect(8, 7, 11, 9, 'q').rect(20, 12, 23, 14, 'q'); // skylights
-  p.hline(1, 30, 22, 'K');
-  p.rect(1, 23, 30, 27, 'A');
-  p.rect(5, 24, 12, 27, 'i').hline(5, 12, 24, 'I'); // roller door
-  p.rect(16, 24, 23, 27, 'i').hline(16, 23, 24, 'I');
-  p.rect(26, 25, 27, 27, 'D'); // staff door
-  p.hline(1, 30, 28, 'K');
-  pavement(p, 29);
-  p.set(3, 30, 'o').set(4, 30, 'o'); // pallet stack
-  return p.build();
-}
-
-/** Brick factory with sawtooth roof and twin stacks. */
-export function factoryTile(seed: number): string[] {
-  const p = lawnBase(new Px(seed));
-  // smoke drifting from the stacks
-  p.set(23, 1, 'x').set(25, 0, 'x').set(28, 1, 'x').set(30, 0, 'x');
-  // sawtooth roof: three north-light teeth
-  for (const ox of [1, 11, 21]) {
-    p.rect(ox, 6, ox + 9, 8, 'S');
-    p.rect(ox, 9, ox + 9, 11, 'q').speckle(ox, 9, ox + 9, 11, 'Q', 0.2);
-    p.vline(ox, 6, 11, 'K');
+  grassFloor(iso);
+  const wall = COLORS.walls[5] ?? COLORS.white;
+  const v0 = 0.26;
+  const v1 = 0.64;
+  iso.shadow(0.3, v0, 0.74, v1, 0.14, 0.18);
+  iso.box(0.3, v0, 0.74, v1, 0, 20, wall);
+  iso.gable(0.285, v0 - 0.015, 0.755, v1 + 0.015, 20, 12, 'u', COLORS.roofs[3] ?? COLORS.field, wall);
+  iso.windowsLeft(v1, 0.34, 0.56, 6, 14, 2, glass(rng, 0.5), COLORS.white);
+  iso.r.poly([P(0.62, v1, 13), P(0.69, v1, 13), P(0.69, v1, 0), P(0.62, v1, 0)], darken(wall, 0.42));
+  // chimney
+  iso.box(0.4, 0.42, 0.46, 0.48, 30, 40, COLORS.concrete);
+  // vegetable rows
+  for (let v = 0.74; v < 0.95; v += 0.07) {
+    iso.quad(0.45, v, 0.92, v + 0.035, 0, alpha(darken(COLORS.grassDark, 0.15), 0.7));
   }
-  p.hline(1, 30, 5, 'K').hline(1, 30, 12, 'K');
-  // stacks
-  p.rect(23, 2, 24, 12, 'B').set(23, 1, 'K').set(24, 1, 'K');
-  p.rect(27, 3, 28, 12, 'B').set(27, 2, 'K').set(28, 2, 'K');
-  // brick body with high windows
-  p.rect(1, 13, 30, 23, 'b');
-  for (let wx = 3; wx <= 27; wx += 6) p.rect(wx, 15, wx + 3, 17, 'k').hline(wx, wx + 3, 18, 'K');
-  p.rect(13, 19, 18, 23, 'i').hline(13, 18, 19, 'I'); // works door
-  p.hline(1, 30, 24, 'K');
-  pavement(p, 25);
-  p.rect(4, 27, 6, 29, 'O').rect(8, 28, 9, 29, 'o'); // crates in the yard
-  return p.build();
+  iso.ball(0.14, 0.36, 0.1, 22, COLORS.treeGreen);
+  return iso.build();
+}
+
+/** Distribution warehouse with skylights and roller doors. */
+export function warehouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 50221 + 15);
+  pavedFloor(iso);
+  const body = COLORS.steel;
+  iso.shadow(0.06, 0.1, 0.94, 0.7, 0.2, 0.2);
+  iso.box(0.06, 0.1, 0.94, 0.7, 0, 30, body, { topC: lighten(COLORS.white, 0.02) });
+  // roof skylight strips
+  for (let u = 0.14; u < 0.86; u += 0.16) {
+    iso.quad(u, 0.16, u + 0.07, 0.64, 30, alpha(COLORS.glassSky, 0.85));
+  }
+  // roller doors on the street face
+  for (const a of [0.16, 0.42]) {
+    iso.r.poly([P(a, 0.7, 18), P(a + 0.18, 0.7, 18), P(a + 0.18, 0.7, 0), P(a, 0.7, 0)], lighten(body, 0.18));
+    iso.r.poly([P(a, 0.7, 18), P(a + 0.18, 0.7, 18), P(a + 0.18, 0.7, 16), P(a, 0.7, 16)], COLORS.steelDark);
+  }
+  iso.r.poly([P(0.72, 0.7, 12), P(0.79, 0.7, 12), P(0.79, 0.7, 0), P(0.72, 0.7, 0)], COLORS.glassDark);
+  // yard pallets
+  iso.box(0.16, 0.82, 0.24, 0.9, 0, 6, COLORS.orange);
+  if (rng.chance(0.5)) iso.box(0.3, 0.84, 0.36, 0.9, 0, 5, darken(COLORS.orange, 0.2));
+  return iso.build();
+}
+
+/** Brick factory: sawtooth roof and twin stacks. */
+export function factoryTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 60013 + 17);
+  pavedFloor(iso);
+  const wall = COLORS.walls[6] ?? COLORS.orange;
+  iso.shadow(0.08, 0.12, 0.92, 0.68, 0.2, 0.22);
+  iso.box(0.08, 0.12, 0.92, 0.68, 0, 32, wall);
+  // sawtooth roof: three glass-faced teeth along u
+  for (let i = 0; i < 3; i++) {
+    const u0 = 0.08 + i * 0.28;
+    const u1 = u0 + 0.28;
+    iso.r.poly([P(u0, 0.12, 32), P(u1, 0.12, 32), P(u1, 0.4, 46), P(u0, 0.4, 46)], top(wall, 0.3));
+    iso.r.poly([P(u0, 0.4, 46), P(u1, 0.4, 46), P(u1, 0.68, 32), P(u0, 0.68, 32)], alpha(COLORS.glassSky, 0.9));
+  }
+  iso.windowsLeft(0.68, 0.14, 0.6, 16, 26, 3, glass(rng, 0.3), COLORS.white);
+  iso.r.poly([P(0.68, 0.68, 16), P(0.84, 0.68, 16), P(0.84, 0.68, 0), P(0.68, 0.68, 0)], COLORS.steelDark);
+  // twin stacks
+  iso.box(0.76, 0.2, 0.83, 0.27, 32, 78, lighten(wall, 0.06));
+  iso.box(0.62, 0.2, 0.69, 0.27, 32, 70, lighten(wall, 0.06));
+  iso.quad(0.755, 0.195, 0.835, 0.275, 78, COLORS.steelDark);
+  iso.quad(0.615, 0.195, 0.695, 0.275, 70, COLORS.steelDark);
+  return iso.build();
 }
 
 /** Glasshouse ranges — Essex's growing empire. */
-export function greenhouseTile(seed: number): string[] {
-  const p = lawnBase(new Px(seed));
-  for (const oy of [2, 12, 22]) {
-    p.hline(1, 30, oy, 'K');
-    p.rect(1, oy + 1, 30, oy + 2, 'Q'); // lit roof slope
-    p.rect(1, oy + 3, 30, oy + 6, 'q');
-    for (let vx = 1; vx <= 30; vx += 4) p.vline(vx, oy + 1, oy + 6, 'I'); // glazing bars
-    p.speckle(2, oy + 3, 29, oy + 6, 'p', 0.04, 'q');
-    p.speckle(2, oy + 3, 29, oy + 6, 't', 0.1, 'q'); // crops showing through
-    p.hline(1, 30, oy + 7, 'K');
+export function greenhouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 70001 + 19);
+  grassFloor(iso);
+  for (const [v0, v1] of [
+    [0.06, 0.3],
+    [0.38, 0.62],
+    [0.7, 0.94],
+  ] as const) {
+    iso.shadow(0.06, v0, 0.94, v1, 0.08, 0.14);
+    // glass walls
+    const wallGlass = alpha(COLORS.greenhouseGlass, 0.92);
+    iso.box(0.06, v0, 0.94, v1, 0, 12, wallGlass, {
+      leftC: alpha(shaded(COLORS.greenhouseGlass, 0.12), 0.92),
+      rightC: alpha(lit(COLORS.greenhouseGlass, 0.1), 0.95),
+      topC: alpha(COLORS.greenhouseGlass, 0.4),
+    });
+    // glass gable roof catching the light
+    iso.gable(0.06, v0, 0.94, v1, 12, 8, 'u', lighten(COLORS.greenhouseGlass, 0.12), COLORS.white);
+    // white frame ribs
+    for (let u = 0.12; u < 0.92; u += 0.1) {
+      iso.r.poly([P(u, v1, 12), P(u + 0.012, v1, 12), P(u + 0.012, v1, 0), P(u, v1, 0)], alpha(COLORS.white, 0.8));
+    }
+    // crops glowing through
+    iso.quad(0.1, v0 + 0.05, 0.9, v1 - 0.05, 1, alpha(COLORS.treeLime, rng.chance(0.5) ? 0.45 : 0.3));
   }
-  p.hline(0, M, 10, 'd').hline(0, M, 20, 'd'); // sandy work paths
-  return p.build();
+  return iso.build();
 }
 
-/** Built-out solar farm rows (for when the Essex fields say yes). */
-export function solarFarmTile(seed: number): string[] {
-  const p = lawnBase(new Px(seed));
-  for (let oy = 2; oy <= 26; oy += 6) {
-    p.hline(2, 29, oy, 'V');
-    p.rect(2, oy + 1, 29, oy + 2, 'v');
-    p.hline(2, 29, oy + 3, 'K');
+/** Built-out solar farm: tilted panel rows on golden grass. */
+export function solarFarmTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  iso.floor(COLORS.field, COLORS.fieldDark);
+  for (let v = 0.1; v < 0.9; v += 0.2) {
+    iso.shadow(0.08, v, 0.92, v + 0.1, 0.05, 0.12);
+    // tilted panel: back edge raised
+    iso.r.poly(
+      [P(0.08, v, 12), P(0.92, v, 12), P(0.92, v + 0.1, 4), P(0.08, v + 0.1, 4)],
+      COLORS.panel,
+      COLORS.panelGlint,
+    );
+    iso.r.poly([P(0.08, v, 12.5), P(0.92, v, 12.5), P(0.92, v, 11), P(0.08, v, 11)], alpha(COLORS.panelGlint, 0.9));
   }
-  return p.build();
+  void seed;
+  return iso.build();
 }
