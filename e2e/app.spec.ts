@@ -6,13 +6,13 @@ test.describe('app boot & chrome', () => {
     await boot(page);
     await expect(page.getByText('ELECTRI')).toBeVisible();
     await expect(page.getByText('CITY', { exact: true })).toBeVisible();
-    await expect(page.getByText('AVG ANNUAL BILL')).toBeVisible();
+    await expect(page.getByText(/AVG ANNUAL BILL/)).toBeVisible();
     await expect(page.getByText('FIELD FLEET', { exact: true })).toBeVisible();
     await expect(page.getByText('TREE CUTTING', { exact: true })).toBeVisible();
     await expect(page.getByText(/Hz/)).toBeVisible();
     await expect(page.getByText(/\/MWh/)).toBeVisible();
     await expect(page.getByText(/g\/kWh/)).toBeVisible();
-    await expect(page.getByText('drag to pan · scroll to zoom · G for grid view')).toBeVisible();
+    await expect(page.getByText(/drag to pan · scroll to zoom/)).toBeVisible();
   });
 
   test('game clock advances while running', async ({ page }) => {

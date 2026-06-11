@@ -15,15 +15,31 @@ RIIO-style report cards.
 
 - **Start menu** — continue, new game, or the 7-step tutorial. Sign in
   (email + one-time code, no passwords) to sync saves and join the leaderboard.
-- **Build** — generation (gas, solar, wind, nuclear, batteries), substations,
-  overhead lines or pricier-but-storm-proof underground cables, field depots.
-- **Watch** — the market dispatches itself (merit order, PPAs, batteries);
-  the ticker shows frequency, price, carbon and weather. `G` for grid view,
-  `K` for the regulator's KPI dashboard, space to pause.
+- **The city** — a 256×160 London: meandering radials and an orbital
+  motorway with live traffic, skyscraper districts, and the landmarks
+  (parliament + clock tower, the wheel, the dome, the shard, tower bridge,
+  the Olympic bowl, malls, the zoo, the old four-chimney power station).
+- **Build** — generation (CCGT, OCGT peaker, solar, on/offshore wind, tidal,
+  biomass, nuclear, batteries), substations down to pole-mounted transformers
+  and under-building vaults, lines and cables, field depots. Hotkeys: `1–9`
+  generation, `Q W E R T` substations, `Z X C` line voltage, `U` flips
+  overhead/underground, `D` depot, `B` bulldoze. Selecting a tool shades the
+  map green/red by siting suitability; big plant needs planning permission
+  and construction time before first power.
+- **The network looks real** — overhead routes place lattice pylons
+  (400/132 kV) or three-phase wooden poles (33 kV) that snap along the
+  route, conductors sag span to span, chevrons ride each line in the
+  direction of power flow, and turbines actually turn with the wind.
+- **Watch** — the market dispatches itself (merit order, PPAs, batteries,
+  tides); the ticker shows frequency, price, carbon and weather. `G` for
+  grid view, `K` for the regulator's KPI dashboard, space to pause.
 - **React** — faults raise jobs for your orange vans; councils electrify
   (EVs, heat pumps, rooftop PV) and overload networks you thought were done;
   the inbox brings connection applications (firm vs flexible) and innovation
   pitches funded by the levy.
+- **The bill** — network costs are socialized across every home in the
+  licence area (the way DUoS really works), so the headline £/home/yr is
+  meaningful from your very first substation.
 
 ## Development
 

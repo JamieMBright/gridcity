@@ -4,7 +4,7 @@
 // grid view desaturates the city around them.
 
 import { Rng } from '../../sim/rng';
-import { Iso, lit, P, shaded } from './iso';
+import { CELL_W, INK, INK_W, Iso, lit, P, RES, shaded } from './iso';
 import { COLORS } from './palette';
 import { alpha, darken, hex, lighten, type Pt, type RGBA } from './raster';
 
@@ -162,19 +162,28 @@ export function nuclearTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
     rightC: lit(COLORS.white, 0.04),
     topC: COLORS.white,
   });
-  const R = 0.2 * 64; // dome radius in px (cell half-width units)
+  const R = 0.2 * (CELL_W / 2); // dome radius in px
+  const drumPx = drumH * RES;
   const dome = (s: number, c: RGBA): void => {
     const pts: Pt[] = [];
     for (let i = 0; i <= 8; i++) {
       const a = Math.PI * (i / 8);
-      pts.push([cx + Math.cos(a) * R * s, cy - drumH - Math.sin(a) * R * 0.78 * s]);
+      pts.push([cx + Math.cos(a) * R * s, cy - drumPx - Math.sin(a) * R * 0.78 * s]);
     }
     iso.r.poly(pts, c);
   };
   dome(1, shaded(COLORS.white, 0.1));
   dome(0.72, lit(COLORS.white, 0.05));
+  {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 8; i++) {
+      const a = Math.PI * (i / 8);
+      pts.push([cx + Math.cos(a) * R, cy - drumPx - Math.sin(a) * R * 0.78]);
+    }
+    iso.r.polyline(pts, INK_W, INK);
+  }
   // orange beacon
-  iso.r.poly([[cx - 1.5, cy - drumH - R * 0.78 - 4], [cx + 1.5, cy - drumH - R * 0.78 - 4], [cx + 1.5, cy - drumH - R * 0.78], [cx - 1.5, cy - drumH - R * 0.78]], COLORS.orange);
+  iso.r.poly([[cx - 1.5 * RES, cy - drumPx - R * 0.78 - 4 * RES], [cx + 1.5 * RES, cy - drumPx - R * 0.78 - 4 * RES], [cx + 1.5 * RES, cy - drumPx - R * 0.78], [cx - 1.5 * RES, cy - drumPx - R * 0.78]], COLORS.orange);
   return iso.build();
 }
 
@@ -252,14 +261,282 @@ export function batteryTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
-/** Wind turbine(s); offshore versions stand on yellow transition pieces
- *  straight out of the water (transparent floor). */
+/** Steel lattice transmission pylon, drawn as a true line figure: legs,
+ *  zig-zag bracing, taper, three crossarm pairs with insulator drops. */
+function latticePylon(iso: Iso, u: number, v: number, hgt: number, span: number): void {
+  const [cx, cyB] = P(u, v, 0);
+  const h = hgt * RES;
+  const steel: RGBA = COLORS.steelDark;
+  const W = 1.3 * RES;
+  const baseHalf = 11 * RES;
+  const waistHalf = 3.2 * RES;
+  const waistY = cyB - h * 0.72;
+  iso.shadow(u - 0.1, v - 0.04, u + 0.1, v + 0.1, 0.12, 0.14);
+  // legs to the waist
+  iso.r.line([cx - baseHalf, cyB], [cx - waistHalf, waistY], W, steel);
+  iso.r.line([cx + baseHalf, cyB], [cx + waistHalf, waistY], W, steel);
+  // zig-zag bracing
+  let dir = 1;
+  for (let i = 0; i < 5; i++) {
+    const t0 = i / 5;
+    const t1 = (i + 1) / 5;
+    const y0 = cyB - h * 0.72 * t0;
+    const y1 = cyB - h * 0.72 * t1;
+    const half0 = baseHalf + (waistHalf - baseHalf) * t0;
+    const half1 = baseHalf + (waistHalf - baseHalf) * t1;
+    iso.r.line([cx - dir * half0, y0], [cx + dir * half1, y1], W * 0.7, steel);
+    dir = -dir;
+  }
+  // mast above the waist to the peak
+  iso.r.line([cx - waistHalf, waistY], [cx - 1 * RES, cyB - h], W, steel);
+  iso.r.line([cx + waistHalf, waistY], [cx + 1 * RES, cyB - h], W, steel);
+  // crossarms with insulator drops
+  for (const [t, s] of [
+    [0.78, 1],
+    [0.87, 0.78],
+    [0.95, 0.56],
+  ] as const) {
+    const y = cyB - h * t;
+    const arm = span * RES * s;
+    iso.r.line([cx - arm, y], [cx + arm, y], W, steel);
+    for (const sx of [-1, 1]) {
+      iso.r.line([cx + sx * arm * 0.92, y], [cx + sx * arm * 0.92, y + 4 * RES], W * 0.7, COLORS.white);
+    }
+  }
+}
+
+/** Free-standing 400 kV pylon on open ground (transparent floor). */
+export function pylon400Tile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  latticePylon(iso, 0.5, 0.5, 92, 17);
+  return iso.build();
+}
+
+/** Smaller 132 kV pylon. */
+export function pylon132Tile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  latticePylon(iso, 0.5, 0.5, 62, 12);
+  return iso.build();
+}
+
+/** Wooden 33 kV pole with a three-phase crossarm — lower, humbler kit. */
+export function pole33Tile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const wood = hex('#7a5a3c');
+  const [cx, cyB] = P(0.5, 0.5, 0);
+  const h = 34 * RES;
+  iso.shadow(0.44, 0.48, 0.56, 0.58, 0.1, 0.12);
+  iso.r.line([cx, cyB], [cx, cyB - h], 2.4 * RES, wood);
+  // crossarm + three pin insulators
+  iso.r.line([cx - 9 * RES, cyB - h * 0.9], [cx + 9 * RES, cyB - h * 0.9], 1.6 * RES, wood);
+  for (const sx of [-7, 0, 7]) {
+    iso.r.line(
+      [cx + sx * RES, cyB - h * 0.9],
+      [cx + sx * RES, cyB - h * 0.9 - 3.5 * RES],
+      1.4 * RES,
+      COLORS.white,
+    );
+  }
+  return iso.build();
+}
+
+/** Pole-mounted transformer: the pole, the can, and an LV drop. */
+export function subPoleTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const wood = hex('#7a5a3c');
+  const [cx, cyB] = P(0.5, 0.5, 0);
+  const h = 34 * RES;
+  iso.shadow(0.42, 0.48, 0.58, 0.6, 0.1, 0.12);
+  iso.r.line([cx, cyB], [cx, cyB - h], 2.4 * RES, wood);
+  iso.r.line([cx - 9 * RES, cyB - h * 0.92], [cx + 9 * RES, cyB - h * 0.92], 1.6 * RES, wood);
+  for (const sx of [-7, 0, 7]) {
+    iso.r.line(
+      [cx + sx * RES, cyB - h * 0.92],
+      [cx + sx * RES, cyB - h * 0.92 - 3.5 * RES],
+      1.4 * RES,
+      COLORS.white,
+    );
+  }
+  // the grey can, strapped two-thirds up, with an orange hazard plate
+  iso.r.rect(cx + 2 * RES, cyB - h * 0.72, cx + 9 * RES, cyB - h * 0.45, COLORS.steel, COLORS.steelDark);
+  iso.r.polyline(
+    [[cx + 2 * RES, cyB - h * 0.72], [cx + 9 * RES, cyB - h * 0.72], [cx + 9 * RES, cyB - h * 0.45], [cx + 2 * RES, cyB - h * 0.45]],
+    INK_W,
+    INK,
+    true,
+  );
+  iso.r.rect(cx + 4 * RES, cyB - h * 0.62, cx + 7 * RES, cyB - h * 0.55, COLORS.orange);
+  // LV service drop swinging away
+  iso.r.line([cx, cyB - h * 0.45], [cx - 16 * RES, cyB - h * 0.1], 1 * RES, INK);
+  return iso.build();
+}
+
+/** Underground vault substation: the city keeps its building; all you see
+ *  is the hatch, the vent kiosk and the wayleave sign on the pavement. */
+export function subVaultTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  // pavement apron
+  iso.quad(0.2, 0.55, 0.8, 0.95, 0, COLORS.pavement, darken(COLORS.pavement, 0.08));
+  // steel access hatch with tread lines
+  iso.quad(0.28, 0.62, 0.5, 0.8, 0.5, COLORS.steel);
+  for (let t = 0; t < 4; t++) {
+    const u = 0.3 + t * 0.045;
+    iso.r.line(P(u, 0.63, 0.8), P(u + 0.02, 0.79, 0.8), 0.8 * RES, COLORS.steelDark);
+  }
+  iso.r.polyline([P(0.28, 0.62, 0.6), P(0.5, 0.62, 0.6), P(0.5, 0.8, 0.6), P(0.28, 0.8, 0.6)], INK_W, INK, true);
+  // vent kiosk
+  iso.box(0.56, 0.62, 0.72, 0.78, 0, 9, hex('#4f7a52'));
+  for (let z = 2; z < 8; z += 2.2) {
+    iso.r.line(P(0.57, 0.78, z), P(0.71, 0.78, z), 0.7 * RES, shaded(hex('#4f7a52'), 0.3));
+  }
+  // orange DNO marker post
+  iso.box(0.24, 0.86, 0.27, 0.89, 0, 8, COLORS.orange);
+  return iso.build();
+}
+
+/** Gas peaker (OCGT): one container hall, one slim stack, ready to sprint. */
+export function gasPeakerTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  padFloor(iso);
+  fence(iso, 0.12, 10);
+  iso.shadow(0.2, 0.3, 0.7, 0.62, 0.14, 0.18);
+  iso.box(0.2, 0.3, 0.7, 0.62, 0, 22, NAVY);
+  iso.r.poly(
+    [P(0.7 + 0.001, 0.36, 16), P(0.7 + 0.001, 0.56, 16), P(0.7 + 0.001, 0.56, 0), P(0.7 + 0.001, 0.36, 0)],
+    COLORS.orange,
+  );
+  // intake filter house + slim exhaust stack
+  iso.box(0.3, 0.64, 0.5, 0.74, 0, 14, COLORS.steel);
+  iso.box(0.76, 0.4, 0.82, 0.46, 0, 58, lighten(NAVY, 0.12));
+  iso.quad(0.755, 0.395, 0.825, 0.465, 58, COLORS.steelDark);
+  return iso.build();
+}
+
+/** Tidal stream array: yellow masts and nacelles working the current. */
+export function tidalTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const buoy = hex('#e8c33f');
+  iso.floor(COLORS.water, COLORS.waterDeep);
+  for (const [u, v, s] of [
+    [0.32, 0.4, 1],
+    [0.68, 0.66, 0.85],
+  ] as const) {
+    // wake streaks around the mast
+    iso.quad(u - 0.16, v + 0.05, u + 0.2, v + 0.09, 0, alpha(COLORS.waterGlint, 0.5));
+    iso.box(u - 0.025 * s, v - 0.025 * s, u + 0.025 * s, v + 0.025 * s, -4, 16 * s, buoy);
+    // nacelle riding above the surface with twin rotor hint
+    iso.box(u - 0.05 * s, v - 0.02, u + 0.05 * s, v + 0.02, 16 * s, 22 * s, COLORS.white);
+    const [hx, hy] = P(u, v, 19 * s);
+    for (const sx of [-1, 1]) {
+      iso.r.line([hx + sx * 7 * RES, hy], [hx + sx * 13 * RES, hy], 1.4 * RES, COLORS.white);
+    }
+  }
+  return iso.build();
+}
+
+/** Biomass CHP: twin silver silos, a fuel shed and a stack. */
+export function biomassTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  padFloor(iso);
+  fence(iso, 0.1, 10);
+  // fuel shed with an open face
+  iso.shadow(0.14, 0.5, 0.6, 0.84, 0.12, 0.16);
+  iso.box(0.14, 0.5, 0.6, 0.84, 0, 18, hex('#5d7a45'));
+  iso.gable(0.14, 0.5, 0.6, 0.84, 18, 8, 'u', darken(hex('#5d7a45'), 0.2), hex('#5d7a45'));
+  // twin silos
+  for (const [u, v] of [
+    [0.62, 0.28],
+    [0.78, 0.36],
+  ] as const) {
+    iso.shadow(u - 0.06, v, u + 0.06, v + 0.1, 0.1, 0.14);
+    iso.box(u - 0.06, v - 0.06, u + 0.06, v + 0.06, 0, 34, COLORS.steel);
+    iso.hip(u - 0.07, v - 0.07, u + 0.07, v + 0.07, 34, 8, COLORS.steelDark);
+  }
+  // stack
+  iso.box(0.3, 0.24, 0.36, 0.3, 0, 48, COLORS.concrete);
+  iso.quad(0.295, 0.235, 0.365, 0.305, 48, COLORS.steelDark);
+  return iso.build();
+}
+
+/** Construction site: the tower crane and scaffold that stand in for any
+ *  plant while its planning + build clock runs. */
+export function constructionTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  iso.floor(lighten(COLORS.sand, 0.04), COLORS.sand);
+  // hoarding line + barriers
+  for (const [a, b, c2, d] of [
+    [0.06, 0.06, 0.94, 0.1],
+    [0.06, 0.9, 0.94, 0.94],
+  ] as const) {
+    iso.box(a, b, c2, d, 0, 5, COLORS.orange, { ink: false });
+  }
+  // scaffolded half-built block
+  iso.box(0.5, 0.34, 0.84, 0.66, 0, 20, COLORS.concrete);
+  for (const z of [7, 14]) {
+    iso.r.line(P(0.5, 0.66, z), P(0.84, 0.66, z), 0.9 * RES, INK);
+    iso.r.line(P(0.84, 0.66, z), P(0.84, 0.34, z), 0.9 * RES, INK);
+  }
+  // tower crane: mast, jib, counter-jib, hook
+  const [mx, myB] = P(0.3, 0.42, 0);
+  const mh = 64 * RES;
+  iso.r.line([mx, myB], [mx, myB - mh], 1.8 * RES, COLORS.orange);
+  for (let i = 0; i < 6; i++) {
+    const y0 = myB - (mh / 6) * i;
+    iso.r.line([mx - 1.6 * RES, y0], [mx + 1.6 * RES, y0 - mh / 6], 0.8 * RES, darken(COLORS.orange, 0.25));
+  }
+  const jy = myB - mh;
+  iso.r.line([mx - 14 * RES, jy + 3 * RES], [mx + 34 * RES, jy], 1.4 * RES, COLORS.orange);
+  iso.r.line([mx, jy - 7 * RES], [mx + 34 * RES, jy], 0.8 * RES, INK); // tie
+  iso.r.line([mx, jy - 7 * RES], [mx - 14 * RES, jy + 3 * RES], 0.8 * RES, INK);
+  iso.r.rect(mx - 16 * RES, jy + 2 * RES, mx - 11 * RES, jy + 6 * RES, COLORS.concrete); // counterweight
+  iso.r.line([mx + 26 * RES, jy], [mx + 26 * RES, jy + 26 * RES], 0.8 * RES, INK); // hoist
+  iso.r.rect(mx + 24.6 * RES, jy + 26 * RES, mx + 27.4 * RES, jy + 29 * RES, COLORS.steelDark);
+  return iso.build();
+}
+
+/** Turbine geometry per tile: tile-local hub positions so the renderer can
+ *  spin live rotors exactly on the baked towers. */
+export interface WindHubSpec {
+  u: number;
+  v: number;
+  hub: number;
+  /** Blade length in original (RES=1) pixels. */
+  bladePx: number;
+}
+export const WIND_HUBS: Record<'onshore' | 'offshore', WindHubSpec[]> = {
+  onshore: [
+    { u: 0.34, v: 0.4, hub: 88, bladePx: 34 },
+    { u: 0.72, v: 0.68, hub: 76, bladePx: 29 },
+  ],
+  offshore: [
+    { u: 0.3, v: 0.42, hub: 96, bladePx: 39 },
+    { u: 0.68, v: 0.7, hub: 88, bladePx: 36 },
+  ],
+};
+
+/** Hub centre offset within the cell, device px at sprite resolution. */
+export function windHubOffset(spec: WindHubSpec): Pt {
+  return P(spec.u + 0.012, spec.v - 0.012, spec.hub + 3);
+}
+
+/** Wind turbine towers; offshore versions stand on yellow transition
+ *  pieces straight out of the water (transparent floor). The rotors are
+ *  not baked — the renderer draws them live so they actually turn. */
 export function windTurbineTile(seed: number, offshore: boolean): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
-  const rng = new Rng(seed * 53077 + 3);
+  void seed;
   if (!offshore) iso.floor(lighten(COLORS.grass, 0.06), COLORS.grassDark);
 
-  const turbine = (u: number, v: number, hub: number, scale: number): void => {
+  const turbine = ({ u, v, hub }: WindHubSpec): void => {
     if (offshore) {
       iso.box(u - 0.03, v - 0.03, u + 0.03, v + 0.03, -6, 14, hex('#e8c33f'));
     } else {
@@ -270,30 +547,8 @@ export function windTurbineTile(seed: number, offshore: boolean): Uint8ClampedAr
     iso.box(u - 0.015, v - 0.015, u + 0.015, v + 0.015, hub * 0.55, hub, COLORS.white);
     // nacelle
     iso.box(u - 0.03, v - 0.02, u + 0.035, v + 0.02, hub, hub + 6, lit(COLORS.white, 0.02));
-    // rotor: three blades in screen space around the hub
-    const [hx, hy] = P(u + 0.012, v - 0.012, hub + 3);
-    const phase = rng.range(0, Math.PI * 2);
-    for (let i = 0; i < 3; i++) {
-      const a = phase + (i * 2 * Math.PI) / 3;
-      const len = 34 * scale;
-      const tipX = hx + Math.cos(a) * len;
-      const tipY = hy + Math.sin(a) * len * 0.92;
-      const px = Math.cos(a + Math.PI / 2) * 2.6;
-      const py = Math.sin(a + Math.PI / 2) * 2.6;
-      iso.r.poly(
-        [[hx + px, hy + py], [hx - px, hy - py], [tipX, tipY]],
-        i === 0 ? lit(COLORS.white, 0.05) : alpha(COLORS.white, 0.96),
-      );
-    }
-    iso.r.poly([[hx - 2, hy - 2], [hx + 2, hy - 2], [hx + 2, hy + 2], [hx - 2, hy + 2]], COLORS.orange);
   };
 
-  if (offshore) {
-    turbine(0.3, 0.42, 96, 1.15);
-    turbine(0.68, 0.7, 88, 1.05);
-  } else {
-    turbine(0.34, 0.4, 88, 1);
-    turbine(0.72, 0.68, 76, 0.85);
-  }
+  for (const spec of WIND_HUBS[offshore ? 'offshore' : 'onshore']) turbine(spec);
   return iso.build();
 }

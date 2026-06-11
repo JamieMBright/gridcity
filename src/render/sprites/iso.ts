@@ -11,9 +11,13 @@
 
 import { alpha, darken, hex, lighten, mix, Raster, type Pt, type RGBA } from './raster';
 
-export const CELL_W = 128;
-export const CELL_H = 224;
-export const FLOOR_H = 64;
+/** Resolution multiplier over the original 128px cell — sprites render at
+ *  2x so close zoom stays sharp instead of going soft and pixely. Heights
+ *  (z) in sprite code stay in original-pixel units; P() scales them. */
+export const RES = 2;
+export const CELL_W = 128 * RES;
+export const CELL_H = 224 * RES;
+export const FLOOR_H = 64 * RES;
 /** Screen-y of the floor diamond's centre within a cell. */
 export const FLOOR_CY = CELL_H - FLOOR_H / 2;
 export const FLOOR_CX = CELL_W / 2;
@@ -21,10 +25,14 @@ export const FLOOR_CX = CELL_W / 2;
 export const SUN_WARM = hex('#ffb066');
 export const DUSK_COOL = hex('#3a2b50');
 export const SHADOW = hex('#2e2240');
+/** The drawing ink: every form gets a crisp dark contour line. */
+export const INK = alpha(hex('#241c38'), 0.85);
+/** Contour width in device pixels at full sprite resolution. */
+export const INK_W = 1.1 * RES;
 
 /** Project tile-local (u,v,z) to cell pixel coordinates. */
 export function P(u: number, v: number, z = 0): Pt {
-  return [FLOOR_CX + (u - v) * (CELL_W / 2), FLOOR_CY + (u + v - 1) * (FLOOR_H / 2) - z];
+  return [FLOOR_CX + (u - v) * (CELL_W / 2), FLOOR_CY + (u + v - 1) * (FLOOR_H / 2) - z * RES];
 }
 
 /** Warm-lit version of a colour (sun side). */
@@ -67,7 +75,13 @@ export class Iso {
     );
   }
 
-  /** Extruded box from z0 up to z1: left+right walls and top. */
+  /** Ink contour along a segment (the sharp-line drawing style). */
+  edge(a: Pt, b: Pt, w = INK_W, c: RGBA = INK): void {
+    this.r.line(a, b, w, c);
+  }
+
+  /** Extruded box from z0 up to z1: left+right walls and top, finished
+   *  with ink contours on the silhouette and the facing corner. */
   box(
     u0: number,
     v0: number,
@@ -76,7 +90,7 @@ export class Iso {
     z0: number,
     z1: number,
     c: RGBA,
-    opts: { topC?: RGBA; leftC?: RGBA; rightC?: RGBA } = {},
+    opts: { topC?: RGBA; leftC?: RGBA; rightC?: RGBA; ink?: boolean } = {},
   ): void {
     const leftC = opts.leftC ?? shaded(c);
     const rightC = opts.rightC ?? lit(c);
@@ -87,6 +101,17 @@ export class Iso {
     this.r.poly([P(u1, v0, z1), P(u1, v1, z1), P(u1, v1, z0), P(u1, v0, z0)], rightC);
     // top
     this.quad(u0, v0, u1, v1, z1, topC);
+    if (opts.ink !== false && z1 - z0 > 2) {
+      // verticals: silhouette corners + the near corner between the walls
+      this.edge(P(u0, v1, z1), P(u0, v1, z0));
+      this.edge(P(u1, v1, z1), P(u1, v1, z0));
+      this.edge(P(u1, v0, z1), P(u1, v0, z0));
+      // top rim
+      this.r.polyline([P(u0, v0, z1), P(u1, v0, z1), P(u1, v1, z1), P(u0, v1, z1)], INK_W, INK, true);
+      // base line along the visible walls
+      this.edge(P(u0, v1, z0), P(u1, v1, z0));
+      this.edge(P(u1, v1, z0), P(u1, v0, z0));
+    }
   }
 
   /** Gable roof over a footprint; ridge runs along the u axis (axis='u')
@@ -110,12 +135,19 @@ export class Iso {
       this.r.poly([P(u0, vm, z0 + rise), P(u1, vm, z0 + rise), P(u1, v1, z0), P(u0, v1, z0)], lit(c, 0.06));
       // gable end (right): triangle on the u1 face
       this.r.poly([P(u1, v0, z0), P(u1, vm, z0 + rise), P(u1, v1, z0)], lit(wallC));
+      // ink: ridge, eaves and the gable rake
+      this.edge(P(u0, vm, z0 + rise), P(u1, vm, z0 + rise));
+      this.edge(P(u0, v1, z0), P(u1, v1, z0));
+      this.r.polyline([P(u1, v0, z0), P(u1, vm, z0 + rise), P(u1, v1, z0)], INK_W, INK);
     } else {
       const um = (u0 + u1) / 2;
       this.r.poly([P(u0, v0, z0), P(um, v0, z0 + rise), P(um, v1, z0 + rise), P(u0, v1, z0)], top(c, 0.34));
       this.r.poly([P(um, v0, z0 + rise), P(u1, v0, z0), P(u1, v1, z0), P(um, v1, z0 + rise)], lit(c, 0.06));
       // gable end (left): triangle on the v1 face
       this.r.poly([P(u0, v1, z0), P(um, v1, z0 + rise), P(u1, v1, z0)], shaded(wallC, 0.18));
+      this.edge(P(um, v0, z0 + rise), P(um, v1, z0 + rise));
+      this.edge(P(u0, v1, z0), P(u1, v1, z0));
+      this.r.polyline([P(u0, v1, z0), P(um, v1, z0 + rise), P(u1, v1, z0)], INK_W, INK);
     }
   }
 
@@ -126,6 +158,11 @@ export class Iso {
     const apex = P(um, vm, z0 + rise);
     this.r.poly([P(u0, v1, z0), P(u1, v1, z0), apex], shaded(c, 0.12)); // left face
     this.r.poly([P(u1, v0, z0), P(u1, v1, z0), apex], lit(c, 0.1)); // right face
+    this.edge(P(u0, v1, z0), apex);
+    this.edge(P(u1, v1, z0), apex);
+    this.edge(P(u1, v0, z0), apex);
+    this.edge(P(u0, v1, z0), P(u1, v1, z0));
+    this.edge(P(u1, v1, z0), P(u1, v0, z0));
   }
 
   /** Vertical window strip on the LEFT wall (v=v1 edge) between u positions. */
@@ -189,6 +226,7 @@ export class Iso {
     const Rgt = P(u + rad, v - rad, z0 + hgt * 0.12);
     this.r.poly([apex, L, Btm], shaded(c, 0.18));
     this.r.poly([apex, Btm, Rgt], lit(c, 0.08));
+    this.r.polyline([L, apex, Rgt], INK_W * 0.8, alpha(INK, 0.6));
   }
 
   /** Low-poly broadleaf: faceted ball (three shades) + trunk. */
@@ -198,7 +236,7 @@ export class Iso {
     this.box(u - 0.018, v - 0.018, u + 0.018, v + 0.018, z0, z0 + hgt * 0.3, trunk);
     const zc = z0 + hgt * 0.62;
     const R = rad * (CELL_W / 2);
-    const ZR = hgt * 0.42;
+    const ZR = hgt * 0.42 * RES;
     const [cx, cy] = P(u, v, zc);
     const hexPts = (s: number): Pt[] => {
       const pts: Pt[] = [];
@@ -209,6 +247,7 @@ export class Iso {
       return pts;
     };
     this.r.poly(hexPts(1), shaded(c, 0.16));
+    this.r.polyline(hexPts(1), INK_W * 0.8, alpha(INK, 0.55), true);
     // lit facet: offset smaller hexagon toward upper-right
     const litPts = hexPts(0.62).map(([x, y]): Pt => [x + R * 0.18, y - ZR * 0.22]);
     this.r.poly(litPts, lit(c, 0.1));

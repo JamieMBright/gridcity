@@ -4,7 +4,7 @@
 // E shares u=1, S shares v=1, W shares u=0.
 
 import { Rng } from '../../sim/rng';
-import { Iso, lit, P, shaded, top } from './iso';
+import { INK, INK_W, Iso, lit, P, RES, shaded, top } from './iso';
 import { COLORS } from './palette';
 import { alpha, darken, lighten } from './raster';
 
@@ -91,6 +91,24 @@ export function roadTile(seed: number, mask: number): Uint8ClampedArray<ArrayBuf
   if (w) iso.quad(0, a, 0.5, b, 0, R, Rd);
   if (e) iso.quad(0.5, a, 1, b, 0, R, Rd);
   iso.quad(a, a, b, b, 0, R, Rd);
+  // crisp kerb lines along each arm
+  const kerb = alpha(INK, 0.4);
+  if (n) {
+    iso.r.line(P(a, 0, 0), P(a, a, 0), INK_W * 0.7, kerb);
+    iso.r.line(P(b, 0, 0), P(b, a, 0), INK_W * 0.7, kerb);
+  }
+  if (s) {
+    iso.r.line(P(a, b, 0), P(a, 1, 0), INK_W * 0.7, kerb);
+    iso.r.line(P(b, b, 0), P(b, 1, 0), INK_W * 0.7, kerb);
+  }
+  if (w) {
+    iso.r.line(P(0, a, 0), P(a, a, 0), INK_W * 0.7, kerb);
+    iso.r.line(P(0, b, 0), P(a, b, 0), INK_W * 0.7, kerb);
+  }
+  if (e) {
+    iso.r.line(P(b, a, 0), P(1, a, 0), INK_W * 0.7, kerb);
+    iso.r.line(P(b, b, 0), P(1, b, 0), INK_W * 0.7, kerb);
+  }
   const connections = (n ? 1 : 0) + (e ? 1 : 0) + (s ? 1 : 0) + (w ? 1 : 0);
   if (connections >= 3) {
     // crosswalk stripes on each arm
@@ -121,6 +139,59 @@ export function roadTile(seed: number, mask: number): Uint8ClampedArray<ArrayBuf
     }
   }
   void seed;
+  return iso.build();
+}
+
+/** Road deck over water: stone piers, parapets, the road riding above the
+ *  river. Arms follow the same NESW mask as plain roads. */
+export function bridgeTile(seed: number, mask: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  iso.floor(COLORS.water, COLORS.waterDeep);
+  const n = (mask & 1) !== 0;
+  const e = (mask & 2) !== 0;
+  const s = (mask & 4) !== 0;
+  const w = (mask & 8) !== 0;
+  const a = 0.32;
+  const b = 0.68;
+  const z = 5;
+  const deck = COLORS.road;
+  const deckD = COLORS.roadDark;
+  const stone = COLORS.concrete;
+  // piers down into the water
+  for (const [u, v] of [
+    [0.42, 0.42],
+    [0.62, 0.62],
+  ] as const) {
+    iso.box(u - 0.04, v - 0.04, u + 0.04, v + 0.04, -3, z - 1, stone, { ink: false });
+  }
+  // deck arms + centre, lifted above the river
+  if (n) iso.quad(a, 0, b, 0.5, z, deck, deckD);
+  if (s) iso.quad(a, 0.5, b, 1, z, deck, deckD);
+  if (w) iso.quad(0, a, 0.5, b, z, deck, deckD);
+  if (e) iso.quad(0.5, a, 1, b, z, deck, deckD);
+  iso.quad(a, a, b, b, z, deck, deckD);
+  // parapets along the deck edges (the long sides of each arm)
+  const par = lighten(stone, 0.08);
+  const rail = (p0: ReturnType<typeof P>, p1: ReturnType<typeof P>): void => {
+    iso.r.line(p0, p1, 1.6 * RES, par);
+    iso.r.line([p0[0], p0[1] - 1.2 * RES], [p1[0], p1[1] - 1.2 * RES], 0.8 * RES, INK);
+  };
+  if (n || s) {
+    rail(P(a, n ? 0 : a, z + 2), P(a, s ? 1 : b, z + 2));
+    rail(P(b, n ? 0 : a, z + 2), P(b, s ? 1 : b, z + 2));
+  }
+  if (e || w) {
+    rail(P(w ? 0 : a, a, z + 2), P(e ? 1 : b, a, z + 2));
+    rail(P(w ? 0 : a, b, z + 2), P(e ? 1 : b, b, z + 2));
+  }
+  // centre dashes
+  const dash = alpha(COLORS.marking, 0.7);
+  if (n && s && !e && !w) {
+    for (let t = 0.08; t < 0.92; t += 0.25) iso.quad(0.485, t, 0.515, t + 0.12, z, dash);
+  } else if (e && w && !n && !s) {
+    for (let t = 0.08; t < 0.92; t += 0.25) iso.quad(t, 0.485, t + 0.12, 0.515, z, dash);
+  }
   return iso.build();
 }
 

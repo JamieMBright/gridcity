@@ -21,10 +21,10 @@ export function BillPanel() {
       }}
     >
       <div style={{ color: theme.slate, fontSize: 10, letterSpacing: '0.12em' }}>
-        AVG ANNUAL BILL
+        AVG ANNUAL BILL · ALL {b.totalCustomers.toLocaleString()} HOMES
       </div>
       <div style={{ fontSize: 26, fontWeight: 800, color: theme.gold }}>
-        {b.servedCustomers > 0 ? `£${b.perCustomerYr.toFixed(0)}` : '—'}
+        £{b.perCustomerYr.toFixed(2)}
         <span style={{ fontSize: 12, fontWeight: 400, color: theme.slate }}> /home/yr</span>
       </div>
       <div style={{ fontSize: 11, marginTop: 6 }}>

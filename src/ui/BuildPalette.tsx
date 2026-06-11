@@ -1,3 +1,4 @@
+import { hotkeyLabel } from '../app/hotkeys';
 import { useAppStore, type Tool } from '../app/store';
 import {
   DEPOT,
@@ -23,12 +24,14 @@ function ToolButton({ tool, label, cost }: { tool: Tool; label: string; cost?: s
   const current = useAppStore((s) => s.tool);
   const setTool = useAppStore((s) => s.setTool);
   const active = sameTool(current, tool);
+  const key = hotkeyLabel(tool);
   return (
     <button
       onClick={() => setTool(active ? { t: 'inspect' } : tool)}
       style={{
         display: 'flex',
         justifyContent: 'space-between',
+        alignItems: 'center',
         gap: 8,
         width: '100%',
         padding: '5px 9px',
@@ -43,8 +46,28 @@ function ToolButton({ tool, label, cost }: { tool: Tool; label: string; cost?: s
         textAlign: 'left',
       }}
     >
-      <span>{label}</span>
-      {cost && <span style={{ color: active ? theme.navy : theme.slate }}>{cost}</span>}
+      <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+        {key && (
+          <span
+            style={{
+              flex: 'none',
+              width: 14,
+              textAlign: 'center',
+              fontSize: 9,
+              lineHeight: '13px',
+              borderRadius: 3,
+              border: `1px solid ${active ? theme.navy : theme.navyLight}`,
+              color: active ? theme.navy : theme.slate,
+            }}
+          >
+            {key}
+          </span>
+        )}
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {label}
+        </span>
+      </span>
+      {cost && <span style={{ flex: 'none', color: active ? theme.navy : theme.slate }}>{cost}</span>}
     </button>
   );
 }
@@ -70,13 +93,16 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 const GEN_ORDER: GenType[] = [
   'gasCCGT',
+  'gasPeaker',
   'solarFarm',
   'windOnshore',
   'windOffshore',
+  'tidal',
+  'biomass',
   'nuclear',
   'battery',
 ];
-const SUB_ORDER: SubType[] = ['bulk', 'grid', 'dist'];
+const SUB_ORDER: SubType[] = ['bulk', 'grid', 'dist', 'pole', 'vault'];
 const LEVELS: VoltageLevel[] = [400, 132, 33];
 
 export function BuildPalette() {

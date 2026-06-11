@@ -417,6 +417,15 @@ export function buildLondonMap(): CityMap {
     const i = idx(x, y);
     landmark[i] = id;
     if (!keepRoad) road[i] = 0;
+    // breathing room: no tower blocks crowding right up against an icon
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        if (!inb(x + dx, y + dy)) continue;
+        const j = idx(x + dx, y + dy);
+        if (zone[j] === ZONE.urbanCore || zone[j] === ZONE.cbd) zone[j] = ZONE.urban;
+      }
+    }
   };
   const riverY = (x: number): number => Math.round(riverCenterY(x));
   const hwAt = (x: number): number => riverHalfWidth(x);
