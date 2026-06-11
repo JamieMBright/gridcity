@@ -3,9 +3,11 @@
 // snapshots and sends player commands.
 
 import type { PlacedAsset } from './assets';
+import type { VegPolicy } from './catalog';
 import type { Command } from './commands';
 import type { BillBreakdown } from './regulation/bill';
-import type { SaveData } from './state';
+import type { KpiRates } from './regulation/kpis';
+import type { GameEvent, SaveData } from './state';
 import type { BranchView } from './tick';
 
 export type SimSpeed = 0 | 1 | 4 | 16;
@@ -48,6 +50,16 @@ export interface SimSnapshot {
   };
   weather: { sun: number; wind: number; cloud: number };
   bill: BillBreakdown;
+  fleet: {
+    vans: Array<{ id: number; x: number; y: number; busy: boolean }>;
+    fleetSize: number;
+    vegPolicy: VegPolicy;
+    /** Open repair jobs: site + whether a crew is on the way. */
+    jobs: Array<{ x: number; y: number; label: string; staffed: boolean }>;
+  };
+  kpis: KpiRates & { worstVegPct: number };
+  /** Recent event log (ring buffer; dedupe by seq). */
+  events: GameEvent[];
 }
 
 export type MainToWorker =

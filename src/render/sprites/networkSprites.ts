@@ -178,6 +178,58 @@ export function nuclearTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
+/** A little orange crew van (shared by the depot and the moving fleet). */
+function van(iso: Iso, u: number, v: number, heading: 'u' | 'v' = 'u'): void {
+  const lw = heading === 'u' ? 0.16 : 0.09;
+  const lh = heading === 'u' ? 0.09 : 0.16;
+  iso.shadow(u, v, u + lw, v + lh, 0.04, 0.18);
+  // body
+  iso.box(u, v, u + lw, v + lh, 0, 9, COLORS.orange);
+  // cab + windshield
+  if (heading === 'u') {
+    iso.box(u + lw * 0.72, v, u + lw, v + lh, 0, 7, COLORS.orange);
+    iso.r.poly(
+      [P(u + lw, v + 0.01, 6.5), P(u + lw, v + lh - 0.01, 6.5), P(u + lw, v + lh - 0.01, 2.5), P(u + lw, v + 0.01, 2.5)],
+      COLORS.glassDark,
+    );
+  } else {
+    iso.r.poly(
+      [P(u + 0.01, v + lh, 6.5), P(u + lw - 0.01, v + lh, 6.5), P(u + lw - 0.01, v + lh, 2.5), P(u + 0.01, v + lh, 2.5)],
+      COLORS.glassDark,
+    );
+  }
+  // white roof stripe
+  iso.quad(u + 0.01, v + 0.01, u + lw - 0.01, v + lh - 0.01, 9.2, COLORS.white);
+}
+
+/** Moving fleet sprite: just a van on a transparent cell. */
+export function vanTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  van(iso, 0.42, 0.45);
+  return iso.build();
+}
+
+/** Field operations depot: navy shed, orange roller door, vans on the yard. */
+export function depotTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  padFloor(iso);
+  iso.shadow(0.1, 0.1, 0.66, 0.62, 0.18, 0.22);
+  iso.box(0.1, 0.1, 0.66, 0.62, 0, 26, NAVY);
+  iso.gable(0.1, 0.1, 0.66, 0.62, 26, 9, 'u', NAVY_DEEP, NAVY);
+  // orange roller door on the right face
+  iso.r.poly(
+    [P(0.66 + 0.001, 0.2, 18), P(0.66 + 0.001, 0.52, 18), P(0.66 + 0.001, 0.52, 0), P(0.66 + 0.001, 0.2, 0)],
+    COLORS.orange,
+  );
+  // white sign band
+  iso.r.poly([P(0.12, 0.62, 22), P(0.64, 0.62, 22), P(0.64, 0.62, 18), P(0.12, 0.62, 18)], COLORS.white);
+  van(iso, 0.74, 0.3, 'v');
+  van(iso, 0.34, 0.74, 'u');
+  return iso.build();
+}
+
 /** Grid battery: container rows with orange end doors + inverter kiosk. */
 export function batteryTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();

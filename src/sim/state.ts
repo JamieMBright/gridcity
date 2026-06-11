@@ -1,12 +1,24 @@
 // Authoritative game state (lives in the worker) and its serialization.
 
 import type { PlacedAsset } from './assets';
-import { GENS, SUBS, type GenType, type SubType } from './catalog';
+import { GENS, SUBS, type GenType, type SubType, type VegPolicy } from './catalog';
 import type { CityMap } from './map/types';
 import { buildDemandField, type DemandField } from './map/demand';
 import { newWeather, type WeatherState } from './events/weather';
+import type { RepairJob, Van } from './fleet/fleet';
+import type { ReliabilityTotals } from './regulation/kpis';
 import { getLondonMap } from '../data/londonMap';
 import type { SimSpeed } from './protocol';
+
+export interface GameEvent {
+  seq: number;
+  /** Game time of the event, minutes. */
+  tMin: number;
+  sev: 'info' | 'warn' | 'bad';
+  msg: string;
+  x?: number | undefined;
+  y?: number | undefined;
+}
 
 export interface GameState {
   tick: number;
@@ -30,6 +42,22 @@ export interface GameState {
   carbonEMA: number;
   /** lifetime curtailed renewable energy, MWh. */
   curtailedMWh: number;
+  /** Paid-for crewed vans. */
+  fleetSize: number;
+  /** Vegetation management programme (index into VEG_POLICY). */
+  vegPolicy: VegPolicy;
+  /** line asset id → overgrowth 0..1. */
+  lineVeg: Map<number, number>;
+  vans: Van[];
+  /** branch id → open repair job. */
+  jobs: Map<number, RepairJob>;
+  reliability: ReliabilityTotals;
+  /** Tiles currently dark (for CI transition detection). */
+  offTiles: Set<number>;
+  events: GameEvent[];
+  eventSeq: number;
+  /** True while the current storm has already been announced. */
+  stormAnnounced: boolean;
 }
 
 export interface SimContext {
@@ -53,7 +81,28 @@ export function newGame(): GameState {
     outages: new Map(),
     carbonEMA: 0,
     curtailedMWh: 0,
+    fleetSize: 2,
+    vegPolicy: 0,
+    lineVeg: new Map(),
+    vans: [],
+    jobs: new Map(),
+    reliability: { ciCustomers: 0, cmlCustomerMin: 0 },
+    offTiles: new Set(),
+    events: [],
+    eventSeq: 0,
+    stormAnnounced: false,
   };
+}
+
+export function pushEvent(
+  s: GameState,
+  sev: GameEvent['sev'],
+  msg: string,
+  x?: number,
+  y?: number,
+): void {
+  s.events.push({ seq: ++s.eventSeq, tMin: s.simTimeMin, sev, msg, x, y });
+  if (s.events.length > 40) s.events.splice(0, s.events.length - 40);
 }
 
 export function newContext(): SimContext {
@@ -64,7 +113,7 @@ export function newContext(): SimContext {
 // --- save / load -----------------------------------------------------------
 
 export interface SaveData {
-  v: 1 | 2;
+  v: 1 | 2 | 3;
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;
@@ -78,11 +127,20 @@ export interface SaveData {
   outages?: Array<[number, number]>;
   carbonEMA?: number;
   curtailedMWh?: number;
+  fleetSize?: number;
+  vegPolicy?: VegPolicy;
+  lineVeg?: Array<[number, number]>;
+  vans?: Van[];
+  jobs?: Array<[number, RepairJob]>;
+  reliability?: ReliabilityTotals;
+  offTiles?: number[];
+  events?: GameEvent[];
+  eventSeq?: number;
 }
 
 export function serialize(s: GameState): SaveData {
   return {
-    v: 2,
+    v: 3,
     tick: s.tick,
     simTimeMin: s.simTimeMin,
     speed: s.speed,
@@ -96,6 +154,15 @@ export function serialize(s: GameState): SaveData {
     outages: [...s.outages.entries()],
     carbonEMA: s.carbonEMA,
     curtailedMWh: s.curtailedMWh,
+    fleetSize: s.fleetSize,
+    vegPolicy: s.vegPolicy,
+    lineVeg: [...s.lineVeg.entries()],
+    vans: s.vans.map((v) => ({ ...v })),
+    jobs: [...s.jobs.entries()].map(([k, j]) => [k, { ...j }]),
+    reliability: { ...s.reliability },
+    offTiles: [...s.offTiles],
+    events: s.events.map((e) => ({ ...e })),
+    eventSeq: s.eventSeq,
   };
 }
 
@@ -117,6 +184,16 @@ export function deserialize(d: SaveData): GameState {
     outages: new Map(d.outages ?? []),
     carbonEMA: d.carbonEMA ?? 0,
     curtailedMWh: d.curtailedMWh ?? 0,
+    fleetSize: d.fleetSize ?? 2,
+    vegPolicy: d.vegPolicy ?? 0,
+    lineVeg: new Map(d.lineVeg ?? []),
+    vans: (d.vans ?? []).map((v) => ({ ...v })),
+    jobs: new Map((d.jobs ?? []).map(([k, j]) => [k, { ...j }])),
+    reliability: d.reliability ? { ...d.reliability } : { ciCustomers: 0, cmlCustomerMin: 0 },
+    offTiles: new Set(d.offTiles ?? []),
+    events: (d.events ?? []).map((e) => ({ ...e })),
+    eventSeq: d.eventSeq ?? 0,
+    stormAnnounced: false,
   };
 }
 

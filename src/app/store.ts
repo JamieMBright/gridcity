@@ -10,6 +10,7 @@ export type Tool =
   | { t: 'inspect' }
   | { t: 'gen'; gen: GenType }
   | { t: 'sub'; sub: SubType }
+  | { t: 'depot' }
   | { t: 'line'; level: VoltageLevel; build: LineBuild; fromAssetId?: number | undefined }
   | { t: 'demolish' };
 
@@ -32,6 +33,8 @@ interface AppState {
   gridView: boolean;
   ghostInfo: GhostInfo | undefined;
   toast: string | undefined;
+  /** Camera jump request (alert click); seq forces re-trigger. */
+  panTarget: { x: number; y: number; seq: number } | undefined;
   setWorkerStatus: (status: WorkerStatus, error?: string) => void;
   setSnapshot: (snapshot: SimSnapshot) => void;
   setHoveredTile: (tile: TileHover | undefined) => void;
@@ -39,6 +42,7 @@ interface AppState {
   setGridView: (on: boolean) => void;
   setGhostInfo: (info: GhostInfo | undefined) => void;
   setToast: (msg: string | undefined) => void;
+  requestPan: (x: number, y: number) => void;
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -52,6 +56,7 @@ export const useAppStore = create<AppState>((set) => ({
   gridView: false,
   ghostInfo: undefined,
   toast: undefined,
+  panTarget: undefined,
   setWorkerStatus: (workerStatus, workerError) => set({ workerStatus, workerError }),
   setSnapshot: (snapshot) => set({ snapshot }),
   setHoveredTile: (hoveredTile) => set({ hoveredTile }),
@@ -63,4 +68,6 @@ export const useAppStore = create<AppState>((set) => ({
     if (toastTimer) clearTimeout(toastTimer);
     if (toast) toastTimer = setTimeout(() => set({ toast: undefined }), 3500);
   },
+  requestPan: (x, y) =>
+    set((s) => ({ panTarget: { x, y, seq: (s.panTarget?.seq ?? 0) + 1 } })),
 }));

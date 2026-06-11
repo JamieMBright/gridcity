@@ -29,6 +29,8 @@ export function BillPanel() {
       <div style={{ fontSize: 11, marginTop: 6 }}>
         <Row label="network capex" value={`${fmtMoneyK(b.capexYrK)}/yr`} />
         <Row label="operations" value={`${fmtMoneyK(b.opexYrK)}/yr`} />
+        <Row label="field fleet" value={`${fmtMoneyK(b.fleetYrK)}/yr`} />
+        {b.vegYrK > 0 && <Row label="tree cutting" value={`${fmtMoneyK(b.vegYrK)}/yr`} />}
         <Row label="wholesale energy" value={`${fmtMoneyK(b.energyYrK)}/yr`} />
         <div style={{ borderTop: `1px solid ${theme.navyLight}`, margin: '4px 0' }} />
         <Row label="total cost" value={`${fmtMoneyK(b.totalYrK)}/yr`} />
@@ -40,6 +42,10 @@ export function BillPanel() {
           label="demand met"
           value={`${st.servedMW.toFixed(1)} / ${st.totalDemandMW.toFixed(1)} MW`}
         />
+        <div style={{ borderTop: `1px solid ${theme.navyLight}`, margin: '4px 0' }} />
+        <Row label="CI /100 cust/yr" value={snapshot.kpis.ciPer100PerYr.toFixed(1)} />
+        <Row label="CML min/cust/yr" value={snapshot.kpis.cmlMinPerYr.toFixed(1)} />
+        <Row label="curtailed" value={`${st.curtailedMWh.toFixed(0)} MWh`} />
       </div>
     </div>
   );

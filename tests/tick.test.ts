@@ -64,7 +64,10 @@ describe('end-to-end tick: power flows from plant to homes', () => {
     const { state, ctx } = poweredFixture();
     const out = solveTick(state, ctx, derive(state, ctx), false);
     const b = out.bill;
-    expect(b.totalYrK).toBeCloseTo(b.capexYrK + b.opexYrK + b.energyYrK, 9);
+    expect(b.totalYrK).toBeCloseTo(
+      b.capexYrK + b.opexYrK + b.fleetYrK + b.vegYrK + b.energyYrK,
+      9,
+    );
     expect(b.servedCustomers).toBe(360);
     expect(b.perCustomerYr).toBeCloseTo((b.totalYrK * 1000) / 360, 9);
     expect(b.capexYrK).toBeGreaterThan(0);

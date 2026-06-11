@@ -4,6 +4,7 @@
 // crashing the tab.
 
 import { applyCommand } from './commands';
+import { kpiRates } from './regulation/kpis';
 import {
   TICKS_PER_SECOND,
   type MainToWorker,
@@ -65,6 +66,27 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
     },
     weather: weatherView(state),
     bill: out.bill,
+    fleet: {
+      vans: state.vans.map((v) => ({
+        id: v.id,
+        x: v.x,
+        y: v.y,
+        busy: v.jobBranch !== undefined,
+      })),
+      fleetSize: state.fleetSize,
+      vegPolicy: state.vegPolicy,
+      jobs: [...state.jobs.values()].map((j) => ({
+        x: j.x,
+        y: j.y,
+        label: j.label,
+        staffed: state.vans.some((v) => v.jobBranch === j.branchId),
+      })),
+    },
+    kpis: {
+      ...kpiRates(state.reliability, d.service.totalCustomers, state.simTimeMin),
+      worstVegPct: Math.max(0, ...[...state.lineVeg.values()]) * 100,
+    },
+    events: state.events,
   };
 }
 

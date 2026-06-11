@@ -102,6 +102,18 @@ function AssetInfo({ assetId }: { assetId: number }) {
   const volts = snapshot.volts.filter(([id]) => id === assetId);
   const rows: Array<[string, string]> = [];
 
+  if (asset.kind === 'depot') {
+    const stationed = snapshot.fleet.vans.length;
+    return (
+      <div style={{ marginTop: 8, paddingTop: 6, borderTop: `1px solid ${theme.navyLight}` }}>
+        <div style={{ color: theme.orangeSoft, fontWeight: 700 }}>Field depot</div>
+        <div style={{ fontSize: 11, color: theme.slate }}>
+          {stationed} van{stationed === 1 ? '' : 's'} in the fleet
+        </div>
+      </div>
+    );
+  }
+
   if (asset.kind === 'gen') {
     const spec = GENS[asset.gen];
     const mw = snapshot.genMW.find(([id]) => id === assetId)?.[1] ?? 0;

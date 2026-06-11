@@ -4,13 +4,14 @@ import { MapRenderer, type Ghost } from '../render/MapRenderer';
 import { useAppStore, type Tool } from '../app/store';
 import { sendCommand } from '../app/workerBridge';
 import { assetAtTile, checkBuild, type BuildSpec } from '../sim/commands';
-import { ANNUITY_FACTOR, GENS, LINES, SUBS } from '../sim/catalog';
+import { ANNUITY_FACTOR, DEPOT, GENS, LINES, SUBS } from '../sim/catalog';
 import type { PlacedAsset } from '../sim/assets';
 import { assetLevels } from '../sim/assets';
 
 function specFor(tool: Tool, x: number, y: number, assets: PlacedAsset[]): BuildSpec | undefined {
   if (tool.t === 'gen') return { kind: 'gen', gen: tool.gen, x, y };
   if (tool.t === 'sub') return { kind: 'sub', sub: tool.sub, x, y };
+  if (tool.t === 'depot') return { kind: 'depot', x, y };
   if (tool.t === 'line' && tool.fromAssetId !== undefined) {
     const from = assets.find((a) => a.id === tool.fromAssetId);
     if (!from || from.kind === 'line') return undefined;
@@ -30,12 +31,14 @@ function specFor(tool: Tool, x: number, y: number, assets: PlacedAsset[]): Build
 function specOpexFrac(spec: BuildSpec): number {
   if (spec.kind === 'gen') return GENS[spec.gen].opexFrac;
   if (spec.kind === 'sub') return SUBS[spec.sub].opexFrac;
+  if (spec.kind === 'depot') return DEPOT.opexFrac;
   return LINES[spec.level].opexFrac;
 }
 
 function specLabel(spec: BuildSpec): string {
   if (spec.kind === 'gen') return GENS[spec.gen].name;
   if (spec.kind === 'sub') return SUBS[spec.sub].name;
+  if (spec.kind === 'depot') return DEPOT.name;
   return `${spec.level} kV ${spec.build === 'underground' ? 'cable' : 'line'}`;
 }
 
@@ -47,7 +50,8 @@ function handleTileClick(x: number, y: number): void {
     case 'inspect':
       return;
     case 'gen':
-    case 'sub': {
+    case 'sub':
+    case 'depot': {
       const spec = specFor(tool, x, y, assets);
       if (spec) sendCommand({ type: 'build', spec });
       return;
@@ -106,13 +110,25 @@ export function MapView() {
 
   useEffect(() => {
     if (snapshot) {
-      rendererRef.current?.updateDynamic(snapshot.assets, snapshot.branches, snapshot.coverage);
+      rendererRef.current?.updateDynamic(
+        snapshot.assets,
+        snapshot.branches,
+        snapshot.coverage,
+        snapshot.fleet.vans,
+        snapshot.fleet.jobs,
+        snapshot.genMW,
+      );
     }
   }, [snapshot]);
 
   useEffect(() => {
     rendererRef.current?.setGridView(gridView);
   }, [gridView]);
+
+  const panTarget = useAppStore((s) => s.panTarget);
+  useEffect(() => {
+    if (panTarget) rendererRef.current?.panTo(panTarget.x, panTarget.y);
+  }, [panTarget]);
 
   // ghost preview + quoted cost
   useEffect(() => {
@@ -167,7 +183,9 @@ export function MapView() {
       const sprite =
         spec.kind === 'gen'
           ? { gasCCGT: 'gen_gas', nuclear: 'gen_nuclear', solarFarm: 'gen_solar', windOnshore: 'gen_windon', windOffshore: 'gen_windoff', battery: 'gen_battery' }[spec.gen]
-          : { bulk: 'sub_bulk', grid: 'sub_grid', dist: 'sub_dist' }[spec.sub];
+          : spec.kind === 'sub'
+            ? { bulk: 'sub_bulk', grid: 'sub_grid', dist: 'sub_dist' }[spec.sub]
+            : 'depot';
       ghost = {
         kind: 'tile',
         x: hovered.x,

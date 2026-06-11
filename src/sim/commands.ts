@@ -3,7 +3,16 @@
 // player is quoted is exactly the cost that lands on the bill.
 
 import { assetLevels, type PlacedAsset } from './assets';
-import { GENS, SUBS, type GenType, type LineBuild, type SubType } from './catalog';
+import {
+  DEPOT,
+  GENS,
+  SUBS,
+  type GenType,
+  type LineBuild,
+  type SubType,
+  type VegPolicy,
+} from './catalog';
+import { MAX_VANS } from './fleet/fleet';
 import type { VoltageLevel } from './grid/types';
 import { priceLine } from './cost';
 import { TERRAIN, ZONE, type CityMap } from './map/types';
@@ -13,11 +22,14 @@ import type { SimSpeed } from './protocol';
 export type Command =
   | { type: 'setSpeed'; speed: SimSpeed }
   | { type: 'build'; spec: BuildSpec }
-  | { type: 'demolish'; assetId: number };
+  | { type: 'demolish'; assetId: number }
+  | { type: 'setFleet'; vans: number }
+  | { type: 'setVegPolicy'; policy: VegPolicy };
 
 export type BuildSpec =
   | { kind: 'gen'; gen: GenType; x: number; y: number }
   | { kind: 'sub'; sub: SubType; x: number; y: number }
+  | { kind: 'depot'; x: number; y: number }
   | {
       kind: 'line';
       level: VoltageLevel;
@@ -68,7 +80,7 @@ export function checkBuild(
 ): BuildCheck {
   const fail = (error: string): BuildCheck => ({ ok: false, error, capexK: 0, lengthTiles: 0 });
 
-  if (spec.kind === 'gen' || spec.kind === 'sub') {
+  if (spec.kind === 'gen' || spec.kind === 'sub' || spec.kind === 'depot') {
     const i = tileAt(map, spec.x, spec.y);
     if (i === undefined) return fail('out of bounds');
     const t = map.terrain[i];
@@ -89,7 +101,12 @@ export function checkBuild(
       if (t === TERRAIN.water) return fail('cannot build on water');
     }
     if (assetAtTile(assets, spec.x, spec.y)) return fail('tile already occupied');
-    const capexK = spec.kind === 'gen' ? GENS[spec.gen].capexK : SUBS[spec.sub].capexK;
+    const capexK =
+      spec.kind === 'gen'
+        ? GENS[spec.gen].capexK
+        : spec.kind === 'sub'
+          ? SUBS[spec.sub].capexK
+          : DEPOT.capexK;
     return { ok: true, capexK, lengthTiles: 0 };
   }
 
@@ -128,6 +145,8 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
         state.assets.set(id, { id, kind: 'gen', gen: spec.gen, x: spec.x, y: spec.y });
       } else if (spec.kind === 'sub') {
         state.assets.set(id, { id, kind: 'sub', sub: spec.sub, x: spec.x, y: spec.y });
+      } else if (spec.kind === 'depot') {
+        state.assets.set(id, { id, kind: 'depot', x: spec.x, y: spec.y });
       } else {
         state.assets.set(id, {
           id,
@@ -148,7 +167,7 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       const asset = state.assets.get(cmd.assetId);
       if (!asset) return { ok: false, error: 'no such asset' };
       state.assets.delete(cmd.assetId);
-      if (asset.kind !== 'line') {
+      if (asset.kind !== 'line' && asset.kind !== 'depot') {
         // cascade: remove lines that referenced this endpoint
         for (const a of [...state.assets.values()]) {
           if (a.kind === 'line' && (a.a === asset.id || a.b === asset.id)) {
@@ -159,5 +178,16 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       state.assetsVersion++;
       return { ok: true };
     }
+
+    case 'setFleet':
+      if (!Number.isInteger(cmd.vans) || cmd.vans < 0 || cmd.vans > MAX_VANS) {
+        return { ok: false, error: `fleet must be 0–${MAX_VANS} vans` };
+      }
+      state.fleetSize = cmd.vans;
+      return { ok: true };
+
+    case 'setVegPolicy':
+      state.vegPolicy = cmd.policy;
+      return { ok: true };
   }
 }

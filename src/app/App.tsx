@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
+import { AlertsFeed } from '../ui/AlertsFeed';
 import { BillPanel } from '../ui/BillPanel';
 import { BuildPalette } from '../ui/BuildPalette';
+import { FleetPanel } from '../ui/FleetPanel';
 import { Hud } from '../ui/Hud';
 import { InfoPanel } from '../ui/InfoPanel';
 import { MapView } from '../ui/MapView';
@@ -122,6 +124,8 @@ export function App() {
       <BuildPalette />
       <InfoPanel />
       <BillPanel />
+      <FleetPanel />
+      <AlertsFeed />
       <Hud />
       <StatusBar />
       <Toast />

@@ -17,11 +17,13 @@ import {
 } from './buildingSprites';
 import {
   batteryTile,
+  depotTile,
   gasPlantTile,
   nuclearTile,
   subBulkTile,
   subDistTile,
   subGridTile,
+  vanTile,
   windTurbineTile,
 } from './networkSprites';
 import {
@@ -84,6 +86,8 @@ function buildSpriteCells(): Map<string, Uint8ClampedArray<ArrayBuffer>> {
   m.set('gen_windoff', windTurbineTile(194, true));
   m.set('gen_solar', solarFarmTile(195));
   m.set('gen_battery', batteryTile(196));
+  m.set('depot', depotTile(197));
+  m.set('van', vanTile(198));
   return m;
 }
 

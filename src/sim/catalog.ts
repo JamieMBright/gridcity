@@ -177,6 +177,25 @@ export const LINES: Record<VoltageLevel, LineSpec> = {
   },
 };
 
+/** Field operations depot: stations the orange vans. */
+export const DEPOT = {
+  name: 'Field depot',
+  capexK: 1_500,
+  opexFrac: 0.02,
+} as const;
+
+/** Annual cost of one crewed van, £k/yr. */
+export const VAN_OPEX_K_YR = 150;
+
+/** Vegetation management policies: cost £k/yr per km of overhead line,
+ *  and the veg growth multiplier they leave in place. */
+export const VEG_POLICY = [
+  { name: 'none', costPerKmYrK: 0, growthMul: 1 },
+  { name: 'reactive', costPerKmYrK: 1.2, growthMul: 0.45 },
+  { name: 'proactive', costPerKmYrK: 2.5, growthMul: 0.12 },
+] as const;
+export type VegPolicy = 0 | 1 | 2;
+
 /** Asset life and discounting for capex annuitization. */
 export const ASSET_LIFE_YEARS = 40;
 export const DISCOUNT_RATE = 0.05;

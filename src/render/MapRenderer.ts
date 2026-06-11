@@ -52,6 +52,19 @@ const SUB_SPRITE: Record<string, string> = {
   dist: 'sub_dist',
 };
 
+export interface VanView {
+  id: number;
+  x: number;
+  y: number;
+  busy: boolean;
+}
+
+export interface JobView {
+  x: number;
+  y: number;
+  staffed: boolean;
+}
+
 export interface TileHover {
   x: number;
   y: number;
@@ -74,8 +87,12 @@ export class MapRenderer {
   private world = new Container();
   private city = new Container();
   private coverageG = new Graphics();
+  private smogG = new Graphics();
   private linesG = new Graphics();
   private assetLayer = new Container();
+  private fleetLayer = new Container();
+  private jobsG = new Graphics();
+  private vanSprites = new Map<number, Sprite>();
   private ghostG = new Graphics();
   private ghostSprite: Sprite | undefined;
   private textures = new Map<string, Texture>();
@@ -115,8 +132,11 @@ export class MapRenderer {
     this.assetLayer.sortableChildren = true;
     this.world.addChild(this.city);
     this.world.addChild(this.coverageG);
+    this.world.addChild(this.smogG);
     this.world.addChild(this.linesG);
     this.world.addChild(this.assetLayer);
+    this.world.addChild(this.jobsG);
+    this.world.addChild(this.fleetLayer);
     this.world.addChild(this.ghostG);
     this.app.stage.addChild(this.world);
 
@@ -138,7 +158,14 @@ export class MapRenderer {
   }
 
   /** Refresh all dynamic layers from the latest sim snapshot. */
-  updateDynamic(assets: PlacedAsset[], branches: BranchView[], coverage: Uint8Array): void {
+  updateDynamic(
+    assets: PlacedAsset[],
+    branches: BranchView[],
+    coverage: Uint8Array,
+    vans: VanView[] = [],
+    jobs: JobView[] = [],
+    genMW: Array<[number, number]> = [],
+  ): void {
     if (!this.map) return;
     const byId = new Map<number, PlacedAsset>();
     for (const a of assets) byId.set(a.id, a);
@@ -149,13 +176,82 @@ export class MapRenderer {
       this.rebuildAssetSprites(assets);
     }
 
+    this.drawSmog(assets, genMW);
     this.drawLines(assets, branches, byId);
+    this.drawFleet(vans, jobs);
 
     let hash = coverage.length;
     for (let i = 0; i < coverage.length; i++) hash = (hash * 31 + (coverage[i] ?? 0)) >>> 0;
     if (hash !== this.coverageHash) {
       this.coverageHash = hash;
       this.drawCoverage(coverage);
+    }
+  }
+
+  /** Centre the camera on a tile (alert click-to-jump). */
+  panTo(x: number, y: number): void {
+    const c = this.tileCentre(x, y);
+    const s = this.world.scale.x;
+    this.world.position.set(
+      this.app.screen.width / 2 - c.x * s,
+      this.app.screen.height / 2 - c.y * s,
+    );
+  }
+
+  private drawFleet(vans: VanView[], jobs: JobView[]): void {
+    // job site markers
+    this.jobsG.clear();
+    for (const j of jobs) {
+      this.diamond(this.jobsG, j.x, j.y, 0.9);
+      this.jobsG.stroke({ color: j.staffed ? 0xffb066 : 0xe0697a, width: 3, alpha: 0.9 });
+      const c = this.tileCentre(j.x, j.y);
+      this.jobsG.moveTo(c.x, c.y - 26).lineTo(c.x, c.y - 8);
+      this.jobsG.stroke({ color: 0xe0697a, width: 4, alpha: 0.9 });
+      this.jobsG.circle(c.x, c.y - 32, 4).fill({ color: 0xe0697a, alpha: 0.95 });
+    }
+
+    // vans
+    const tex = this.textures.get('van');
+    const seen = new Set<number>();
+    for (const v of vans) {
+      seen.add(v.id);
+      let s = this.vanSprites.get(v.id);
+      if (!s && tex) {
+        s = new Sprite(tex);
+        this.vanSprites.set(v.id, s);
+        this.fleetLayer.addChild(s);
+      }
+      if (!s) continue;
+      const c = this.tileCentre(v.x, v.y);
+      s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
+    }
+    for (const [id, s] of [...this.vanSprites]) {
+      if (!seen.has(id)) {
+        s.destroy();
+        this.vanSprites.delete(id);
+      }
+    }
+  }
+
+  /** Soft smog blobs around running thermal plant. */
+  private drawSmog(assets: PlacedAsset[], genMW: Array<[number, number]>): void {
+    const mwOf = new Map(genMW);
+    this.smogG.clear();
+    for (const a of assets) {
+      if (a.kind !== 'gen' || a.gen !== 'gasCCGT') continue;
+      const out = mwOf.get(a.id) ?? 0;
+      if (out <= 0) continue;
+      const c = this.tileCentre(a.x, a.y);
+      const r = 5 + 6 * Math.min(1, out / 600);
+      for (const [mul, alpha] of [
+        [1.6, 0.05],
+        [1.0, 0.08],
+        [0.55, 0.1],
+      ] as const) {
+        this.smogG
+          .ellipse(c.x + 14, c.y - 10, r * mul * HALF_W, r * mul * HALF_H)
+          .fill({ color: 0x6a6276, alpha });
+      }
     }
   }
 
@@ -206,7 +302,8 @@ export class MapRenderer {
     this.assetLayer.removeChildren().forEach((c) => c.destroy());
     for (const a of assets) {
       if (a.kind === 'line') continue;
-      const name = a.kind === 'gen' ? GEN_SPRITE[a.gen] : SUB_SPRITE[a.sub];
+      const name =
+        a.kind === 'gen' ? GEN_SPRITE[a.gen] : a.kind === 'sub' ? SUB_SPRITE[a.sub] : 'depot';
       const tex = name ? this.textures.get(name) : undefined;
       if (!tex) continue;
       const s = new Sprite(tex);

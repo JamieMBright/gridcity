@@ -5,7 +5,15 @@
 import { GENS, LINES, SUBS, type GenType, type LineBuild, type SubType } from './catalog';
 import type { Branch, Bus, Network, VoltageLevel } from './grid/types';
 
-export type PlacedAsset = GenAsset | SubAsset | LineAsset;
+export type PlacedAsset = GenAsset | SubAsset | LineAsset | DepotAsset;
+
+/** Field-operations depot: not electrical, stations repair vans. */
+export interface DepotAsset {
+  id: number;
+  kind: 'depot';
+  x: number;
+  y: number;
+}
 
 export interface GenAsset {
   id: number;

@@ -1,5 +1,13 @@
 import { useAppStore, type Tool } from '../app/store';
-import { GENS, LINES, SUBS, type GenType, type LineBuild, type SubType } from '../sim/catalog';
+import {
+  DEPOT,
+  GENS,
+  LINES,
+  SUBS,
+  type GenType,
+  type LineBuild,
+  type SubType,
+} from '../sim/catalog';
 import type { VoltageLevel } from '../sim/grid/types';
 import { fmtMoneyK, panelStyle, theme } from './theme';
 
@@ -143,6 +151,9 @@ export function BuildPalette() {
             cost={`${fmtMoneyK(LINES[lv].capexKPerTile[build])}/km`}
           />
         ))}
+      </Section>
+      <Section title="Operations">
+        <ToolButton tool={{ t: 'depot' }} label="Field depot" cost={fmtMoneyK(DEPOT.capexK)} />
       </Section>
       <Section title="Tools">
         <ToolButton tool={{ t: 'inspect' }} label="Inspect" />
