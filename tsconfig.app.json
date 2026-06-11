@@ -22,7 +22,11 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
-    "exactOptionalPropertyTypes": true
+    "exactOptionalPropertyTypes": true,
+    "types": [
+      "node",
+      "vite/client"
+    ]
   },
   "include": [
     "src",

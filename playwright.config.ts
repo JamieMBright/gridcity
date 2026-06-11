@@ -1,10 +1,14 @@
 import { defineConfig } from '@playwright/test';
 
-// Chromium comes from the @sparticuz/chromium npm package (the Playwright
-// CDN is unreachable in some sandboxes); global-setup extracts it to /tmp.
+// Locally/sandboxed, Chromium comes from the @sparticuz/chromium npm package
+// (the Playwright CDN is unreachable in some sandboxes) and global-setup
+// extracts it to /tmp. On CI the standard `playwright install chromium`
+// browser is used instead.
+const sandboxChromium = !process.env.CI;
+
 export default defineConfig({
   testDir: 'e2e',
-  globalSetup: './e2e/global-setup.ts',
+  ...(sandboxChromium ? { globalSetup: './e2e/global-setup.ts' } : {}),
   workers: 1, // WebGL canvas under software rendering: keep it serial
   timeout: 60_000,
   expect: { timeout: 15_000 },
@@ -15,7 +19,7 @@ export default defineConfig({
     // cost dominates e2e runtime
     viewport: { width: 1100, height: 700 },
     launchOptions: {
-      executablePath: '/tmp/chromium',
+      ...(sandboxChromium ? { executablePath: '/tmp/chromium' } : {}),
       args: [
         '--no-sandbox',
         '--disable-gpu',
