@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyCommand } from '../src/sim/commands';
+import { domesticProfile } from '../src/sim/events/weather';
 import { COV, derive, solveTick } from '../src/sim/tick';
 import { poweredFixture } from './helpers';
 
@@ -19,8 +20,9 @@ describe('end-to-end tick: power flows from plant to homes', () => {
     expect(on).toBe(9);
     expect(out.servedCustomers).toBe(9 * 40);
 
-    // gas serves exactly the connected load; every series element carries it
-    const loadMW = 9 * 40 * 0.0014;
+    // gas serves exactly the moment's connected load (diurnal profile
+    // applies to domestic demand); every series element carries it
+    const loadMW = 9 * 40 * 0.0014 * domesticProfile(state.simTimeMin);
     expect(out.dispatch.servedMW).toBeCloseTo(loadMW, 6);
     for (const b of out.branches) {
       expect(Math.abs(b.flowMW)).toBeCloseTo(loadMW, 4);
@@ -50,7 +52,7 @@ describe('end-to-end tick: power flows from plant to homes', () => {
       spec: { kind: 'line', level: 132, build: 'overhead', ax: 5, ay: 5, bx: 15, by: 15 },
     });
     const out = solveTick(state, ctx, derive(state, ctx), false);
-    const loadMW = 9 * 40 * 0.0014;
+    const loadMW = 9 * 40 * 0.0014 * domesticProfile(state.simTimeMin);
     const circuits = out.branches.filter(
       (b) => b.kind === 'line' && Math.abs(Math.abs(b.flowMW) - loadMW / 2) < 1e-6,
     );

@@ -18,7 +18,7 @@ import {
   type GameState,
   type SaveData,
 } from './state';
-import { advanceTime, derive, solveTick, type Derived } from './tick';
+import { advanceTime, derive, solveTick, weatherView, type Derived } from './tick';
 
 const AUTOSAVE_TICKS = 120; // every 30 real seconds
 
@@ -50,6 +50,7 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
     volts: out.volts,
     coverage: out.coverage,
     genMW: [...out.dispatch.genMW.entries()],
+    soc: [...state.soc.entries()],
     stats: {
       totalCustomers: d.service.totalCustomers,
       servedCustomers: out.servedCustomers,
@@ -57,7 +58,12 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
       connectedMW: out.dispatch.connectedMW,
       servedMW: out.dispatch.servedMW,
       costKPerHour: out.dispatch.costKPerHour,
+      priceMWh: out.dispatch.priceMWh,
+      carbonG: state.carbonEMA,
+      curtailedMWh: state.curtailedMWh,
+      freqHz: out.freqHz,
     },
+    weather: weatherView(state),
     bill: out.bill,
   };
 }
@@ -77,7 +83,9 @@ function step(): void {
 }
 
 function isSaveData(d: unknown): d is SaveData {
-  return typeof d === 'object' && d !== null && (d as { v?: unknown }).v === 1;
+  if (typeof d !== 'object' || d === null) return false;
+  const v = (d as { v?: unknown }).v;
+  return v === 1 || v === 2;
 }
 
 function start(save: unknown): void {

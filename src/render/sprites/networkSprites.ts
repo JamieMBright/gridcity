@@ -178,6 +178,28 @@ export function nuclearTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
+/** Grid battery: container rows with orange end doors + inverter kiosk. */
+export function batteryTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  padFloor(iso);
+  fence(iso, 0.1, 10);
+  for (const v0 of [0.2, 0.45, 0.7] as const) {
+    iso.shadow(0.16, v0, 0.72, v0 + 0.16, 0.08, 0.16);
+    iso.box(0.16, v0, 0.72, v0 + 0.16, 0, 16, NAVY);
+    // orange door on the right end
+    iso.r.poly(
+      [P(0.72 + 0.001, v0 + 0.02, 14), P(0.72 + 0.001, v0 + 0.14, 14), P(0.72 + 0.001, v0 + 0.14, 1), P(0.72 + 0.001, v0 + 0.02, 1)],
+      COLORS.orange,
+    );
+    // cooling vents along the top
+    iso.quad(0.2, v0 + 0.03, 0.68, v0 + 0.13, 16.2, shaded(NAVY, 0.1));
+  }
+  iso.box(0.8, 0.4, 0.92, 0.56, 0, 13, COLORS.concrete);
+  iso.quad(0.79, 0.39, 0.93, 0.57, 13, COLORS.orange);
+  return iso.build();
+}
+
 /** Wind turbine(s); offshore versions stand on yellow transition pieces
  *  straight out of the water (transparent floor). */
 export function windTurbineTile(seed: number, offshore: boolean): Uint8ClampedArray<ArrayBuffer> {

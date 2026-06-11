@@ -60,7 +60,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-const GEN_ORDER: GenType[] = ['gasCCGT', 'solarFarm', 'windOnshore', 'windOffshore', 'nuclear'];
+const GEN_ORDER: GenType[] = [
+  'gasCCGT',
+  'solarFarm',
+  'windOnshore',
+  'windOffshore',
+  'nuclear',
+  'battery',
+];
 const SUB_ORDER: SubType[] = ['bulk', 'grid', 'dist'];
 const LEVELS: VoltageLevel[] = [400, 132, 33];
 

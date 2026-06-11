@@ -25,8 +25,10 @@ export interface SimSnapshot {
   volts: Array<[number, number, number]>;
   /** COV code per map tile (see tick.ts). */
   coverage: Uint8Array;
-  /** gen asset id → dispatched MW. */
+  /** gen asset id → dispatched MW (negative = battery charging). */
   genMW: Array<[number, number]>;
+  /** battery asset id → state of charge, MWh. */
+  soc: Array<[number, number]>;
   stats: {
     totalCustomers: number;
     servedCustomers: number;
@@ -35,7 +37,16 @@ export interface SimSnapshot {
     servedMW: number;
     /** Wholesale operating cost right now, £k/h. */
     costKPerHour: number;
+    /** Marginal price of the most expensive running unit, £/MWh. */
+    priceMWh: number;
+    /** Rolling carbon intensity, g/kWh. */
+    carbonG: number;
+    /** Lifetime curtailed renewable energy, MWh. */
+    curtailedMWh: number;
+    /** Indicative system frequency, Hz. */
+    freqHz: number;
   };
+  weather: { sun: number; wind: number; cloud: number };
   bill: BillBreakdown;
 }
 

@@ -4,6 +4,7 @@ import type { PlacedAsset } from './assets';
 import { GENS, SUBS, type GenType, type SubType } from './catalog';
 import type { CityMap } from './map/types';
 import { buildDemandField, type DemandField } from './map/demand';
+import { newWeather, type WeatherState } from './events/weather';
 import { getLondonMap } from '../data/londonMap';
 import type { SimSpeed } from './protocol';
 
@@ -18,6 +19,17 @@ export interface GameState {
   rngState: number;
   /** rolling annualized energy cost, £k/yr (exponentially smoothed). */
   energyCostYrK: number;
+  weather: WeatherState;
+  /** battery asset id → state of charge, MWh. */
+  soc: Map<number, number>;
+  /** branch id → accumulated overload heat, loading·minutes. */
+  heat: Map<number, number>;
+  /** branch id → repair game-minutes remaining (tripped/out of service). */
+  outages: Map<number, number>;
+  /** rolling carbon intensity, g/kWh (exponentially smoothed). */
+  carbonEMA: number;
+  /** lifetime curtailed renewable energy, MWh. */
+  curtailedMWh: number;
 }
 
 export interface SimContext {
@@ -35,6 +47,12 @@ export function newGame(): GameState {
     assetsVersion: 0,
     rngState: 0xc0ffee,
     energyCostYrK: 0,
+    weather: newWeather(),
+    soc: new Map(),
+    heat: new Map(),
+    outages: new Map(),
+    carbonEMA: 0,
+    curtailedMWh: 0,
   };
 }
 
@@ -46,7 +64,7 @@ export function newContext(): SimContext {
 // --- save / load -----------------------------------------------------------
 
 export interface SaveData {
-  v: 1;
+  v: 1 | 2;
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;
@@ -54,11 +72,17 @@ export interface SaveData {
   assets: PlacedAsset[];
   rngState: number;
   energyCostYrK: number;
+  weather?: WeatherState;
+  soc?: Array<[number, number]>;
+  heat?: Array<[number, number]>;
+  outages?: Array<[number, number]>;
+  carbonEMA?: number;
+  curtailedMWh?: number;
 }
 
 export function serialize(s: GameState): SaveData {
   return {
-    v: 1,
+    v: 2,
     tick: s.tick,
     simTimeMin: s.simTimeMin,
     speed: s.speed,
@@ -66,6 +90,12 @@ export function serialize(s: GameState): SaveData {
     assets: [...s.assets.values()],
     rngState: s.rngState,
     energyCostYrK: s.energyCostYrK,
+    weather: { ...s.weather },
+    soc: [...s.soc.entries()],
+    heat: [...s.heat.entries()],
+    outages: [...s.outages.entries()],
+    carbonEMA: s.carbonEMA,
+    curtailedMWh: s.curtailedMWh,
   };
 }
 
@@ -81,6 +111,12 @@ export function deserialize(d: SaveData): GameState {
     assetsVersion: 1,
     rngState: d.rngState,
     energyCostYrK: d.energyCostYrK,
+    weather: d.weather ? { ...d.weather } : newWeather(),
+    soc: new Map(d.soc ?? []),
+    heat: new Map(d.heat ?? []),
+    outages: new Map(d.outages ?? []),
+    carbonEMA: d.carbonEMA ?? 0,
+    curtailedMWh: d.curtailedMWh ?? 0,
   };
 }
 

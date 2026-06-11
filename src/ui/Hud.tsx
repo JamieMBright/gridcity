@@ -18,12 +18,53 @@ const SPEEDS: Array<{ speed: SimSpeed; label: string }> = [
   { speed: 16, label: '▶▶▶' },
 ];
 
+function weatherIcon(w: { sun: number; wind: number; cloud: number }, simTimeMin: number): string {
+  const h = (simTimeMin / 60) % 24;
+  const night = h < 5.5 || h > 20.5;
+  const sky = night ? '🌙' : w.cloud > 0.65 ? '☁️' : w.cloud > 0.35 ? '⛅' : '☀️';
+  return w.wind > 0.7 ? `${sky}💨` : sky;
+}
+
+function MarketTicker() {
+  const snapshot = useAppStore((s) => s.snapshot);
+  if (!snapshot) return null;
+  const st = snapshot.stats;
+  const freqOff = Math.abs(st.freqHz - 50) > 0.3;
+  return (
+    <div
+      style={{
+        ...panelStyle,
+        position: 'absolute',
+        top: 12,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        display: 'flex',
+        gap: 14,
+        padding: '6px 14px',
+        fontSize: 12,
+        pointerEvents: 'none',
+      }}
+    >
+      <span style={{ color: freqOff ? theme.danger : theme.ok }}>
+        {st.freqHz.toFixed(2)} Hz
+      </span>
+      <span style={{ color: theme.gold }}>£{st.priceMWh.toFixed(0)}/MWh</span>
+      <span style={{ color: st.carbonG > 200 ? theme.sunset : theme.ok }}>
+        {st.carbonG.toFixed(0)} g/kWh
+      </span>
+      <span>{weatherIcon(snapshot.weather, snapshot.simTimeMin)}</span>
+    </div>
+  );
+}
+
 export function Hud() {
   const snapshot = useAppStore((s) => s.snapshot);
   const gridView = useAppStore((s) => s.gridView);
   const setGridView = useAppStore((s) => s.setGridView);
 
   return (
+    <>
+    <MarketTicker />
     <div
       style={{
         ...panelStyle,
@@ -82,5 +123,6 @@ export function Hud() {
         ⚡ grid view
       </button>
     </div>
+    </>
   );
 }

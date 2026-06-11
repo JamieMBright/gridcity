@@ -105,12 +105,25 @@ function AssetInfo({ assetId }: { assetId: number }) {
   if (asset.kind === 'gen') {
     const spec = GENS[asset.gen];
     const mw = snapshot.genMW.find(([id]) => id === assetId)?.[1] ?? 0;
-    rows.push(['output', `${mw.toFixed(1)} / ${spec.capacityMW} MW`]);
-    rows.push(['marginal cost', `£${(spec.marginalCostK * 1000).toFixed(0)}/MWh`]);
+    if (asset.gen === 'battery') {
+      const soc = snapshot.soc.find(([id]) => id === assetId)?.[1] ?? 0;
+      rows.push([
+        mw < 0 ? 'charging' : 'discharging',
+        `${Math.abs(mw).toFixed(1)} / ${spec.capacityMW} MW`,
+      ]);
+      rows.push(['stored', `${soc.toFixed(0)} / ${spec.energyMWh ?? 0} MWh`]);
+    } else {
+      rows.push(['output', `${mw.toFixed(1)} / ${spec.capacityMW} MW`]);
+      rows.push(['marginal cost', `£${(spec.marginalCostK * 1000).toFixed(0)}/MWh`]);
+    }
   } else {
     const spec = SUBS[asset.sub];
     const tx = snapshot.branches.find((b) => b.assetId === assetId && b.kind === 'tx');
-    if (tx) rows.push(['transformer', `${Math.abs(tx.flowMW).toFixed(1)} / ${tx.ratingMW} MW`]);
+    if (tx && tx.outMin !== undefined) {
+      rows.push(['transformer', `TRIPPED · ${(tx.outMin / 60).toFixed(1)}h to repair`]);
+    } else if (tx) {
+      rows.push(['transformer', `${Math.abs(tx.flowMW).toFixed(1)} / ${tx.ratingMW} MW`]);
+    }
     if (spec.serviceRadius !== undefined) rows.push(['service radius', `${spec.serviceRadius} km`]);
     rows.push(['capex', fmtMoneyK(spec.capexK)]);
   }

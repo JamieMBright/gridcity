@@ -44,6 +44,7 @@ const GEN_SPRITE: Record<string, string> = {
   solarFarm: 'gen_solar',
   windOnshore: 'gen_windon',
   windOffshore: 'gen_windoff',
+  battery: 'gen_battery',
 };
 const SUB_SPRITE: Record<string, string> = {
   bulk: 'sub_bulk',
@@ -233,19 +234,36 @@ export class MapRenderer {
       const pa = this.tileCentre(endA.x, endA.y);
       const pb = this.tileCentre(endB.x, endB.y);
       const view = flowOf.get(a.id);
+      const tripped = view?.outMin !== undefined;
       const loading = view ? Math.abs(view.flowMW) / Math.max(1e-6, view.ratingMW) : 0;
-      const color = loading > 0.9 ? OVERLOAD_COLOR : LEVEL_COLOR[a.level];
+      const color = tripped ? 0x4c4a5c : loading > 0.9 ? OVERLOAD_COLOR : LEVEL_COLOR[a.level];
       const lift = a.build === 'underground' ? 0 : 8;
       // dark casing first for contrast against the city
       this.linesG.moveTo(pa.x, pa.y - lift).lineTo(pb.x, pb.y - lift);
       this.linesG.stroke({ color: 0x0a0e22, width: LEVEL_WIDTH[a.level] + 2.5, alpha: 0.55, cap: 'round' });
-      this.linesG.moveTo(pa.x, pa.y - lift).lineTo(pb.x, pb.y - lift);
-      this.linesG.stroke({
-        color,
-        width: LEVEL_WIDTH[a.level],
-        alpha: a.build === 'underground' ? 0.55 : 0.95,
-        cap: 'round',
-      });
+      if (tripped) {
+        // dashed: out of service
+        const dx = pb.x - pa.x;
+        const dy = pb.y - pa.y;
+        const len = Math.hypot(dx, dy);
+        const n = Math.max(1, Math.floor(len / 18));
+        for (let i = 0; i < n; i++) {
+          const t0 = i / n;
+          const t1 = t0 + 0.55 / n;
+          this.linesG
+            .moveTo(pa.x + dx * t0, pa.y + dy * t0 - lift)
+            .lineTo(pa.x + dx * t1, pa.y + dy * t1 - lift);
+        }
+        this.linesG.stroke({ color, width: LEVEL_WIDTH[a.level], alpha: 0.8, cap: 'round' });
+      } else {
+        this.linesG.moveTo(pa.x, pa.y - lift).lineTo(pb.x, pb.y - lift);
+        this.linesG.stroke({
+          color,
+          width: LEVEL_WIDTH[a.level],
+          alpha: a.build === 'underground' ? 0.55 : 0.95,
+          cap: 'round',
+        });
+      }
     }
   }
 

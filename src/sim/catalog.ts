@@ -5,7 +5,13 @@
 
 import type { VoltageLevel } from './grid/types';
 
-export type GenType = 'gasCCGT' | 'nuclear' | 'solarFarm' | 'windOnshore' | 'windOffshore';
+export type GenType =
+  | 'gasCCGT'
+  | 'nuclear'
+  | 'solarFarm'
+  | 'windOnshore'
+  | 'windOffshore'
+  | 'battery';
 export type SubType = 'bulk' | 'grid' | 'dist';
 export type LineBuild = 'overhead' | 'underground';
 
@@ -23,6 +29,8 @@ export interface GenSpec {
   carbonG: number;
   /** Where it may be sited. */
   siting: 'land' | 'solarSite' | 'windSite' | 'nuclearSite';
+  /** Storage capacity, MWh (batteries only). */
+  energyMWh?: number;
 }
 
 export const GENS: Record<GenType, GenSpec> = {
@@ -76,7 +84,21 @@ export const GENS: Record<GenType, GenSpec> = {
     carbonG: 0,
     siting: 'windSite',
   },
+  battery: {
+    name: 'Battery storage',
+    capacityMW: 100,
+    level: 33,
+    capexK: 60_000,
+    opexFrac: 0.02,
+    marginalCostK: 0.005,
+    carbonG: 0,
+    siting: 'land',
+    energyMWh: 400,
+  },
 };
+
+/** Round-trip efficiency applied on battery charge. */
+export const BATTERY_EFFICIENCY = 0.9;
 
 export interface SubSpec {
   name: string;

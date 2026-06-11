@@ -1,5 +1,6 @@
-// Demand model. M3: static peak demand per tile; the diurnal/weather/DER
-// dynamics arrive with the market milestone and adoption waves.
+// Demand model: domestic load (scales with the diurnal household profile)
+// and process load (industry/glasshouses, flatter). DER adoption reshapes
+// these per-tile in M6.
 
 import { ADMD_KW } from '../catalog';
 import { ZONE, type CityMap, type Zone } from './types';
@@ -10,15 +11,25 @@ const PROCESS_MW: Partial<Record<Zone, number>> = {
   [ZONE.greenhouse]: 0.7, // glasshouse lighting and heat pumps
 };
 
-export function tileDemandMW(map: CityMap, i: number): number {
+export interface TileDemand {
+  domMW: number;
+  procMW: number;
+}
+
+export function tileDemand(map: CityMap, i: number): TileDemand {
   const customers = map.customers[i] ?? 0;
   const zone = (map.zone[i] ?? ZONE.none) as Zone;
-  const domestic = (customers * ADMD_KW) / 1000;
-  return domestic + (PROCESS_MW[zone] ?? 0);
+  return { domMW: (customers * ADMD_KW) / 1000, procMW: PROCESS_MW[zone] ?? 0 };
+}
+
+/** Peak demand of a tile, MW. */
+export function tileDemandMW(map: CityMap, i: number): number {
+  const d = tileDemand(map, i);
+  return d.domMW + d.procMW;
 }
 
 export interface DemandField {
-  /** MW per tile index (sparse: only tiles with demand). */
+  /** Peak MW per tile index (sparse: only tiles with demand). */
   byTile: Map<number, number>;
   totalMW: number;
 }

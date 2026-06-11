@@ -166,7 +166,7 @@ export function MapView() {
     } else {
       const sprite =
         spec.kind === 'gen'
-          ? { gasCCGT: 'gen_gas', nuclear: 'gen_nuclear', solarFarm: 'gen_solar', windOnshore: 'gen_windon', windOffshore: 'gen_windoff' }[spec.gen]
+          ? { gasCCGT: 'gen_gas', nuclear: 'gen_nuclear', solarFarm: 'gen_solar', windOnshore: 'gen_windon', windOffshore: 'gen_windoff', battery: 'gen_battery' }[spec.gen]
           : { bulk: 'sub_bulk', grid: 'sub_grid', dist: 'sub_dist' }[spec.sub];
       ghost = {
         kind: 'tile',

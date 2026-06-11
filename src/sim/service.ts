@@ -6,20 +6,27 @@
 import { SUBS } from './catalog';
 import type { PlacedAsset } from './assets';
 import type { CityMap } from './map/types';
-import { tileDemandMW } from './map/demand';
+import { tileDemand } from './map/demand';
+
+export interface SubLoad {
+  /** Domestic peak load, MW (follows the diurnal household profile). */
+  domMW: number;
+  /** Process load, MW (industry/glasshouses; flatter profile). */
+  procMW: number;
+}
 
 export interface ServiceAreas {
   /** demand tile index → serving dist-sub asset id. */
   subOfTile: Map<number, number>;
   /** dist-sub asset id → served tile indices. */
   tilesOfSub: Map<number, number[]>;
-  /** dist-sub asset id → aggregate peak load, MW. */
-  loadMWOfSub: Map<number, number>;
+  /** dist-sub asset id → aggregate peak load. */
+  loadOfSub: Map<number, SubLoad>;
   /** dist-sub asset id → customers served. */
   customersOfSub: Map<number, number>;
   /** Total customers on the map (served or not). */
   totalCustomers: number;
-  /** Total demand on the map, MW (served or not). */
+  /** Total peak demand on the map, MW (served or not). */
   totalDemandMW: number;
 }
 
@@ -33,7 +40,7 @@ export function assignServiceAreas(map: CityMap, assets: Iterable<PlacedAsset>):
 
   const subOfTile = new Map<number, number>();
   const tilesOfSub = new Map<number, number[]>();
-  const loadMWOfSub = new Map<number, number>();
+  const loadOfSub = new Map<number, SubLoad>();
   const customersOfSub = new Map<number, number>();
   let totalCustomers = 0;
   let totalDemandMW = 0;
@@ -41,7 +48,8 @@ export function assignServiceAreas(map: CityMap, assets: Iterable<PlacedAsset>):
   for (let y = 0; y < map.height; y++) {
     for (let x = 0; x < map.width; x++) {
       const i = y * map.width + x;
-      const demand = tileDemandMW(map, i);
+      const d = tileDemand(map, i);
+      const demand = d.domMW + d.procMW;
       if (demand <= 0) continue;
       totalCustomers += map.customers[i] ?? 0;
       totalDemandMW += demand;
@@ -65,10 +73,13 @@ export function assignServiceAreas(map: CityMap, assets: Iterable<PlacedAsset>):
         tilesOfSub.set(best, tiles);
       }
       tiles.push(i);
-      loadMWOfSub.set(best, (loadMWOfSub.get(best) ?? 0) + demand);
+      const load = loadOfSub.get(best) ?? { domMW: 0, procMW: 0 };
+      load.domMW += d.domMW;
+      load.procMW += d.procMW;
+      loadOfSub.set(best, load);
       customersOfSub.set(best, (customersOfSub.get(best) ?? 0) + (map.customers[i] ?? 0));
     }
   }
 
-  return { subOfTile, tilesOfSub, loadMWOfSub, customersOfSub, totalCustomers, totalDemandMW };
+  return { subOfTile, tilesOfSub, loadOfSub, customersOfSub, totalCustomers, totalDemandMW };
 }
