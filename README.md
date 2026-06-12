@@ -19,13 +19,22 @@ RIIO-style report cards.
   motorway with live traffic, skyscraper districts, and the landmarks
   (parliament + clock tower, the wheel, the dome, the shard, tower bridge,
   the Olympic bowl, malls, the zoo, the old four-chimney power station).
-- **Build** — generation (CCGT, OCGT peaker, solar, on/offshore wind, tidal,
-  biomass, nuclear, batteries), substations down to pole-mounted transformers
-  and under-building vaults, lines and cables, field depots. Hotkeys: `1–9`
+- **Build the wires, signal the generation** — you own the network
+  (substations down to pole-mounted transformers and under-building
+  vaults, lines, depots); generation is a developer market. Placing a
+  plant designates the site as a planning signal: fake businesses
+  (Voltaic Brothers plc, Consolidated Power Holdings…) bid with strike
+  prices and lead times, and you award or withdraw. Cross a conglomerate
+  and it complains to the regulator. Substations come in fixed MVA sizes
+  with load-based catchments and auto-reinforcement. Hotkeys: `1–9 0`
   generation, `Q W E R T` substations, `Z X C` line voltage, `U` flips
-  overhead/underground, `D` depot, `B` bulldoze. Selecting a tool shades the
-  map green/red by siting suitability; big plant needs planning permission
-  and construction time before first power.
+  overhead/underground, `D` depot, `B` bulldoze. Green/red overlays show
+  siting suitability; big plant takes planning + construction time
+  (coal spreads over 3×2 tiles, cooling towers and all).
+- **The town evolves** — the game opens with live connection
+  applications; data centres arrive uninvited in dense urban blocks and
+  sulk under angry bubbles until energised; new homes infill near
+  well-served streets — sometimes right where your headroom wasn't.
 - **The network looks real** — overhead routes place lattice pylons
   (400/132 kV) or three-phase wooden poles (33 kV) that snap along the
   route, conductors sag span to span, chevrons ride each line in the

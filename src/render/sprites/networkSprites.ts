@@ -601,24 +601,30 @@ export function coalPlantTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
     iso.r.poly([apex, Rt, T], hex('#332e3f'));
     iso.r.polyline([L, apex, Rt], INK_W * 0.8, alpha(INK, 0.7));
   }
-  // conveyor ramp from the heap up into the boiler house
+  // enclosed conveyor gallery climbing from the heap into the boiler house
   {
-    const a0 = iso.P(0.52, 1.56, 13);
-    const a1 = iso.P(1.78, 1.32, 50);
-    const wOff = 4 * RES;
+    const a0 = iso.P(0.5, 1.6, 12);
+    const a1 = iso.P(1.84, 1.1, 56);
+    const wTop = 5 * RES;
+    const wBot = 2 * RES;
+    // support trestles first, so the gallery sits over them
+    for (const t of [0.28, 0.55, 0.8]) {
+      const x = a0[0] + (a1[0] - a0[0]) * t;
+      const yTop = a0[1] + (a1[1] - a0[1]) * t + wBot;
+      const [, yG] = iso.P(0.5 + (1.84 - 0.5) * t, 1.6 + (1.1 - 1.6) * t, 0);
+      iso.r.line([x, yTop], [x, yG], INK_W * 0.8, COLORS.steelDark);
+      iso.r.line([x - 2.5 * RES, yG + 1 * RES], [x + 2.5 * RES, yG + 1 * RES], INK_W * 0.7, COLORS.steelDark);
+    }
     iso.r.poly(
-      [[a0[0], a0[1] - wOff * 0.4], [a1[0], a1[1] - wOff * 0.4], [a1[0], a1[1] + wOff * 0.6], [a0[0], a0[1] + wOff * 0.6]],
+      [[a0[0], a0[1] - wTop], [a1[0], a1[1] - wTop], [a1[0], a1[1] + wBot], [a0[0], a0[1] + wBot]],
+      COLORS.steelDark,
+    );
+    iso.r.poly(
+      [[a0[0], a0[1] - wTop], [a1[0], a1[1] - wTop], [a1[0], a1[1] - wTop + 2 * RES], [a0[0], a0[1] - wTop + 2 * RES]],
       COLORS.steel,
     );
-    iso.r.line([a0[0], a0[1] - wOff * 0.4], [a1[0], a1[1] - wOff * 0.4], INK_W * 0.8, INK);
-    iso.r.line([a0[0], a0[1] + wOff * 0.6], [a1[0], a1[1] + wOff * 0.6], INK_W * 0.8, INK);
-    // support trestles
-    for (const t of [0.3, 0.6, 0.85]) {
-      const x = a0[0] + (a1[0] - a0[0]) * t;
-      const yTop = a0[1] + (a1[1] - a0[1]) * t + wOff * 0.6;
-      const [, yG] = iso.P(0.52 + (1.78 - 0.52) * t, 1.56 + (1.32 - 1.56) * t, 0);
-      iso.r.line([x, yTop], [x, yG], INK_W * 0.7, COLORS.steelDark);
-    }
+    iso.r.line([a0[0], a0[1] - wTop], [a1[0], a1[1] - wTop], INK_W * 0.8, INK);
+    iso.r.line([a0[0], a0[1] + wBot], [a1[0], a1[1] + wBot], INK_W * 0.8, INK);
   }
 
   // two big hyperboloid cooling towers + steam wisps

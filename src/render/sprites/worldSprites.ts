@@ -144,7 +144,7 @@ export function hillTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
     alpha(INK, 0.55),
     true,
   );
-  if (rng.chance(0.5)) iso.cone(0.5, 0.4, 0.09, 24, COLORS.treeDeep, h);
+  if (seed % 2 === 0) iso.cone(0.5, 0.4, 0.09, 24, COLORS.treeDeep, h);
   return iso.build();
 }
 

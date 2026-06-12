@@ -103,7 +103,7 @@ export const GENS: Record<GenType, GenSpec> = {
     opexFrac: 0.015,
     marginalCostK: 0.045, // PPA strike
     carbonG: 0,
-    siting: 'solarSite',
+    siting: 'land', // any open land — pre-surveyed sites build faster
     planningDays: 14,
     buildDays: 30,
   },

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { boot, store } from './helpers';
+import { boot, openLand, pause, store } from './helpers';
 
 test.describe('inbox & innovation levy', () => {
   test('levy steppers adjust the innovation levy on the bill', async ({ page }) => {
@@ -21,6 +21,31 @@ test.describe('inbox & innovation levy', () => {
     await expect(page.getByText(/innovation fund/)).toBeVisible();
     await page.getByText('INBOX').dispatchEvent('click');
     await expect(page.getByText(/innovation fund/)).not.toBeVisible();
+  });
+
+  test('designating a generation site opens a tender in the inbox', async ({ page }) => {
+    await boot(page);
+    await pause(page);
+    const [a] = await openLand(page, 1);
+    expect(a).toBeTruthy();
+    if (!a) return;
+    await page.evaluate(
+      (t) =>
+        window.__ec?.sendCommand({
+          type: 'build',
+          spec: { kind: 'gen', gen: 'gasCCGT', x: t.x, y: t.y },
+        }),
+      a,
+    );
+    await expect(page.getByText('TENDERS')).toBeVisible();
+    await expect(page.getByText('Gas CCGT site')).toBeVisible();
+    await expect(page.getByText(/awaiting developer bids/)).toBeVisible();
+    // withdrawing clears the section
+    await page.getByRole('button', { name: 'withdraw' }).dispatchEvent('click');
+    await expect(page.getByText('TENDERS')).not.toBeVisible();
+    await expect
+      .poll(() => store<string>(page, '(s) => s.snapshot.inbox.tenders[0].status'))
+      .toBe('lapsed');
   });
 
   test('satisfaction and curtailment KPIs are on the bill panel', async ({ page }) => {

@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { applyCommand } from '../src/sim/commands';
+import type { SubAsset } from '../src/sim/assets';
 import { GENS } from '../src/sim/catalog';
 import {
   bidLeadDays,
@@ -266,7 +267,9 @@ describe('scenario seeding', () => {
     const ctx = newContext();
     seedScenario(state, ctx);
 
-    const idnos = [...state.assets.values()].filter((a) => a.kind === 'sub' && a.idno);
+    const idnos = [...state.assets.values()].filter(
+      (a): a is SubAsset => a.kind === 'sub' && a.idno === true,
+    );
     expect(idnos).toHaveLength(NEW_ESTATES.length);
     for (const e of NEW_ESTATES) {
       const sub = idnos.find((a) => a.x === e.x && a.y === e.y);

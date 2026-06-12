@@ -252,7 +252,7 @@ export class MapRenderer {
     this.buildTextures();
     this.buildRoutePaths(map);
     this.buildWorld(map);
-    this.drawRoutes(map);
+    this.drawRoutes();
     this.spawnVehicles();
 
     this.cityFilter.desaturate();
@@ -507,7 +507,7 @@ export class MapRenderer {
   }
 
   /** All the tarmac, verges, flowers, sleepers and rails — drawn once. */
-  private drawRoutes(map: CityMap): void {
+  private drawRoutes(): void {
     const g = this.routesG;
     let flowerSeed = 0x5eed1;
     const rnd = (): number => {
