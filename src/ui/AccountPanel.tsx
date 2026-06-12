@@ -7,32 +7,46 @@ import { currentUser, ensureUsername, requestCode, signOut, verifyCode, type Onl
 import { fetchLeaderboard, pullSettings, pushSettings, type LeaderboardRow } from '../online/cloud';
 import { theme } from './theme';
 
+const fieldWrap: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  width: 320,
+  margin: '8px auto 0',
+  padding: '8px 12px',
+  borderRadius: 10,
+  border: '1px solid rgba(125, 135, 180, 0.3)',
+  background: 'rgba(8, 11, 26, 0.7)',
+};
+
 const field: React.CSSProperties = {
-  display: 'block',
-  width: 240,
-  margin: '6px auto 0',
-  padding: '6px 10px',
-  borderRadius: 6,
-  border: `1px solid ${theme.navyLight}`,
-  background: theme.night,
+  flex: 1,
+  border: 'none',
+  outline: 'none',
+  background: 'transparent',
   color: theme.offWhite,
   fontFamily: theme.font,
   fontSize: 13,
 };
 
 const smallBtn: React.CSSProperties = {
-  padding: '5px 14px',
-  marginTop: 8,
-  borderRadius: 6,
+  display: 'block',
+  width: 320,
+  margin: '10px auto 0',
+  padding: '9px 0',
+  borderRadius: 10,
   border: `1px solid ${theme.orange}`,
-  background: 'transparent',
+  background: 'rgba(255, 138, 30, 0.06)',
   color: theme.orange,
   fontFamily: theme.font,
   fontSize: 12,
+  fontWeight: 700,
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
   cursor: 'pointer',
 };
 
-export function AccountPanel() {
+export function AccountPanel({ showBoard = true }: { showBoard?: boolean } = {}) {
   const [user, setUser] = useState<OnlineUser | undefined>(undefined);
   const [checked, setChecked] = useState(false);
   const [email, setEmail] = useState('');
@@ -85,7 +99,7 @@ export function AccountPanel() {
   };
 
   return (
-    <div style={{ marginTop: 20, borderTop: `1px solid ${theme.navyLight}`, paddingTop: 14 }}>
+    <div style={{ marginTop: 6 }}>
       {!checked ? null : user ? (
         <div style={{ fontSize: 12 }}>
           <span style={{ color: theme.ok }}>
@@ -105,14 +119,17 @@ export function AccountPanel() {
           <div style={{ color: theme.slate, fontSize: 12 }}>
             check {email} — enter the 6-digit code (or click the link)
           </div>
-          <input
-            style={field}
-            placeholder="123456"
-            value={code}
-            inputMode="numeric"
-            onChange={(e) => setCode(e.target.value)}
-            aria-label="one-time code"
-          />
+          <div style={fieldWrap}>
+            <span aria-hidden style={{ color: theme.slate }}>▦</span>
+            <input
+              style={field}
+              placeholder="123456"
+              value={code}
+              inputMode="numeric"
+              onChange={(e) => setCode(e.target.value)}
+              aria-label="one-time code"
+            />
+          </div>
           <button style={smallBtn} onClick={() => void confirm()}>
             verify
           </button>
@@ -122,21 +139,27 @@ export function AccountPanel() {
           <div style={{ color: theme.slate, fontSize: 12 }}>
             sign in to sync saves and join the leaderboard — no password, just a code
           </div>
-          <input
-            style={field}
-            placeholder="email"
-            value={email}
-            type="email"
-            onChange={(e) => setEmail(e.target.value)}
-            aria-label="email"
-          />
-          <input
-            style={field}
-            placeholder="username (public)"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            aria-label="username"
-          />
+          <div style={fieldWrap}>
+            <span aria-hidden style={{ color: theme.slate }}>✉</span>
+            <input
+              style={field}
+              placeholder="email"
+              value={email}
+              type="email"
+              onChange={(e) => setEmail(e.target.value)}
+              aria-label="email"
+            />
+          </div>
+          <div style={fieldWrap}>
+            <span aria-hidden style={{ color: theme.slate }}>👤</span>
+            <input
+              style={field}
+              placeholder="username (public)"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              aria-label="username"
+            />
+          </div>
           <button
             style={smallBtn}
             disabled={phase === 'busy' || !email.includes('@')}
@@ -148,7 +171,7 @@ export function AccountPanel() {
       )}
       {error && <div style={{ color: theme.danger, fontSize: 12, marginTop: 6 }}>{error}</div>}
 
-      {board.length > 0 && (
+      {showBoard && board.length > 0 && (
         <div style={{ marginTop: 14, fontSize: 12, textAlign: 'left' }}>
           <div style={{ color: theme.slate, fontSize: 10, letterSpacing: '0.12em' }}>
             BEST OPERATORS

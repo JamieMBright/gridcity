@@ -170,6 +170,7 @@ export function App() {
   }, []);
   useKeyboard();
   const isMobile = useIsMobile();
+  const menuOpen = useAppStore((s) => s.menuOpen);
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
@@ -181,24 +182,35 @@ export function App() {
           inset: 0,
           pointerEvents: 'none',
           background:
-            'linear-gradient(160deg, rgba(255,178,102,0.10) 0%, rgba(224,105,122,0.07) 45%, rgba(16,22,48,0.16) 100%)',
+            'linear-gradient(160deg, rgba(255,178,102,0.12) 0%, rgba(224,105,122,0.08) 45%, rgba(16,22,48,0.18) 100%)',
         }}
       />
-      {isMobile ? (
-        <MobileChrome />
-      ) : (
-        <>
-          <Wordmark />
-          <BuildPalette />
-          <InfoPanel />
-          <BillPanel />
-          <FleetPanel />
-          <InboxPanel />
-          <AlertsFeed />
-          <StatusBar />
-        </>
-      )}
-      <Hud compact={isMobile} />
+      {/* soft vignette pulls the eye to the lit city */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          pointerEvents: 'none',
+          background:
+            'radial-gradient(ellipse at 50% 42%, transparent 52%, rgba(8, 6, 22, 0.42) 100%)',
+        }}
+      />
+      {!menuOpen &&
+        (isMobile ? (
+          <MobileChrome />
+        ) : (
+          <>
+            <Wordmark />
+            <BuildPalette />
+            <InfoPanel />
+            <BillPanel />
+            <FleetPanel />
+            <InboxPanel />
+            <AlertsFeed />
+            <StatusBar />
+          </>
+        ))}
+      {!menuOpen && <Hud compact={isMobile} />}
       <Toast />
       <Tutorial />
       <KpiDashboard />
