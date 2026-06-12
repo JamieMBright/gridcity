@@ -189,6 +189,7 @@ export function MapView() {
     rendererRef.current = renderer;
     renderer.onHover = (tile) => useAppStore.getState().setHoveredTile(tile);
     renderer.onTileClick = (tile) => handleTileClick(tile);
+    renderer.onSiteClick = (site) => useAppStore.getState().requestInboxFocus(site.x, site.y);
     void renderer.init(host, getLondonMap()).then(() => {
       // StrictMode double-mounts: only the surviving renderer gets the hook
       if (rendererRef.current === renderer) installTestHook(renderer);

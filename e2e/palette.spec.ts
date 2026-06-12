@@ -44,7 +44,7 @@ test.describe('build palette', () => {
       await clickButton(page, `${level} kV line`);
       await expect.poll(() => store<number>(page, '(s) => s.tool.level')).toBe(level);
       await expect(
-        page.getByText('click a plant/substation to start the route'),
+        page.getByText('click a ringed asset to start the route'),
       ).toBeVisible();
     }
   });

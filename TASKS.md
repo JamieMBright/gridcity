@@ -25,6 +25,27 @@
 
 ## Done (chronological, latest first)
 
+### Contract pins prompt
+- [x] New contracts (applications/tenders/overdue) drop a sizeable map
+      pin — fat teardrop with glyph + label, bouncing, with a pulsing
+      ground ring to draw the eye
+- [x] Click the pin → the inbox opens, scrolls to and flashes that
+      contract; click the inbox message → camera snaps to the pin
+      (two-way; pin taps don't fall through to the tile beneath)
+
+### Logotype like-for-like prompt
+- [x] Shipped the owner's reference artwork itself as the menu logotype
+      (like-for-like by definition): background unmixed to alpha so the
+      glow halos composite onto the glassy panel; raster asset kept by
+      owner request — the one deliberate exception to art-is-code
+
+### E2E debt found by the full suite (fixed pre-push)
+- [x] palette.spec still expected the pre-rings hint wording (stale
+      since the voltage-clarity package) — aligned to the live copy
+- [x] Tutorial steps auto-skipped: seeded existing plants satisfied the
+      "designate generation" condition instantly — step conditions now
+      ignore seeded developer/iDNO kit
+
 ### Substation voltage colours prompt
 - [x] Substations carry their voltage colours on the map at all times:
       bay-coloured rings under each sub (400 blue / 132 green / 33

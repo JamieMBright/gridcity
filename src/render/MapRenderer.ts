@@ -236,6 +236,8 @@ export class MapRenderer {
   private map: CityMap | undefined;
   private growthApplied = 0;
 
+  private sitePins: Array<{ ring: Graphics; body: Container; phase: number }> = [];
+  private siteTapped = false;
   private routePaths: RoutePath[] = [];
   private vehicles: Vehicle[] = [];
   private lineAnims: LineAnim[] = [];
@@ -247,6 +249,8 @@ export class MapRenderer {
 
   onHover: ((tile: TileHover | undefined) => void) | undefined;
   onTileClick: ((tile: TileHover) => void) | undefined;
+  /** A contract pin was tapped (applications/tenders/overdue sites). */
+  onSiteClick: ((site: SiteView) => void) | undefined;
 
   async init(host: HTMLElement, map: CityMap): Promise<void> {
     this.map = map;
@@ -859,9 +863,14 @@ export class MapRenderer {
     this.stepFlow(dt);
     this.stepPulses(dt);
     this.bobPhase += dt;
-    for (const child of this.siteLayer.children) {
-      const base = (child as Container & { baseY?: number }).baseY;
-      if (base !== undefined) child.y = base + Math.sin(this.bobPhase * 2.4 + child.x * 0.01) * 4 * RES;
+    for (const pin of this.sitePins) {
+      // bouncing pin + an expanding ring pulse rolling off the ground
+      const t = (this.bobPhase * 0.9 + pin.phase) % 1.6;
+      const bounce = Math.abs(Math.sin((this.bobPhase * 2.4 + pin.phase) * Math.PI * 0.5));
+      pin.body.y = -bounce * 9 * RES;
+      const k = t / 1.6;
+      pin.ring.scale.set(0.35 + k * 1.5);
+      pin.ring.alpha = Math.max(0, 0.9 * (1 - k));
     }
   }
 
@@ -957,10 +966,11 @@ export class MapRenderer {
     }
   }
 
-  // --- bubbles: applications, tenders and angry customers ---------------------
+  // --- pins: applications, tenders and angry customers -------------------------
 
   private rebuildSites(sites: SiteView[]): void {
     this.siteLayer.removeChildren().forEach((c) => c.destroy({ children: true }));
+    this.sitePins = [];
     const STYLE: Record<SiteView['icon'], { bg: number; glyph: string; fg: number }> = {
       application: { bg: 0xffd277, glyph: '!', fg: 0x10162f },
       tender: { bg: 0x5ea3ff, glyph: '£', fg: 0x10162f },
@@ -970,23 +980,58 @@ export class MapRenderer {
     for (const site of sites) {
       const st = STYLE[site.icon];
       const c = this.tileCentre(site.x, site.y);
-      const bubble = new Container() as Container & { baseY?: number };
+      const pin = new Container();
+      pin.position.set(c.x, c.y);
+
+      // pulsing ground ring — the attention-grabber
+      const ring = new Graphics();
+      ring.ellipse(0, 0, 18 * RES, 9 * RES).stroke({ color: st.bg, width: 2.4 * RES });
+      pin.addChild(ring);
+
+      const shadow = new Graphics();
+      shadow.ellipse(0, 0, 9 * RES, 4.5 * RES).fill({ color: 0x06080f, alpha: 0.4 });
+      pin.addChild(shadow);
+
+      // a proper map pin: fat teardrop, big glyph, dark rim
+      const body = new Container();
+      const r = 15 * RES;
+      const head = -r * 3.1;
       const g = new Graphics();
-      const r = 11 * RES;
-      g.circle(0, -r * 2.1, r).fill({ color: st.bg, alpha: 0.96 });
-      g.poly([-r * 0.4, -r * 1.35, r * 0.4, -r * 1.35, 0, 0]).fill({ color: st.bg, alpha: 0.96 });
-      g.circle(0, -r * 2.1, r).stroke({ color: 0x241c38, width: 1.4 * RES, alpha: 0.9 });
-      bubble.addChild(g);
-      const label = new Text({
+      g.moveTo(0, 0)
+        .quadraticCurveTo(-r * 1.05, head + r * 1.7, -r, head)
+        .arc(0, head, r, Math.PI, 0)
+        .quadraticCurveTo(r * 1.05, head + r * 1.7, 0, 0)
+        .fill({ color: st.bg, alpha: 0.97 })
+        .stroke({ color: 0x241c38, width: 2 * RES, alpha: 0.95 });
+      g.circle(0, head, r * 0.62).fill({ color: 0x10162f, alpha: 0.25 });
+      body.addChild(g);
+      const glyph = new Text({
         text: st.glyph,
-        style: { fontFamily: 'monospace', fontSize: 13 * RES, fontWeight: '800', fill: st.fg },
+        style: { fontFamily: 'monospace', fontSize: 17 * RES, fontWeight: '800', fill: st.fg },
       });
-      label.anchor.set(0.5);
-      label.position.set(0, -r * 2.1);
-      bubble.addChild(label);
-      bubble.position.set(c.x, c.y - 30 * RES);
-      bubble.baseY = c.y - 30 * RES;
-      this.siteLayer.addChild(bubble);
+      glyph.anchor.set(0.5);
+      glyph.position.set(0, head);
+      body.addChild(glyph);
+      const label = new Text({
+        text: site.label,
+        style: { fontFamily: 'monospace', fontSize: 8.5 * RES, fontWeight: '700', fill: 0xf4f1ea },
+      });
+      label.anchor.set(0.5, 1);
+      label.position.set(0, head - r * 1.35);
+      body.addChild(label);
+      pin.addChild(body);
+
+      // tap → snap the inbox to this contract (and don't fall through
+      // to the tile underneath)
+      pin.eventMode = 'static';
+      pin.cursor = 'pointer';
+      pin.on('pointerdown', () => {
+        this.siteTapped = true;
+      });
+      pin.on('pointertap', () => this.onSiteClick?.(site));
+
+      this.siteLayer.addChild(pin);
+      this.sitePins.push({ ring, body, phase: Math.random() * Math.PI * 2 });
     }
   }
 
@@ -1431,6 +1476,11 @@ export class MapRenderer {
       const wasPinching = touches.size >= 2;
       release(e);
       this.dragging = false;
+      if (this.siteTapped) {
+        // the tap landed on a contract pin — don't also click the tile
+        this.siteTapped = false;
+        return;
+      }
       if (!wasPinching && this.dragTravel <= CLICK_SLOP_PX) {
         const tile = this.tileFromClient(map, e.clientX, e.clientY);
         if (tile) this.onTileClick?.(tile);

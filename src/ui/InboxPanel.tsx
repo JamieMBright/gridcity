@@ -4,7 +4,7 @@
 // everyone); tenders collect developer bids the player awards; pitches
 // draw on the innovation fund the levy fills.
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../app/store';
 import { sendCommand } from '../app/workerBridge';
 import { GENS } from '../sim/catalog';
@@ -26,8 +26,39 @@ const btn = (color: string): React.CSSProperties => ({
 export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   const snapshot = useAppStore((s) => s.snapshot);
   const requestPan = useAppStore((s) => s.requestPan);
+  const inboxFocus = useAppStore((s) => s.inboxFocus);
   const [open, setOpen] = useState(true);
+  // a clicked map pin snaps the inbox to its message: open, scroll, flash
+  const [flashKey, setFlashKey] = useState<string | undefined>(undefined);
+  const itemRefs = useRef(new Map<string, HTMLDivElement>());
+  useEffect(() => {
+    if (!inboxFocus) return;
+    setOpen(true);
+    const s = useAppStore.getState().snapshot;
+    const t = s?.inbox.tenders.find(
+      (x) => x.status === 'open' && x.x === inboxFocus.x && x.y === inboxFocus.y,
+    );
+    const a = s?.inbox.applications.find((x) => x.x === inboxFocus.x && x.y === inboxFocus.y);
+    const key = t ? `t${t.id}` : a ? `a${a.id}` : undefined;
+    if (!key) return;
+    setFlashKey(key);
+    const el = itemRefs.current.get(key);
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    const timer = setTimeout(() => setFlashKey(undefined), 2200);
+    return () => clearTimeout(timer);
+  }, [inboxFocus]);
   if (!snapshot) return null;
+
+  const flashStyle = (key: string): React.CSSProperties =>
+    flashKey === key
+      ? {
+          background: 'rgba(255, 138, 30, 0.18)',
+          outline: '1px solid rgba(255, 138, 30, 0.7)',
+          borderRadius: 6,
+          padding: '2px 4px',
+          margin: '6px -4px 0',
+        }
+      : {};
 
   const apps = snapshot.inbox.applications.filter((a) => a.status === 'open');
   const overdue = snapshot.inbox.applications.filter(
@@ -90,7 +121,14 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
             const g = GENS[t.gen];
             const closeDays = Math.max(0, (t.closesMin - snapshot.simTimeMin) / 1440);
             return (
-              <div key={`t${t.id}`} style={{ marginTop: 6 }}>
+              <div
+                key={`t${t.id}`}
+                ref={(el) => {
+                  if (el) itemRefs.current.set(`t${t.id}`, el);
+                  else itemRefs.current.delete(`t${t.id}`);
+                }}
+                style={{ marginTop: 6, ...flashStyle(`t${t.id}`) }}
+              >
                 <div
                   style={{ color: theme.gold, cursor: 'pointer' }}
                   onClick={() => requestPan(t.x, t.y)}
@@ -141,7 +179,14 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
             const daysLeft = Math.max(0, (a.decideByMin - snapshot.simTimeMin) / 1440);
             const isGen = GEN_OF_KIND[a.kind] !== undefined;
             return (
-              <div key={a.id} style={{ marginTop: 8 }}>
+              <div
+                key={a.id}
+                ref={(el) => {
+                  if (el) itemRefs.current.set(`a${a.id}`, el);
+                  else itemRefs.current.delete(`a${a.id}`);
+                }}
+                style={{ marginTop: 8, ...flashStyle(`a${a.id}`) }}
+              >
                 <div
                   style={{ color: theme.gold, cursor: 'pointer' }}
                   onClick={() => requestPan(a.x, a.y)}

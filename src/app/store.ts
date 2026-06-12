@@ -42,6 +42,8 @@ interface AppState {
   toast: string | undefined;
   /** Camera jump request (alert click); seq forces re-trigger. */
   panTarget: { x: number; y: number; seq: number } | undefined;
+  /** A contract pin was clicked: snap the inbox to its message. */
+  inboxFocus: { x: number; y: number; seq: number } | undefined;
   menuOpen: boolean;
   /** Current tutorial step index, or undefined when not in the tutorial. */
   tutorialStep: number | undefined;
@@ -56,6 +58,7 @@ interface AppState {
   setGhostInfo: (info: GhostInfo | undefined) => void;
   setToast: (msg: string | undefined) => void;
   requestPan: (x: number, y: number) => void;
+  requestInboxFocus: (x: number, y: number) => void;
   setMenuOpen: (open: boolean) => void;
   setTutorialStep: (step: number | undefined) => void;
   setKpiOpen: (open: boolean) => void;
@@ -81,6 +84,7 @@ export const useAppStore = create<AppState>((set) => ({
   ghostInfo: undefined,
   toast: undefined,
   panTarget: undefined,
+  inboxFocus: undefined,
   menuOpen: true,
   tutorialStep: undefined,
   kpiOpen: false,
@@ -112,6 +116,8 @@ export const useAppStore = create<AppState>((set) => ({
   },
   requestPan: (x, y) =>
     set((s) => ({ panTarget: { x, y, seq: (s.panTarget?.seq ?? 0) + 1 } })),
+  requestInboxFocus: (x, y) =>
+    set((s) => ({ inboxFocus: { x, y, seq: (s.inboxFocus?.seq ?? 0) + 1 } })),
   setMenuOpen: (menuOpen) => set({ menuOpen }),
   setTutorialStep: (tutorialStep) => set({ tutorialStep }),
   setKpiOpen: (kpiOpen) => set({ kpiOpen }),
