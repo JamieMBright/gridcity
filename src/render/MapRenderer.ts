@@ -222,6 +222,7 @@ export class MapRenderer {
   private levelG = new Graphics();
   private levelHighlight: VoltageLevel | undefined;
   private selG = new Graphics();
+  private councilG = new Graphics();
   private lastAssets: PlacedAsset[] = [];
   private vanSprites = new Map<number, Sprite>();
   private ghostG = new Graphics();
@@ -304,6 +305,7 @@ export class MapRenderer {
     this.world.addChild(this.pulseG);
     this.world.addChild(this.levelG);
     this.world.addChild(this.selG);
+    this.world.addChild(this.councilG);
     this.world.addChild(this.jobsG);
     this.world.addChild(this.jobLayer);
     this.world.addChild(this.fleetLayer);
@@ -355,6 +357,20 @@ export class MapRenderer {
       this.diamond(this.levelG, a.x, a.y, 1.45);
       this.levelG.stroke({ color: LEVEL_COLOR[level], width: 1.2 * RES, alpha: 0.4 });
     }
+  }
+
+  /** Ring-fence a council on the map (grid-balance row click), or clear. */
+  setCouncilHighlight(councilId: number | undefined): void {
+    this.councilG.clear();
+    const map = this.map;
+    if (councilId === undefined || !map) return;
+    for (let y = 0; y < map.height; y++) {
+      for (let x = 0; x < map.width; x++) {
+        if (map.council[y * map.width + x] !== councilId) continue;
+        this.diamond(this.councilG, x, y, 1.0);
+      }
+    }
+    this.councilG.fill({ color: 0xff8a1e, alpha: 0.14 });
   }
 
   /** Highlight the inspected asset or line span on the map, or clear. */

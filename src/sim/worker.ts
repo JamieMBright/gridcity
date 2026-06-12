@@ -24,6 +24,7 @@ import {
   type GameState,
   type SaveData,
 } from './state';
+import { computeBalance } from './balance';
 import { connectionStudy } from './study';
 import { buildDemandField } from './map/demand';
 import {
@@ -260,6 +261,9 @@ self.onmessage = (e: MessageEvent<MainToWorker>) => {
         lastHistMin = -1;
         post({ type: 'snapshot', snapshot: makeSnapshot(false) });
         post({ type: 'saveData', data: serialize(state) });
+        break;
+      case 'balance':
+        post({ type: 'balance', report: computeBalance(state, ctx) });
         break;
       case 'study': {
         const app = state.applications.find((x) => x.id === msg.appId);

@@ -78,6 +78,9 @@ export function initWorker(): void {
       case 'study':
         s.setStudy(msg.study);
         break;
+      case 'balance':
+        s.setBalance(msg.report);
+        break;
       case 'fatal':
         s.setWorkerStatus('error', msg.message);
         break;
@@ -103,6 +106,11 @@ export function setWatch(assetId: number | undefined): void {
 /** Ask the worker for a connection study of an open application. */
 export function requestStudy(appId: number): void {
   send({ type: 'study', appId });
+}
+
+/** Ask the worker to cut a fresh grid-balance report. */
+export function requestBalance(): void {
+  send({ type: 'balance' });
 }
 
 /** Wipe progress and start over (the worker posts a fresh save). */

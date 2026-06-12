@@ -287,6 +287,12 @@ export function MapView() {
     if (panTarget) rendererRef.current?.panTo(panTarget.x, panTarget.y);
   }, [panTarget]);
 
+  // grid-balance ring fence
+  const highlightCouncil = useAppStore((s) => s.highlightCouncil);
+  useEffect(() => {
+    rendererRef.current?.setCouncilHighlight(highlightCouncil);
+  }, [highlightCouncil]);
+
   // highlight whatever the pinned inspector card is talking about, and
   // have the worker record its performance history for the sparkline
   const selectedAsset = useAppStore((s) => s.selectedAsset);

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { AlertsFeed } from '../ui/AlertsFeed';
+import { BalancePanel } from '../ui/BalancePanel';
 import { BillPanel } from '../ui/BillPanel';
 import { BuildPalette } from '../ui/BuildPalette';
 import { FleetPanel } from '../ui/FleetPanel';
@@ -127,6 +128,8 @@ function useKeyboard(): void {
       const key = e.key.toLowerCase();
       if (key === 'g') {
         s.setGridView(!s.gridView);
+      } else if (key === 'b') {
+        s.setBalanceOpen(!s.balanceOpen);
       } else if (key === 'k') {
         s.setKpiOpen(!s.kpiOpen);
       } else if (key === 'u') {
@@ -225,6 +228,7 @@ export function App() {
       {!menuOpen && <Hud compact={isMobile} />}
       <Toast />
       <Tutorial />
+      {!menuOpen && <BalancePanel />}
       <KpiDashboard />
       <StartMenu />
     </div>

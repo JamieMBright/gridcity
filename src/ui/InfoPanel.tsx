@@ -4,6 +4,7 @@ import { sendCommand } from '../app/workerBridge';
 import { GENS, LINES, SUB_UG_MUL, subCapexK, subRadius, SUBS, type SubType } from '../sim/catalog';
 import { assetLevels, subMva, type PlacedAsset } from '../sim/assets';
 import { assetAtTile, spanAt } from '../sim/commands';
+import { availAt } from '../sim/balance';
 import { priceLine } from '../sim/cost';
 import { NO_COUNCIL, TERRAIN, ZONE, type Terrain, type Zone } from '../sim/map/types';
 import { COV } from '../sim/tick';
@@ -497,6 +498,20 @@ function AssetInfo({ assetId }: { assetId: number }) {
         return null;
       })()}
       {snapshot.watch?.assetId === assetId && <Sparkline series={snapshot.watch.series} />}
+      {asset.kind === 'gen' && (
+        <div style={{ marginTop: 4 }}>
+          <Sparkline
+            series={Array.from({ length: 24 }, (_, h) => [
+              h * 60,
+              GENS[asset.gen].capacityMW * availAt(asset.gen, h),
+              GENS[asset.gen].capacityMW,
+            ])}
+          />
+          <div style={{ fontSize: 10, color: theme.slate }}>
+            availability profile (typical day)
+          </div>
+        </div>
+      )}
       {asset.kind === 'sub' && !asset.idno && SUBS[asset.sub].mvaSteps && (
         <MvaControls assetId={asset.id} sub={asset.sub} mva={subMva(asset)} auto={asset.mvaAuto !== false} />
       )}

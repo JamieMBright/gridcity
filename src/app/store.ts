@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { GenType, LineBuild, SubType } from '../sim/catalog';
 import type { VoltageLevel } from '../sim/grid/types';
 import type { SimSnapshot } from '../sim/protocol';
+import type { BalanceReport } from '../sim/balance';
 import type { ConnectionStudy } from '../sim/study';
 import type { TileHover } from '../render/MapRenderer';
 
@@ -50,6 +51,11 @@ interface AppState {
   inboxFocus: { x: number; y: number; seq: number } | undefined;
   /** Connection studies by application id (worker-computed). */
   studies: Record<number, ConnectionStudy>;
+  /** The grid-balance report + panel state. */
+  balance: BalanceReport | undefined;
+  balanceOpen: boolean;
+  /** Council ring-fence highlight on the map (balance row click). */
+  highlightCouncil: number | undefined;
   menuOpen: boolean;
   /** Current tutorial step index, or undefined when not in the tutorial. */
   tutorialStep: number | undefined;
@@ -70,6 +76,9 @@ interface AppState {
   requestPan: (x: number, y: number) => void;
   requestInboxFocus: (x: number, y: number) => void;
   setStudy: (study: ConnectionStudy) => void;
+  setBalance: (report: BalanceReport) => void;
+  setBalanceOpen: (open: boolean) => void;
+  setHighlightCouncil: (id: number | undefined) => void;
   setMenuOpen: (open: boolean) => void;
   setTutorialStep: (step: number | undefined) => void;
   setKpiOpen: (open: boolean) => void;
@@ -98,6 +107,9 @@ export const useAppStore = create<AppState>((set) => ({
   panTarget: undefined,
   inboxFocus: undefined,
   studies: {},
+  balance: undefined,
+  balanceOpen: false,
+  highlightCouncil: undefined,
   menuOpen: true,
   tutorialStep: undefined,
   kpiOpen: false,
@@ -134,6 +146,10 @@ export const useAppStore = create<AppState>((set) => ({
   requestInboxFocus: (x, y) =>
     set((s) => ({ inboxFocus: { x, y, seq: (s.inboxFocus?.seq ?? 0) + 1 } })),
   setStudy: (study) => set((s) => ({ studies: { ...s.studies, [study.appId]: study } })),
+  setBalance: (balance) => set({ balance }),
+  setBalanceOpen: (balanceOpen) =>
+    set(balanceOpen ? { balanceOpen } : { balanceOpen, highlightCouncil: undefined }),
+  setHighlightCouncil: (highlightCouncil) => set({ highlightCouncil }),
   setMenuOpen: (menuOpen) => set({ menuOpen }),
   setTutorialStep: (tutorialStep) => set({ tutorialStep }),
   setKpiOpen: (kpiOpen) => set({ kpiOpen }),
