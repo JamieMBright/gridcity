@@ -2,7 +2,7 @@
 // gameplay-level tests don't depend on the London map's geography.
 
 import { applyCommand, checkBuild, type Command } from '../src/sim/commands';
-import { GENS, type GenType } from '../src/sim/catalog';
+import { GENS, strikeMWh, type GenType } from '../src/sim/catalog';
 import { buildDemandField } from '../src/sim/map/demand';
 import {
   CUSTOMERS_PER_TILE,
@@ -67,6 +67,7 @@ export function directBuildGen(
     gen,
     x,
     y,
+    ppaMWh: strikeMWh(gen), // bills like an awarded plant: strike on delivery
     liveAtMin: state.simTimeMin + (g.planningDays + g.buildDays) * 1440,
   });
   state.assetsVersion++;

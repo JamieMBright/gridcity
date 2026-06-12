@@ -42,6 +42,8 @@ export interface GameState {
   rngState: number;
   /** rolling annualized energy cost, £k/yr (exponentially smoothed). */
   energyCostYrK: number;
+  /** rolling PPA top-ups above wholesale, £k/yr (exponentially smoothed). */
+  genCostYrK: number;
   weather: WeatherState;
   /** battery asset id → state of charge, MWh. */
   soc: Map<number, number>;
@@ -127,6 +129,7 @@ export function newGame(): GameState {
     assetsVersion: 0,
     rngState: 0xc0ffee,
     energyCostYrK: 0,
+    genCostYrK: 0,
     weather: newWeather(),
     soc: new Map(),
     heat: new Map(),
@@ -305,6 +308,7 @@ export interface SaveData {
   assets: PlacedAsset[];
   rngState: number;
   energyCostYrK: number;
+  genCostYrK?: number;
   weather?: WeatherState;
   soc?: Array<[number, number]>;
   heat?: Array<[number, number]>;
@@ -348,6 +352,7 @@ export function serialize(s: GameState): SaveData {
     assets: [...s.assets.values()],
     rngState: s.rngState,
     energyCostYrK: s.energyCostYrK,
+    genCostYrK: s.genCostYrK,
     weather: { ...s.weather },
     soc: [...s.soc.entries()],
     heat: [...s.heat.entries()],
@@ -394,6 +399,7 @@ export function deserialize(d: SaveData): GameState {
     assetsVersion: 1,
     rngState: d.rngState,
     energyCostYrK: d.energyCostYrK,
+    genCostYrK: d.genCostYrK ?? 0,
     weather: d.weather ? { ...d.weather } : newWeather(),
     soc: new Map(d.soc ?? []),
     heat: new Map(d.heat ?? []),

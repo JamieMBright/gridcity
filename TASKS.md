@@ -25,6 +25,25 @@
 
 ## Done (chronological, latest first)
 
+### Bill calibration prompt
+- [x] Household bill modelled the GB way: domestic users carry ~32% of
+      the network pot (industry/commerce the rest) → a reasonable mature
+      network ≈ £100/yr DUoS per home, shown on the bill panel; energy
+      at ~40% of volume × ~3x retail uplift + £150 standing charge →
+      an electrified (EV+HP) home trends to ≈ £3k/yr total
+- [x] Developer plant now bills like a real CfD/PPA: strike top-up above
+      wholesale on DELIVERED MWh only (smoothed in dispatch) — idle
+      seeded plants stopped inflating bills by £200+/home, a keen bid is
+      a real saving, and gen capex never rides DUoS
+- [x] RIIO bill targets rescaled to the calibrated figure (open at
+      £3000, floor £1800)
+
+### Vanished-substations-on-reload bug prompt
+- [x] On reload, substations/plants could vanish while lines + flows kept
+      drawing: snapshots arriving before the texture atlas finished
+      loading built an empty sprite pass and locked the asset signature.
+      Renderer re-runs the sprite pass once textures are ready.
+
 ### Contract pins prompt
 - [x] New contracts (applications/tenders/overdue) drop a sizeable map
       pin — fat teardrop with glyph + label, bouncing, with a pulsing

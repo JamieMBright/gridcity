@@ -12,7 +12,6 @@ import {
   DEPOT,
   GENS,
   LINES,
-  strikeMWh,
   SUB_UG_MUL,
   subCapexK,
   SUBS,
@@ -36,9 +35,25 @@ export function assetOpexFrac(a: PlacedAsset): number {
   return SUBS[a.sub].opexFrac;
 }
 
+// Household calibration: the licence area's ~240k domestic customers
+// are NOT the whole revenue base, the way the raw pots would imply.
+// Modelled the GB way: domestic users carry about a third of network
+// revenues (industry and commerce pay the rest), roughly 40% of the
+// energy volume — and retail energy lands at ~3x wholesale once policy
+// costs, balancing, metering and the supplier's slice pile on. A
+// reasonable mature network prices out near £100/yr of DUoS and around
+// £3k/yr all-in for an electrified (EV + heat pump) home.
+export const DOMESTIC_NETWORK_SHARE = 0.32;
+export const DOMESTIC_ENERGY_SHARE = 0.4;
+export const RETAIL_UPLIFT = 3.0;
+/** Supplier standing charge, £/household/yr. */
+export const SUPPLY_FIXED_YR = 150;
+
 export interface BillInputs {
   assets: Iterable<PlacedAsset>;
   energyYrK: number;
+  /** Rolling PPA top-ups above wholesale on delivered energy, £k/yr. */
+  ppaYrK: number;
   servedCustomers: number;
   totalCustomers: number;
   fleetSize: number;
@@ -61,8 +76,8 @@ export interface BillBreakdown {
   capexYrK: number;
   /** Fixed network O&M, £k/yr. */
   opexYrK: number;
-  /** Generation capex+O&M recovered through the energy line (PPA-style),
-   *  £k/yr. Customer-owned and iDNO plant excluded. */
+  /** PPA/CfD top-ups above wholesale on DELIVERED energy, £k/yr — a keen
+   *  strike is a real saving, and idle plant bills nothing. */
   genYrK: number;
   /** Field fleet (crewed vans), £k/yr. */
   fleetYrK: number;
@@ -79,11 +94,14 @@ export interface BillBreakdown {
   totalYrK: number;
   servedCustomers: number;
   totalCustomers: number;
-  /** Average annual household bill, £/yr. Network costs are socialized
-   *  across every customer in the licence area (connected or not), the
-   *  way a real DUoS charge spreads — so early building doesn't produce
-   *  absurd four-figure bills for the first street on supply. */
+  /** Average annual household bill, £/yr: the domestic share of each pot
+   *  (network at DOMESTIC_NETWORK_SHARE, energy at DOMESTIC_ENERGY_SHARE
+   *  × RETAIL_UPLIFT) spread across every customer in the licence area,
+   *  plus the supplier standing charge. */
   perCustomerYr: number;
+  /** The DUoS slice of the household bill, £/yr — the number the owner
+   *  tunes the network against (~£100 for a reasonable service). */
+  perCustomerDuosYr: number;
 }
 
 export function computeBill(inp: BillInputs): BillBreakdown {
@@ -92,24 +110,16 @@ export function computeBill(inp: BillInputs): BillBreakdown {
   let genYrK = 0;
   let overheadKm = 0;
   for (const a of inp.assets) {
-    if (a.kind === 'gen') {
-      if (a.customer) continue; // they pay for their own kit
-      const capex = assetCapexK(a);
-      let yrK = capex * (ANNUITY_FACTOR + assetOpexFrac(a));
-      // an awarded PPA bills at its strike: a keen bid is a real saving
-      if (a.ppaMWh !== undefined) {
-        const base = strikeMWh(a.gen);
-        if (base > 0) yrK *= a.ppaMWh / base;
-      }
-      genYrK += yrK;
-      continue;
-    }
+    // generation is private spend: developers recover it through their
+    // PPA strike on delivered energy (inp.ppaYrK), never through DUoS
+    if (a.kind === 'gen') continue;
     if (a.kind === 'sub' && a.idno) continue; // the iDNO's iron, not yours
     const capex = assetCapexK(a);
     capexYrK += capex * ANNUITY_FACTOR;
     opexYrK += capex * assetOpexFrac(a);
     if (a.kind === 'line' && a.build === 'overhead') overheadKm += a.lengthTiles;
   }
+  genYrK = inp.ppaYrK;
   const fleetYrK = inp.fleetSize * VAN_OPEX_K_YR;
   const vegYrK = (VEG_POLICY[inp.vegPolicy]?.costPerKmYrK ?? 0) * overheadKm * inp.vegCostMul;
   const constraintYrK = inp.constraintYrK + inp.penaltyYrK;
@@ -117,7 +127,19 @@ export function computeBill(inp: BillInputs): BillBreakdown {
     capexYrK + opexYrK + fleetYrK + vegYrK + genYrK + inp.energyYrK + inp.flexYrK + constraintYrK;
   const innovationYrK = subtotal * (inp.levyPct / 100);
   const totalYrK = subtotal + innovationYrK;
-  const perCustomerYr = inp.totalCustomers > 0 ? (totalYrK * 1000) / inp.totalCustomers : 0;
+  const networkPotK =
+    capexYrK + opexYrK + fleetYrK + vegYrK + inp.flexYrK + constraintYrK + innovationYrK;
+  const energyPotK = inp.energyYrK + genYrK;
+  const perCustomerDuosYr =
+    inp.totalCustomers > 0
+      ? (networkPotK * DOMESTIC_NETWORK_SHARE * 1000) / inp.totalCustomers
+      : 0;
+  const perCustomerYr =
+    inp.totalCustomers > 0
+      ? perCustomerDuosYr +
+        (energyPotK * DOMESTIC_ENERGY_SHARE * RETAIL_UPLIFT * 1000) / inp.totalCustomers +
+        SUPPLY_FIXED_YR
+      : 0;
   return {
     capexYrK,
     opexYrK,
@@ -132,5 +154,6 @@ export function computeBill(inp: BillInputs): BillBreakdown {
     servedCustomers: inp.servedCustomers,
     totalCustomers: inp.totalCustomers,
     perCustomerYr,
+    perCustomerDuosYr,
   };
 }

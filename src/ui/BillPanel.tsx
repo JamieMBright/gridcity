@@ -25,8 +25,11 @@ export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
         AVG ANNUAL BILL · ALL {b.totalCustomers.toLocaleString()} HOMES
       </div>
       <div style={{ fontSize: 26, fontWeight: 800, color: theme.gold }}>
-        £{b.perCustomerYr.toFixed(2)}
+        £{b.perCustomerYr.toFixed(0)}
         <span style={{ fontSize: 12, fontWeight: 400, color: theme.slate }}> /home/yr</span>
+      </div>
+      <div style={{ fontSize: 11, color: theme.orangeSoft }}>
+        of which your network (DUoS): £{b.perCustomerDuosYr.toFixed(2)}/yr
       </div>
       <div style={{ fontSize: 11, marginTop: 6 }}>
         <Row label="network (DUoS)" value={`${fmtMoneyK(b.capexYrK)}/yr`} />

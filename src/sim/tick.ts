@@ -403,6 +403,7 @@ export function solveTick(
     // rolling KPIs
     const alpha = dtMin / (dtMin + KPI_EMA_TAU_MIN);
     state.energyCostYrK += (dispatch.costKPerHour * 8760 - state.energyCostYrK) * alpha;
+    state.genCostYrK += (dispatch.ppaTopupKPerHour * 8760 - state.genCostYrK) * alpha;
     state.carbonEMA += (dispatch.carbonG - state.carbonEMA) * alpha;
     state.flexYrK += (dispatch.flexCostKPerHour * 8760 - state.flexYrK) * alpha;
     state.constraintYrK += (dispatch.constraintKPerHour * 8760 - state.constraintYrK) * alpha;
@@ -455,6 +456,7 @@ export function solveTick(
   const bill = computeBill({
     assets: state.assets.values(),
     energyYrK: state.energyCostYrK,
+    ppaYrK: state.genCostYrK,
     servedCustomers,
     totalCustomers: derived.service.totalCustomers,
     fleetSize: state.fleetSize,

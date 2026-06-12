@@ -238,6 +238,7 @@ export class MapRenderer {
 
   private sitePins: Array<{ ring: Graphics; body: Container; phase: number }> = [];
   private siteTapped = false;
+  private lastSimTimeMin = Number.POSITIVE_INFINITY;
   private routePaths: RoutePath[] = [];
   private vehicles: Vehicle[] = [];
   private lineAnims: LineAnim[] = [];
@@ -308,6 +309,14 @@ export class MapRenderer {
 
     this.attachInput(map);
     this.app.ticker.add(() => this.animate(this.app.ticker.deltaMS / 1000));
+
+    // snapshots can land BEFORE this point (loading a save races the
+    // atlas): that early sprite pass had no textures, so substations
+    // and plants silently vanished while the Graphics-drawn lines kept
+    // flowing. Re-run the pass now that the textures exist.
+    if (this.lastAssets.length > 0) {
+      this.rebuildAssetSprites(this.lastAssets, this.lastSimTimeMin);
+    }
   }
 
   setGridView(on: boolean): void {
@@ -417,6 +426,7 @@ export class MapRenderer {
     const mwOf = new Map(genMW);
 
     this.lastAssets = assets;
+    this.lastSimTimeMin = simTimeMin;
     if (this.levelHighlight !== undefined) this.drawLevelHighlight();
     // conversions keep the asset id but change its look: bake the bits
     // that pick a sprite (construction, line build, GIS) into the signature
