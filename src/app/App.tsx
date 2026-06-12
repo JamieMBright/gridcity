@@ -24,7 +24,7 @@ function Wordmark() {
       style={{
         ...panelStyle,
         position: 'absolute',
-        top: 12,
+        top: 28,
         left: 12,
         padding: '8px 14px',
         fontSize: 18,

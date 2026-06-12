@@ -5,8 +5,8 @@
 // get power or don't, CI/CML and satisfaction accrue, and every cost
 // rolls into the bill.
 
-import { busId, deriveNetwork, lineBranchId, subMva, txBranchId } from './assets';
-import { LINES, SUB_UPGRADE_AT, SUBS, VEG_POLICY } from './catalog';
+import { assetOfId, busId, deriveNetwork, lineBranchId, subMva, txBranchId } from './assets';
+import { LINES, SUB_UPGRADE_AT, SUBS, TX_PAIR, VEG_POLICY } from './catalog';
 import { COV } from './coverage';
 import { routeTiles } from './cost';
 import { solveDcPowerFlow } from './grid/dcpf';
@@ -20,6 +20,7 @@ import {
   maybeSpawnApplication,
 } from './events/applications';
 import { bumpAllMoods, dingCurtailedDevelopers, stepTenders } from './events/developers';
+import { maybeAmbientNews } from './events/news';
 import {
   DLR_RATING_MUL,
   DRONE_VEG_COST_MUL,
@@ -237,7 +238,7 @@ export function solveTick(
       if (left - dtMin <= 0) {
         state.outages.delete(id);
         state.heat.delete(id);
-        pushEvent(state, 'info', `${assetLabel(state, Math.floor(id / 4))} back in service`);
+        pushEvent(state, 'info', `${assetLabel(state, assetOfId(id))} back in service`);
       } else {
         state.outages.set(id, left - dtMin);
       }
@@ -295,6 +296,9 @@ export function solveTick(
     }
 
     // innovation pipeline
+    // the region keeps muttering between real events
+    maybeAmbientNews(state, rng, dtMin);
+
     const pitch = maybeSpawnPitch(
       rng,
       dtMin,
@@ -390,7 +394,7 @@ export function solveTick(
       if (tripped.length === 0) break;
       for (const id of tripped) {
         state.outages.set(id, TRIP_RECLOSE_MIN);
-        pushEvent(state, 'warn', `overload tripped the ${assetLabel(state, Math.floor(id / 4))}`);
+        pushEvent(state, 'warn', `overload tripped the ${assetLabel(state, assetOfId(id))}`);
       }
       applyOutages(derived.net, state);
       ({ dispatch, pf } = runPowerFlow(state, ctx, derived, 0));
@@ -426,7 +430,7 @@ export function solveTick(
   const branches = buildBranchViews(state, pf);
   const volts: Array<[number, number, number]> = [];
   for (const bus of derived.net.buses) {
-    const asset = state.assets.get(Math.floor(bus.id / 4));
+    const asset = state.assets.get(assetOfId(bus.id));
     if (!asset) continue;
     volts.push([asset.id, bus.level, pf.voltage.get(bus.id) ?? 0]);
   }
@@ -743,15 +747,18 @@ function buildBranchViews(state: GameState, pf: PowerFlowResult): BranchView[] {
         ratingMW: LINES[a.level].ratingMW * lineMul,
         outMin: state.outages.get(id),
       });
-    } else if (a.kind === 'sub' && SUBS[a.sub].levels.length === 2) {
-      const id = txBranchId(a.id);
-      views.push({
-        assetId: a.id,
-        kind: 'tx',
-        flowMW: pf.flowMW.get(id) ?? 0,
-        ratingMW: SUBS[a.sub].txRatingMW,
-        outMin: state.outages.get(id),
-      });
+    } else if (a.kind === 'sub' && SUBS[a.sub].levels.length >= 2) {
+      const levels = SUBS[a.sub].levels;
+      for (let k = 0; k + 1 < levels.length; k++) {
+        const id = txBranchId(a.id, k);
+        views.push({
+          assetId: a.id,
+          kind: 'tx',
+          flowMW: pf.flowMW.get(id) ?? 0,
+          ratingMW: TX_PAIR[`${levels[k]}/${levels[k + 1]}`]?.ratingMW ?? SUBS[a.sub].txRatingMW,
+          outMin: state.outages.get(id),
+        });
+      }
     }
   }
   return views;

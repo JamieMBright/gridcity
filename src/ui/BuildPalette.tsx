@@ -214,10 +214,17 @@ export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
         </div>
       )}
       {tool.t === 'line' && (
-        <div style={{ margin: '6px 9px 0', fontSize: 10, color: theme.slate }}>
+        <div style={{ margin: '6px 9px 0', fontSize: 10, color: theme.slate, lineHeight: 1.5 }}>
           {tool.fromAssetId === undefined
-            ? 'click a plant/substation to start the route'
+            ? 'click a ringed asset to start the route'
             : 'click the far end · Esc to stop'}
+          <div style={{ marginTop: 2 }}>
+            bays — BSP: 400/132/33 · grid: 132/33 · dist/pole/vault: 33 · plants: their own kV
+          </div>
+          <div style={{ marginTop: 2 }}>
+            voltage steps up/down INSIDE substations — land a 33 kV line on a BSP and the
+            transformers carry it to the supergrid
+          </div>
         </div>
       )}
     </div>

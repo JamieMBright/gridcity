@@ -81,8 +81,9 @@ export function rollFaults(
             : `${a.level} kV line fault${storm > 1 ? ' (storm)' : ''}`
           : `${a.level} kV cable fault`,
       });
-    } else if (a.kind === 'sub' && SUBS[a.sub].levels.length === 2) {
-      const branchId = txBranchId(a.id);
+    } else if (a.kind === 'sub' && SUBS[a.sub].levels.length >= 2) {
+      // the top transformer pair carries the bulk transfer: it faults
+      const branchId = txBranchId(a.id, 0);
       if (outBranches.has(branchId)) continue;
       if (!rng.chance((TX_BASE * dtMin) / MIN_PER_YEAR)) continue;
       faults.push({

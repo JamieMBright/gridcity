@@ -9,7 +9,7 @@ import { useAppStore } from '../app/store';
 import { sendCommand } from '../app/workerBridge';
 import { GENS } from '../sim/catalog';
 import { GEN_OF_KIND } from '../sim/events/applications';
-import { bidLeadDays, developerOf } from '../sim/events/developers';
+import { developerOf } from '../sim/events/developers';
 import { fmtMoneyK, panelStyle, theme } from './theme';
 
 const btn = (color: string): React.CSSProperties => ({
@@ -108,8 +108,7 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
                     style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 3 }}
                   >
                     <span style={{ flex: 1, fontSize: 11 }}>
-                      {developerOf(b.developerId)?.name ?? 'developer'} · £{b.priceMWh}/MWh ·{' '}
-                      {bidLeadDays(t.gen, b)}d
+                      {developerOf(b.developerId)?.name ?? 'developer'} · £{b.priceMWh}/MWh
                     </span>
                     <button
                       style={btn(theme.ok)}

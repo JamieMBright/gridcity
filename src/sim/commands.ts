@@ -13,13 +13,7 @@ import {
   type VegPolicy,
 } from './catalog';
 import { CONNECT_DAYS, GEN_OF_KIND } from './events/applications';
-import {
-  bidLeadDays,
-  bumpMood,
-  developerOf,
-  TENDER_OPEN_DAYS,
-  type Tender,
-} from './events/developers';
+import { bumpMood, developerOf, TENDER_OPEN_DAYS, type Tender } from './events/developers';
 import { MAX_VANS } from './fleet/fleet';
 import type { VoltageLevel } from './grid/types';
 import { placePylons, priceLine, routeTiles } from './cost';
@@ -334,7 +328,6 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
         );
         return { ok: false, error: check.error };
       }
-      const leadDays = bidLeadDays(tender.gen, bid);
       const id = state.nextAssetId++;
       state.assets.set(id, {
         id,
@@ -343,7 +336,7 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
         x: tender.x,
         y: tender.y,
         developer: bid.developerId,
-        liveAtMin: state.simTimeMin + leadDays * 1440,
+        liveAtMin: state.simTimeMin, // construction is instant: award → online
       });
       tender.status = 'awarded';
       for (const b of tender.bids) {
@@ -352,7 +345,7 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       pushEvent(
         state,
         'info',
-        `${g.name} awarded to ${developerOf(bid.developerId)?.name ?? 'a developer'} — commissioning in ${leadDays} days`,
+        `${g.name} awarded to ${developerOf(bid.developerId)?.name ?? 'a developer'} — online and ready for your wires`,
         tender.x,
         tender.y,
       );

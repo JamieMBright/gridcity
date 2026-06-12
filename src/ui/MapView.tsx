@@ -134,10 +134,12 @@ export function MapView() {
     }
   }, [snapshot]);
 
-  // green/red siting overlay while a build tool is armed
+  // green/red siting overlay while a build tool is armed; eligible-asset
+  // rings while the line tool is armed
   useEffect(() => {
     const r = rendererRef.current;
     if (!r) return;
+    r.setLevelHighlight(tool.t === 'line' ? tool.level : undefined);
     if (tool.t !== 'gen' && tool.t !== 'sub' && tool.t !== 'depot') {
       r.setSuitability(undefined);
       return;

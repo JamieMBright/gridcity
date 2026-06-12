@@ -6,7 +6,6 @@ import { applyCommand } from '../src/sim/commands';
 import type { SubAsset } from '../src/sim/assets';
 import { GENS } from '../src/sim/catalog';
 import {
-  bidLeadDays,
   bumpMood,
   DEVELOPERS,
   START_MOOD,
@@ -95,7 +94,8 @@ describe('generation tenders', () => {
     const asset = res.assetId !== undefined ? state.assets.get(res.assetId) : undefined;
     if (asset?.kind !== 'gen') throw new Error('no gen asset');
     expect(asset.developer).toBe(bid.developerId);
-    expect(asset.liveAtMin).toBe(state.simTimeMin + bidLeadDays('gasCCGT', bid) * 1440);
+    // construction is instant: award → online, ready for wires
+    expect(asset.liveAtMin).toBe(state.simTimeMin);
     expect(state.devMood.get(bid.developerId)).toBe(before + 6);
 
     // the developer owns the plant: demolition refused

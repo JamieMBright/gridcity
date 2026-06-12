@@ -1,0 +1,66 @@
+// The ambient newsroom: between real grid events, the region keeps
+// muttering — regulator musings, council gossip, market colour and the
+// gentle absurdities of running London's wires. Deterministic via the
+// sim RNG; one item every couple of game-days keeps the feed alive.
+
+import type { Rng } from '../rng';
+import { DEVELOPERS } from './developers';
+import type { GameState } from '../state';
+import { pushEvent } from '../state';
+
+/** Mean game-days between ambient headlines. */
+const NEWS_MEAN_DAYS = 1.6;
+
+const HEADLINES: string[] = [
+  'Ofgem reminds operators that "the lights staying on" remains the KPI',
+  'heat pump installers report record waiting lists across the suburbs',
+  'local paper asks: is YOUR substation humming more than usual?',
+  'EV owners petition for kerbside chargers on every Victorian terrace',
+  'National Grid forecasts a "tight but manageable" evening peak',
+  'allotment society objects to underground cable near the marrows',
+  'think tank proposes painting pylons sage green; pylons unavailable for comment',
+  'wholesale desk reports a quiet morning; traders blame the weather',
+  'school visit to the grid substation declared "surprisingly exciting"',
+  'pigeon outage at a 33 kV pole resolved; pigeon unharmed, embarrassed',
+  'parish council demands undergrounding, declines to discuss the bill',
+  'commuters report the new trains are "fine, actually"',
+  'rooftop solar installs up again — the suburbs glitter at midday',
+  'energy minister photographed pointing at a transformer',
+  'consumer group warns standing charges are "neither standing nor charging"',
+  'estuary birdwatchers log record waders beside the wind zone',
+  'data centre lobby insists demand growth is "modest"; grid engineers laugh',
+  'regional bake-off winner credits a reliable oven supply',
+  'insulation drive cuts evening peak in pilot postcode',
+  'storm chasers disappointed by mild week; DNO crews delighted',
+  'university study finds people quite like looking at the river',
+  'flexibility market trial pays households to delay the kettle',
+  'vintage tram society requests a feeder; told to join the queue',
+  'fish and chip shops report demand utterly inelastic',
+];
+
+/** Templated colour drawn from live state. */
+function liveColour(state: GameState, rng: Rng): string | undefined {
+  const councils = ['Westhaven', 'Northheath', 'Riverdene', 'Camford', 'Penge Hollow', 'Witherly'];
+  const dev = DEVELOPERS[rng.int(DEVELOPERS.length)];
+  const c = councils[rng.int(councils.length)];
+  const pick = rng.int(5);
+  if (pick === 0 && dev) {
+    const mood = state.devMood.get(dev.id) ?? 70;
+    return mood < 45
+      ? `${dev.name} briefs journalists about "an operator asleep at the wheel"`
+      : `${dev.name} tells investors the region is "open for megawatts"`;
+  }
+  if (pick === 1) return `${c} council debates net-zero motion; meeting overruns on biscuits`;
+  if (pick === 2 && state.weather.wind > 0.65)
+    return 'kite surfers thrilled, overhead line engineers less so';
+  if (pick === 3 && state.weather.cloud < 0.25)
+    return 'glorious sunshine — rooftop PV pours into the afternoon grid';
+  return undefined;
+}
+
+/** Maybe push one ambient headline this tick. */
+export function maybeAmbientNews(state: GameState, rng: Rng, dtMin: number): void {
+  if (!rng.chance(dtMin / (NEWS_MEAN_DAYS * 1440))) return;
+  const msg = liveColour(state, rng) ?? HEADLINES[rng.int(HEADLINES.length)] ?? '';
+  if (msg) pushEvent(state, 'info', `📰 ${msg}`);
+}
