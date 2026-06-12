@@ -123,7 +123,16 @@ export interface GrowthPatch {
 export interface TileHover {
   x: number;
   y: number;
+  /** Unrounded tile coords of the pointer — for picking things that run
+   *  BETWEEN tiles, like line spans. */
+  fx?: number | undefined;
+  fy?: number | undefined;
 }
+
+/** Map highlight for the pinned inspector card. */
+export type Selection =
+  | { kind: 'tile'; x: number; y: number }
+  | { kind: 'line'; ax: number; ay: number; bx: number; by: number };
 
 export type Ghost =
   | {
@@ -196,6 +205,7 @@ export class MapRenderer {
   private coverageG = new Graphics();
   private suitability: Sprite | undefined;
   private smogG = new Graphics();
+  private subRingsG = new Graphics();
   private assetLayer = new Container();
   private linesG = new Graphics();
   private flowG = new Graphics();
@@ -205,6 +215,7 @@ export class MapRenderer {
   private siteLayer = new Container();
   private levelG = new Graphics();
   private levelHighlight: VoltageLevel | undefined;
+  private selG = new Graphics();
   private lastAssets: PlacedAsset[] = [];
   private vanSprites = new Map<number, Sprite>();
   private ghostG = new Graphics();
@@ -225,6 +236,9 @@ export class MapRenderer {
   private map: CityMap | undefined;
   private growthApplied = 0;
 
+  private sitePins: Array<{ ring: Graphics; body: Container; phase: number }> = [];
+  private siteTapped = false;
+  private lastSimTimeMin = Number.POSITIVE_INFINITY;
   private routePaths: RoutePath[] = [];
   private vehicles: Vehicle[] = [];
   private lineAnims: LineAnim[] = [];
@@ -236,6 +250,8 @@ export class MapRenderer {
 
   onHover: ((tile: TileHover | undefined) => void) | undefined;
   onTileClick: ((tile: TileHover) => void) | undefined;
+  /** A contract pin was tapped (applications/tenders/overdue sites). */
+  onSiteClick: ((site: SiteView) => void) | undefined;
 
   async init(host: HTMLElement, map: CityMap): Promise<void> {
     this.map = map;
@@ -270,11 +286,13 @@ export class MapRenderer {
     this.world.addChild(this.city);
     this.world.addChild(this.coverageG);
     this.world.addChild(this.smogG);
+    this.world.addChild(this.subRingsG);
     this.world.addChild(this.assetLayer);
     this.world.addChild(this.linesG);
     this.world.addChild(this.flowG);
     this.world.addChild(this.pulseG);
     this.world.addChild(this.levelG);
+    this.world.addChild(this.selG);
     this.world.addChild(this.jobsG);
     this.world.addChild(this.fleetLayer);
     this.world.addChild(this.siteLayer);
@@ -291,6 +309,14 @@ export class MapRenderer {
 
     this.attachInput(map);
     this.app.ticker.add(() => this.animate(this.app.ticker.deltaMS / 1000));
+
+    // snapshots can land BEFORE this point (loading a save races the
+    // atlas): that early sprite pass had no textures, so substations
+    // and plants silently vanished while the Graphics-drawn lines kept
+    // flowing. Re-run the pass now that the textures exist.
+    if (this.lastAssets.length > 0) {
+      this.rebuildAssetSprites(this.lastAssets, this.lastSimTimeMin);
+    }
   }
 
   setGridView(on: boolean): void {
@@ -316,6 +342,26 @@ export class MapRenderer {
       this.levelG.stroke({ color: LEVEL_COLOR[level], width: 2.6 * RES, alpha: 0.95 });
       this.diamond(this.levelG, a.x, a.y, 1.45);
       this.levelG.stroke({ color: LEVEL_COLOR[level], width: 1.2 * RES, alpha: 0.4 });
+    }
+  }
+
+  /** Highlight the inspected asset or line span on the map, or clear. */
+  setSelection(sel: Selection | undefined): void {
+    this.selG.clear();
+    if (!sel) return;
+    if (sel.kind === 'tile') {
+      this.diamond(this.selG, sel.x, sel.y, 1.25);
+      this.selG.stroke({ color: 0xf4f1ea, width: 3 * RES, alpha: 0.95 });
+      this.diamond(this.selG, sel.x, sel.y, 1.55);
+      this.selG.stroke({ color: 0xffb066, width: 1.4 * RES, alpha: 0.6 });
+    } else {
+      const a = this.tileCentre(sel.ax, sel.ay);
+      const b = this.tileCentre(sel.bx, sel.by);
+      this.selG.moveTo(a.x, a.y - 8 * RES).lineTo(b.x, b.y - 8 * RES);
+      this.selG.stroke({ color: 0xf4f1ea, width: 2.2 * RES, alpha: 0.75 });
+      this.diamond(this.selG, sel.ax, sel.ay, 0.8);
+      this.diamond(this.selG, sel.bx, sel.by, 0.8);
+      this.selG.stroke({ color: 0xffb066, width: 2.2 * RES, alpha: 0.9 });
     }
   }
 
@@ -380,9 +426,23 @@ export class MapRenderer {
     const mwOf = new Map(genMW);
 
     this.lastAssets = assets;
+    this.lastSimTimeMin = simTimeMin;
     if (this.levelHighlight !== undefined) this.drawLevelHighlight();
+    // conversions keep the asset id but change its look: bake the bits
+    // that pick a sprite (construction, line build, GIS) into the signature
     const sig = assets
-      .map((a) => `${a.id}:${a.kind}:${a.kind === 'gen' && (a.liveAtMin ?? 0) > simTimeMin ? 'c' : ''}`)
+      .map(
+        (a) =>
+          `${a.id}:${a.kind}:${
+            a.kind === 'gen' && (a.liveAtMin ?? 0) > simTimeMin
+              ? 'c'
+              : a.kind === 'line'
+                ? a.build
+                : a.kind === 'sub' && a.underground
+                  ? 'u'
+                  : ''
+          }`,
+      )
       .join(',');
     if (sig !== this.assetSignature) {
       this.assetSignature = sig;
@@ -813,9 +873,14 @@ export class MapRenderer {
     this.stepFlow(dt);
     this.stepPulses(dt);
     this.bobPhase += dt;
-    for (const child of this.siteLayer.children) {
-      const base = (child as Container & { baseY?: number }).baseY;
-      if (base !== undefined) child.y = base + Math.sin(this.bobPhase * 2.4 + child.x * 0.01) * 4 * RES;
+    for (const pin of this.sitePins) {
+      // bouncing pin + an expanding ring pulse rolling off the ground
+      const t = (this.bobPhase * 0.9 + pin.phase) % 1.6;
+      const bounce = Math.abs(Math.sin((this.bobPhase * 2.4 + pin.phase) * Math.PI * 0.5));
+      pin.body.y = -bounce * 9 * RES;
+      const k = t / 1.6;
+      pin.ring.scale.set(0.35 + k * 1.5);
+      pin.ring.alpha = Math.max(0, 0.9 * (1 - k));
     }
   }
 
@@ -911,10 +976,11 @@ export class MapRenderer {
     }
   }
 
-  // --- bubbles: applications, tenders and angry customers ---------------------
+  // --- pins: applications, tenders and angry customers -------------------------
 
   private rebuildSites(sites: SiteView[]): void {
     this.siteLayer.removeChildren().forEach((c) => c.destroy({ children: true }));
+    this.sitePins = [];
     const STYLE: Record<SiteView['icon'], { bg: number; glyph: string; fg: number }> = {
       application: { bg: 0xffd277, glyph: '!', fg: 0x10162f },
       tender: { bg: 0x5ea3ff, glyph: '£', fg: 0x10162f },
@@ -924,23 +990,58 @@ export class MapRenderer {
     for (const site of sites) {
       const st = STYLE[site.icon];
       const c = this.tileCentre(site.x, site.y);
-      const bubble = new Container() as Container & { baseY?: number };
+      const pin = new Container();
+      pin.position.set(c.x, c.y);
+
+      // pulsing ground ring — the attention-grabber
+      const ring = new Graphics();
+      ring.ellipse(0, 0, 18 * RES, 9 * RES).stroke({ color: st.bg, width: 2.4 * RES });
+      pin.addChild(ring);
+
+      const shadow = new Graphics();
+      shadow.ellipse(0, 0, 9 * RES, 4.5 * RES).fill({ color: 0x06080f, alpha: 0.4 });
+      pin.addChild(shadow);
+
+      // a proper map pin: fat teardrop, big glyph, dark rim
+      const body = new Container();
+      const r = 15 * RES;
+      const head = -r * 3.1;
       const g = new Graphics();
-      const r = 11 * RES;
-      g.circle(0, -r * 2.1, r).fill({ color: st.bg, alpha: 0.96 });
-      g.poly([-r * 0.4, -r * 1.35, r * 0.4, -r * 1.35, 0, 0]).fill({ color: st.bg, alpha: 0.96 });
-      g.circle(0, -r * 2.1, r).stroke({ color: 0x241c38, width: 1.4 * RES, alpha: 0.9 });
-      bubble.addChild(g);
-      const label = new Text({
+      g.moveTo(0, 0)
+        .quadraticCurveTo(-r * 1.05, head + r * 1.7, -r, head)
+        .arc(0, head, r, Math.PI, 0)
+        .quadraticCurveTo(r * 1.05, head + r * 1.7, 0, 0)
+        .fill({ color: st.bg, alpha: 0.97 })
+        .stroke({ color: 0x241c38, width: 2 * RES, alpha: 0.95 });
+      g.circle(0, head, r * 0.62).fill({ color: 0x10162f, alpha: 0.25 });
+      body.addChild(g);
+      const glyph = new Text({
         text: st.glyph,
-        style: { fontFamily: 'monospace', fontSize: 13 * RES, fontWeight: '800', fill: st.fg },
+        style: { fontFamily: 'monospace', fontSize: 17 * RES, fontWeight: '800', fill: st.fg },
       });
-      label.anchor.set(0.5);
-      label.position.set(0, -r * 2.1);
-      bubble.addChild(label);
-      bubble.position.set(c.x, c.y - 30 * RES);
-      bubble.baseY = c.y - 30 * RES;
-      this.siteLayer.addChild(bubble);
+      glyph.anchor.set(0.5);
+      glyph.position.set(0, head);
+      body.addChild(glyph);
+      const label = new Text({
+        text: site.label,
+        style: { fontFamily: 'monospace', fontSize: 8.5 * RES, fontWeight: '700', fill: 0xf4f1ea },
+      });
+      label.anchor.set(0.5, 1);
+      label.position.set(0, head - r * 1.35);
+      body.addChild(label);
+      pin.addChild(body);
+
+      // tap → snap the inbox to this contract (and don't fall through
+      // to the tile underneath)
+      pin.eventMode = 'static';
+      pin.cursor = 'pointer';
+      pin.on('pointerdown', () => {
+        this.siteTapped = true;
+      });
+      pin.on('pointertap', () => this.onSiteClick?.(site));
+
+      this.siteLayer.addChild(pin);
+      this.sitePins.push({ ring, body, phase: Math.random() * Math.PI * 2 });
     }
   }
 
@@ -1064,6 +1165,7 @@ export class MapRenderer {
   private rebuildAssetSprites(assets: PlacedAsset[], simTimeMin: number): void {
     this.assetLayer.removeChildren().forEach((c) => c.destroy());
     this.rotors = [];
+    this.drawSubRings(assets);
     const map = this.map;
     for (const a of assets) {
       if (a.kind === 'line') {
@@ -1086,7 +1188,11 @@ export class MapRenderer {
         : a.kind === 'gen'
           ? GEN_SPRITE[a.gen]
           : a.kind === 'sub'
-            ? SUB_SPRITE[a.sub]
+            ? a.sub === 'tee'
+              ? PYLON_SPRITE[a.teeLevel ?? 132] // a tee tower on the route
+              : a.underground
+                ? 'sub_vault' // a GIS rebuild shows only its access vault
+                : SUB_SPRITE[a.sub]
             : 'depot';
       const tex = name ? this.textures.get(name) : undefined;
       if (!tex) continue;
@@ -1123,6 +1229,24 @@ export class MapRenderer {
     }
   }
 
+  /** Every substation wears its bay colours at all times — nested rings
+   *  (400 blue outside, 33 orange inside) matching the line colours, so
+   *  what-connects-where reads at a glance. */
+  private drawSubRings(assets: PlacedAsset[]): void {
+    this.subRingsG.clear();
+    for (const a of assets) {
+      if (a.kind !== 'sub') continue;
+      const levels = assetLevels(a);
+      for (let i = 0; i < levels.length; i++) {
+        const level = levels[i];
+        if (level === undefined) continue;
+        // highest voltage outermost; every ring clears the sprite plinth
+        this.diamond(this.subRingsG, a.x, a.y, 1.12 + (levels.length - 1 - i) * 0.22);
+        this.subRingsG.stroke({ color: LEVEL_COLOR[level], width: 1.8 * RES, alpha: 0.75 });
+      }
+    }
+  }
+
   private drawLines(
     assets: PlacedAsset[],
     branches: BranchView[],
@@ -1146,9 +1270,16 @@ export class MapRenderer {
       const width = LEVEL_WIDTH[a.level];
 
       if (a.build === 'underground') {
+        // buried cables read as a dashed trench trace in the level colour
         const pa = this.tileCentre(endA.x, endA.y);
         const pb = this.tileCentre(endB.x, endB.y);
-        this.strokeSpan([pa, pb], width, color, 0.5, tripped);
+        const span = Math.hypot(pb.x - pa.x, pb.y - pa.y);
+        const n = Math.max(2, Math.round(span / (10 * RES)) * 2);
+        const pts: Array<{ x: number; y: number }> = [];
+        for (let k = 0; k <= n; k++) {
+          pts.push({ x: pa.x + ((pb.x - pa.x) * k) / n, y: pa.y + ((pb.y - pa.y) * k) / n });
+        }
+        this.strokeSpan(pts, width, color, 0.85, true);
         this.pushAnim([pa, pb], view, color, tripped);
         continue;
       }
@@ -1321,7 +1452,9 @@ export class MapRenderer {
     const t = wy / HALF_H;
     const tx = Math.round((u + t) / 2);
     const ty = Math.round((t - u) / 2);
-    if (tx >= 0 && tx < map.width && ty >= 0 && ty < map.height) return { x: tx, y: ty };
+    if (tx >= 0 && tx < map.width && ty >= 0 && ty < map.height) {
+      return { x: tx, y: ty, fx: (u + t) / 2, fy: (t - u) / 2 };
+    }
     return undefined;
   }
 
@@ -1353,6 +1486,11 @@ export class MapRenderer {
       const wasPinching = touches.size >= 2;
       release(e);
       this.dragging = false;
+      if (this.siteTapped) {
+        // the tap landed on a contract pin — don't also click the tile
+        this.siteTapped = false;
+        return;
+      }
       if (!wasPinching && this.dragTravel <= CLICK_SLOP_PX) {
         const tile = this.tileFromClient(map, e.clientX, e.clientY);
         if (tile) this.onTileClick?.(tile);

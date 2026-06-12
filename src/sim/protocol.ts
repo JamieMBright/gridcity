@@ -68,6 +68,9 @@ export interface SimSnapshot {
   kpis: KpiRates & { worstVegPct: number };
   /** Recent event log (ring buffer; dedupe by seq). */
   events: GameEvent[];
+  /** Undo/redo stack depths (for button states). */
+  undoDepth: number;
+  redoDepth: number;
   /** Map markers the renderer draws bubbles for (stable-ordered). */
   sites: Array<{
     x: number;

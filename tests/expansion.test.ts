@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { GENS, PYLON_SPACING, SUBS } from '../src/sim/catalog';
+import { DOMESTIC_NETWORK_SHARE } from '../src/sim/regulation/bill';
 import { applyCommand, checkBuild } from '../src/sim/commands';
 import { placePylons, pylonSiteOk, routeTiles } from '../src/sim/cost';
 import { underConstruction } from '../src/sim/market/dispatch';
@@ -292,7 +293,11 @@ describe('the bill', () => {
     const out = solveTick(state, ctx, derive(state, ctx), false);
     expect(out.servedCustomers).toBe(360);
     expect(out.bill.totalCustomers).toBe(720);
-    // denominator is everyone in the area, not just the town on supply
-    expect(out.bill.perCustomerYr).toBeCloseTo((out.bill.totalYrK * 1000) / 720, 9);
+    // denominator is everyone in the area, not just the town on supply:
+    // serving half the customers must not double the per-home DUoS
+    const b = out.bill;
+    const networkK =
+      b.capexYrK + b.opexYrK + b.fleetYrK + b.vegYrK + b.flexYrK + b.constraintYrK + b.innovationYrK;
+    expect(b.perCustomerDuosYr).toBeCloseTo((networkK * DOMESTIC_NETWORK_SHARE * 1000) / 720, 9);
   });
 });

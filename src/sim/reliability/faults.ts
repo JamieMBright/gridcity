@@ -82,10 +82,13 @@ export function rollFaults(
           : `${a.level} kV cable fault`,
       });
     } else if (a.kind === 'sub' && SUBS[a.sub].levels.length >= 2) {
-      // the top transformer pair carries the bulk transfer: it faults
+      // the top transformer pair carries the bulk transfer: it faults.
+      // Outdoor kit takes (damped) storm exposure — flashover, debris;
+      // an underground GIS rebuild shrugs the weather off entirely.
       const branchId = txBranchId(a.id, 0);
       if (outBranches.has(branchId)) continue;
-      if (!rng.chance((TX_BASE * dtMin) / MIN_PER_YEAR)) continue;
+      const rate = a.underground ? TX_BASE * 0.5 : TX_BASE * Math.min(storm, 6);
+      if (!rng.chance((rate * dtMin) / MIN_PER_YEAR)) continue;
       faults.push({
         branchId,
         assetId: a.id,

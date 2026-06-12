@@ -30,11 +30,20 @@ interface AppState {
   snapshot: SimSnapshot | undefined;
   hoveredTile: TileHover | undefined;
   tool: Tool;
+  /** Inspect-click pins a card for an asset / a line span; cleared by
+   *  ×, Escape, clicking empty ground, or arming another tool. */
+  selectedAsset: number | undefined;
+  selectedLine: number | undefined;
+  /** Placing a substation auto-runs circuits to the nearest compatible
+   *  bays (palette setting). */
+  autoConnect: boolean;
   gridView: boolean;
   ghostInfo: GhostInfo | undefined;
   toast: string | undefined;
   /** Camera jump request (alert click); seq forces re-trigger. */
   panTarget: { x: number; y: number; seq: number } | undefined;
+  /** A contract pin was clicked: snap the inbox to its message. */
+  inboxFocus: { x: number; y: number; seq: number } | undefined;
   menuOpen: boolean;
   /** Current tutorial step index, or undefined when not in the tutorial. */
   tutorialStep: number | undefined;
@@ -43,10 +52,13 @@ interface AppState {
   setSnapshot: (snapshot: SimSnapshot) => void;
   setHoveredTile: (tile: TileHover | undefined) => void;
   setTool: (tool: Tool) => void;
+  setSelected: (sel: { assetId?: number | undefined; lineId?: number | undefined }) => void;
+  setAutoConnect: (on: boolean) => void;
   setGridView: (on: boolean) => void;
   setGhostInfo: (info: GhostInfo | undefined) => void;
   setToast: (msg: string | undefined) => void;
   requestPan: (x: number, y: number) => void;
+  requestInboxFocus: (x: number, y: number) => void;
   setMenuOpen: (open: boolean) => void;
   setTutorialStep: (step: number | undefined) => void;
   setKpiOpen: (open: boolean) => void;
@@ -54,23 +66,47 @@ interface AppState {
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
+/** Peak observed loading per line asset id (|flow|/rating, 0..1+),
+ *  tracked client-side since the session loaded — the inspector's
+ *  "how loaded does it GET" number. */
+export const linePeaks = new Map<number, number>();
+
 export const useAppStore = create<AppState>((set) => ({
   workerStatus: 'connecting',
   workerError: undefined,
   snapshot: undefined,
   hoveredTile: undefined,
   tool: { t: 'inspect' },
+  selectedAsset: undefined,
+  selectedLine: undefined,
+  autoConnect: false,
   gridView: false,
   ghostInfo: undefined,
   toast: undefined,
   panTarget: undefined,
+  inboxFocus: undefined,
   menuOpen: true,
   tutorialStep: undefined,
   kpiOpen: false,
   setWorkerStatus: (workerStatus, workerError) => set({ workerStatus, workerError }),
-  setSnapshot: (snapshot) => set({ snapshot }),
+  setSnapshot: (snapshot) => {
+    for (const b of snapshot.branches) {
+      if (b.kind !== 'line' || b.ratingMW <= 0) continue;
+      const loading = Math.abs(b.flowMW) / b.ratingMW;
+      if (loading > (linePeaks.get(b.assetId) ?? 0)) linePeaks.set(b.assetId, loading);
+    }
+    set({ snapshot });
+  },
   setHoveredTile: (hoveredTile) => set({ hoveredTile }),
-  setTool: (tool) => set({ tool }),
+  // arming a different tool drops the pinned inspector card
+  setTool: (tool) =>
+    set((s) => ({
+      tool,
+      selectedAsset: tool.t === 'inspect' ? s.selectedAsset : undefined,
+      selectedLine: tool.t === 'inspect' ? s.selectedLine : undefined,
+    })),
+  setSelected: ({ assetId, lineId }) => set({ selectedAsset: assetId, selectedLine: lineId }),
+  setAutoConnect: (autoConnect) => set({ autoConnect }),
   setGridView: (gridView) => set({ gridView }),
   setGhostInfo: (ghostInfo) => set({ ghostInfo }),
   setToast: (toast) => {
@@ -80,6 +116,8 @@ export const useAppStore = create<AppState>((set) => ({
   },
   requestPan: (x, y) =>
     set((s) => ({ panTarget: { x, y, seq: (s.panTarget?.seq ?? 0) + 1 } })),
+  requestInboxFocus: (x, y) =>
+    set((s) => ({ inboxFocus: { x, y, seq: (s.inboxFocus?.seq ?? 0) + 1 } })),
   setMenuOpen: (menuOpen) => set({ menuOpen }),
   setTutorialStep: (tutorialStep) => set({ tutorialStep }),
   setKpiOpen: (kpiOpen) => set({ kpiOpen }),

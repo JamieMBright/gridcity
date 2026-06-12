@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { applyCommand } from '../src/sim/commands';
 import { domesticProfile } from '../src/sim/events/weather';
 import { GENS } from '../src/sim/catalog';
-import { COV, derive, solveTick } from '../src/sim/tick';
+import {
+  DOMESTIC_ENERGY_SHARE,
+  DOMESTIC_NETWORK_SHARE,
+  RETAIL_UPLIFT,
+  SUPPLY_FIXED_YR,
+} from '../src/sim/regulation/bill';
+import { advanceTime, COV, derive, solveTick } from '../src/sim/tick';
 import { poweredFixture } from './helpers';
 
 describe('end-to-end tick: power flows from plant to homes', () => {
@@ -63,7 +69,13 @@ describe('end-to-end tick: power flows from plant to homes', () => {
 
   it('bill decomposition sums and prices the served customers', () => {
     const { state, ctx } = poweredFixture();
-    const out = solveTick(state, ctx, derive(state, ctx), false);
+    // a few real ticks (time advanced first, as the worker does) so the
+    // smoothed energy + PPA top-up lines fill in
+    let out = solveTick(state, ctx, derive(state, ctx), false);
+    for (let i = 0; i < 3; i++) {
+      advanceTime(state);
+      out = solveTick(state, ctx, derive(state, ctx), true);
+    }
     const b = out.bill;
     expect(b.totalYrK).toBeCloseTo(
       b.capexYrK +
@@ -78,10 +90,20 @@ describe('end-to-end tick: power flows from plant to homes', () => {
       9,
     );
     expect(b.servedCustomers).toBe(360);
-    expect(b.perCustomerYr).toBeCloseTo((b.totalYrK * 1000) / 360, 9);
+    // households pay the domestic share of each pot + the standing charge
+    const networkK =
+      b.capexYrK + b.opexYrK + b.fleetYrK + b.vegYrK + b.flexYrK + b.constraintYrK + b.innovationYrK;
+    expect(b.perCustomerDuosYr).toBeCloseTo((networkK * DOMESTIC_NETWORK_SHARE * 1000) / 360, 9);
+    expect(b.perCustomerYr).toBeCloseTo(
+      b.perCustomerDuosYr +
+        ((b.energyYrK + b.genYrK) * DOMESTIC_ENERGY_SHARE * RETAIL_UPLIFT * 1000) / 360 +
+        SUPPLY_FIXED_YR,
+      9,
+    );
     expect(b.capexYrK).toBeGreaterThan(0);
     expect(b.opexYrK).toBeGreaterThan(0);
-    // generation is private spend on the energy line, never DUoS capex
+    // generation is private spend recovered as a PPA top-up on delivered
+    // energy — never DUoS capex
     expect(b.genYrK).toBeGreaterThan(0);
     expect(b.capexYrK).toBeLessThan(GENS.gasCCGT.capexK * 0.05);
   });

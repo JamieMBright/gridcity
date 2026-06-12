@@ -68,14 +68,19 @@ test.describe('building on the map', () => {
       )
       .toBe(base + 3);
 
-    // the developer's plant rides the energy line (PPA passthrough);
-    // the wires are network capex
+    // the awarded plant carries its PPA strike — it bills as a top-up on
+    // DELIVERED energy (nothing yet: no customers hang off these wires),
+    // never as DUoS capex; the wires themselves are network capex
+    const strike = await store<number>(
+      page,
+      '(s) => s.snapshot.assets.find((a) => a.kind === "gen" && a.ppaMWh !== undefined)?.ppaMWh ?? 0',
+    );
+    expect(strike).toBeGreaterThan(0);
     const genYrK = await store<number>(page, '(s) => s.snapshot.bill.genYrK');
-    expect(genYrK).toBeGreaterThan(20_000); // a CCGT annuitized is £20m+/yr
+    expect(genYrK).toBeLessThan(1000); // idle plant is the developer's problem
     const capexYrK = await store<number>(page, '(s) => s.snapshot.bill.capexYrK');
     expect(capexYrK).toBeGreaterThan(0);
-    await expect(page.getByText('network (DUoS)')).toBeVisible();
-    await expect(page.getByText('generation (PPA)')).toBeVisible();
+    await expect(page.getByText('network (DUoS)', { exact: true })).toBeVisible();
   });
 
   test('ghost preview quotes a cost before building', async ({ page }) => {

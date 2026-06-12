@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAppStore } from '../app/store';
-import { setSimSpeed } from '../app/workerBridge';
+import { sendCommand, setSimSpeed } from '../app/workerBridge';
 import { getAudioSettings, updateAudioSettings } from '../audio/audio';
 import { pushSettings } from '../online/cloud';
 import type { SimSpeed } from '../sim/protocol';
@@ -100,6 +100,45 @@ function MarketTicker() {
       </span>
       <span>{weatherIcon(snapshot.weather, snapshot.simTimeMin)}</span>
     </div>
+  );
+}
+
+function UndoRedo() {
+  const snapshot = useAppStore((s) => s.snapshot);
+  const btn = (enabled: boolean): React.CSSProperties => ({
+    padding: '3px 8px',
+    borderRadius: 5,
+    border: `1px solid ${theme.navyLight}`,
+    background: 'transparent',
+    color: enabled ? theme.offWhite : theme.slate,
+    opacity: enabled ? 1 : 0.45,
+    fontFamily: theme.font,
+    fontSize: 12,
+    cursor: enabled ? 'pointer' : 'default',
+  });
+  const undoOk = (snapshot?.undoDepth ?? 0) > 0;
+  const redoOk = (snapshot?.redoDepth ?? 0) > 0;
+  return (
+    <span style={{ display: 'flex', gap: 2 }}>
+      <button
+        aria-label="undo"
+        title="Undo (Ctrl+Z)"
+        style={btn(undoOk)}
+        disabled={!undoOk}
+        onClick={() => sendCommand({ type: 'undo' })}
+      >
+        ↶
+      </button>
+      <button
+        aria-label="redo"
+        title="Redo (Ctrl+Y)"
+        style={btn(redoOk)}
+        disabled={!redoOk}
+        onClick={() => sendCommand({ type: 'redo' })}
+      >
+        ↷
+      </button>
+    </span>
   );
 }
 
@@ -205,6 +244,7 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
           );
         })}
       </span>
+      <UndoRedo />
       {!compact && <RiioButton />}
       <SoundButton />
       <button

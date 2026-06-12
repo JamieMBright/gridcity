@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyCommand } from '../src/sim/commands';
 import type { SubAsset } from '../src/sim/assets';
-import { GENS } from '../src/sim/catalog';
+import { strikeMWh } from '../src/sim/catalog';
 import {
   bumpMood,
   DEVELOPERS,
@@ -80,8 +80,11 @@ describe('generation tenders', () => {
     const dev = DEVELOPERS.find((d) => d.id === bid.developerId);
     expect((dev?.appetite.gasCCGT ?? 0) > 0).toBe(true);
     // strike within ±15% of the catalog marginal cost
-    expect(bid.priceMWh).toBeGreaterThanOrEqual(GENS.gasCCGT.marginalCostK * 1000 * 0.85 - 1);
-    expect(bid.priceMWh).toBeLessThanOrEqual(GENS.gasCCGT.marginalCostK * 1000 * 1.15 + 1);
+    // bids quote a PPA strike (LCOE + fuel), never the bare marginal cost
+    const base = strikeMWh('gasCCGT');
+    expect(bid.priceMWh).toBeGreaterThanOrEqual(base * 0.85 - 1);
+    expect(bid.priceMWh).toBeLessThanOrEqual(base * 1.15 + 1);
+    expect(strikeMWh('tidal')).toBeGreaterThan(50); // free fuel ≠ free electricity
 
     const before = state.devMood.get(bid.developerId) ?? START_MOOD;
     const res = applyCommand(state, map, {

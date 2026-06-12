@@ -12,7 +12,7 @@ import { derive, solveTick, advanceTime, currentPeriodActuals } from '../src/sim
 import { poweredFixture } from './helpers';
 
 const ON_TARGET: PeriodActuals = {
-  bill: 900,
+  bill: 3000,
   ci: 60,
   cml: 90,
   carbon: 250,
@@ -28,7 +28,7 @@ describe('RIIO scoring', () => {
     expect(onTarget.composite).toBeLessThanOrEqual(75);
 
     const star = closePeriod(p, {
-      bill: 600,
+      bill: 2000,
       ci: 30,
       cml: 40,
       carbon: 100,
@@ -42,7 +42,7 @@ describe('RIIO scoring', () => {
   it('missing badly grades E, and grades map sanely', () => {
     const p = newPeriod(1, 0, initialTargets());
     const awful = closePeriod(p, {
-      bill: 3000,
+      bill: 9000,
       ci: 300,
       cml: 600,
       carbon: 600,

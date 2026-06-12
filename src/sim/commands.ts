@@ -36,11 +36,24 @@ export type Command =
   | { type: 'setLevy'; pct: number }
   /** Refit a substation transformer (manual sizing switches auto off),
    *  or hand sizing back to auto-reinforcement. */
-  | { type: 'setSubMva'; assetId: number; mva?: number; auto?: boolean };
+  | { type: 'setSubMva'; assetId: number; mva?: number; auto?: boolean }
+  /** Rebuild an overhead line as an underground cable (full UG price). */
+  | { type: 'convertLine'; assetId: number }
+  /** Rebuild a substation underground (indoor GIS: weatherproof, ×capex). */
+  | { type: 'convertSub'; assetId: number }
+  /** Tee into an existing circuit: split it at a junction near (x,y) and
+   *  run a new leg of the same level from `fromAssetId` — a real
+   *  three-ended circuit, in one command (= one undo step). */
+  | { type: 'tee'; lineId: number; x: number; y: number; fromAssetId: number; build: LineBuild }
+  /** Handled by the worker via its snapshot stacks. */
+  | { type: 'undo' }
+  | { type: 'redo' };
 
 export type BuildSpec =
   | { kind: 'gen'; gen: GenType; x: number; y: number }
-  | { kind: 'sub'; sub: SubType; x: number; y: number }
+  /** `autoConnect`: after placing, run a circuit from each of the sub's
+   *  bays to the nearest asset with a matching bay (palette setting). */
+  | { kind: 'sub'; sub: SubType; x: number; y: number; autoConnect?: boolean | undefined }
   | { kind: 'depot'; x: number; y: number }
   | {
       kind: 'line';
@@ -173,6 +186,9 @@ export function checkBuild(
 ): BuildCheck {
   const fail = (error: string): BuildCheck => ({ ok: false, error, capexK: 0, lengthTiles: 0 });
 
+  if (spec.kind === 'sub' && spec.sub === 'tee') {
+    return fail('tee junctions are made by teeing the line tool into a circuit');
+  }
   if (spec.kind === 'gen' || spec.kind === 'sub' || spec.kind === 'depot') {
     const [fw, fh] = spec.kind === 'gen' ? (GENS[spec.gen].footprint ?? [1, 1]) : [1, 1];
     const assetList = [...assets];
@@ -230,6 +246,49 @@ export function checkBuild(
   };
 }
 
+/** Reach of the auto-connect setting: it won't string absurd circuits
+ *  across the licence area, just to genuinely nearby sites. */
+const AUTO_CONNECT_RANGE = 40;
+
+/** Auto-connect (palette setting): feed each bay of a fresh substation
+ *  from the nearest asset carrying the same bay — overhead where the
+ *  route allows, cable where it must (conservation areas). Runs inside
+ *  the build command, so the sub and its circuits undo as one step. */
+function autoConnectSub(state: GameState, map: CityMap, subId: number): void {
+  const sub = state.assets.get(subId);
+  if (!sub || sub.kind !== 'sub') return;
+  const used = new Set<number>();
+  let connected = 0;
+  for (const level of SUBS[sub.sub].levels) {
+    let best: { id: number; x: number; y: number } | undefined;
+    let bestD = AUTO_CONNECT_RANGE;
+    for (const a of state.assets.values()) {
+      if (a.id === subId || a.kind === 'line' || a.kind === 'depot' || used.has(a.id)) continue;
+      if (!assetLevels(a).includes(level)) continue;
+      const d = Math.hypot(a.x - sub.x, a.y - sub.y);
+      if (d < bestD) {
+        bestD = d;
+        best = { id: a.id, x: a.x, y: a.y };
+      }
+    }
+    if (!best) continue;
+    for (const build of ['overhead', 'underground'] as const) {
+      const r = applyCommand(state, map, {
+        type: 'build',
+        spec: { kind: 'line', level, build, ax: best.x, ay: best.y, bx: sub.x, by: sub.y },
+      });
+      if (r.ok) {
+        used.add(best.id);
+        connected++;
+        break;
+      }
+    }
+  }
+  if (connected === 0) {
+    pushEvent(state, 'info', 'auto-connect: no compatible bay in reach', sub.x, sub.y);
+  }
+}
+
 export function applyCommand(state: GameState, map: CityMap, cmd: Command): CommandResult {
   switch (cmd.type) {
     case 'setSpeed':
@@ -267,6 +326,7 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       const id = state.nextAssetId++;
       if (spec.kind === 'sub') {
         state.assets.set(id, { id, kind: 'sub', sub: spec.sub, x: spec.x, y: spec.y });
+        if (spec.autoConnect) autoConnectSub(state, map, id);
       } else if (spec.kind === 'depot') {
         state.assets.set(id, { id, kind: 'depot', x: spec.x, y: spec.y });
       } else {
@@ -285,6 +345,115 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       state.assetsVersion++;
       return { ok: true, assetId: id };
     }
+
+    case 'convertLine': {
+      const asset = state.assets.get(cmd.assetId);
+      if (!asset || asset.kind !== 'line') return { ok: false, error: 'no such line' };
+      if (asset.build === 'underground') return { ok: false, error: 'already underground' };
+      const endA = state.assets.get(asset.a);
+      const endB = state.assets.get(asset.b);
+      if (!endA || endA.kind === 'line' || !endB || endB.kind === 'line') {
+        return { ok: false, error: 'line endpoints missing' };
+      }
+      const priced = priceLine(map, asset.level, 'underground', endA.x, endA.y, endB.x, endB.y);
+      if (!priced.ok) return { ok: false, error: priced.error ?? 'route blocked' };
+      asset.build = 'underground';
+      asset.capexK = priced.capexK;
+      asset.pylons = [];
+      state.lineVeg.delete(asset.id);
+      state.assetsVersion++;
+      pushEvent(state, 'info', `${asset.level} kV line undergrounded — storms can do their worst`);
+      return { ok: true };
+    }
+
+    case 'tee': {
+      const line = state.assets.get(cmd.lineId);
+      if (!line || line.kind !== 'line') return { ok: false, error: 'no such line' };
+      const from = state.assets.get(cmd.fromAssetId);
+      if (!from || from.kind === 'line') return { ok: false, error: 'connect the tee to an asset' };
+      if (!assetLevels(from).includes(line.level)) {
+        return { ok: false, error: `no ${line.level} kV bay at the connecting asset` };
+      }
+      const endA = state.assets.get(line.a);
+      const endB = state.assets.get(line.b);
+      if (!endA || endA.kind === 'line' || !endB || endB.kind === 'line') {
+        return { ok: false, error: 'line endpoints missing' };
+      }
+      // snap the junction to the nearest workable tile along the route
+      const route = routeTiles(endA.x, endA.y, endB.x, endB.y);
+      const assetList = [...state.assets.values()];
+      const otherPylons = pylonTilesOf(assetList.filter((a) => a.id !== line.id));
+      let site: [number, number] | undefined;
+      let bestD = Number.POSITIVE_INFINITY;
+      for (let k = 1; k + 1 < route.length; k++) {
+        const [x, y] = route[k] ?? [-1, -1];
+        const i = y * map.width + x;
+        if (map.terrain[i] === TERRAIN.water) continue;
+        if (map.landmark !== undefined && (map.landmark[i] ?? 0) !== 0) continue;
+        if (otherPylons.has(i)) continue;
+        if (assetAtTile(assetList, x, y)) continue;
+        const d = Math.hypot(x - cmd.x, y - cmd.y);
+        if (d < bestD) {
+          bestD = d;
+          site = [x, y];
+        }
+      }
+      if (!site) return { ok: false, error: 'no room for a junction on that span' };
+      // junction in, original circuit out, three legs rebuilt through it
+      const [jx, jy] = site;
+      const teeId = state.nextAssetId++;
+      state.assets.set(teeId, {
+        id: teeId,
+        kind: 'sub',
+        sub: 'tee',
+        x: jx,
+        y: jy,
+        teeLevel: line.level,
+      });
+      state.assets.delete(line.id);
+      state.lineVeg.delete(line.id);
+      const leg = (ax: number, ay: number, bx: number, by: number, build: LineBuild) =>
+        applyCommand(state, map, {
+          type: 'build',
+          spec: { kind: 'line', level: line.level, build, ax, ay, bx, by },
+        });
+      const r1 = leg(endA.x, endA.y, jx, jy, line.build);
+      const r2 = leg(jx, jy, endB.x, endB.y, line.build);
+      const r3 = leg(from.x, from.y, jx, jy, cmd.build);
+      if (!r1.ok || !r2.ok || !r3.ok) {
+        for (const id of [r1.assetId, r2.assetId, r3.assetId]) {
+          if (id !== undefined) state.assets.delete(id);
+        }
+        state.assets.delete(teeId);
+        state.assets.set(line.id, line);
+        state.assetsVersion++;
+        return { ok: false, error: r1.error ?? r2.error ?? r3.error ?? 'tee failed' };
+      }
+      state.assetsVersion++;
+      pushEvent(state, 'info', `${line.level} kV circuit tee'd — three ends now`, jx, jy);
+      return { ok: true, assetId: teeId };
+    }
+
+    case 'convertSub': {
+      const asset = state.assets.get(cmd.assetId);
+      if (!asset || asset.kind !== 'sub') return { ok: false, error: 'no such substation' };
+      if (asset.idno) return { ok: false, error: "that's the iDNO's substation, not yours" };
+      if (asset.underground) return { ok: false, error: 'already underground' };
+      asset.underground = true;
+      state.assetsVersion++;
+      pushEvent(
+        state,
+        'info',
+        `${SUBS[asset.sub].name.split(' (')[0]} rebuilt underground (GIS) — weatherproof, at a price`,
+        asset.x,
+        asset.y,
+      );
+      return { ok: true };
+    }
+
+    case 'undo':
+    case 'redo':
+      return { ok: false, error: 'handled by the worker' };
 
     case 'setSubMva': {
       const asset = state.assets.get(cmd.assetId);
@@ -336,6 +505,7 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
         x: tender.x,
         y: tender.y,
         developer: bid.developerId,
+        ppaMWh: bid.priceMWh,
         liveAtMin: state.simTimeMin, // construction is instant: award → online
       });
       tender.status = 'awarded';

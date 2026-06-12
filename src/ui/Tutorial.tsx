@@ -18,11 +18,12 @@ const STEPS: Step[] = [
   },
   {
     text: 'First, generation — but you are a network operator, not a power company. Pick GAS CCGT (hotkey 1) and designate a site on open land away from homes — the map shades green where it can go, red where it cannot. That opens a tender: developers bid in your INBOX, and the moment you award one their plant appears, online and waiting for your wires.',
-    done: (s) => s.assets.some((a) => a.kind === 'gen') || s.inbox.tenders.length > 0,
+    // seeded existing plants don't count: the player must open a tender
+    done: (s) => s.inbox.tenders.length > 0,
   },
   {
     text: 'Now a GRID SUBSTATION (132/33 kV) near the area you want to serve.',
-    done: (s) => s.assets.some((a) => a.kind === 'sub' && a.sub === 'grid'),
+    done: (s) => s.assets.some((a) => a.kind === 'sub' && a.sub === 'grid' && !a.idno),
   },
   {
     text: 'Wire them up: choose the 132 KV LINE, click the plant, then the substation.',

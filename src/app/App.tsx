@@ -16,7 +16,7 @@ import { playSfx } from '../audio/audio';
 import { HOTKEYS } from './hotkeys';
 import { useAppStore } from './store';
 import { useIsMobile } from './useIsMobile';
-import { initWorker, setSimSpeed } from './workerBridge';
+import { initWorker, sendCommand, setSimSpeed } from './workerBridge';
 
 function Wordmark() {
   return (
@@ -100,11 +100,23 @@ function useKeyboard(): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       const s = useAppStore.getState();
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
-      if (target && /^(input|textarea|select)$/i.test(target.tagName)) return;
+      const typing = target && /^(input|textarea|select)$/i.test(target.tagName);
+      // undo/redo before the modifier guard: Ctrl/Cmd+Z, Ctrl+Y, Ctrl+Shift+Z
+      if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+        const k = e.key.toLowerCase();
+        if ((k === 'z' || k === 'y') && !typing && !s.menuOpen) {
+          e.preventDefault();
+          sendCommand({ type: k === 'y' || e.shiftKey ? 'redo' : 'undo' });
+        }
+        return;
+      }
+      if (e.altKey) return;
+      if (typing) return;
       if (e.key === 'Escape') {
-        if (s.tool.t === 'line' && s.tool.fromAssetId !== undefined) {
+        if (s.selectedAsset !== undefined || s.selectedLine !== undefined) {
+          s.setSelected({});
+        } else if (s.tool.t === 'line' && s.tool.fromAssetId !== undefined) {
           s.setTool({ ...s.tool, fromAssetId: undefined });
         } else {
           s.setTool({ t: 'inspect' });

@@ -93,9 +93,9 @@ export function StartMenu() {
       >
         <img src="/logo.svg" alt="" width={56} height={56} style={{ borderRadius: 13 }} />
         <img
-          src="/logotype.svg"
+          src="/logotype.png"
           alt="ElectriCity"
-          style={{ display: 'block', width: 360, maxWidth: '100%', margin: '6px auto 0' }}
+          style={{ display: 'block', width: 380, maxWidth: '100%', margin: '6px auto 0' }}
         />
         <div style={{ color: theme.slate, marginTop: 8, fontSize: 12.5 }}>
           power a stylized London — keep the lights on, the bills down, the carbon low

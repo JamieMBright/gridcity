@@ -22,6 +22,7 @@ import {
   seedScenario,
   serialize,
   type GameState,
+  type SaveData,
 } from './state';
 import { buildDemandField } from './map/demand';
 import {
@@ -40,6 +41,19 @@ let state: GameState = newGame();
 let ctx = newContext();
 let derived: Derived | undefined;
 let running = false;
+
+// undo/redo: full snapshots, taken before every mutating player command
+const UNDO_DEPTH = 20;
+const undoStack: SaveData[] = [];
+const redoStack: SaveData[] = [];
+
+function restore(data: SaveData): void {
+  state = deserialize(data);
+  ctx = newContext();
+  applyGrowth(ctx.map, state.growth);
+  ctx.demand = buildDemandField(ctx.map);
+  derived = undefined;
+}
 
 function post(msg: WorkerToMain): void {
   self.postMessage(msg);
@@ -129,6 +143,8 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
       worstVegPct: Math.max(0, ...[...state.lineVeg.values()]) * 100,
     },
     events: state.events,
+    undoDepth: undoStack.length,
+    redoDepth: redoStack.length,
     sites: buildSites(state),
     growth: state.growth.map((g) => ({ ...g })),
     inbox: {
@@ -203,10 +219,34 @@ self.onmessage = (e: MessageEvent<MainToWorker>) => {
         post({ type: 'saveData', data: serialize(state) });
         break;
       case 'command': {
+        if (msg.cmd.type === 'undo' || msg.cmd.type === 'redo') {
+          const from = msg.cmd.type === 'undo' ? undoStack : redoStack;
+          const to = msg.cmd.type === 'undo' ? redoStack : undoStack;
+          const data = from.pop();
+          if (!data) {
+            post({ type: 'cmdResult', seq: msg.seq, ok: false, error: `nothing to ${msg.cmd.type}` });
+            break;
+          }
+          to.push(serialize(state));
+          restore(data);
+          post({ type: 'cmdResult', seq: msg.seq, ok: true });
+          post({ type: 'snapshot', snapshot: makeSnapshot(false) });
+          post({ type: 'saveData', data: serialize(state) });
+          break;
+        }
+        const mutating = msg.cmd.type !== 'setSpeed';
+        if (mutating) {
+          undoStack.push(serialize(state));
+          if (undoStack.length > UNDO_DEPTH) undoStack.shift();
+        }
         const result = applyCommand(state, ctx.map, msg.cmd);
+        if (mutating) {
+          if (result.ok) redoStack.length = 0;
+          else undoStack.pop(); // nothing changed: don't burn an undo slot
+        }
         post({ type: 'cmdResult', seq: msg.seq, ...result });
         post({ type: 'snapshot', snapshot: makeSnapshot(false) });
-        if (result.ok && msg.cmd.type !== 'setSpeed') {
+        if (result.ok && mutating) {
           post({ type: 'saveData', data: serialize(state) });
         }
         break;

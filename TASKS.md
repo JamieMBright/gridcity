@@ -25,6 +25,109 @@
 
 ## Done (chronological, latest first)
 
+### Bill calibration prompt
+- [x] Household bill modelled the GB way: domestic users carry ~32% of
+      the network pot (industry/commerce the rest) → a reasonable mature
+      network ≈ £100/yr DUoS per home, shown on the bill panel; energy
+      at ~40% of volume × ~3x retail uplift + £150 standing charge →
+      an electrified (EV+HP) home trends to ≈ £3k/yr total
+- [x] Developer plant now bills like a real CfD/PPA: strike top-up above
+      wholesale on DELIVERED MWh only (smoothed in dispatch) — idle
+      seeded plants stopped inflating bills by £200+/home, a keen bid is
+      a real saving, and gen capex never rides DUoS
+- [x] RIIO bill targets rescaled to the calibrated figure (open at
+      £3000, floor £1800)
+
+### Vanished-substations-on-reload bug prompt
+- [x] On reload, substations/plants could vanish while lines + flows kept
+      drawing: snapshots arriving before the texture atlas finished
+      loading built an empty sprite pass and locked the asset signature.
+      Renderer re-runs the sprite pass once textures are ready.
+
+### Contract pins prompt
+- [x] New contracts (applications/tenders/overdue) drop a sizeable map
+      pin — fat teardrop with glyph + label, bouncing, with a pulsing
+      ground ring to draw the eye
+- [x] Click the pin → the inbox opens, scrolls to and flashes that
+      contract; click the inbox message → camera snaps to the pin
+      (two-way; pin taps don't fall through to the tile beneath)
+
+### Logotype like-for-like prompt
+- [x] Shipped the owner's reference artwork itself as the menu logotype
+      (like-for-like by definition): background unmixed to alpha so the
+      glow halos composite onto the glassy panel; raster asset kept by
+      owner request — the one deliberate exception to art-is-code
+
+### E2E debt found by the full suite (fixed pre-push)
+- [x] palette.spec still expected the pre-rings hint wording (stale
+      since the voltage-clarity package) — aligned to the live copy
+- [x] Tutorial steps auto-skipped: seeded existing plants satisfied the
+      "designate generation" condition instantly — step conditions now
+      ignore seeded developer/iDNO kit
+
+### Substation voltage colours prompt
+- [x] Substations carry their voltage colours on the map at all times:
+      bay-coloured rings under each sub (400 blue / 132 green / 33
+      orange, highest voltage outermost on multi-winding BSPs) matching
+      the line colours and the armed-tool rings
+
+### Tee'd connections prompt
+- [x] Tee into an existing circuit mid-span: with the line tool armed
+      from an asset, clicking a same-kV line splits it at a tee junction
+      (a real three-ended circuit) so e.g. a solar farm's substation
+      under a 132 kV route connects straight into the passing line; the
+      junction snaps to the nearest workable tile on the route and draws
+      as a tee tower
+- [~] Asset-first only (anchor on the asset, then click the span);
+      clicking a span with no anchor prompts the order — kept the tool
+      state simple rather than tracking half-made tees
+
+### Auto-connect prompt
+- [x] Palette toggle "auto-connect on placement": a new substation runs
+      a circuit from EACH of its bays to the nearest asset with a
+      matching bay (≤40 km), overhead where possible, cable where it
+      must (conservation areas) — one undo step with the sub itself
+
+### Blackout diagnosability prompt
+- [x] Inspect CLICK pins an info card that stays up (hover-only before, so
+      "nothing popped up" and the upgrade controls were unreachable —
+      they vanished as the mouse moved toward them); close ×/Esc/click-away
+- [x] The pinned card names the problem: TRIPPED + repair countdown on
+      lines/transformers, DE-ENERGIZED banner explaining tripped-here vs
+      trace-upstream, loading % and headroom
+- [x] Selected asset/line is highlighted on the map so you know which
+      piece you're looking at
+
+### Underground substations + cable legibility prompt
+- [x] Any substation can be rebuilt underground (indoor GIS) from its
+      inspector: 3× capex on the bill, storms can't touch it (outdoor
+      kit now takes damped storm exposure), drawn as its access vault
+- [x] Underground cables are legible: dashed level-coloured trench trace
+      on the map; the line inspector gives voltage, build, endpoints
+      ("from/to"), so you know what a buried circuit is and where to
+      connect to it
+
+### Undo/redo + line inspection prompt
+- [x] Undo/redo: Ctrl+Z / Ctrl+Y (Cmd too, Ctrl+Shift+Z = redo) + HUD
+      buttons — snapshot stack in the worker, 20 deep, covering every
+      build/award/demolish/convert/setting
+- [x] Lines are inspectable: click one in inspect mode → loading, headroom,
+      peak-seen loading, length, capex, endpoints, outage status
+- [x] Underground an existing overhead line from its inspector (priced at
+      the full underground build for that route); demolish from there too
+
+### Line-chaining duplicate prompt
+- [x] Clicking an asset already connected to the chain anchor re-anchors
+      instead of building a duplicate reverse circuit (A,B,A,C,A,D now runs
+      a clean star from the BSP)
+
+### £0/MWh bids bug prompt
+- [x] Bids quote a real PPA strike (LCOE: annuitized capex+O&M over expected
+      output at tech capacity factors, plus fuel) — tidal now bids ~£100/MWh,
+      never £0
+- [x] The awarded strike matters: developer plant is billed at its strike,
+      so taking the cheaper bid genuinely lowers the PPA line
+
 ### Style-direction prompt (menu mock + logotype refs)
 - [x] Logotype: glowing ELECTRI + bolt + CITY-as-buildings (SVG, in-app)
 - [x] Start menu redesigned to the mock: glassy panel, glowing CONTINUE,

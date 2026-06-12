@@ -41,7 +41,8 @@ export type PeriodTargets = Record<KpiKey, number>;
 
 /** Opening targets for a brand-new operator. */
 export function initialTargets(): PeriodTargets {
-  return { bill: 900, ci: 60, cml: 90, carbon: 250, curtailedFirm: 20_000, satisfaction: 60 };
+  // bill target tracks the calibrated household figure (~£3k electrified)
+  return { bill: 3000, ci: 60, cml: 90, carbon: 250, curtailedFirm: 20_000, satisfaction: 60 };
 }
 
 export interface PeriodState {
@@ -149,7 +150,7 @@ export function nextTargets(prev: PeriodTargets, actuals: PeriodActuals): Period
   const tighten = (target: number, actual: number, floor: number): number =>
     Math.max(floor, Math.min(target, actual) * 0.95);
   return {
-    bill: tighten(prev.bill, actuals.bill, 400),
+    bill: tighten(prev.bill, actuals.bill, 1800),
     ci: tighten(prev.ci, actuals.ci, 5),
     cml: tighten(prev.cml, actuals.cml, 10),
     carbon: tighten(prev.carbon, actuals.carbon, 30),

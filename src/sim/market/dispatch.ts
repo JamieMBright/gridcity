@@ -7,7 +7,7 @@
 // and discharge into the evening peak. Firm curtailment is compensated
 // (constraint payments → bill); flexible curtailment is just logged.
 
-import { BATTERY_EFFICIENCY, GENS, SUBS } from '../catalog';
+import { BATTERY_EFFICIENCY, GENS, strikeMWh, SUBS } from '../catalog';
 import { busId, subMva, type PlacedAsset } from '../assets';
 import { findIslands } from '../grid/topology';
 import type { Injection, Network } from '../grid/types';
@@ -57,6 +57,8 @@ export interface DispatchResult {
   slackPreference: number[];
   /** Wholesale cost of this operating point, £k per hour. */
   costKPerHour: number;
+  /** PPA top-ups above wholesale on delivered energy this hour, £k. */
+  ppaTopupKPerHour: number;
   /** Flexibility-market payments this hour, £k. */
   flexCostKPerHour: number;
   /** Constraint compensation to firm connections this hour, £k. */
@@ -83,6 +85,10 @@ interface Unit {
   mustRun: boolean;
   flex: boolean;
   isBattery: boolean;
+  /** PPA strike for billing, £k/MWh (developer plant). Customers pay the
+   *  top-up above wholesale on DELIVERED energy only — idle plant is the
+   *  developer's problem, like a real CfD. */
+  ppaK?: number | undefined;
 }
 
 /** Still in planning/construction: on the network, generating nothing. */
@@ -179,6 +185,12 @@ export function runDispatch(
           mustRun: renewable && !a.flex && !building,
           flex: a.flex === true && !building,
           isBattery: false,
+          ppaK:
+            a.ppaMWh !== undefined
+              ? a.ppaMWh / 1000
+              : a.developer !== undefined
+                ? strikeMWh(a.gen) / 1000
+                : undefined,
         });
       }
     } else if (a.kind === 'sub' && SUBS[a.sub].serviceRadius !== undefined) {
@@ -212,6 +224,7 @@ export function runDispatch(
   const servedFracOfSub = new Map<number, number>();
   const slackCandidates: Array<{ bus: number; mw: number }> = [];
   let costKPerHour = 0;
+  let ppaTopupKPerHour = 0;
   let constraintKPerHour = 0;
   let priceMWh = 0;
   let carbonNum = 0;
@@ -322,6 +335,7 @@ export function runDispatch(
       if (mw > 0) {
         injections.push({ bus: u.bus, pMW: mw });
         costKPerHour += mw * u.costK;
+        if (u.ppaK !== undefined) ppaTopupKPerHour += mw * Math.max(0, u.ppaK - u.costK);
         priceMWh = Math.max(priceMWh, u.costK * 1000);
         carbonNum += mw * u.carbonG;
         carbonDen += mw;
@@ -371,6 +385,7 @@ export function runDispatch(
     servedFracOfSub,
     slackPreference: slackCandidates.map((c) => c.bus),
     costKPerHour,
+    ppaTopupKPerHour,
     flexCostKPerHour,
     constraintKPerHour,
     priceMWh,

@@ -16,7 +16,7 @@ export type GenType =
   | 'tidal'
   | 'biomass'
   | 'battery';
-export type SubType = 'bulk' | 'grid' | 'dist' | 'pole' | 'vault';
+export type SubType = 'bulk' | 'grid' | 'dist' | 'pole' | 'vault' | 'tee';
 export type LineBuild = 'overhead' | 'underground';
 
 export interface GenSpec {
@@ -239,6 +239,16 @@ export const SUBS: Record<SubType, SubSpec> = {
     serviceRadius: 5,
     mvaSteps: [10, 25, 50],
   },
+  // not placed directly: created by teeing into an existing circuit.
+  // Its single bay is the tee'd line's own level (SubAsset.teeLevel).
+  tee: {
+    name: 'Tee junction',
+    levels: [],
+    txRatingMW: 1,
+    txX: 0.0001,
+    capexK: 300,
+    opexFrac: 0.01,
+  },
 };
 
 /** Capex of a radius-sub fitted with a given transformer, £k — the base
@@ -254,6 +264,10 @@ export function subRadius(sub: SubType, mva: number): number {
   if (spec.serviceRadius === undefined) return 0;
   return spec.serviceRadius * Math.sqrt(mva / spec.txRatingMW);
 }
+
+/** Rebuilding a substation underground (indoor GIS kit, civils, vents)
+ *  costs this multiple of the outdoor build — but storms can't touch it. */
+export const SUB_UG_MUL = 3;
 
 /** A substation auto-upgrades when sustained load passes this loading. */
 export const SUB_UPGRADE_AT = 0.9;
@@ -333,3 +347,28 @@ export const ANNUITY_FACTOR =
 
 /** Peak demand per customer (kW) — diversified after-diversity max demand. */
 export const ADMD_KW = 1.4;
+
+/** Typical GB capacity factors, for LCOE/strike estimation. */
+export const CAPACITY_FACTOR: Record<GenType, number> = {
+  gasCCGT: 0.55,
+  gasPeaker: 0.1,
+  coal: 0.5,
+  nuclear: 0.9,
+  solarFarm: 0.11,
+  windOnshore: 0.3,
+  windOffshore: 0.45,
+  tidal: 0.35,
+  biomass: 0.7,
+  battery: 0.15,
+};
+
+/** The PPA strike a developer needs to make a technology pay, £/MWh:
+ *  annuitized capex + fixed O&M spread over expected annual output at the
+ *  tech's capacity factor, plus fuel. Free fuel ≠ free electricity —
+ *  tidal bids ~£100/MWh, not £0. */
+export function strikeMWh(gen: GenType): number {
+  const g = GENS[gen];
+  const annualK = g.capexK * (ANNUITY_FACTOR + g.opexFrac);
+  const outputMWh = g.capacityMW * 8760 * (CAPACITY_FACTOR[gen] ?? 0.4);
+  return Math.max(1, Math.round((annualK * 1000) / outputMWh + g.marginalCostK * 1000));
+}
