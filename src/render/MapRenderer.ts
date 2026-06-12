@@ -25,6 +25,7 @@ import {
 } from 'pixi.js';
 import { riverCenterY, riverHalfWidth } from '../data/londonMap';
 import { assetLevels, type PlacedAsset } from '../sim/assets';
+import { farmClaimTiles, isFarmGen } from '../sim/farms';
 import { GENS, SUBS } from '../sim/catalog';
 import type { VoltageLevel } from '../sim/grid/types';
 import { sampleRoute } from '../sim/map/routes';
@@ -32,6 +33,14 @@ import { CUSTOMERS_PER_TILE, type CityMap, type RouteClass, type Zone } from '..
 import { COV, type BranchView } from '../sim/tick';
 import { getAtlas } from './atlasCache';
 import { NAMED_PLACES, TOWNS } from '../data/londonMap';
+import {
+  deckLiftWorldPx,
+  emitRouteRibbons,
+  zoomKeyFor,
+  type RibbonLayer,
+  type ZoomKey,
+} from './routeRibbons';
+import { emitShoreline } from './shoreline';
 import { CELL_H, CELL_W, FLOOR_H, RES } from './sprites/iso';
 import { WIND_HUBS, windHubOffset } from './sprites/networkSprites';
 import { groundSpriteFor, structureSpriteFor } from './tileChooser';
@@ -84,21 +93,18 @@ const SUB_SPRITE: Record<string, string> = {
   capbank: 'sub_capbank',
 };
 
-// ribbon styling per route class, in world px. Speeds are deliberately
-// well below "light speed": a tile is ~a km, so even these cheat fast,
-// but they READ as traffic rather than tracer rounds.
-const ROUTE_STYLE: Record<
-  RouteClass,
-  { width: number; color: number; speed: number; perTile: number }
-> = {
-  motorway: { width: 13 * RES, color: 0x474556, speed: 1.7, perTile: 7 },
-  arterial: { width: 8.5 * RES, color: 0x55525f, speed: 0.9, perTile: 12 },
-  street: { width: 5 * RES, color: 0x5f5c66, speed: 0.4, perTile: 45 },
-  lane: { width: 4 * RES, color: 0x6e6757, speed: 0.5, perTile: 30 },
-  rail: { width: 6.5 * RES, color: 0x3f3c49, speed: 1.6, perTile: 0 },
+// traffic tuning per route class — the ribbons themselves are tessellated
+// by routeRibbons.ts (shared with the preview tool). Speeds are
+// deliberately well below "light speed": a tile is ~a km, so even these
+// cheat fast, but they READ as traffic rather than tracer rounds.
+const ROUTE_STYLE: Record<RouteClass, { speed: number; perTile: number }> = {
+  motorway: { speed: 1.7, perTile: 7 },
+  arterial: { speed: 0.9, perTile: 12 },
+  street: { speed: 0.4, perTile: 45 },
+  lane: { speed: 0.5, perTile: 30 },
+  rail: { speed: 1.6, perTile: 0 },
 };
 const CAR_COLORS = [0xf4f1ea, 0x27324d, 0xc9453a, 0x5e8fc2, 0xe8a23f, 0x9aa4b5, 0x3f8f8a];
-const FLOWERS = [0xd6566e, 0xf4f1ea, 0xffd277, 0x7a6fae];
 
 export interface VanView {
   id: number;
@@ -211,9 +217,21 @@ export class MapRenderer {
   private world = new Container();
   private city = new Container();
   private terrainLayer = new Container();
-  private routesG = new Graphics();
+  /** Smoothed vector shoreline, built once at init (visual only). */
+  private shoreG = new Graphics();
+  /** Boats sail UNDER bridge decks: their layer sits below the routes. */
+  private boatLayer = new Container();
+  /** Holds the active zoom band's ribbon Graphics (swapped, never restyled). */
+  private routesLayer = new Container();
+  /** Cars + trains: over the carriageways and bridge decks... */
+  private roadVehicleLayer = new Container();
+  /** ...but behind the near-side bridge parapets. */
+  private bridgeTopLayer = new Container();
+  private zoomKey: ZoomKey | undefined;
+  private bandCache = new Map<string, { routes: Graphics; bridgeTop: Graphics; stamp: number }>();
+  private bandStamp = 0;
+  private gridViewOn = false;
   private structureLayer = new Container();
-  private vehicleLayer = new Container();
   private coverageG = new Graphics();
   private suitability: Sprite | undefined;
   private smogG = new Graphics();
@@ -298,7 +316,7 @@ export class MapRenderer {
     await this.buildTextures();
     this.buildRoutePaths(map);
     this.buildWorld(map);
-    this.drawRoutes();
+    this.drawShore(map);
     this.spawnVehicles();
 
     this.cityFilter.desaturate();
@@ -306,9 +324,25 @@ export class MapRenderer {
 
     this.structureLayer.sortableChildren = true;
     this.assetLayer.sortableChildren = true;
+    // painter order: ground → smooth shoreline → boats → road/rail ribbons
+    // (incl. bridge decks) → road vehicles → near parapets → buildings.
+    // None of the transport layers are interactive — picking/demolish all
+    // happens on DOM events + the asset layers above.
+    for (const layer of [
+      this.shoreG,
+      this.boatLayer,
+      this.routesLayer,
+      this.roadVehicleLayer,
+      this.bridgeTopLayer,
+    ]) {
+      layer.eventMode = 'none';
+    }
     this.city.addChild(this.terrainLayer);
-    this.city.addChild(this.routesG);
-    this.city.addChild(this.vehicleLayer);
+    this.city.addChild(this.shoreG);
+    this.city.addChild(this.boatLayer);
+    this.city.addChild(this.routesLayer);
+    this.city.addChild(this.roadVehicleLayer);
+    this.city.addChild(this.bridgeTopLayer);
     this.city.addChild(this.structureLayer);
     this.world.addChild(this.city);
     this.world.addChild(this.coverageG);
@@ -338,6 +372,7 @@ export class MapRenderer {
       this.app.screen.height / 2 - focus.y * scale,
     );
 
+    this.applyZoomBand();
     this.buildLabels();
     this.attachInput(map);
     this.app.ticker.add(() => this.animate(this.app.ticker.deltaMS / 1000));
@@ -451,7 +486,8 @@ export class MapRenderer {
 
   setGridView(on: boolean): void {
     this.city.filters = on ? [this.cityFilter] : [];
-    this.vehicleLayer.visible = !on;
+    this.gridViewOn = on;
+    this.applyVehicleVisibility();
   }
 
   /** While the line tool is armed: ring every asset with a bay at that
@@ -737,128 +773,66 @@ export class MapRenderer {
     }
   }
 
-  /** All the tarmac, verges, flowers, sleepers and rails — drawn once. */
-  private drawRoutes(): void {
-    const g = this.routesG;
-    let flowerSeed = 0x5eed1;
-    const rnd = (): number => {
-      flowerSeed = (flowerSeed * 1664525 + 1013904223) >>> 0;
-      return flowerSeed / 0xffffffff;
-    };
+  /** Smoothed shoreline bands — built once; the estuary stops being Lego. */
+  private drawShore(map: CityMap): void {
+    const batch = batchedFill(() => this.shoreG);
+    emitShoreline(map, (pts, color, alpha) => batch.poly(pts, color, alpha, 'routes'));
+    batch.flush();
+  }
 
-    const stroke = (
-      path: RoutePath,
-      width: number,
-      color: number,
-      alpha = 1,
-      offset = 0,
-    ): void => {
-      const first = path.pts[0];
-      if (!first) return;
-      g.moveTo(first.x, first.y + offset);
-      for (let k = 1; k < path.pts.length; k++) {
-        const p = path.pts[k];
-        if (p) g.lineTo(p.x, p.y + offset);
+  /** Swap in the ribbon Graphics for the current zoom band, rebuilding
+   *  lazily (≤ 2 cached bands; LRU destroyed). Called every frame — a
+   *  no-op unless the camera crossed a band boundary (with hysteresis). */
+  private applyZoomBand(): void {
+    const map = this.map;
+    if (!map) return;
+    const key = zoomKeyFor(this.world.scale.x, this.zoomKey);
+    if (key === this.zoomKey) return;
+    this.zoomKey = key;
+    let entry = this.bandCache.get(key.id);
+    if (!entry) {
+      const routes = new Graphics();
+      const bridgeTop = new Graphics();
+      routes.eventMode = 'none';
+      bridgeTop.eventMode = 'none';
+      const batch = batchedFill((layer: RibbonLayer) =>
+        layer === 'bridgeTop' ? bridgeTop : routes,
+      );
+      emitRouteRibbons(map, { band: key.band, scale: key.scale }, batch.poly);
+      batch.flush();
+      entry = { routes, bridgeTop, stamp: 0 };
+      this.bandCache.set(key.id, entry);
+      // keep at most 2 band builds alive — destroy the least recent other
+      while (this.bandCache.size > 2) {
+        let lruId: string | undefined;
+        let lruStamp = Number.POSITIVE_INFINITY;
+        for (const [id, e] of this.bandCache) {
+          if (id !== key.id && e.stamp < lruStamp) {
+            lruId = id;
+            lruStamp = e.stamp;
+          }
+        }
+        if (lruId === undefined) break;
+        const lru = this.bandCache.get(lruId);
+        this.bandCache.delete(lruId);
+        lru?.routes.destroy();
+        lru?.bridgeTop.destroy();
       }
-      g.stroke({ color, width, alpha, cap: 'round', join: 'round' });
-    };
+    }
+    entry.stamp = ++this.bandStamp;
+    this.routesLayer.removeChildren();
+    this.routesLayer.addChild(entry.routes);
+    this.bridgeTopLayer.removeChildren();
+    this.bridgeTopLayer.addChild(entry.bridgeTop);
+    this.applyVehicleVisibility();
+  }
 
-    // under-layers first: verges, casings
-    for (const path of this.routePaths) {
-      if ((path as RoutePath & { isRiver?: boolean }).isRiver) continue;
-      const st = ROUTE_STYLE[path.kind];
-      if (path.kind === 'lane' || path.kind === 'street') {
-        stroke(path, st.width + 4.5 * RES, 0x79a04e, 0.55); // grass verge
-      }
-      if (path.kind === 'arterial') {
-        stroke(path, st.width + 6 * RES, 0x79a04e, 0.4); // wide verge
-        stroke(path, st.width + 3 * RES, 0x3f8f4e, 0.85); // cycle lanes
-      }
-      stroke(path, st.width + 2 * RES, 0x241c38, 0.6); // ink casing
-    }
-    // carriageways
-    for (const path of this.routePaths) {
-      if ((path as RoutePath & { isRiver?: boolean }).isRiver) continue;
-      const st = ROUTE_STYLE[path.kind];
-      if (path.kind === 'rail') {
-        stroke(path, st.width, 0x4a4555, 0.95); // ballast
-        continue;
-      }
-      stroke(path, st.width, st.color, 1);
-      if (path.kind === 'motorway') {
-        stroke(path, 1.4 * RES, 0x8fb35c, 1); // grassed median
-        stroke(path, 0.9 * RES, 0xe8e2d2, 0.9, -st.width / 2 + 1.2 * RES);
-        stroke(path, 0.9 * RES, 0xe8e2d2, 0.9, st.width / 2 - 1.2 * RES);
-      }
-    }
-    // details: dashes, rails+sleepers, bridge piers, flowers
-    for (const path of this.routePaths) {
-      if ((path as RoutePath & { isRiver?: boolean }).isRiver) continue;
-      const st = ROUTE_STYLE[path.kind];
-      if (path.kind === 'rail') {
-        // sleepers then twin rails
-        for (let d = 0; d < path.total; d += 5.5 * RES) {
-          const p = this.pointAt(path, d);
-          if (!p) continue;
-          const px = -p.ny * 2.6 * RES;
-          const py = p.nx * 2.6 * RES;
-          g.moveTo(p.x - px, p.y - py).lineTo(p.x + px, p.y + py);
-        }
-        g.stroke({ color: 0x6e5a43, width: 1.1 * RES, alpha: 0.9 });
-        for (const side of [-1.6 * RES, 1.6 * RES]) {
-          let started = false;
-          for (let k = 0; k < path.pts.length; k++) {
-            const p = this.pointAt(path, path.cum[k] ?? 0);
-            if (!p) continue;
-            const x = p.x - p.ny * side;
-            const y = p.y + p.nx * side;
-            if (!started) {
-              g.moveTo(x, y);
-              started = true;
-            } else {
-              g.lineTo(x, y);
-            }
-          }
-          g.stroke({ color: 0x9aa4b5, width: 0.9 * RES, alpha: 1 });
-        }
-      } else if (path.kind === 'arterial' || path.kind === 'motorway') {
-        for (let d = 6 * RES; d < path.total; d += 26 * RES) {
-          const p0 = this.pointAt(path, d);
-          const p1 = this.pointAt(path, d + 9 * RES);
-          if (!p0 || !p1) continue;
-          const off = path.kind === 'motorway' ? st.width / 4 : 0;
-          g.moveTo(p0.x - p0.ny * off, p0.y + p0.nx * off).lineTo(p1.x - p1.ny * off, p1.y + p1.nx * off);
-          if (path.kind === 'motorway') {
-            g.moveTo(p0.x + p0.ny * off, p0.y - p0.nx * off).lineTo(p1.x + p1.ny * off, p1.y - p1.nx * off);
-          }
-        }
-        g.stroke({ color: 0xe8e2d2, width: 1 * RES, alpha: 0.75 });
-      }
-      // piers where the route crosses water
-      for (let k = 1; k < path.pts.length - 1; k += 3) {
-        const p = path.pts[k];
-        if (p?.water) {
-          g.rect(p.x - 2.2 * RES, p.y + 2 * RES, 4.4 * RES, 5 * RES);
-          g.fill({ color: 0xb8b2c4, alpha: 0.95 });
-        }
-      }
-      // randomized flowers along the quiet verges — never homogeneous
-      if (path.kind === 'street' || path.kind === 'lane' || path.kind === 'arterial') {
-        for (let d = rnd() * 30 * RES; d < path.total; d += (22 + rnd() * 46) * RES) {
-          const p = this.pointAt(path, d);
-          if (!p || p.water) continue;
-          const side = rnd() < 0.5 ? -1 : 1;
-          const off = (st.width / 2 + (2.2 + rnd() * 2.4) * RES) * side;
-          const fx = p.x - p.ny * off;
-          const fy = p.y + p.nx * off;
-          const color = FLOWERS[Math.floor(rnd() * FLOWERS.length)] ?? 0xf4f1ea;
-          for (let f = 0; f < 2 + Math.floor(rnd() * 3); f++) {
-            g.circle(fx + (rnd() - 0.5) * 5 * RES, fy + (rnd() - 0.5) * 3 * RES, 0.9 * RES);
-            g.fill({ color, alpha: 0.95 });
-          }
-        }
-      }
-    }
+  /** Vehicles declutter with the ribbons: sub-pixel traffic at the far
+   *  band is pure noise (and wasted frame time), so it hides. */
+  private applyVehicleVisibility(): void {
+    const show = !this.gridViewOn && (this.zoomKey?.band ?? 2) >= 1;
+    this.roadVehicleLayer.visible = show;
+    this.boatLayer.visible = show;
   }
 
   /** Point + unit tangent at distance d along a path. */
@@ -913,7 +887,7 @@ export class MapRenderer {
           const W2 = (big ? 5 : 3.6) * RES;
           hull.roundRect(-L / 2, -W2 / 2, L, W2, W2 / 2).fill(big ? 0x39426e : 0x6e5a43);
           hull.rect(-L * 0.1, -W2 * 0.3, L * 0.3, W2 * 0.6).fill(0xf4f1ea);
-          this.vehicleLayer.addChild(hull);
+          this.boatLayer.addChild(hull);
           this.vehicles.push({
             path,
             s: rnd() * path.total,
@@ -938,10 +912,10 @@ export class MapRenderer {
             return c;
           };
           loco.addChild(mk(true));
-          this.vehicleLayer.addChild(loco);
+          this.roadVehicleLayer.addChild(loco);
           for (let k = 0; k < 3; k++) {
             const c = mk(false);
-            this.vehicleLayer.addChild(c);
+            this.roadVehicleLayer.addChild(c);
             carsG.push(c);
           }
           this.vehicles.push({
@@ -967,7 +941,7 @@ export class MapRenderer {
         const W2 = 4 * RES;
         gg.roundRect(-L / 2, -W2 / 2, L, W2, 1.5 * RES).fill(body);
         gg.roundRect(-L * 0.18, -W2 * 0.34, L * 0.42, W2 * 0.68, RES).fill(0x27324d);
-        this.vehicleLayer.addChild(gg);
+        this.roadVehicleLayer.addChild(gg);
         this.vehicles.push({
           path,
           s: rnd() * path.total,
@@ -982,7 +956,7 @@ export class MapRenderer {
   }
 
   private stepVehicles(dt: number): void {
-    if (!this.vehicleLayer.visible) return;
+    if (!this.roadVehicleLayer.visible && !this.boatLayer.visible) return;
     for (const v of this.vehicles) {
       v.s += dt * v.speed * v.path.pxPerTile * v.dir;
       if (v.s < 0 || v.s > v.path.total) {
@@ -998,7 +972,8 @@ export class MapRenderer {
       const place = (g: Graphics, dist: number): void => {
         const p = this.pointAt(v.path, dist);
         if (!p) return;
-        const lift = p.water && v.kind !== 'boat' ? 8 * RES : 0;
+        // over water, road vehicles ride at the bridge deck's height
+        const lift = p.water && v.kind !== 'boat' ? deckLiftWorldPx(v.path.kind) : 0;
         g.position.set(p.x - p.ny * lane, p.y + p.nx * lane - lift);
         g.rotation = Math.atan2(p.ny * v.dir, p.nx * v.dir);
       };
@@ -1012,6 +987,7 @@ export class MapRenderer {
 
   private animate(dt: number): void {
     if (this.destroyed || !this.map) return;
+    this.applyZoomBand();
     this.stepVehicles(dt);
     this.stepRotors(dt);
     this.stepFlow(dt);
@@ -1413,6 +1389,24 @@ export class MapRenderer {
             : 'depot';
       const tex = name ? this.textures.get(name) : undefined;
       if (!tex) continue;
+      // capacity-scaled farms (GenAsset.mw stamped at award): one sprite
+      // per derived claimed tile — solar tiles into a field array, wind
+      // spreads a turbine pair per claimed tile, rotors spun live
+      if (!building && a.kind === 'gen' && a.mw !== undefined && isFarmGen(a.gen) && map) {
+        for (const i of farmClaimTiles(map, a.gen, a.x, a.y, a.mw)) {
+          const tx = i % map.width;
+          const ty = Math.floor(i / map.width);
+          const s = new Sprite(tex);
+          const c = this.tileCentre(tx, ty);
+          s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
+          s.zIndex = tx + ty;
+          this.assetLayer.addChild(s);
+          if (a.gen === 'windOnshore' || a.gen === 'windOffshore') {
+            this.addWindRotors(a.id, a.gen, c, tx + ty);
+          }
+        }
+        continue;
+      }
       const [fw, fh] =
         a.kind === 'gen'
           ? (GENS[a.gen].footprint ?? [1, 1])
@@ -1435,24 +1429,34 @@ export class MapRenderer {
       this.assetLayer.addChild(s);
 
       if (!building && a.kind === 'gen' && (a.gen === 'windOnshore' || a.gen === 'windOffshore')) {
-        for (const spec of WIND_HUBS[a.gen === 'windOffshore' ? 'offshore' : 'onshore']) {
-          const [hx, hy] = windHubOffset(spec);
-          const rotor = new Graphics() as RotorG;
-          const len = spec.bladePx * RES;
-          for (let b = 0; b < 3; b++) {
-            const ang = (b * 2 * Math.PI) / 3;
-            rotor.moveTo(0, 0).lineTo(Math.cos(ang) * len, Math.sin(ang) * len);
-          }
-          rotor.stroke({ color: 0xf4f1ea, width: 2.2 * RES, cap: 'round' });
-          rotor.circle(0, 0, 2.6 * RES).fill(0xff8a1e);
-          rotor.position.set(c.x - HALF_W + hx, c.y + HALF_H - CELL_H + hy);
-          rotor.scale.y = 0.92;
-          rotor.zIndex = a.x + a.y + 0.1;
-          rotor.spin = 1;
-          this.assetLayer.addChild(rotor);
-          this.rotors.push({ assetId: a.id, g: rotor });
-        }
+        this.addWindRotors(a.id, a.gen, c, a.x + a.y);
       }
+    }
+  }
+
+  /** Live-spinning rotors over a baked turbine tile centred at `c`. */
+  private addWindRotors(
+    assetId: number,
+    gen: 'windOnshore' | 'windOffshore',
+    c: { x: number; y: number },
+    z: number,
+  ): void {
+    for (const spec of WIND_HUBS[gen === 'windOffshore' ? 'offshore' : 'onshore']) {
+      const [hx, hy] = windHubOffset(spec);
+      const rotor = new Graphics() as RotorG;
+      const len = spec.bladePx * RES;
+      for (let b = 0; b < 3; b++) {
+        const ang = (b * 2 * Math.PI) / 3;
+        rotor.moveTo(0, 0).lineTo(Math.cos(ang) * len, Math.sin(ang) * len);
+      }
+      rotor.stroke({ color: 0xf4f1ea, width: 2.2 * RES, cap: 'round' });
+      rotor.circle(0, 0, 2.6 * RES).fill(0xff8a1e);
+      rotor.position.set(c.x - HALF_W + hx, c.y + HALF_H - CELL_H + hy);
+      rotor.scale.y = 0.92;
+      rotor.zIndex = z + 0.1;
+      rotor.spin = 1;
+      this.assetLayer.addChild(rotor);
+      this.rotors.push({ assetId, g: rotor });
     }
   }
 
@@ -1788,8 +1792,45 @@ export class MapRenderer {
 
   destroy(): void {
     this.destroyed = true;
+    // cached band Graphics may not be attached to the stage — free them
+    for (const e of this.bandCache.values()) {
+      if (!e.routes.destroyed) e.routes.destroy();
+      if (!e.bridgeTop.destroyed) e.bridgeTop.destroy();
+    }
+    this.bandCache.clear();
     if (this.app.renderer) this.app.destroy(true);
   }
+}
+
+/** Accumulate consecutive same-style ribbon polys into one Graphics fill
+ *  call — the emitter streams thousands of small quads; batching keeps the
+ *  Graphics command list (and rebuild time) sane. */
+function batchedFill(pick: (layer: RibbonLayer) => Graphics): {
+  poly: (pts: number[], color: number, alpha: number, layer: RibbonLayer) => void;
+  flush: () => void;
+} {
+  let g: Graphics | undefined;
+  let color = -1;
+  let alpha = -1;
+  const flush = (): void => {
+    if (g && color >= 0) g.fill({ color, alpha });
+    g = undefined;
+    color = -1;
+    alpha = -1;
+  };
+  return {
+    poly: (pts, c, a, layer) => {
+      const target = pick(layer);
+      if (target !== g || c !== color || a !== alpha) {
+        flush();
+        g = target;
+        color = c;
+        alpha = a;
+      }
+      target.poly(pts);
+    },
+    flush,
+  };
 }
 
 /** Chevrons ride brighter than the line they sit on. */

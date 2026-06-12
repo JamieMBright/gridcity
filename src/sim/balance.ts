@@ -197,7 +197,7 @@ export function computeBalance(
     if (a.kind !== 'gen') continue;
     gens.push({
       gen: a.gen,
-      capMW: GENS[a.gen].capacityMW,
+      capMW: a.mw ?? GENS[a.gen].capacityMW, // awarded land-capped MW when stamped
       island: islands.islandOf.get(busId(a.id, GENS[a.gen].level)) ?? -1,
       building: underConstruction(a, state.simTimeMin),
     });

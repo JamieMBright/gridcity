@@ -15,6 +15,8 @@ import {
   type VegPolicy,
 } from './catalog';
 import { CONNECT_DAYS, GEN_OF_KIND } from './events/applications';
+import { FARM_MW_PER_TILE } from './catalog';
+import { farmClaimTiles, farmFitMW, farmTileOrder, isFarmGen } from './farms';
 import { applyConvertToH2 } from './market/hydrogen';
 import { applyReplaceAsset, applyScheduleMaintenance } from './reliability/ageing';
 import { applyStormPrep } from './reliability/stormprep';
@@ -154,9 +156,14 @@ export function assetAtTile(
   return undefined;
 }
 
-/** Every tile a multi-tile asset's footprint covers. */
+/** Every tile a multi-tile asset's footprint covers. Farm-type plant
+ *  stamped with an awarded MW claims its capacity-proportional tile set
+ *  (derived — see src/sim/farms.ts); everything else, its catalog rect. */
 export function footprintTiles(map: CityMap, a: PlacedAsset): number[] {
   if (a.kind === 'line') return [];
+  if (a.kind === 'gen' && a.mw !== undefined && isFarmGen(a.gen)) {
+    return farmClaimTiles(map, a.gen, a.x, a.y, a.mw);
+  }
   const [fw, fh] = assetFootprint(a);
   const out: number[] = [];
   for (let dy = 0; dy < fh; dy++) {
@@ -331,11 +338,18 @@ export function checkBuild(
           : [1, 1];
     const assetList = [...assets];
     const pylonTiles = pylonTilesOf(assetList);
+    // occupancy covers full footprints — campuses AND the derived tile
+    // claims of capacity-scaled farms (footprintTiles handles both)
+    const occupied = new Set<number>();
+    for (const a of assetList) {
+      for (const i of footprintTiles(map, a)) occupied.add(i);
+    }
     for (let dy = 0; dy < fh; dy++) {
       for (let dx = 0; dx < fw; dx++) {
         const siteError = siteErrorAt(map, spec, spec.x + dx, spec.y + dy);
         if (siteError) return fail(siteError);
-        if (assetAtTile(assetList, spec.x + dx, spec.y + dy)) return fail('tile already occupied');
+        if (occupied.has((spec.y + dy) * map.width + spec.x + dx))
+          return fail('tile already occupied');
         if (pylonTiles.has((spec.y + dy) * map.width + spec.x + dx))
           return fail('an overhead-line support stands here');
       }
@@ -467,6 +481,10 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
         // the operator doesn't build power stations: designating a site
         // opens a tender that developers bid on (accepted via acceptBid)
         const g = GENS[spec.gen];
+        // farm techs: developers bid what FITS — survey the contiguous
+        // open land around the site now, while the map is in hand, and
+        // stamp the MW cap on the tender for every bid to respect
+        const fitMW = isFarmGen(spec.gen) ? farmFitMW(map, spec.gen, spec.x, spec.y) : undefined;
         const tender: Tender = {
           id: state.nextAppId++,
           gen: spec.gen,
@@ -476,12 +494,17 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
           closesMin: state.simTimeMin + TENDER_OPEN_DAYS * 1440,
           bids: [],
           status: 'open',
+          ...(fitMW !== undefined ? { fitMW } : {}),
         };
         state.tenders.push(tender);
         pushEvent(
           state,
           'info',
-          `site designated for ${g.name} — inviting developer bids`,
+          `site designated for ${g.name} — inviting developer bids${
+            fitMW !== undefined && fitMW < g.capacityMW
+              ? ` (the land fits ~${fitMW} MW of the ${g.capacityMW} MW ask)`
+              : ''
+          }`,
           spec.x,
           spec.y,
         );
@@ -848,6 +871,25 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
         );
         return { ok: false, error: check.error };
       }
+      // farm awards claim their capacity-proportional tile set: cap the
+      // bid's MW to the largest BFS PREFIX of the claim still free of
+      // other assets/pylons (the site can have tightened since bidding)
+      let awardMW: number | undefined;
+      if (bid.mw !== undefined && isFarmGen(tender.gen)) {
+        const per = FARM_MW_PER_TILE[tender.gen] ?? 1;
+        const taken = pylonTilesOf(state.assets.values());
+        for (const a of state.assets.values()) {
+          for (const i of footprintTiles(map, a)) taken.add(i);
+        }
+        let free = 0;
+        for (const i of farmTileOrder(map, tender.gen, tender.x, tender.y)) {
+          if (taken.has(i)) break;
+          free++;
+        }
+        // checkBuild passed for the anchor, so free >= 1 — at least one
+        // tile's worth of plant always lands
+        awardMW = Math.min(bid.mw, free * per);
+      }
       const id = state.nextAssetId++;
       state.assets.set(id, {
         id,
@@ -858,6 +900,7 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
         developer: bid.developerId,
         ppaMWh: bid.priceMWh,
         liveAtMin: state.simTimeMin, // construction is instant: award → online
+        ...(awardMW !== undefined ? { mw: awardMW } : {}),
       });
       tender.status = 'awarded';
       for (const b of tender.bids) {
@@ -866,7 +909,7 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       pushEvent(
         state,
         'info',
-        `${g.name} awarded to ${developerOf(bid.developerId)?.name ?? 'a developer'} — online and ready for your wires`,
+        `${g.name}${awardMW !== undefined ? ` (${awardMW} MW)` : ''} awarded to ${developerOf(bid.developerId)?.name ?? 'a developer'} — online and ready for your wires`,
         tender.x,
         tender.y,
       );

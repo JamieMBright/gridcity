@@ -173,18 +173,19 @@ export function underConstruction(
 }
 
 function availability(a: PlacedAsset & { kind: 'gen' }, inp: DispatchInputs): number {
-  const spec = GENS[a.gen];
+  // a.mw = awarded land-capped capacity (farm-scaled plant); else catalog
+  const capMW = a.mw ?? GENS[a.gen].capacityMW;
   switch (a.gen) {
     case 'solarFarm':
-      return spec.capacityMW * sunFactor(inp.simTimeMin, inp.weather);
+      return capMW * sunFactor(inp.simTimeMin, inp.weather);
     case 'windOnshore':
-      return spec.capacityMW * windFactor(inp.weather, false);
+      return capMW * windFactor(inp.weather, false);
     case 'windOffshore':
-      return spec.capacityMW * windFactor(inp.weather, true);
+      return capMW * windFactor(inp.weather, true);
     case 'tidal':
-      return spec.capacityMW * tideFactor(inp.simTimeMin);
+      return capMW * tideFactor(inp.simTimeMin);
     default:
-      return spec.capacityMW;
+      return capMW;
   }
 }
 

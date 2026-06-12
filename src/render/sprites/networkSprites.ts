@@ -782,12 +782,14 @@ export function windHubOffset(spec: WindHubSpec): Pt {
 }
 
 /** Wind turbine towers; offshore versions stand on yellow transition
- *  pieces straight out of the water (transparent floor). The rotors are
+ *  pieces straight out of the water. Both stand on a TRANSPARENT floor —
+ *  onshore machines rise straight out of whatever crop the tile grows,
+ *  so a capacity-scaled farm's spread turbine tiles read as turbines
+ *  amid farmland, not a checkerboard of pasted lawns. The rotors are
  *  not baked — the renderer draws them live so they actually turn. */
 export function windTurbineTile(seed: number, offshore: boolean): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   void seed;
-  if (!offshore) iso.floor(lighten(COLORS.grass, 0.06), COLORS.grassDark);
 
   const turbine = ({ u, v, hub }: WindHubSpec): void => {
     if (offshore) {
@@ -806,63 +808,68 @@ export function windTurbineTile(seed: number, offshore: boolean): Uint8ClampedAr
   return iso.build();
 }
 
-/** Coal station on a 3x2 footprint: full concrete pad, long turbine hall +
- *  boiler house, conveyor ramp up from the coal heap, slim chimney and two
- *  big hyperboloid cooling towers breathing a wisp of steam. */
+/** Coal station on a 4x3 footprint — a Drax/Ratcliffe-class campus, the
+ *  biggest thing the player can put on the map: SIX hyperboloid cooling
+ *  towers in two ranks of three breathing steam, the tall boiler house
+ *  with its chimney, the long glazed turbine hall, a coal yard with twin
+ *  spoil cones and an enclosed conveyor gallery climbing into the boiler
+ *  house, and a rail siding of loaded hopper wagons along the front. */
 export function coalPlantTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso(3, 2);
+  const iso = new Iso(4, 3);
   const rng = new Rng(seed * 90121 + 23);
   iso.floor(PAD, darken(PAD, 0.1));
   fence(iso, 0.04, 12);
 
-  // long navy turbine hall with a gable along its length
-  iso.shadow(0.15, 0.55, 1.7, 1.35, 0.18, 0.22);
-  iso.box(0.15, 0.55, 1.7, 1.35, 0, 36, NAVY);
-  iso.gable(0.15, 0.55, 1.7, 1.35, 36, 12, 'u', NAVY_DEEP, NAVY);
-  iso.r.poly([iso.P(0.15, 1.35, 9), iso.P(1.7, 1.35, 9), iso.P(1.7, 1.35, 6), iso.P(0.15, 1.35, 6)], COLORS.white);
-  iso.windowsLeft(1.35, 0.22, 1.6, 13, 27, 8, rng.chance(0.8) ? COLORS.glassLit : COLORS.glassHot, COLORS.white);
-
-  // boiler house, taller and squarer, with the brand chevron
-  iso.shadow(1.7, 0.5, 2.32, 1.4, 0.16, 0.2);
-  iso.box(1.7, 0.5, 2.32, 1.4, 0, 58, lighten(NAVY, 0.05));
-  iso.windowsLeft(1.4, 1.78, 2.24, 40, 50, 3, COLORS.glassDark, COLORS.white);
+  // slim chimney with a white collar, behind the boiler house
+  iso.box(0.68, 0.5, 0.8, 0.62, 0, 124, lighten(NAVY, 0.12));
   iso.r.poly(
-    [iso.P(2.32, 0.62, 50), iso.P(2.32, 0.84, 50), iso.P(2.32, 0.84, 26), iso.P(2.32, 0.62, 26)],
+    [iso.P(0.675, 0.62, 112), iso.P(0.805, 0.62, 112), iso.P(0.805, 0.62, 103), iso.P(0.675, 0.62, 103)],
+    COLORS.white,
+  );
+  iso.quad(0.675, 0.495, 0.805, 0.625, 124, COLORS.steelDark);
+
+  // boiler house: the tall block the conveyors feed
+  iso.shadow(0.95, 0.35, 1.75, 1.25, 0.18, 0.22);
+  iso.box(0.95, 0.35, 1.75, 1.25, 0, 64, lighten(NAVY, 0.05));
+  iso.windowsLeft(1.25, 1.05, 1.65, 44, 56, 4, COLORS.glassDark, COLORS.white);
+  iso.r.poly(
+    [iso.P(1.75, 0.5, 56), iso.P(1.75, 0.74, 56), iso.P(1.75, 0.74, 28), iso.P(1.75, 0.5, 28)],
     COLORS.orange,
   );
 
-  // slim chimney with a white collar
-  iso.box(2.42, 0.62, 2.52, 0.72, 0, 112, lighten(NAVY, 0.12));
-  iso.r.poly(
-    [iso.P(2.415, 0.72, 100), iso.P(2.525, 0.72, 100), iso.P(2.525, 0.72, 92), iso.P(2.415, 0.72, 92)],
-    COLORS.white,
-  );
-  iso.quad(2.415, 0.615, 2.525, 0.725, 112, COLORS.steelDark);
-
-  // dark coal heap, faceted like a low spoil cone
-  {
-    const apex = iso.P(0.48, 1.62, 15);
-    const L = iso.P(0.1, 1.84, 0);
-    const B = iso.P(0.6, 1.94, 0);
-    const Rt = iso.P(0.9, 1.52, 0);
-    const T = iso.P(0.36, 1.4, 0);
-    iso.shadow(0.16, 1.45, 0.85, 1.85, 0.12, 0.2);
+  // coal yard: twin dark spoil cones along the west boundary
+  const coalHeap = (hu: number, hv: number, s: number): void => {
+    const apex = iso.P(hu, hv, 16 * s);
+    const L = iso.P(hu - 0.38 * s, hv + 0.22 * s, 0);
+    const B = iso.P(hu + 0.12 * s, hv + 0.32 * s, 0);
+    const Rt = iso.P(hu + 0.42 * s, hv - 0.1 * s, 0);
+    iso.shadow(hu - 0.32 * s, hv - 0.15 * s, hu + 0.37 * s, hv + 0.25 * s, 0.12, 0.2);
     iso.r.poly([apex, L, B], hex('#2c2836'));
     iso.r.poly([apex, B, Rt], hex('#3c3648'));
-    iso.r.poly([apex, Rt, T], hex('#332e3f'));
     iso.r.polyline([L, apex, Rt], INK_W * 0.8, alpha(INK, 0.7));
-  }
-  // enclosed conveyor gallery climbing from the heap into the boiler house
+  };
+  coalHeap(0.48, 1.75, 1);
+  coalHeap(0.6, 2.45, 0.85);
+
+  // long navy turbine hall with a gable along its length + warm glazing
+  iso.shadow(0.95, 1.45, 2.0, 2.2, 0.18, 0.22);
+  iso.box(0.95, 1.45, 2.0, 2.2, 0, 36, NAVY);
+  iso.gable(0.95, 1.45, 2.0, 2.2, 36, 12, 'u', NAVY_DEEP, NAVY);
+  iso.r.poly([iso.P(0.95, 2.2, 9), iso.P(2.0, 2.2, 9), iso.P(2.0, 2.2, 6), iso.P(0.95, 2.2, 6)], COLORS.white);
+  iso.windowsLeft(2.2, 1.02, 1.92, 13, 27, 6, rng.chance(0.8) ? COLORS.glassLit : COLORS.glassHot, COLORS.white);
+
+  // enclosed conveyor gallery climbing from the yard into the boiler
+  // house through the clear gap north of the turbine hall
   {
-    const a0 = iso.P(0.5, 1.6, 12);
-    const a1 = iso.P(1.84, 1.1, 56);
+    const a0 = iso.P(0.52, 1.95, 12);
+    const a1 = iso.P(1.05, 1.32, 54);
     const wTop = 5 * RES;
     const wBot = 2 * RES;
     // support trestles first, so the gallery sits over them
-    for (const t of [0.28, 0.55, 0.8]) {
+    for (const t of [0.3, 0.65]) {
       const x = a0[0] + (a1[0] - a0[0]) * t;
       const yTop = a0[1] + (a1[1] - a0[1]) * t + wBot;
-      const [, yG] = iso.P(0.5 + (1.84 - 0.5) * t, 1.6 + (1.1 - 1.6) * t, 0);
+      const [, yG] = iso.P(0.52 + (1.05 - 0.52) * t, 1.95 + (1.32 - 1.95) * t, 0);
       iso.r.line([x, yTop], [x, yG], INK_W * 0.8, COLORS.steelDark);
       iso.r.line([x - 2.5 * RES, yG + 1 * RES], [x + 2.5 * RES, yG + 1 * RES], INK_W * 0.7, COLORS.steelDark);
     }
@@ -878,7 +885,7 @@ export function coalPlantTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
     iso.r.line([a0[0], a0[1] + wBot], [a1[0], a1[1] + wBot], INK_W * 0.8, INK);
   }
 
-  // two big hyperboloid cooling towers + steam wisps
+  // hyperboloid cooling tower + steam wisp
   const coolingTower = (u: number, v: number, hgt: number, rad: number): void => {
     const [cx, cyB] = iso.P(u, v, 0);
     const H = hgt * RES;
@@ -940,8 +947,39 @@ export function coalPlantTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
       iso.r.poly(pts, alpha(COLORS.white, 0.16 - k * 0.035));
     }
   };
-  coolingTower(2.18, 1.52, 84, 0.34);
-  coolingTower(2.78, 1.06, 84, 0.34);
+  // SIX towers, two staggered ranks of three marching across the east yard
+  coolingTower(2.15, 0.62, 80, 0.3);
+  coolingTower(2.8, 0.62, 80, 0.3);
+  coolingTower(3.55, 0.62, 80, 0.3);
+  coolingTower(2.25, 1.55, 80, 0.3);
+  coolingTower(3.0, 1.55, 80, 0.3);
+  coolingTower(3.68, 1.62, 80, 0.3);
+
+  // rail siding along the front apron: ballast strip, twin rails,
+  // loaded hopper wagons queued for the tippler
+  {
+    const v0 = 2.42;
+    const v1 = 2.56;
+    iso.r.poly(
+      [iso.P(1.55, v0 - 0.06, 0), iso.P(3.9, v0 - 0.06, 0), iso.P(3.9, v1 + 0.06, 0), iso.P(1.55, v1 + 0.06, 0)],
+      shaded(PAD, 0.12),
+    );
+    for (let t = 0; t < 12; t++) {
+      const u = 1.62 + t * 0.19;
+      iso.r.line(iso.P(u, v0 - 0.02, 0.3), iso.P(u, v1 + 0.02, 0.3), 1 * RES, shaded(PAD, 0.3));
+    }
+    for (const v of [v0, v1]) {
+      iso.r.line(iso.P(1.55, v, 0.6), iso.P(3.9, v, 0.6), 0.9 * RES, COLORS.steelDark);
+    }
+    // buffer stop at the head of the siding
+    iso.box(1.56, v0 - 0.02, 1.62, v1 + 0.02, 0, 5, COLORS.orange, { ink: false });
+    // hopper wagons: dark steel tubs heaped with coal
+    for (const u of [1.78, 2.12, 2.46, 2.96]) {
+      iso.shadow(u, v0 - 0.02, u + 0.28, v1 + 0.02, 0.04, 0.16);
+      iso.box(u, v0 - 0.03, u + 0.28, v1 + 0.03, 1, 10, hex('#454152'));
+      iso.quad(u + 0.02, v0 - 0.01, u + 0.26, v1 + 0.01, 10.5, hex('#2c2836'));
+    }
+  }
 
   return iso.build();
 }

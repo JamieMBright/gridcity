@@ -136,7 +136,7 @@ function sampleHistory(out: ReturnType<typeof solveTick>): void {
     const a = state.assets.get(id);
     if (!a || a.kind !== 'gen') continue;
     const arr = history.get(id) ?? [];
-    arr.push([state.simTimeMin, Math.abs(mw), GENS[a.gen].capacityMW]);
+    arr.push([state.simTimeMin, Math.abs(mw), a.mw ?? GENS[a.gen].capacityMW]);
     if (arr.length > HIST_KEEP) arr.shift();
     history.set(id, arr);
   }

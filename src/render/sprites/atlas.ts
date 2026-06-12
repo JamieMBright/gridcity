@@ -217,7 +217,7 @@ function buildSpriteCells(): Map<string, Cell> {
   set('sub_capbank', capBankTile(186));
   set('gen_gas', gasPlantTile(191));
   set('gen_peaker', gasPeakerTile(199));
-  set('gen_coal', coalPlantTile(291), 3, 2);
+  set('gen_coal', coalPlantTile(291), 4, 3);
   set('gen_nuclear', nuclearTile(192), 3, 2);
   set('gen_windon', windTurbineTile(193, false));
   set('gen_windoff', windTurbineTile(194, true));

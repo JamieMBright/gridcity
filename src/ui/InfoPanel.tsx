@@ -483,7 +483,8 @@ function AssetInfo({ assetId }: { assetId: number }) {
       rows.push(['soaking', `${Math.abs(Math.min(0, mw)).toFixed(1)} / ${spec.capacityMW} MW`]);
       rows.push(['H₂ store', `${soc.toFixed(0)} / ${spec.energyMWh ?? 0} MWh`]);
     } else {
-      rows.push(['output', `${mw.toFixed(1)} / ${spec.capacityMW} MW`]);
+      // farm-scaled plant carries its awarded (land-capped) capacity
+      rows.push(['output', `${mw.toFixed(1)} / ${asset.mw ?? spec.capacityMW} MW`]);
       if (asset.ppaMWh !== undefined) rows.push(['PPA strike', `£${asset.ppaMWh}/MWh`]);
       else rows.push(['marginal cost', `£${(spec.marginalCostK * 1000).toFixed(0)}/MWh`]);
     }
@@ -567,8 +568,8 @@ function AssetInfo({ assetId }: { assetId: number }) {
           <Sparkline
             series={Array.from({ length: 24 }, (_, h) => [
               h * 60,
-              GENS[asset.gen].capacityMW * availAt(asset.gen, h),
-              GENS[asset.gen].capacityMW,
+              (asset.mw ?? GENS[asset.gen].capacityMW) * availAt(asset.gen, h),
+              asset.mw ?? GENS[asset.gen].capacityMW,
             ])}
           />
           <div style={{ fontSize: 10, color: theme.slate }}>
