@@ -18,7 +18,20 @@ test.describe('start menu, tutorial, KPI dashboard', () => {
     await expect(page.getByText('power a stylized London')).toBeVisible();
     await clickButton(page, 'new game');
     await expect.poll(() => store<boolean>(page, '(s) => s.menuOpen')).toBe(false);
-    await expect.poll(() => store<number>(page, '(s) => s.snapshot.assets.length')).toBe(0);
+    // a fresh game is seeded: the iDNO estate substations are already in
+    await expect
+      .poll(() =>
+        store<number>(
+          page,
+          "(s) => s.snapshot.assets.filter((a) => a.kind === 'sub' && a.idno).length",
+        ),
+      )
+      .toBe(3);
+    await expect
+      .poll(() =>
+        store<number>(page, "(s) => s.snapshot.assets.filter((a) => !a.idno).length"),
+      )
+      .toBe(0); // nothing of the player's yet
   });
 
   test('tutorial walks its first auto step', async ({ page }) => {

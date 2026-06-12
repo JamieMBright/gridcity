@@ -32,7 +32,10 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev -- --port 5199 --strictPort',
     url: 'http://localhost:5199',
-    reuseExistingServer: true,
+    // ALWAYS a fresh server: a lingering dev server once served a stale
+    // module graph and masked real failures. Local runs must behave
+    // exactly like a clean-checkout run.
+    reuseExistingServer: false,
     timeout: 60_000,
   },
 });
