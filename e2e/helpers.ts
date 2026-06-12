@@ -27,6 +27,13 @@ export async function boot(page: Page): Promise<void> {
     await expect
       .poll(async () => page.evaluate(() => window.__ec?.getState().menuOpen))
       .toBe(false);
+    // a fresh campaign opens with the story letterbox, which swallows
+    // canvas clicks — skip straight to the Ofgem letter and dismiss it
+    const skip = page.getByRole('button', { name: 'skip', exact: true });
+    if ((await skip.count()) > 0) {
+      await skip.dispatchEvent('click');
+      await page.getByRole('button', { name: 'rebuild it' }).dispatchEvent('click');
+    }
   }
 }
 
