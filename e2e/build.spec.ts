@@ -105,10 +105,13 @@ test.describe('building on the map', () => {
     const base = await assetCount(page);
     const [a] = await openLand(page, 1);
     if (!a) return;
-    await clickButton(page, 'Nuclear');
+    // tidal on dry land is illegal anywhere (open-land tiles are land by
+    // construction — nuclear is no longer a fit here, since any shoreline
+    // with cooling water now accepts it)
+    await clickButton(page, 'Tidal stream');
     await clickTile(page, a);
     // the message shows in both the toast and the ghost-info footer
-    await expect(page.getByText('nuclear needs the licensed coastal site').first()).toBeVisible();
+    await expect(page.getByText('tidal turbines sit in the water').first()).toBeVisible();
     expect(await assetCount(page)).toBe(base);
     expect(await store<number>(page, '(s) => s.snapshot.inbox.tenders.length')).toBe(0);
   });

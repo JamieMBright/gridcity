@@ -122,6 +122,19 @@ export function pylonTilesOf(assets: Iterable<PlacedAsset>): Set<number> {
   return taken;
 }
 
+/** Any water within `r` tiles (Chebyshev) — the cooling-water test. */
+function nearWater(map: CityMap, x: number, y: number, r: number): boolean {
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) continue;
+      if (map.terrain[ny * map.width + nx] === TERRAIN.water) return true;
+    }
+  }
+  return false;
+}
+
 /** Static siting rule for a tile build (terrain/zone/landmark only — no
  *  occupancy). Shared by checkBuild and the green/red suitability overlay.
  *  Returns undefined when the ground itself is suitable. */
@@ -151,7 +164,15 @@ export function siteErrorAt(
       return undefined;
     }
     if (siting === 'nuclearSite') {
-      if (z !== ZONE.nuclearSite) return 'nuclear needs the licensed coastal site';
+      // the licensed estuary site is always game on — but any shoreline
+      // works: a reactor's real siting constraint is cooling water
+      if (z === ZONE.nuclearSite) return undefined;
+      if (t === TERRAIN.water) return 'nuclear sits on dry land beside its cooling water';
+      if (z === ZONE.posh) return 'the conservation area will never allow that';
+      if (z === ZONE.park) return 'not in a royal park';
+      if (!nearWater(map, x, y, 2)) {
+        return 'nuclear needs cooling water — site it beside the sea or a river';
+      }
       return undefined;
     }
     if (siting === 'windSite') {
