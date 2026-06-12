@@ -272,6 +272,10 @@ export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
           <div style={{ marginTop: 2 }}>
             mid-route, click an existing same-kV circuit to TEE into it
           </div>
+          <div style={{ marginTop: 2 }}>
+            click open ground to drop WAYPOINT towers — the route bends
+            through them (Esc removes the last)
+          </div>
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../app/store';
-import { sendCommand, setSimSpeed } from '../app/workerBridge';
+import { requestSkip, sendCommand, setSimSpeed, skipGoalLadder } from '../app/workerBridge';
 import { getAudioSettings, updateAudioSettings } from '../audio/audio';
 import { pushSettings } from '../online/cloud';
 import type { SimSpeed } from '../sim/protocol';
@@ -94,6 +94,55 @@ function NewsTicker() {
   );
 }
 
+/** Storm warning strip: the regime forecast gives days of notice — hire
+ *  surge crews while there's still time. */
+function StormBanner() {
+  const snapshot = useAppStore((s) => s.snapshot);
+  const storm = snapshot?.stormForecast?.[0];
+  if (!snapshot || !storm) return null;
+  const days = Math.max(0, (storm.etaMin - snapshot.simTimeMin) / 1440);
+  const surging = (snapshot.fleet.vans.length ?? 0) > snapshot.fleet.fleetSize;
+  return (
+    <div
+      style={{
+        ...panelStyle,
+        position: 'absolute',
+        top: 64,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '5px 12px',
+        border: '1px solid rgba(224,105,122,0.6)',
+        fontSize: 12,
+      }}
+    >
+      <span style={{ color: theme.danger }}>
+        ⛈ Storm {storm.name} in {days.toFixed(1)}d · severity {(storm.severity * 100).toFixed(0)}%
+      </span>
+      {!surging && (
+        <button
+          onClick={() => sendCommand({ type: 'stormPrep', action: 'surge', days: 4 })}
+          style={{
+            padding: '2px 8px',
+            borderRadius: 5,
+            border: `1px solid ${theme.orange}`,
+            background: 'transparent',
+            color: theme.orange,
+            fontFamily: theme.font,
+            fontSize: 11,
+            cursor: 'pointer',
+          }}
+        >
+          hire surge crews (4d)
+        </button>
+      )}
+      {surging && <span style={{ color: theme.ok, fontSize: 11 }}>surge crews on standby ✓</span>}
+    </div>
+  );
+}
+
 function MarketTicker() {
   const snapshot = useAppStore((s) => s.snapshot);
   if (!snapshot) return null;
@@ -123,6 +172,87 @@ function MarketTicker() {
       </span>
       <span>{weatherIcon(snapshot.weather, snapshot.simTimeMin)}</span>
     </div>
+  );
+}
+
+/** Time-skip buttons beside the speed controls: fast-forward to the
+ *  evening peak, the morning, or (desktop) the next notable event. */
+function SkipButtons({ compact }: { compact: boolean }) {
+  const skipping = useAppStore((s) => s.skipping);
+  const btn: React.CSSProperties = {
+    padding: '3px 7px',
+    borderRadius: 5,
+    border: `1px solid ${theme.navyLight}`,
+    background: 'transparent',
+    color: skipping ? theme.slate : theme.offWhite,
+    opacity: skipping ? 0.45 : 1,
+    fontFamily: theme.font,
+    fontSize: 11,
+    cursor: skipping ? 'default' : 'pointer',
+  };
+  return (
+    <span style={{ display: 'flex', gap: 2 }}>
+      <button
+        aria-label="skip to 18:00"
+        title="Fast-forward to the evening peak (18:00). Bad news stops the skip."
+        style={btn}
+        disabled={skipping}
+        onClick={() => requestSkip('peak')}
+      >
+        ⇥18:00
+      </button>
+      <button
+        aria-label="skip to 06:00"
+        title="Fast-forward to the morning (06:00). Bad news stops the skip."
+        style={btn}
+        disabled={skipping}
+        onClick={() => requestSkip('morning')}
+      >
+        ⇥06:00
+      </button>
+      {!compact && (
+        <button
+          aria-label="fast-forward to the coming event"
+          title="Fast-forward until something happens (max 7 game-days)."
+          style={btn}
+          disabled={skipping}
+          onClick={() => requestSkip('event')}
+        >
+          ⇥!
+        </button>
+      )}
+    </span>
+  );
+}
+
+/** The early-game goal ladder, as one unobtrusive chip in the bottom
+ *  bar; the tint fills with ladder progress. Click dismisses it. */
+function GoalChip() {
+  const goal = useAppStore((s) => s.snapshot?.goal);
+  if (!goal) return null;
+  const pct = Math.round((100 * goal.index) / goal.total);
+  return (
+    <button
+      onClick={() => skipGoalLadder()}
+      title={`Goal ${goal.index + 1} of ${goal.total} — click to dismiss the goal ladder`}
+      style={{
+        padding: '3px 10px',
+        borderRadius: 5,
+        border: `1px solid ${theme.navyLight}`,
+        background: `linear-gradient(90deg, rgba(255, 138, 30, 0.22) ${pct}%, transparent ${pct}%)`,
+        color: theme.offWhite,
+        fontFamily: theme.font,
+        fontSize: 10,
+        cursor: 'pointer',
+        maxWidth: 280,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      goal {goal.index + 1}/{goal.total} · {goal.label}
+      {goal.progress ? ` · ${goal.progress}` : ''}
+    </button>
   );
 }
 
@@ -188,6 +318,52 @@ function BalanceButton() {
   );
 }
 
+function HeadroomButton() {
+  const on = useAppStore((s) => s.headroom);
+  const setHeadroom = useAppStore((s) => s.setHeadroom);
+  return (
+    <button
+      onClick={() => setHeadroom(!on)}
+      title="Headroom heatmap: corridors coloured by spare capacity (H)"
+      style={{
+        padding: '3px 8px',
+        borderRadius: 5,
+        border: `1px solid ${on ? theme.orange : theme.navyLight}`,
+        background: on ? theme.orange : 'transparent',
+        color: on ? theme.navy : theme.slate,
+        fontFamily: theme.font,
+        fontSize: 12,
+        cursor: 'pointer',
+      }}
+    >
+      ▦
+    </button>
+  );
+}
+
+function N1Button() {
+  const on = useAppStore((s) => s.n1);
+  const setN1 = useAppStore((s) => s.setN1);
+  return (
+    <button
+      onClick={() => setN1(!on)}
+      title="N-1 security: green catchments survive any single failure (N)"
+      style={{
+        padding: '3px 8px',
+        borderRadius: 5,
+        border: `1px solid ${on ? theme.orange : theme.navyLight}`,
+        background: on ? theme.orange : 'transparent',
+        color: on ? theme.navy : theme.slate,
+        fontFamily: theme.font,
+        fontSize: 12,
+        cursor: 'pointer',
+      }}
+    >
+      ⛨
+    </button>
+  );
+}
+
 function RiioButton() {
   const kpiOpen = useAppStore((s) => s.kpiOpen);
   const setKpiOpen = useAppStore((s) => s.setKpiOpen);
@@ -247,6 +423,7 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
     <>
     <NewsTicker />
     <MarketTicker />
+    <StormBanner />
     <div
       style={{
         ...panelStyle,
@@ -290,8 +467,11 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
           );
         })}
       </span>
+      <SkipButtons compact={compact} />
       <UndoRedo />
       <BalanceButton />
+      <HeadroomButton />
+      <N1Button />
       {!compact && <RiioButton />}
       <SoundButton />
       <button
@@ -311,6 +491,7 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
       >
         {compact ? '⚡' : '⚡ grid view'}
       </button>
+      {!compact && <GoalChip />}
     </div>
     </>
   );

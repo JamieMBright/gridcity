@@ -15,10 +15,11 @@ import {
   type VegPolicy,
 } from './catalog';
 import { CONNECT_DAYS, GEN_OF_KIND } from './events/applications';
+import { applyStormPrep } from './reliability/stormprep';
 import { bumpMood, developerOf, TENDER_OPEN_DAYS, type Tender } from './events/developers';
 import { MAX_VANS } from './fleet/fleet';
 import type { VoltageLevel } from './grid/types';
-import { placePylons, priceLine, routeTiles } from './cost';
+import { placePylons, priceLine, pylonSiteOk, routeTiles } from './cost';
 import { BIG_BUILDING_ZONES, RC, TERRAIN, ZONE, type CityMap } from './map/types';
 import { pushEvent, type GameState } from './state';
 import type { SimSpeed } from './protocol';
@@ -53,6 +54,20 @@ export type Command =
    *  run a new leg of the same level from `fromAssetId` — a real
    *  three-ended circuit, in one command (= one undo step). */
   | { type: 'tee'; lineId: number; x: number; y: number; fromAssetId: number; build: LineBuild }
+  /** A bent circuit: legs through junction towers at each waypoint, all
+   *  built (and undone) as one step. */
+  | {
+      type: 'buildPath';
+      level: VoltageLevel;
+      build: LineBuild;
+      fromAssetId: number;
+      waypoints: Array<{ x: number; y: number }>;
+      toX: number;
+      toY: number;
+    }
+  /** Storm preparation (ROADMAP #9): hire surge contractor crews or run
+   *  an emergency vegetation cut. Logic lives in reliability/stormprep. */
+  | { type: 'stormPrep'; action: 'surge' | 'vegCut'; lineId?: number; days?: number }
   /** Handled by the worker via its snapshot stacks. */
   | { type: 'undo' }
   | { type: 'redo' };
@@ -455,6 +470,67 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       return { ok: true };
     }
 
+    case 'buildPath': {
+      const from = state.assets.get(cmd.fromAssetId);
+      if (!from || from.kind === 'line') return { ok: false, error: 'start from an asset' };
+      if (!assetLevels(from).includes(cmd.level)) {
+        return { ok: false, error: `no ${cmd.level} kV bay at the start` };
+      }
+      const to = assetAtTile(state.assets.values(), cmd.toX, cmd.toY);
+      if (!to || to.kind === 'line' || to.id === from.id) {
+        return { ok: false, error: 'no destination bay there' };
+      }
+      if (!assetLevels(to).includes(cmd.level)) {
+        return { ok: false, error: `no ${cmd.level} kV bay at the destination` };
+      }
+      // junction towers stand where pylons can; build all-or-nothing
+      const made: number[] = [];
+      const rollback = (error: string): CommandResult => {
+        for (const id of made) state.assets.delete(id);
+        state.assetsVersion++;
+        return { ok: false, error };
+      };
+      const taken = pylonTilesOf(state.assets.values());
+      for (const wp of cmd.waypoints) {
+        if (!pylonSiteOk(map, wp.x, wp.y, taken) || assetAtTile(state.assets.values(), wp.x, wp.y)) {
+          return rollback('a waypoint tower cannot stand there');
+        }
+        const id = state.nextAssetId++;
+        state.assets.set(id, {
+          id,
+          kind: 'sub',
+          sub: 'tee',
+          x: wp.x,
+          y: wp.y,
+          teeLevel: cmd.level,
+        });
+        made.push(id);
+      }
+      const nodes = [{ x: from.x, y: from.y }, ...cmd.waypoints, { x: to.x, y: to.y }];
+      for (let k = 0; k + 1 < nodes.length; k++) {
+        const a = nodes[k];
+        const b = nodes[k + 1];
+        if (!a || !b) continue;
+        const r = applyCommand(state, map, {
+          type: 'build',
+          spec: { kind: 'line', level: cmd.level, build: cmd.build, ax: a.x, ay: a.y, bx: b.x, by: b.y },
+        });
+        if (!r.ok) return rollback(r.error ?? 'a leg failed');
+        if (r.assetId !== undefined) made.push(r.assetId);
+      }
+      state.assetsVersion++;
+      if (cmd.waypoints.length > 0) {
+        pushEvent(
+          state,
+          'info',
+          `${cmd.level} kV circuit routed via ${cmd.waypoints.length} waypoint tower${cmd.waypoints.length > 1 ? 's' : ''}`,
+          cmd.toX,
+          cmd.toY,
+        );
+      }
+      return { ok: true };
+    }
+
     case 'tee': {
       const line = state.assets.get(cmd.lineId);
       if (!line || line.kind !== 'line') return { ok: false, error: 'no such line' };
@@ -618,6 +694,9 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       );
       return { ok: true };
     }
+
+    case 'stormPrep':
+      return applyStormPrep(state, cmd);
 
     case 'undo':
     case 'redo':

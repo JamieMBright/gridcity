@@ -102,6 +102,18 @@ export interface GameState {
   growth: GrowthRecord[];
   period: PeriodState;
   lastReport?: ReportCard | undefined;
+  /** Early-game goal ladder progress: index into scenario/goals GOALS
+   *  (undefined = start of the ladder; past the end = done/dismissed). */
+  goalIndex?: number | undefined;
+  /** Storm prep (reliability/stormprep.ts): surge contractor crews ride
+   *  the van roster until this game-minute… */
+  surgeUntilMin?: number | undefined;
+  /** …and this many of them (tick.ts adds them at the syncVans site). */
+  surgeVans?: number | undefined;
+  /** Rolling annualized storm-prep spend, £k/yr (one-off prep costs land
+   *  here and decay with a 1-game-year tau; rides the bill's
+   *  constraint/damages line via computeBill's penaltyYrK input). */
+  stormPrepYrK?: number | undefined;
 }
 
 /** One infill mutation: tile `i` became `zone` with `customers`. */
@@ -349,6 +361,10 @@ export interface SaveData {
   growth?: GrowthRecord[];
   period?: PeriodState;
   lastReport?: ReportCard;
+  goalIndex?: number | undefined;
+  surgeUntilMin?: number;
+  surgeVans?: number;
+  stormPrepYrK?: number;
 }
 
 export function serialize(s: GameState): SaveData {
@@ -398,6 +414,10 @@ export function serialize(s: GameState): SaveData {
     growth: s.growth.map((g) => ({ ...g })),
     period: { ...s.period, targets: { ...s.period.targets } },
     ...(s.lastReport ? { lastReport: { ...s.lastReport, scores: { ...s.lastReport.scores } } } : {}),
+    ...(s.goalIndex !== undefined ? { goalIndex: s.goalIndex } : {}),
+    ...(s.surgeUntilMin !== undefined ? { surgeUntilMin: s.surgeUntilMin } : {}),
+    ...(s.surgeVans !== undefined ? { surgeVans: s.surgeVans } : {}),
+    ...(s.stormPrepYrK !== undefined ? { stormPrepYrK: s.stormPrepYrK } : {}),
   };
   return structuredClone(data);
 }
@@ -452,6 +472,10 @@ export function deserialize(d: SaveData): GameState {
       ? { ...d.period, complaints: d.period.complaints ?? 0, targets: { ...d.period.targets } }
       : newPeriod(1, d.simTimeMin, initialTargets()),
     lastReport: d.lastReport ? { ...d.lastReport, scores: { ...d.lastReport.scores } } : undefined,
+    goalIndex: d.goalIndex,
+    surgeUntilMin: d.surgeUntilMin,
+    surgeVans: d.surgeVans,
+    stormPrepYrK: d.stormPrepYrK,
   };
 }
 

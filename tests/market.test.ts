@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   domesticProfile,
+  MIDSUMMER_MIN,
   newWeather,
   processProfile,
   stepWeather,
@@ -24,9 +25,10 @@ import {
 describe('weather and profiles', () => {
   it('solar is zero at night and peaks midday under clear sky', () => {
     const w = { cloud: 0, wind: 0.5 };
-    expect(sunFactor(2 * 60, w)).toBe(0);
-    expect(sunFactor(13 * 60, w)).toBeGreaterThan(0.9);
-    expect(sunFactor(13 * 60, { ...w, cloud: 1 })).toBeLessThan(0.3);
+    // run on a midsummer day: the sun arc is seasonal now
+    expect(sunFactor(MIDSUMMER_MIN + 2 * 60, w)).toBe(0);
+    expect(sunFactor(MIDSUMMER_MIN + 13 * 60, w)).toBeGreaterThan(0.9);
+    expect(sunFactor(MIDSUMMER_MIN + 13 * 60, { ...w, cloud: 1 })).toBeLessThan(0.3);
   });
 
   it('domestic demand peaks in the evening, troughs overnight', () => {
@@ -45,8 +47,8 @@ describe('weather and profiles', () => {
     const r1 = new Rng(42);
     const r2 = new Rng(42);
     for (let i = 0; i < 500; i++) {
-      stepWeather(w1, r1, 30);
-      stepWeather(w2, r2, 30);
+      stepWeather(w1, r1, 30, i * 30);
+      stepWeather(w2, r2, 30, i * 30);
       expect(w1.cloud).toBeGreaterThanOrEqual(0);
       expect(w1.cloud).toBeLessThanOrEqual(1);
       expect(w1.wind).toBeGreaterThanOrEqual(0);

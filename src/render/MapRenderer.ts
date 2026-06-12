@@ -31,6 +31,7 @@ import { sampleRoute } from '../sim/map/routes';
 import { CUSTOMERS_PER_TILE, type CityMap, type RouteClass, type Zone } from '../sim/map/types';
 import { COV, type BranchView } from '../sim/tick';
 import { getAtlas } from './atlasCache';
+import { NAMED_PLACES, TOWNS } from '../data/londonMap';
 import { CELL_H, CELL_W, FLOOR_H, RES } from './sprites/iso';
 import { WIND_HUBS, windHubOffset } from './sprites/networkSprites';
 import { groundSpriteFor, structureSpriteFor } from './tileChooser';
@@ -159,6 +160,8 @@ export type Ghost =
       ok: boolean;
       level: VoltageLevel;
       pylons?: number[] | undefined;
+      /** Waypoint towers the route bends through. */
+      via?: Array<{ x: number; y: number }> | undefined;
     }
   | { kind: 'endpoint'; x: number; y: number; level: VoltageLevel };
 
@@ -219,8 +222,16 @@ export class MapRenderer {
   private fleetLayer = new Container();
   private jobsG = new Graphics();
   private siteLayer = new Container();
+  private labelLayer = new Container();
+  private labels: Array<{ t: Text; base: number }> = [];
   private levelG = new Graphics();
   private levelHighlight: VoltageLevel | undefined;
+  /** 'headroom' re-colours every corridor by spare capacity. */
+  private overlayMode: 'none' | 'headroom' = 'none';
+  private n1Mode = false;
+  private catchmentG = new Graphics();
+  private catchments: Array<[number, number, number]> = [];
+  private security = new Map<number, boolean>();
   private selG = new Graphics();
   private councilG = new Graphics();
   private lastAssets: PlacedAsset[] = [];
@@ -298,6 +309,7 @@ export class MapRenderer {
     this.world.addChild(this.city);
     this.world.addChild(this.coverageG);
     this.world.addChild(this.smogG);
+    this.world.addChild(this.catchmentG);
     this.world.addChild(this.subRingsG);
     this.world.addChild(this.assetLayer);
     this.world.addChild(this.linesG);
@@ -310,6 +322,7 @@ export class MapRenderer {
     this.world.addChild(this.jobLayer);
     this.world.addChild(this.fleetLayer);
     this.world.addChild(this.siteLayer);
+    this.world.addChild(this.labelLayer);
     this.world.addChild(this.ghostG);
     this.app.stage.addChild(this.world);
 
@@ -321,6 +334,7 @@ export class MapRenderer {
       this.app.screen.height / 2 - focus.y * scale,
     );
 
+    this.buildLabels();
     this.attachInput(map);
     this.app.ticker.add(() => this.animate(this.app.ticker.deltaMS / 1000));
 
@@ -330,6 +344,87 @@ export class MapRenderer {
     // flowing. Re-run the pass now that the textures exist.
     if (this.lastAssets.length > 0) {
       this.rebuildAssetSprites(this.lastAssets, this.lastSimTimeMin);
+    }
+  }
+
+  /** Town / landmark names that fade in as the camera pulls out and hold
+   *  a constant on-screen size — the map stops being anonymous. */
+  private buildLabels(): void {
+    const add = (x: number, y: number, text: string, px: number, color: number): void => {
+      const t = new Text({
+        text,
+        style: {
+          fontFamily: 'monospace',
+          fontSize: 64,
+          fontWeight: '700',
+          fill: color,
+          stroke: { color: 0x10162f, width: 8 },
+          letterSpacing: 4,
+        },
+      });
+      t.anchor.set(0.5);
+      const c = this.tileCentre(x, y);
+      t.position.set(c.x, c.y - 20 * RES);
+      this.labelLayer.addChild(t);
+      this.labels.push({ t, base: px / 64 });
+    };
+    for (const town of TOWNS) {
+      add(town.x, town.y, town.name.toUpperCase(), town.kind === 'town' ? 15 : 10.5, 0xf4f1ea);
+    }
+    add(128, 78, 'LONDON', 22, 0xf4f1ea);
+    for (const pl of NAMED_PLACES) {
+      add(pl.x, pl.y, pl.name, 9, 0xffd277);
+    }
+  }
+
+  /** Headroom heatmap: corridors gradient green→amber→red by loading. */
+  setOverlay(mode: 'none' | 'headroom'): void {
+    this.overlayMode = mode;
+    this.drawCatchments();
+  }
+
+  /** N-1 security rings: green = survives any single failure. */
+  setN1(on: boolean): void {
+    this.n1Mode = on;
+    this.drawCatchments();
+  }
+
+  /** Latest catchment loadings + security verdicts from the snapshot. */
+  setCatchmentData(
+    catchments: Array<[number, number, number]> | undefined,
+    security: Array<[number, boolean]> | undefined,
+  ): void {
+    if (catchments) this.catchments = catchments;
+    if (security) this.security = new Map(security);
+    if (this.overlayMode !== 'none' || this.n1Mode) this.drawCatchments();
+  }
+
+  private drawCatchments(): void {
+    this.catchmentG.clear();
+    if (this.overlayMode === 'none' && !this.n1Mode) return;
+    const byId = new Map(this.lastAssets.map((a) => [a.id, a]));
+    for (const [id, peak, mva] of this.catchments) {
+      const a = byId.get(id);
+      if (!a || a.kind !== 'sub') continue;
+      const spec = SUBS[a.sub];
+      if (spec.serviceRadius === undefined) continue;
+      const r = spec.serviceRadius * Math.sqrt(Math.max(mva, 1) / spec.txRatingMW);
+      if (this.overlayMode === 'headroom' && mva > 0) {
+        const t = Math.max(0, Math.min(1, peak / mva));
+        const lerp = (a0: number, b0: number): number => Math.round(a0 + (b0 - a0) * t);
+        const color = (lerp(0x7b, 0xe0) << 16) | (lerp(0xc4, 0x69) << 8) | lerp(0x7f, 0x7a);
+        this.tileCircle(this.catchmentG, a.x, a.y, r);
+        this.catchmentG.fill({ color, alpha: 0.16 });
+        this.tileCircle(this.catchmentG, a.x, a.y, r);
+        this.catchmentG.stroke({ color, width: 2 * RES, alpha: 0.8 });
+      }
+      if (this.n1Mode) {
+        const secure = this.security.get(id);
+        if (secure === undefined) continue;
+        const color = secure ? 0x7bc47f : 0xe0697a;
+        this.tileCircle(this.catchmentG, a.x, a.y, r * 0.92);
+        this.catchmentG.stroke({ color, width: 3 * RES, alpha: 0.9 });
+      }
     }
   }
 
@@ -901,6 +996,17 @@ export class MapRenderer {
     this.stepFlow(dt);
     this.stepPulses(dt);
     this.bobPhase += dt;
+    {
+      // labels: visible zoomed out, gone close in; constant screen size
+      const sc = this.world.scale.x;
+      const alpha = Math.max(0, Math.min(1, (0.3 - sc) / 0.08));
+      this.labelLayer.visible = alpha > 0.02;
+      if (this.labelLayer.visible) {
+        this.labelLayer.alpha = alpha;
+        const inv = 1 / Math.max(sc, 1e-6);
+        for (const l of this.labels) l.t.scale.set(l.base * inv * 0.25);
+      }
+    }
     for (const pin of this.jobPins) {
       const t = (this.bobPhase * 1.1 + pin.phase) % 1.3;
       const bounce = Math.abs(Math.sin((this.bobPhase * 3 + pin.phase) * Math.PI * 0.5));
@@ -1370,8 +1476,17 @@ export class MapRenderer {
       const view = flowOf.get(a.id);
       const tripped = view?.outMin !== undefined;
       const loading = view ? Math.abs(view.flowMW) / Math.max(1e-6, view.ratingMW) : 0;
-      const color = tripped ? 0x4c4a5c : loading > 0.9 ? OVERLOAD_COLOR : LEVEL_COLOR[a.level];
-      const width = LEVEL_WIDTH[a.level];
+      let color = tripped ? 0x4c4a5c : loading > 0.9 ? OVERLOAD_COLOR : LEVEL_COLOR[a.level];
+      let width = LEVEL_WIDTH[a.level];
+      if (this.overlayMode === 'headroom' && !tripped) {
+        // spare capacity reads as colour: green = lots, red = none
+        const t = Math.max(0, Math.min(1, loading));
+        const lerp = (a0: number, b0: number): number => Math.round(a0 + (b0 - a0) * t);
+        const g = { r: 0x7b, g: 0xc4, b: 0x7f };
+        const r = { r: 0xe0, g: 0x69, b: 0x7a };
+        color = (lerp(g.r, r.r) << 16) | (lerp(g.g, r.g) << 8) | lerp(g.b, r.b);
+        width = width * 1.5;
+      }
 
       if (a.build === 'underground') {
         // buried cables read as a dashed trench trace in the level colour

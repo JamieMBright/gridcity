@@ -35,6 +35,7 @@ import {
   stepSatisfaction,
 } from './customers/adoption';
 import { growVegetation, isStorm, rollFaults } from './reliability/faults';
+import { stormPrepYrK } from './reliability/stormprep';
 import { stepFleet, syncVans } from './fleet/fleet';
 import { computeBill, type BillBreakdown } from './regulation/bill';
 import { updateReliability } from './regulation/kpis';
@@ -285,7 +286,7 @@ export function solveTick(
   const rng = new Rng(state.rngState);
 
   if (dtMin > 0) {
-    stepWeather(state.weather, rng, dtMin);
+    stepWeather(state.weather, rng, dtMin, state.simTimeMin);
     if (isStorm(state.weather.wind) && !state.stormAnnounced) {
       state.stormAnnounced = true;
       pushEvent(state, 'warn', 'storm over the region — overhead lines at risk');
@@ -340,8 +341,13 @@ export function solveTick(
       }
     }
 
-    // the orange vans
-    state.vans = syncVans(state.vans, state.fleetSize, state.assets.values());
+    // the orange vans (+ any surge contractor crews still on hire)
+    state.vans = syncVans(
+      state.vans,
+      state.fleetSize +
+        (state.simTimeMin < (state.surgeUntilMin ?? 0) ? (state.surgeVans ?? 0) : 0),
+      state.assets.values(),
+    );
     const fleet = stepFleet(state.vans, state.jobs, state.assets.values(), dtMin);
     for (const r of fleet.restored) {
       state.outages.delete(r.branchId);
@@ -563,7 +569,8 @@ export function solveTick(
     vegCostMul: state.tech.droneVeg ? DRONE_VEG_COST_MUL : 1,
     flexYrK: state.flexYrK,
     constraintYrK: state.constraintYrK,
-    penaltyYrK: overdue * LATE_PENALTY_K_PER_DAY * 365,
+    // storm-prep spend rides the constraint/damages line (decays in stormprep)
+    penaltyYrK: overdue * LATE_PENALTY_K_PER_DAY * 365 + stormPrepYrK(state, dtMin),
     levyPct: state.levyPct,
   });
 
@@ -801,12 +808,24 @@ export function currentPeriodActuals(state: GameState): PeriodActuals {
   };
 }
 
-/** Current weather/renewable factors for the HUD. */
-export function weatherView(state: GameState): { sun: number; wind: number; cloud: number } {
+/** Current weather/renewable factors for the HUD, plus the multi-day
+ *  regime (current + pre-rolled next) for the forecast strip. */
+export function weatherView(state: GameState): {
+  sun: number;
+  wind: number;
+  cloud: number;
+  regime: string;
+  nextRegime: string;
+  regimeEndsMin: number;
+} {
   return {
     sun: sunFactor(state.simTimeMin, state.weather),
     wind: windFactor(state.weather, false),
     cloud: state.weather.cloud,
+    // fallbacks cover pre-season saves before their first stepWeather
+    regime: state.weather.regime ?? 'mild',
+    nextRegime: state.weather.nextRegime ?? 'mild',
+    regimeEndsMin: state.weather.regimeEndsMin ?? state.simTimeMin,
   };
 }
 

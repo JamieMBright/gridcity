@@ -10,6 +10,7 @@ import { InfoPanel } from '../ui/InfoPanel';
 import { KpiDashboard } from '../ui/KpiDashboard';
 import { MapView } from '../ui/MapView';
 import { MobileChrome } from '../ui/MobileChrome';
+import { SearchBox } from '../ui/SearchBox';
 import { StartMenu } from '../ui/StartMenu';
 import { Tutorial } from '../ui/Tutorial';
 import { panelStyle, theme } from '../ui/theme';
@@ -117,6 +118,9 @@ function useKeyboard(): void {
       if (e.key === 'Escape') {
         if (s.selectedAsset !== undefined || s.selectedLine !== undefined) {
           s.setSelected({});
+        } else if (s.tool.t === 'line' && (s.tool.waypoints?.length ?? 0) > 0) {
+          // unwind the bent route one waypoint at a time
+          s.setTool({ ...s.tool, waypoints: s.tool.waypoints?.slice(0, -1) });
         } else if (s.tool.t === 'line' && s.tool.fromAssetId !== undefined) {
           s.setTool({ ...s.tool, fromAssetId: undefined });
         } else {
@@ -130,6 +134,10 @@ function useKeyboard(): void {
         s.setGridView(!s.gridView);
       } else if (key === 'b') {
         s.setBalanceOpen(!s.balanceOpen);
+      } else if (key === 'h') {
+        s.setHeadroom(!s.headroom);
+      } else if (key === 'n') {
+        s.setN1(!s.n1);
       } else if (key === 'k') {
         s.setKpiOpen(!s.kpiOpen);
       } else if (key === 'u') {
@@ -139,6 +147,7 @@ function useKeyboard(): void {
             ...s.tool,
             build: s.tool.build === 'overhead' ? 'underground' : 'overhead',
             fromAssetId: undefined,
+            waypoints: undefined,
           });
         }
       } else if (e.key === ' ') {
@@ -216,6 +225,7 @@ export function App() {
         ) : (
           <>
             <Wordmark />
+            <SearchBox />
             <BuildPalette />
             <InfoPanel />
             <BillPanel />

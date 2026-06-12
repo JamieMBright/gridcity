@@ -4,7 +4,8 @@ import { MapRenderer, type Ghost, type TileHover } from '../render/MapRenderer';
 import { installTestHook } from '../app/testHook';
 import { useAppStore, type Tool } from '../app/store';
 import { sendCommand, setWatch } from '../app/workerBridge';
-import { assetAtTile, checkBuild, siteErrorAt, type BuildSpec } from '../sim/commands';
+import { assetAtTile, checkBuild, pylonTilesOf, siteErrorAt, type BuildSpec } from '../sim/commands';
+import { priceLine, pylonSiteOk } from '../sim/cost';
 import { ANNUITY_FACTOR, DEPOT, GENS, LINES, SUBS } from '../sim/catalog';
 import type { LineAsset, PlacedAsset } from '../sim/assets';
 import { assetLevels } from '../sim/assets';
@@ -157,6 +158,19 @@ function handleTileClick(tile: TileHover): void {
           setToast(`that's a ${span.level} kV circuit — switch the line tool to match`);
           return;
         }
+        // anchored + open ground: drop a waypoint tower and bend the route
+        if (tool.fromAssetId !== undefined) {
+          const map = getLondonMap();
+          const taken = pylonTilesOf(assets);
+          if (pylonSiteOk(map, x, y, taken) && !assetAtTile(assets, x, y)) {
+            const waypoints = [...(tool.waypoints ?? []), { x, y }];
+            setTool({ ...tool, waypoints });
+            setToast(`waypoint ${waypoints.length} set — click the destination bay (Esc removes)`);
+            return;
+          }
+          setToast('a waypoint tower cannot stand there');
+          return;
+        }
         setToast('lines run between substations and plants — click one');
         return;
       }
@@ -171,6 +185,20 @@ function handleTileClick(tile: TileHover): void {
       } else {
         // already wired to the anchor at this level? re-anchor, don't
         // duplicate — A,B,A,C,A,D builds a clean star from the hub
+        // a bent route goes through its waypoint towers as one command
+        if ((tool.waypoints?.length ?? 0) > 0) {
+          sendCommand({
+            type: 'buildPath',
+            level: tool.level,
+            build: tool.build,
+            fromAssetId: tool.fromAssetId,
+            waypoints: tool.waypoints ?? [],
+            toX: x,
+            toY: y,
+          });
+          setTool({ ...tool, fromAssetId: a.id, waypoints: [] });
+          return;
+        }
         const dup = assets.some(
           (l) =>
             l.kind === 'line' &&
@@ -293,6 +321,23 @@ export function MapView() {
     rendererRef.current?.setCouncilHighlight(highlightCouncil);
   }, [highlightCouncil]);
 
+  // headroom heatmap (re-colours on the next snapshot pass)
+  const headroom = useAppStore((s) => s.headroom);
+  useEffect(() => {
+    rendererRef.current?.setOverlay(headroom ? 'headroom' : 'none');
+  }, [headroom]);
+
+  // N-1 security rings + the catchment data feeding both overlays
+  const n1 = useAppStore((s) => s.n1);
+  useEffect(() => {
+    rendererRef.current?.setN1(n1);
+  }, [n1]);
+  useEffect(() => {
+    if (snapshot) {
+      rendererRef.current?.setCatchmentData(snapshot.catchments, snapshot.security);
+    }
+  }, [snapshot]);
+
   // highlight whatever the pinned inspector card is talking about, and
   // have the worker record its performance history for the sparkline
   const selectedAsset = useAppStore((s) => s.selectedAsset);
@@ -352,6 +397,44 @@ export function MapView() {
       r.setGhost(ok ? { kind: 'endpoint', x: hovered.x, y: hovered.y, level: tool.level } : undefined);
       setGhostInfo(undefined);
       return;
+    }
+
+    // a bent route previews all its legs through the waypoint towers
+    if (tool.t === 'line' && tool.fromAssetId !== undefined && (tool.waypoints?.length ?? 0) > 0) {
+      const from = assets.find((aa) => aa.id === tool.fromAssetId);
+      if (from && from.kind !== 'line') {
+        const wps = tool.waypoints ?? [];
+        const nodes = [{ x: from.x, y: from.y }, ...wps, { x: hovered.x, y: hovered.y }];
+        let capexK = SUBS.tee.capexK * wps.length;
+        let ok = true;
+        for (let k = 0; k + 1 < nodes.length; k++) {
+          const p = priceLine(map, tool.level, tool.build, nodes[k]?.x ?? 0, nodes[k]?.y ?? 0, nodes[k + 1]?.x ?? 0, nodes[k + 1]?.y ?? 0);
+          capexK += p.capexK;
+          if (!p.ok) ok = false;
+        }
+        const dest = assetAtTile(assets, hovered.x, hovered.y);
+        const destOk = dest !== undefined && assetLevels(dest).includes(tool.level);
+        r.setGhost({
+          kind: 'line',
+          ax: from.x,
+          ay: from.y,
+          bx: hovered.x,
+          by: hovered.y,
+          ok: ok && destOk,
+          level: tool.level,
+          via: wps,
+        });
+        const served = snapshot?.bill.servedCustomers ?? 0;
+        const yearlyK = capexK * (ANNUITY_FACTOR + LINES[tool.level].opexFrac);
+        setGhostInfo({
+          label: `${tool.level} kV route via ${wps.length} tower${wps.length > 1 ? 's' : ''}`,
+          capexK,
+          billImpactYr: served > 0 && ok && destOk ? (yearlyK * 1000) / served : undefined,
+          ok: ok && destOk,
+          error: destOk ? (ok ? undefined : 'a leg is blocked') : 'finish on an asset with this bay',
+        });
+        return;
+      }
     }
 
     const spec = specFor(tool, hovered.x, hovered.y, assets);
