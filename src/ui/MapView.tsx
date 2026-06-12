@@ -116,7 +116,11 @@ export function MapView() {
 
   useEffect(() => {
     if (snapshot) {
-      rendererRef.current?.updateDynamic(
+      const r = rendererRef.current;
+      // mirror sim-side town growth onto this client's map before drawing
+      // (the renderer shares the map object with checkBuild/ghosts)
+      r?.applyGrowth(snapshot.growth ?? []);
+      r?.updateDynamic(
         snapshot.assets,
         snapshot.branches,
         snapshot.coverage,
@@ -125,6 +129,7 @@ export function MapView() {
         snapshot.genMW,
         snapshot.simTimeMin,
         snapshot.weather.wind,
+        snapshot.sites ?? [],
       );
     }
   }, [snapshot]);
@@ -216,7 +221,7 @@ export function MapView() {
     } else {
       const sprite =
         spec.kind === 'gen'
-          ? { gasCCGT: 'gen_gas', gasPeaker: 'gen_peaker', nuclear: 'gen_nuclear', solarFarm: 'gen_solar', windOnshore: 'gen_windon', windOffshore: 'gen_windoff', tidal: 'gen_tidal', biomass: 'gen_biomass', battery: 'gen_battery' }[spec.gen]
+          ? { gasCCGT: 'gen_gas', gasPeaker: 'gen_peaker', coal: 'gen_coal', nuclear: 'gen_nuclear', solarFarm: 'gen_solar', windOnshore: 'gen_windon', windOffshore: 'gen_windoff', tidal: 'gen_tidal', biomass: 'gen_biomass', battery: 'gen_battery' }[spec.gen]
           : spec.kind === 'sub'
             ? { bulk: 'sub_bulk', grid: 'sub_grid', dist: 'sub_dist', pole: 'sub_pole', vault: 'sub_vault' }[spec.sub]
             : 'depot';
@@ -227,6 +232,7 @@ export function MapView() {
         ok: check.ok,
         sprite,
         radius: spec.kind === 'sub' ? SUBS[spec.sub].serviceRadius : undefined,
+        fp: spec.kind === 'gen' ? GENS[spec.gen].footprint : undefined,
       };
     }
     r.setGhost(ghost);

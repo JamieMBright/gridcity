@@ -101,6 +101,7 @@ const GEN_ORDER: GenType[] = [
   'biomass',
   'nuclear',
   'battery',
+  'coal',
 ];
 const SUB_ORDER: SubType[] = ['bulk', 'grid', 'dist', 'pole', 'vault'];
 const LEVELS: VoltageLevel[] = [400, 132, 33];

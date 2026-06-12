@@ -8,10 +8,17 @@ import { applyCommand, checkBuild } from '../src/sim/commands';
 import { placePylons, pylonSiteOk, routeTiles } from '../src/sim/cost';
 import { underConstruction } from '../src/sim/market/dispatch';
 import { assignServiceAreas } from '../src/sim/service';
-import { TERRAIN, ZONE } from '../src/sim/map/types';
+import { RC, TERRAIN, ZONE } from '../src/sim/map/types';
 import { newGame } from '../src/sim/state';
 import { derive, solveTick } from '../src/sim/tick';
-import { commissionAll, makeContext, makeTestMap, mustApply, setZone } from './helpers';
+import {
+  commissionAll,
+  directBuildGen,
+  makeContext,
+  makeTestMap,
+  mustApply,
+  setZone,
+} from './helpers';
 
 describe('overhead-line supports', () => {
   it('spaces pylons along the route, excluding the endpoints', () => {
@@ -44,14 +51,18 @@ describe('overhead-line supports', () => {
     expect(pylons).toContain(10 * 30 + blockedX + 1); // slid one tile onward
   });
 
-  it('supports never stand on roads, water or building plots', () => {
+  it('supports avoid heavy transport, water and building plots — quiet streets are fine', () => {
     const map = makeTestMap(10, 10);
-    map.road[5 * 10 + 5] = 1;
+    map.road[5 * 10 + 5] = RC.arterial;
+    map.road[5 * 10 + 3] = RC.rail;
+    map.road[5 * 10 + 2] = RC.streetTouch; // a lane clips the tile: poles allowed
     map.terrain[5 * 10 + 6] = TERRAIN.water;
     setZone(map, 7, 5, ZONE.suburb); // customer plot
     expect(pylonSiteOk(map, 5, 5, new Set())).toBe(false);
+    expect(pylonSiteOk(map, 3, 5, new Set())).toBe(false);
     expect(pylonSiteOk(map, 6, 5, new Set())).toBe(false);
     expect(pylonSiteOk(map, 7, 5, new Set())).toBe(false);
+    expect(pylonSiteOk(map, 2, 5, new Set())).toBe(true);
     expect(pylonSiteOk(map, 4, 5, new Set())).toBe(true);
   });
 
@@ -140,7 +151,7 @@ describe('planning + construction', () => {
     for (let x = 19; x <= 21; x++) setZone(map, x, 20, ZONE.suburb);
     const ctx = makeContext(map);
     const state = newGame();
-    const gas = mustApply(state, map, { type: 'build', spec: { kind: 'gen', gen: 'gasCCGT', x: 5, y: 5 } });
+    const gas = directBuildGen(state, map, 'gasCCGT', 5, 5);
     mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'grid', x: 12, y: 12 } });
     mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'dist', x: 20, y: 20 } });
     mustApply(state, map, {
@@ -221,7 +232,7 @@ describe('substation MVA + load-based catchments', () => {
     }
     const ctx = makeContext(map);
     const state = newGame();
-    mustApply(state, map, { type: 'build', spec: { kind: 'gen', gen: 'gasCCGT', x: 3, y: 3 } });
+    directBuildGen(state, map, 'gasCCGT', 3, 3);
     mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'grid', x: 8, y: 8 } });
     const dist = mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'dist', x: 16, y: 16 } });
     mustApply(state, map, {
@@ -266,7 +277,7 @@ describe('the bill', () => {
     }
     const ctx = makeContext(map);
     const state = newGame();
-    mustApply(state, map, { type: 'build', spec: { kind: 'gen', gen: 'gasCCGT', x: 10, y: 25 } });
+    directBuildGen(state, map, 'gasCCGT', 10, 25);
     mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'grid', x: 15, y: 22 } });
     mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'dist', x: 20, y: 20 } });
     mustApply(state, map, {

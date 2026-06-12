@@ -1,7 +1,8 @@
 // Shared fixtures: a small synthetic map and a connected starter network so
 // gameplay-level tests don't depend on the London map's geography.
 
-import { applyCommand, type Command } from '../src/sim/commands';
+import { applyCommand, checkBuild, type Command } from '../src/sim/commands';
+import { GENS, type GenType } from '../src/sim/catalog';
 import { buildDemandField } from '../src/sim/map/demand';
 import {
   CUSTOMERS_PER_TILE,
@@ -45,6 +46,33 @@ export function mustApply(state: GameState, map: CityMap, cmd: Command): number 
   return r.assetId ?? -1;
 }
 
+/** Test-only direct generation build. In-game, generation arrives through
+ *  the developer tender market (designate → bids → acceptBid); fixtures
+ *  bypass that by creating the asset exactly the way an awarded bid would
+ *  (sans developer, so demolition rules stay player-owned). */
+export function directBuildGen(
+  state: GameState,
+  map: CityMap,
+  gen: GenType,
+  x: number,
+  y: number,
+): number {
+  const check = checkBuild(map, state.assets.values(), { kind: 'gen', gen, x, y });
+  if (!check.ok) throw new Error(`gen build failed: ${check.error}`);
+  const g = GENS[gen];
+  const id = state.nextAssetId++;
+  state.assets.set(id, {
+    id,
+    kind: 'gen',
+    gen,
+    x,
+    y,
+    liveAtMin: state.simTimeMin + (g.planningDays + g.buildDays) * 1440,
+  });
+  state.assetsVersion++;
+  return id;
+}
+
 /** Skip planning/construction lead times so fixtures power up at once. */
 export function commissionAll(state: GameState): void {
   for (const a of state.assets.values()) {
@@ -66,10 +94,7 @@ export function poweredFixture(): {
   }
   const ctx = makeContext(map);
   const state = newGame();
-  const gas = mustApply(state, map, {
-    type: 'build',
-    spec: { kind: 'gen', gen: 'gasCCGT', x: 5, y: 5 },
-  });
+  const gas = directBuildGen(state, map, 'gasCCGT', 5, 5);
   const grid = mustApply(state, map, {
     type: 'build',
     spec: { kind: 'sub', sub: 'grid', x: 15, y: 15 },

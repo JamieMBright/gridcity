@@ -24,8 +24,35 @@ export const ZONE = {
   windSite: 10, // estuary-mouth wind opportunity
   nuclearSite: 11, // the only nuclear-capable coastal site
   cbd: 12, // skyscraper districts (the City / Canary analogs)
+  newEstate: 13, // new-build estate: iDNO substation, every home electrified
 } as const;
 export type Zone = (typeof ZONE)[keyof typeof ZONE];
+
+/** Transport is a VECTOR layer over the tile world: smooth polylines from
+ *  20 mph streets up to motorways, plus railways. Tiles stay the unit for
+ *  land use and the electrical sim; the `road` raster below is just the
+ *  routes stamped onto tiles for gameplay rules. */
+export type RouteClass = 'motorway' | 'arterial' | 'street' | 'lane' | 'rail';
+
+export interface TransportRoute {
+  kind: RouteClass;
+  /** Tile-space waypoints (fractional coords); rendered as a smooth curve. */
+  pts: Array<[number, number]>;
+}
+
+/** Road-class raster codes (per tile, max of everything crossing it). */
+export const RC = {
+  none: 0,
+  /** A street/lane clips the tile: houses keep fronting it. */
+  streetTouch: 1,
+  /** A street/lane runs through the tile centre: no structure, but the
+   *  homes (customers) stay — front gardens face the carriageway. */
+  street: 2,
+  /** Heavy infrastructure: nothing lives or builds under these. */
+  arterial: 3,
+  motorway: 4,
+  rail: 5,
+} as const;
 
 /** Named landmark per tile (0 = none). Landmarks are protected fabric:
  *  nothing can be built over them and pylons route around them. */
@@ -42,6 +69,15 @@ export const LANDMARK = {
   mall: 9, // glass-roofed shopping centres
   zoo: 10, // paddocks and the aviary in the big park
   powerstation: 11, // the decommissioned four-chimney icon
+  // civic fabric: every town seed gets a reason to exist
+  station: 12, // railway station on the line
+  school: 13,
+  townhall: 14,
+  watertower: 15, // the Victorian landmark on the edge of town
+  sewage: 16, // circular clarifiers, quietly essential
+  carpark: 17, // surface car park (EV charging, one day)
+  church: 18, // village centrepiece
+  datacentre: 19, // arrives uninvited, hungry and impatient
 } as const;
 export type Landmark = (typeof LANDMARK)[keyof typeof LANDMARK];
 
@@ -60,6 +96,7 @@ export const CUSTOMERS_PER_TILE: Record<Zone, number> = {
   [ZONE.windSite]: 0,
   [ZONE.nuclearSite]: 0,
   [ZONE.cbd]: 160,
+  [ZONE.newEstate]: 45,
 };
 
 /** Zones whose building stock is big enough to hide an underground
@@ -90,8 +127,10 @@ export interface CityMap {
   zone: Uint8Array;
   /** Council id per land tile (255 = none/water). */
   council: Uint8Array;
-  /** 1 if a road runs through this tile (static city fabric). */
+  /** Road-class raster (see RC): the vector routes stamped onto tiles. */
   road: Uint8Array;
+  /** The vector transport network (motorways → streets, plus rail). */
+  routes?: TransportRoute[] | undefined;
   /** Customer cluster size on this tile. */
   customers: Uint16Array;
   /** 0..255 vegetation density (fault exposure for overhead lines). */
@@ -100,6 +139,8 @@ export interface CityMap {
   variant: Uint8Array;
   /** Landmark id per tile (see LANDMARK; 0 = none). */
   landmark?: Uint8Array | undefined;
+  /** Per-tile flag bits (bit 0: high-street shops). */
+  flags?: Uint8Array | undefined;
   councils: CouncilProfile[];
 }
 

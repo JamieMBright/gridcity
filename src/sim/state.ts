@@ -2,10 +2,11 @@
 
 import type { PlacedAsset } from './assets';
 import { GENS, SUBS, type GenType, type SubType, type VegPolicy } from './catalog';
-import type { CityMap } from './map/types';
+import { TERRAIN, ZONE, type CityMap } from './map/types';
 import { buildDemandField, type DemandField } from './map/demand';
 import { newWeather, type WeatherState } from './events/weather';
 import type { Application } from './events/applications';
+import { newDevMood, type Tender } from './events/developers';
 import { newTech, type Pitch, type TechState } from './events/innovation';
 import type { CouncilState } from './customers/adoption';
 import type { RepairJob, Van } from './fleet/fleet';
@@ -17,7 +18,7 @@ import {
   type PeriodState,
   type ReportCard,
 } from './regulation/riio';
-import { getLondonMap } from '../data/londonMap';
+import { buildLondonMap, NEW_ESTATES } from '../data/londonMap';
 import type { SimSpeed } from './protocol';
 
 export interface GameEvent {
@@ -85,8 +86,30 @@ export interface GameState {
   curtailedFirmMWh: number;
   curtailedFlexMWh: number;
   nextAppId: number;
+  /** Generation tenders (planning signals) and their developer bids. */
+  tenders: Tender[];
+  /** developer id → mood 0..100 (starts at 70). */
+  devMood: Map<number, number>;
+  /** Town growth/infill mutations applied to the map (append-only;
+   *  replayed onto a fresh map on load). */
+  growth: GrowthRecord[];
   period: PeriodState;
   lastReport?: ReportCard | undefined;
+}
+
+/** One infill mutation: tile `i` became `zone` with `customers`. */
+export interface GrowthRecord {
+  i: number;
+  zone: number;
+  customers: number;
+}
+
+/** Replay recorded growth onto a (fresh) map copy. */
+export function applyGrowth(map: CityMap, growth: GrowthRecord[]): void {
+  for (const g of growth) {
+    map.zone[g.i] = g.zone;
+    map.customers[g.i] = g.customers;
+  }
 }
 
 export interface SimContext {
@@ -132,6 +155,9 @@ export function newGame(): GameState {
     curtailedFirmMWh: 0,
     curtailedFlexMWh: 0,
     nextAppId: 1,
+    tenders: [],
+    devMood: newDevMood(),
+    growth: [],
     period: newPeriod(1, 0, initialTargets()),
     lastReport: undefined,
   };
@@ -149,8 +175,96 @@ export function pushEvent(
 }
 
 export function newContext(): SimContext {
-  const map = getLondonMap();
+  // a fresh map every time: town growth mutates the context's copy, so
+  // a new game (or a load) must never inherit a previous run's infill
+  const map = buildLondonMap();
   return { map, demand: buildDemandField(map) };
+}
+
+// --- scenario seeding --------------------------------------------------------
+
+/** Set up the opening scenario on a fresh game: the iDNO's estate
+ *  substations and a few starter connection applications so the inbox
+ *  has decisions from minute one. Called by the worker on 'newGame'
+ *  only — unit fixtures stay clean. */
+export function seedScenario(state: GameState, ctx: SimContext): void {
+  const { map } = ctx;
+
+  // (a) new-build estates arrive with the iDNO's transformer already in
+  for (const e of NEW_ESTATES) {
+    const id = state.nextAssetId++;
+    state.assets.set(id, {
+      id,
+      kind: 'sub',
+      sub: 'dist',
+      x: e.x,
+      y: e.y,
+      mva: 10,
+      mvaAuto: false,
+      idno: true,
+    });
+  }
+  state.assetsVersion++;
+
+  // (b) starter generation applications through the normal machinery
+  const used = new Set<number>();
+  const findTile = (ok: (i: number, x: number, y: number) => boolean) => {
+    for (let y = 0; y < map.height; y++) {
+      for (let x = 0; x < map.width; x++) {
+        const i = y * map.width + x;
+        if (used.has(i)) continue;
+        if (ok(i, x, y)) {
+          used.add(i);
+          return { x, y };
+        }
+      }
+    }
+    return undefined;
+  };
+  const starters: Array<{
+    kind: Application['kind'];
+    name: string;
+    mw: number;
+    site: { x: number; y: number } | undefined;
+  }> = [
+    {
+      kind: 'solarFarm',
+      name: 'Estuary Sun Co-op',
+      mw: 50,
+      site: findTile((i) => map.zone[i] === ZONE.solarSite),
+    },
+    {
+      kind: 'windOnshore',
+      name: 'Marsh Ridge Wind',
+      mw: 100,
+      site: findTile(
+        (i, x) => map.zone[i] === ZONE.none && map.terrain[i] === TERRAIN.land && x > 110,
+      ),
+    },
+    {
+      kind: 'battery',
+      name: 'GridStore Ltd',
+      mw: 100,
+      site: findTile(
+        (i, x) => map.zone[i] === ZONE.none && map.terrain[i] === TERRAIN.land && x > 120,
+      ),
+    },
+  ];
+  for (const s of starters) {
+    if (!s.site) continue;
+    state.applications.push({
+      id: state.nextAppId++,
+      kind: s.kind,
+      name: s.name,
+      x: s.site.x,
+      y: s.site.y,
+      mw: s.mw,
+      customers: 0,
+      decideByMin: state.simTimeMin + 30 * 1440,
+      status: 'open',
+    });
+    pushEvent(state, 'warn', `connection application: ${s.name} (${s.mw} MW generation)`, s.site.x, s.site.y);
+  }
 }
 
 // --- save / load -----------------------------------------------------------
@@ -202,6 +316,9 @@ export interface SaveData {
   curtailedFirmMWh?: number;
   curtailedFlexMWh?: number;
   nextAppId?: number;
+  tenders?: Tender[];
+  devMood?: Array<[number, number]>;
+  growth?: GrowthRecord[];
   period?: PeriodState;
   lastReport?: ReportCard;
 }
@@ -242,6 +359,9 @@ export function serialize(s: GameState): SaveData {
     curtailedFirmMWh: s.curtailedFirmMWh,
     curtailedFlexMWh: s.curtailedFlexMWh,
     nextAppId: s.nextAppId,
+    tenders: s.tenders.map((t) => ({ ...t, bids: t.bids.map((b) => ({ ...b })) })),
+    devMood: [...s.devMood.entries()],
+    growth: s.growth.map((g) => ({ ...g })),
     period: { ...s.period, targets: { ...s.period.targets } },
     ...(s.lastReport ? { lastReport: { ...s.lastReport, scores: { ...s.lastReport.scores } } } : {}),
   };
@@ -287,8 +407,11 @@ export function deserialize(d: SaveData): GameState {
     curtailedFirmMWh: d.curtailedFirmMWh ?? 0,
     curtailedFlexMWh: d.curtailedFlexMWh ?? 0,
     nextAppId: d.nextAppId ?? 1,
+    tenders: (d.tenders ?? []).map((t) => ({ ...t, bids: t.bids.map((b) => ({ ...b })) })),
+    devMood: d.devMood ? new Map(d.devMood) : newDevMood(),
+    growth: (d.growth ?? []).map((g) => ({ ...g })),
     period: d.period
-      ? { ...d.period, targets: { ...d.period.targets } }
+      ? { ...d.period, complaints: d.period.complaints ?? 0, targets: { ...d.period.targets } }
       : newPeriod(1, d.simTimeMin, initialTargets()),
     lastReport: d.lastReport ? { ...d.lastReport, scores: { ...d.lastReport.scores } } : undefined,
   };

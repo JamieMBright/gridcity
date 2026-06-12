@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildLondonMap, LONDON_H, LONDON_W } from '../src/data/londonMap';
-import { NO_COUNCIL, TERRAIN, ZONE } from '../src/sim/map/types';
+import { NO_COUNCIL, RC, TERRAIN, ZONE } from '../src/sim/map/types';
 
 const map = buildLondonMap();
 
@@ -85,14 +85,23 @@ describe('london map invariants', () => {
     }
   });
 
-  it('roads exist and never have customers on the same tile', () => {
-    let roadCount = 0;
+  it('transport is a vector network stamped onto the raster', () => {
+    const kinds = new Set((map.routes ?? []).map((r) => r.kind));
+    for (const k of ['motorway', 'arterial', 'street', 'lane', 'rail']) {
+      expect(kinds.has(k as never), `route class ${k} should exist`).toBe(true);
+    }
+    let streets = 0;
+    let heavy = 0;
     for (let i = 0; i < map.road.length; i++) {
-      if (map.road[i] === 1) {
-        roadCount++;
+      const rc = map.road[i] ?? 0;
+      if (rc === RC.street || rc === RC.streetTouch) streets++;
+      if (rc >= RC.arterial) {
+        heavy++;
+        // nobody lives under a motorway, an A-road or the railway
         expect(map.customers[i]).toBe(0);
       }
     }
-    expect(roadCount).toBeGreaterThan(500);
+    expect(streets).toBeGreaterThan(1000); // homes keep fronting the streets
+    expect(heavy).toBeGreaterThan(400);
   });
 });

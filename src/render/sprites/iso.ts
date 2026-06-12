@@ -52,25 +52,42 @@ export function top(c: RGBA, t = 0.28): RGBA {
 
 export class Iso {
   r: Raster;
+  /** Footprint in tiles: u runs 0..wTiles, v runs 0..hTiles. */
+  readonly wTiles: number;
+  readonly hTiles: number;
 
-  constructor() {
-    this.r = new Raster(CELL_W, CELL_H);
+  constructor(wTiles = 1, hTiles = 1) {
+    this.wTiles = wTiles;
+    this.hTiles = hTiles;
+    this.r = new Raster(
+      ((wTiles + hTiles) * CELL_W) / 2,
+      ((wTiles + hTiles) * FLOOR_H) / 2 + (CELL_H - FLOOR_H),
+    );
+  }
+
+  /** Project tile-local (u,v,z) to this sprite's pixel coordinates.
+   *  For a 1x1 footprint this is exactly the module-level P(). */
+  P(u: number, v: number, z = 0): Pt {
+    return [
+      this.hTiles * (CELL_W / 2) + (u - v) * (CELL_W / 2),
+      CELL_H - FLOOR_H + (u + v) * (FLOOR_H / 2) - z * RES,
+    ];
   }
 
   /** Flat quad on the ground or at height z. */
   quad(u0: number, v0: number, u1: number, v1: number, z: number, c: RGBA, shadeTo?: RGBA): void {
-    this.r.poly([P(u0, v0, z), P(u1, v0, z), P(u1, v1, z), P(u0, v1, z)], c, shadeTo);
+    this.r.poly([this.P(u0, v0, z), this.P(u1, v0, z), this.P(u1, v1, z), this.P(u0, v1, z)], c, shadeTo);
   }
 
   /** Full floor diamond. */
   floor(c: RGBA, shadeTo?: RGBA): void {
-    this.quad(0, 0, 1, 1, 0, c, shadeTo);
+    this.quad(0, 0, this.wTiles, this.hTiles, 0, c, shadeTo);
   }
 
   /** Soft shadow cast from a footprint toward screen lower-left. */
   shadow(u0: number, v0: number, u1: number, v1: number, len = 0.16, a = 0.2): void {
     this.r.poly(
-      [P(u0, v0 + 0.02), P(u1, v0 + 0.02), P(u1, v1 + len), P(u0 + len * 0.4, v1 + len)],
+      [this.P(u0, v0 + 0.02), this.P(u1, v0 + 0.02), this.P(u1, v1 + len), this.P(u0 + len * 0.4, v1 + len)],
       alpha(SHADOW, a),
     );
   }
@@ -96,21 +113,21 @@ export class Iso {
     const rightC = opts.rightC ?? lit(c);
     const topC = opts.topC ?? top(c);
     // left wall: edge (u0,v1)-(u1,v1)
-    this.r.poly([P(u0, v1, z1), P(u1, v1, z1), P(u1, v1, z0), P(u0, v1, z0)], leftC);
+    this.r.poly([this.P(u0, v1, z1), this.P(u1, v1, z1), this.P(u1, v1, z0), this.P(u0, v1, z0)], leftC);
     // right wall: edge (u1,v0)-(u1,v1)
-    this.r.poly([P(u1, v0, z1), P(u1, v1, z1), P(u1, v1, z0), P(u1, v0, z0)], rightC);
+    this.r.poly([this.P(u1, v0, z1), this.P(u1, v1, z1), this.P(u1, v1, z0), this.P(u1, v0, z0)], rightC);
     // top
     this.quad(u0, v0, u1, v1, z1, topC);
     if (opts.ink !== false && z1 - z0 > 2) {
       // verticals: silhouette corners + the near corner between the walls
-      this.edge(P(u0, v1, z1), P(u0, v1, z0));
-      this.edge(P(u1, v1, z1), P(u1, v1, z0));
-      this.edge(P(u1, v0, z1), P(u1, v0, z0));
+      this.edge(this.P(u0, v1, z1), this.P(u0, v1, z0));
+      this.edge(this.P(u1, v1, z1), this.P(u1, v1, z0));
+      this.edge(this.P(u1, v0, z1), this.P(u1, v0, z0));
       // top rim
-      this.r.polyline([P(u0, v0, z1), P(u1, v0, z1), P(u1, v1, z1), P(u0, v1, z1)], INK_W, INK, true);
+      this.r.polyline([this.P(u0, v0, z1), this.P(u1, v0, z1), this.P(u1, v1, z1), this.P(u0, v1, z1)], INK_W, INK, true);
       // base line along the visible walls
-      this.edge(P(u0, v1, z0), P(u1, v1, z0));
-      this.edge(P(u1, v1, z0), P(u1, v0, z0));
+      this.edge(this.P(u0, v1, z0), this.P(u1, v1, z0));
+      this.edge(this.P(u1, v1, z0), this.P(u1, v0, z0));
     }
   }
 
@@ -130,24 +147,24 @@ export class Iso {
     if (axis === 'u') {
       const vm = (v0 + v1) / 2;
       // far slope (just visible above the ridge)
-      this.r.poly([P(u0, v0, z0), P(u1, v0, z0), P(u1, vm, z0 + rise), P(u0, vm, z0 + rise)], top(c, 0.34));
+      this.r.poly([this.P(u0, v0, z0), this.P(u1, v0, z0), this.P(u1, vm, z0 + rise), this.P(u0, vm, z0 + rise)], top(c, 0.34));
       // near slope
-      this.r.poly([P(u0, vm, z0 + rise), P(u1, vm, z0 + rise), P(u1, v1, z0), P(u0, v1, z0)], lit(c, 0.06));
+      this.r.poly([this.P(u0, vm, z0 + rise), this.P(u1, vm, z0 + rise), this.P(u1, v1, z0), this.P(u0, v1, z0)], lit(c, 0.06));
       // gable end (right): triangle on the u1 face
-      this.r.poly([P(u1, v0, z0), P(u1, vm, z0 + rise), P(u1, v1, z0)], lit(wallC));
+      this.r.poly([this.P(u1, v0, z0), this.P(u1, vm, z0 + rise), this.P(u1, v1, z0)], lit(wallC));
       // ink: ridge, eaves and the gable rake
-      this.edge(P(u0, vm, z0 + rise), P(u1, vm, z0 + rise));
-      this.edge(P(u0, v1, z0), P(u1, v1, z0));
-      this.r.polyline([P(u1, v0, z0), P(u1, vm, z0 + rise), P(u1, v1, z0)], INK_W, INK);
+      this.edge(this.P(u0, vm, z0 + rise), this.P(u1, vm, z0 + rise));
+      this.edge(this.P(u0, v1, z0), this.P(u1, v1, z0));
+      this.r.polyline([this.P(u1, v0, z0), this.P(u1, vm, z0 + rise), this.P(u1, v1, z0)], INK_W, INK);
     } else {
       const um = (u0 + u1) / 2;
-      this.r.poly([P(u0, v0, z0), P(um, v0, z0 + rise), P(um, v1, z0 + rise), P(u0, v1, z0)], top(c, 0.34));
-      this.r.poly([P(um, v0, z0 + rise), P(u1, v0, z0), P(u1, v1, z0), P(um, v1, z0 + rise)], lit(c, 0.06));
+      this.r.poly([this.P(u0, v0, z0), this.P(um, v0, z0 + rise), this.P(um, v1, z0 + rise), this.P(u0, v1, z0)], top(c, 0.34));
+      this.r.poly([this.P(um, v0, z0 + rise), this.P(u1, v0, z0), this.P(u1, v1, z0), this.P(um, v1, z0 + rise)], lit(c, 0.06));
       // gable end (left): triangle on the v1 face
-      this.r.poly([P(u0, v1, z0), P(um, v1, z0 + rise), P(u1, v1, z0)], shaded(wallC, 0.18));
-      this.edge(P(um, v0, z0 + rise), P(um, v1, z0 + rise));
-      this.edge(P(u0, v1, z0), P(u1, v1, z0));
-      this.r.polyline([P(u0, v1, z0), P(um, v1, z0 + rise), P(u1, v1, z0)], INK_W, INK);
+      this.r.poly([this.P(u0, v1, z0), this.P(um, v1, z0 + rise), this.P(u1, v1, z0)], shaded(wallC, 0.18));
+      this.edge(this.P(um, v0, z0 + rise), this.P(um, v1, z0 + rise));
+      this.edge(this.P(u0, v1, z0), this.P(u1, v1, z0));
+      this.r.polyline([this.P(u0, v1, z0), this.P(um, v1, z0 + rise), this.P(u1, v1, z0)], INK_W, INK);
     }
   }
 
@@ -155,14 +172,14 @@ export class Iso {
   hip(u0: number, v0: number, u1: number, v1: number, z0: number, rise: number, c: RGBA): void {
     const um = (u0 + u1) / 2;
     const vm = (v0 + v1) / 2;
-    const apex = P(um, vm, z0 + rise);
-    this.r.poly([P(u0, v1, z0), P(u1, v1, z0), apex], shaded(c, 0.12)); // left face
-    this.r.poly([P(u1, v0, z0), P(u1, v1, z0), apex], lit(c, 0.1)); // right face
-    this.edge(P(u0, v1, z0), apex);
-    this.edge(P(u1, v1, z0), apex);
-    this.edge(P(u1, v0, z0), apex);
-    this.edge(P(u0, v1, z0), P(u1, v1, z0));
-    this.edge(P(u1, v1, z0), P(u1, v0, z0));
+    const apex = this.P(um, vm, z0 + rise);
+    this.r.poly([this.P(u0, v1, z0), this.P(u1, v1, z0), apex], shaded(c, 0.12)); // left face
+    this.r.poly([this.P(u1, v0, z0), this.P(u1, v1, z0), apex], lit(c, 0.1)); // right face
+    this.edge(this.P(u0, v1, z0), apex);
+    this.edge(this.P(u1, v1, z0), apex);
+    this.edge(this.P(u1, v0, z0), apex);
+    this.edge(this.P(u0, v1, z0), this.P(u1, v1, z0));
+    this.edge(this.P(u1, v1, z0), this.P(u1, v0, z0));
   }
 
   /** Vertical window strip on the LEFT wall (v=v1 edge) between u positions. */
@@ -182,11 +199,11 @@ export class Iso {
       const b = uA + du * (i + 1) - du * 0.22;
       if (frame) {
         this.r.poly(
-          [P(a - 0.015, v, zTop + 1.5), P(b + 0.015, v, zTop + 1.5), P(b + 0.015, v, zBottom - 1.5), P(a - 0.015, v, zBottom - 1.5)],
+          [this.P(a - 0.015, v, zTop + 1.5), this.P(b + 0.015, v, zTop + 1.5), this.P(b + 0.015, v, zBottom - 1.5), this.P(a - 0.015, v, zBottom - 1.5)],
           frame,
         );
       }
-      this.r.poly([P(a, v, zTop), P(b, v, zTop), P(b, v, zBottom), P(a, v, zBottom)], glass);
+      this.r.poly([this.P(a, v, zTop), this.P(b, v, zTop), this.P(b, v, zBottom), this.P(a, v, zBottom)], glass);
     }
   }
 
@@ -207,11 +224,11 @@ export class Iso {
       const b = vA + dv * (i + 1) - dv * 0.22;
       if (frame) {
         this.r.poly(
-          [P(u, a - 0.015, zTop + 1.5), P(u, b + 0.015, zTop + 1.5), P(u, b + 0.015, zBottom - 1.5), P(u, a - 0.015, zBottom - 1.5)],
+          [this.P(u, a - 0.015, zTop + 1.5), this.P(u, b + 0.015, zTop + 1.5), this.P(u, b + 0.015, zBottom - 1.5), this.P(u, a - 0.015, zBottom - 1.5)],
           frame,
         );
       }
-      this.r.poly([P(u, a, zTop), P(u, b, zTop), P(u, b, zBottom), P(u, a, zBottom)], glass);
+      this.r.poly([this.P(u, a, zTop), this.P(u, b, zTop), this.P(u, b, zBottom), this.P(u, a, zBottom)], glass);
     }
   }
 
@@ -220,10 +237,10 @@ export class Iso {
     this.shadow(u - rad * 0.6, v - rad * 0.2, u + rad * 0.6, v + rad * 0.5, rad * 1.2, 0.16);
     const trunk = hex('#6f4a33');
     this.box(u - 0.015, v - 0.015, u + 0.015, v + 0.015, z0, z0 + hgt * 0.18, trunk);
-    const apex = P(u, v, z0 + hgt);
-    const L = P(u - rad, v + rad, z0 + hgt * 0.12);
-    const Btm = P(u + rad * 0.7, v + rad * 0.7, z0 + hgt * 0.06);
-    const Rgt = P(u + rad, v - rad, z0 + hgt * 0.12);
+    const apex = this.P(u, v, z0 + hgt);
+    const L = this.P(u - rad, v + rad, z0 + hgt * 0.12);
+    const Btm = this.P(u + rad * 0.7, v + rad * 0.7, z0 + hgt * 0.06);
+    const Rgt = this.P(u + rad, v - rad, z0 + hgt * 0.12);
     this.r.poly([apex, L, Btm], shaded(c, 0.18));
     this.r.poly([apex, Btm, Rgt], lit(c, 0.08));
     this.r.polyline([L, apex, Rgt], INK_W * 0.8, alpha(INK, 0.6));
@@ -237,7 +254,7 @@ export class Iso {
     const zc = z0 + hgt * 0.62;
     const R = rad * (CELL_W / 2);
     const ZR = hgt * 0.42 * RES;
-    const [cx, cy] = P(u, v, zc);
+    const [cx, cy] = this.P(u, v, zc);
     const hexPts = (s: number): Pt[] => {
       const pts: Pt[] = [];
       for (let i = 0; i < 6; i++) {

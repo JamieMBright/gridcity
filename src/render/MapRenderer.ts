@@ -1,12 +1,13 @@
-// PixiJS isometric map renderer. The static city is drawn once in painter
-// order; dynamic layers stack above it: live traffic, coverage shading
-// (who has power), the suitability overlay, network lines sagging from
-// pylon to pylon, the player's assets, and build ghosts. A ticker drives
-// the living world: cars wander the roads, turbine rotors spin with the
-// wind, chevrons ride the lines in the direction of power flow, and
-// freshly energised streets flash awake. Grid view applies a desaturating
-// filter to the city so the electrical network — kept unfiltered — pops
-// in full colour.
+// PixiJS isometric map renderer. The world draws in three passes — flat
+// ground tiles, then the vector transport ribbons (20 mph streets up to
+// the orbital motorway, plus rail), then the standing structures — so
+// curved roads flow beneath the buildings exactly like the city grew
+// around them. Dynamic layers stack above: live traffic (cars, trains,
+// river barges), coverage shading, the suitability overlay, network
+// lines sagging from pylon to pylon, the player's assets, site bubbles
+// (applications, tenders, angry unconnected customers) and build ghosts.
+// A ticker animates the living world; grid view desaturates the city so
+// the electrical network pops in full colour.
 //
 // World space: tile (x, y) has its floor-diamond centre at
 // ((x − y) · CELL_W/2, (x + y) · FLOOR_H/2).
@@ -19,17 +20,20 @@ import {
   Matrix,
   Rectangle,
   Sprite,
+  Text,
   Texture,
 } from 'pixi.js';
+import { riverCenterY, riverHalfWidth } from '../data/londonMap';
 import type { PlacedAsset } from '../sim/assets';
 import { GENS } from '../sim/catalog';
 import type { VoltageLevel } from '../sim/grid/types';
-import { TERRAIN, type CityMap } from '../sim/map/types';
+import { sampleRoute } from '../sim/map/routes';
+import { CUSTOMERS_PER_TILE, type CityMap, type RouteClass, type Zone } from '../sim/map/types';
 import { COV, type BranchView } from '../sim/tick';
 import { buildAtlas } from './sprites/atlas';
 import { CELL_H, CELL_W, FLOOR_H, RES } from './sprites/iso';
 import { WIND_HUBS, windHubOffset } from './sprites/networkSprites';
-import { spriteNameFor } from './tileChooser';
+import { groundSpriteFor, structureSpriteFor } from './tileChooser';
 
 const HALF_W = CELL_W / 2;
 const HALF_H = FLOOR_H / 2;
@@ -48,9 +52,8 @@ const LEVEL_WIDTH: Record<VoltageLevel, number> = {
   132: 5 * RES,
   33: 2.6 * RES,
 };
-/** Conductor attachment height above the support tile, world px. */
 const ATTACH_Z: Record<VoltageLevel, number> = { 400: 80 * RES, 132: 54 * RES, 33: 30 * RES };
-const END_Z = 18 * RES; // landing height on substations/plants
+const END_Z = 18 * RES;
 const PYLON_SPRITE: Record<VoltageLevel, string> = {
   400: 'pylon_400',
   132: 'pylon_132',
@@ -60,6 +63,7 @@ const PYLON_SPRITE: Record<VoltageLevel, string> = {
 const GEN_SPRITE: Record<string, string> = {
   gasCCGT: 'gen_gas',
   gasPeaker: 'gen_peaker',
+  coal: 'gen_coal',
   nuclear: 'gen_nuclear',
   solarFarm: 'gen_solar',
   windOnshore: 'gen_windon',
@@ -76,8 +80,19 @@ const SUB_SPRITE: Record<string, string> = {
   vault: 'sub_vault',
 };
 
+// ribbon styling per route class, in world px
+const ROUTE_STYLE: Record<
+  RouteClass,
+  { width: number; color: number; speed: number; perTile: number }
+> = {
+  motorway: { width: 13 * RES, color: 0x474556, speed: 6, perTile: 7 },
+  arterial: { width: 8.5 * RES, color: 0x55525f, speed: 3, perTile: 12 },
+  street: { width: 5 * RES, color: 0x5f5c66, speed: 1.1, perTile: 45 },
+  lane: { width: 4 * RES, color: 0x6e6757, speed: 1.4, perTile: 30 },
+  rail: { width: 6.5 * RES, color: 0x3f3c49, speed: 5, perTile: 0 },
+};
 const CAR_COLORS = [0xf4f1ea, 0x27324d, 0xc9453a, 0x5e8fc2, 0xe8a23f, 0x9aa4b5, 0x3f8f8a];
-const TAXI = 0x27324d;
+const FLOWERS = [0xd6566e, 0xf4f1ea, 0xffd277, 0x7a6fae];
 
 export interface VanView {
   id: number;
@@ -90,6 +105,19 @@ export interface JobView {
   x: number;
   y: number;
   staffed: boolean;
+}
+
+export interface SiteView {
+  x: number;
+  y: number;
+  icon: 'application' | 'tender' | 'overdue' | 'building';
+  label: string;
+}
+
+export interface GrowthPatch {
+  i: number;
+  zone: number;
+  customers: number;
 }
 
 export interface TileHover {
@@ -105,6 +133,7 @@ export type Ghost =
       ok: boolean;
       sprite?: string | undefined;
       radius?: number | undefined;
+      fp?: [number, number] | undefined;
     }
   | {
       kind: 'line';
@@ -118,26 +147,32 @@ export type Ghost =
     }
   | { kind: 'endpoint'; x: number; y: number; level: VoltageLevel };
 
-interface LineAnim {
-  /** Polyline in world px, ordered endA → endB. */
-  pts: Array<{ x: number; y: number }>;
-  /** Cumulative length per point, px. */
+interface RoutePath {
+  kind: RouteClass;
+  /** World-space samples. */
+  pts: Array<{ x: number; y: number; water: boolean }>;
   cum: number[];
-  /** Chevron speed, px/s (signed: negative runs b → a). */
-  speed: number;
-  color: number;
+  total: number;
+  /** World px per tile of route length (for speeds in tiles/s). */
+  pxPerTile: number;
 }
 
-interface Car {
-  /** Current and next road tile indices. */
-  cur: number;
-  next: number;
-  prev: number;
-  /** Progress 0..1 along cur → next. */
-  t: number;
-  /** Tiles per second. */
-  speed: number;
+interface Vehicle {
+  path: RoutePath;
+  s: number;
+  dir: 1 | -1;
+  speed: number; // tiles/s
   g: Graphics;
+  /** Trailing carriages (trains). */
+  cars: Graphics[];
+  kind: 'car' | 'train' | 'boat';
+}
+
+interface LineAnim {
+  pts: Array<{ x: number; y: number }>;
+  cum: number[];
+  speed: number;
+  color: number;
 }
 
 interface Pulse {
@@ -146,16 +181,18 @@ interface Pulse {
   age: number;
 }
 
-interface Rotor {
-  assetId: number;
-  g: Graphics;
+interface RotorG extends Graphics {
+  spin?: number;
 }
 
 export class MapRenderer {
   private app = new Application();
   private world = new Container();
   private city = new Container();
-  private carLayer = new Container();
+  private terrainLayer = new Container();
+  private routesG = new Graphics();
+  private structureLayer = new Container();
+  private vehicleLayer = new Container();
   private coverageG = new Graphics();
   private suitability: Sprite | undefined;
   private smogG = new Graphics();
@@ -165,28 +202,34 @@ export class MapRenderer {
   private pulseG = new Graphics();
   private fleetLayer = new Container();
   private jobsG = new Graphics();
+  private siteLayer = new Container();
   private vanSprites = new Map<number, Sprite>();
   private ghostG = new Graphics();
   private ghostSprite: Sprite | undefined;
   private textures = new Map<string, Texture>();
+  private frameSize = new Map<string, { w: number; h: number }>();
+  private structureSprites = new Map<number, Sprite>();
+  private groundSprites = new Map<number, Sprite>();
   private destroyed = false;
   private dragging = false;
   private dragTravel = 0;
   private lastPointer = { x: 0, y: 0 };
   private cityFilter = new ColorMatrixFilter();
   private assetSignature = '';
+  private sitesSignature = '';
   private coverageHash = 0;
   private prevCoverage: Uint8Array | undefined;
   private map: CityMap | undefined;
+  private growthApplied = 0;
 
-  // living-world state
-  private cars: Car[] = [];
-  private roadNeighbors = new Map<number, number[]>();
+  private routePaths: RoutePath[] = [];
+  private vehicles: Vehicle[] = [];
   private lineAnims: LineAnim[] = [];
   private pulses: Pulse[] = [];
-  private rotors: Rotor[] = [];
+  private rotors: Array<{ assetId: number; g: Graphics }> = [];
   private windNow = 0.5;
   private flowPhase = 0;
+  private bobPhase = 0;
 
   onHover: ((tile: TileHover | undefined) => void) | undefined;
   onTileClick: ((tile: TileHover) => void) | undefined;
@@ -207,16 +250,21 @@ export class MapRenderer {
     host.appendChild(this.app.canvas);
 
     this.buildTextures();
-    this.buildCity(map);
-    this.buildRoadGraph(map);
-    this.spawnCars(map);
+    this.buildRoutePaths(map);
+    this.buildWorld(map);
+    this.drawRoutes(map);
+    this.spawnVehicles();
 
     this.cityFilter.desaturate();
     this.cityFilter.brightness(0.62, true);
 
+    this.structureLayer.sortableChildren = true;
     this.assetLayer.sortableChildren = true;
+    this.city.addChild(this.terrainLayer);
+    this.city.addChild(this.routesG);
+    this.city.addChild(this.vehicleLayer);
+    this.city.addChild(this.structureLayer);
     this.world.addChild(this.city);
-    this.world.addChild(this.carLayer);
     this.world.addChild(this.coverageG);
     this.world.addChild(this.smogG);
     this.world.addChild(this.assetLayer);
@@ -225,10 +273,10 @@ export class MapRenderer {
     this.world.addChild(this.pulseG);
     this.world.addChild(this.jobsG);
     this.world.addChild(this.fleetLayer);
+    this.world.addChild(this.siteLayer);
     this.world.addChild(this.ghostG);
     this.app.stage.addChild(this.world);
 
-    // frame the city core on boot
     const scale = 0.5 / RES;
     const focus = this.tileCentre(66, 80);
     this.world.scale.set(scale);
@@ -241,10 +289,9 @@ export class MapRenderer {
     this.app.ticker.add(() => this.animate(this.app.ticker.deltaMS / 1000));
   }
 
-  /** Grid view: monochrome city, full-colour electrical network. */
   setGridView(on: boolean): void {
     this.city.filters = on ? [this.cityFilter] : [];
-    this.carLayer.visible = !on;
+    this.vehicleLayer.visible = !on;
   }
 
   /** Green/red build-suitability overlay (1 = suitable per tile), or off. */
@@ -270,11 +317,23 @@ export class MapRenderer {
     }
     ctx.putImageData(img, 0, 0);
     const sprite = new Sprite(Texture.from(canvas));
-    // the iso ground plane is a linear image of the tile grid: one sprite
-    // under a shear matrix paints all 40k diamonds at once
     sprite.setFromMatrix(new Matrix(HALF_W, HALF_H, -HALF_W, HALF_H, 0, -HALF_H));
     this.world.addChildAt(sprite, this.world.getChildIndex(this.smogG));
     this.suitability = sprite;
+  }
+
+  /** Mirror sim-side town growth onto this client's map + repaint tiles. */
+  applyGrowth(growth: GrowthPatch[]): void {
+    const map = this.map;
+    if (!map || growth.length <= this.growthApplied) return;
+    for (let k = this.growthApplied; k < growth.length; k++) {
+      const g = growth[k];
+      if (!g) continue;
+      map.zone[g.i] = g.zone;
+      map.customers[g.i] = g.customers;
+      this.repaintTile(g.i % map.width, Math.floor(g.i / map.width));
+    }
+    this.growthApplied = growth.length;
   }
 
   /** Refresh all dynamic layers from the latest sim snapshot. */
@@ -287,6 +346,7 @@ export class MapRenderer {
     genMW: Array<[number, number]> = [],
     simTimeMin = Number.POSITIVE_INFINITY,
     wind = 0.5,
+    sites: SiteView[] = [],
   ): void {
     if (!this.map) return;
     this.windNow = wind;
@@ -300,6 +360,12 @@ export class MapRenderer {
     if (sig !== this.assetSignature) {
       this.assetSignature = sig;
       this.rebuildAssetSprites(assets, simTimeMin);
+    }
+
+    const siteSig = sites.map((s) => `${s.x},${s.y},${s.icon}`).join(';');
+    if (siteSig !== this.sitesSignature) {
+      this.sitesSignature = siteSig;
+      this.rebuildSites(sites);
     }
 
     this.drawSmog(assets, mwOf);
@@ -317,7 +383,6 @@ export class MapRenderer {
     }
   }
 
-  /** Zoom about the screen centre (dev hook / tests). */
   setZoom(scale: number): void {
     const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, scale));
     const cx = this.app.screen.width / 2;
@@ -328,7 +393,6 @@ export class MapRenderer {
     this.world.scale.set(next);
   }
 
-  /** Centre the camera on a tile (alert click-to-jump). */
   panTo(x: number, y: number): void {
     const c = this.tileCentre(x, y);
     const s = this.world.scale.x;
@@ -338,8 +402,6 @@ export class MapRenderer {
     );
   }
 
-  /** Client (screen) coordinates of a tile centre — used by e2e tests to
-   *  drive real canvas clicks. */
   tileToScreen(x: number, y: number): { x: number; y: number } {
     const c = this.tileCentre(x, y);
     const rect = this.app.canvas.getBoundingClientRect();
@@ -349,105 +411,390 @@ export class MapRenderer {
     };
   }
 
-  // --- the living world -----------------------------------------------------
+  // --- the static world -------------------------------------------------------
 
-  private animate(dt: number): void {
-    if (this.destroyed || !this.map) return;
-    this.stepCars(dt);
-    this.stepRotors(dt);
-    this.stepFlow(dt);
-    this.stepPulses(dt);
-  }
-
-  private buildRoadGraph(map: CityMap): void {
-    const { width, height, road } = map;
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const i = y * width + x;
-        if (road[i] !== 1) continue;
-        const nbs: number[] = [];
-        if (y > 0 && road[i - width] === 1) nbs.push(i - width);
-        if (x < width - 1 && road[i + 1] === 1) nbs.push(i + 1);
-        if (y < height - 1 && road[i + width] === 1) nbs.push(i + width);
-        if (x > 0 && road[i - 1] === 1) nbs.push(i - 1);
-        if (nbs.length > 0) this.roadNeighbors.set(i, nbs);
+  private buildWorld(map: CityMap): void {
+    for (let k = 0; k <= map.width + map.height - 2; k++) {
+      const xStart = Math.max(0, k - map.height + 1);
+      const xEnd = Math.min(map.width - 1, k);
+      for (let x = xStart; x <= xEnd; x++) {
+        this.paintTile(map, x, k - x);
       }
     }
   }
 
-  private spawnCars(map: CityMap): void {
-    const tiles = [...this.roadNeighbors.keys()];
-    if (tiles.length === 0) return;
-    const count = Math.min(280, Math.floor(tiles.length / 15));
-    let seed = 0x5eed;
+  private paintTile(map: CityMap, x: number, y: number): void {
+    const i = y * map.width + x;
+    const c = this.tileCentre(x, y);
+    const ground = this.textures.get(groundSpriteFor(map, x, y));
+    if (ground) {
+      const s = new Sprite(ground);
+      s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
+      this.terrainLayer.addChild(s);
+      this.groundSprites.set(i, s);
+    }
+    const structName = structureSpriteFor(map, x, y);
+    const struct = structName ? this.textures.get(structName) : undefined;
+    if (struct) {
+      const s = new Sprite(struct);
+      s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
+      s.zIndex = x + y;
+      this.structureLayer.addChild(s);
+      this.structureSprites.set(i, s);
+    }
+  }
+
+  private repaintTile(x: number, y: number): void {
+    const map = this.map;
+    if (!map) return;
+    const i = y * map.width + x;
+    this.groundSprites.get(i)?.destroy();
+    this.groundSprites.delete(i);
+    const old = this.structureSprites.get(i);
+    if (old) {
+      old.destroy();
+      this.structureSprites.delete(i);
+    }
+    this.paintTile(map, x, y);
+  }
+
+  private buildRoutePaths(map: CityMap): void {
+    const make = (kind: RouteClass, samples: Array<[number, number]>): RoutePath | undefined => {
+      if (samples.length < 2) return undefined;
+      const pts: RoutePath['pts'] = [];
+      let tileLen = 0;
+      for (let k = 0; k < samples.length; k++) {
+        const s = samples[k];
+        const prev = samples[k - 1];
+        if (!s) continue;
+        if (prev) tileLen += Math.hypot(s[0] - prev[0], s[1] - prev[1]);
+        const c = this.tileCentre(s[0], s[1]);
+        const tx = Math.round(s[0]);
+        const ty = Math.round(s[1]);
+        const water =
+          tx >= 0 && tx < map.width && ty >= 0 && ty < map.height
+            ? map.terrain[ty * map.width + tx] === 0
+            : false;
+        pts.push({ x: c.x, y: c.y, water });
+      }
+      const cum = [0];
+      for (let k = 1; k < pts.length; k++) {
+        const a = pts[k - 1];
+        const b = pts[k];
+        cum.push((cum[k - 1] ?? 0) + (a && b ? Math.hypot(b.x - a.x, b.y - a.y) : 0));
+      }
+      const total = cum[cum.length - 1] ?? 0;
+      return { kind, pts, cum, total, pxPerTile: tileLen > 0 ? total / tileLen : HALF_W };
+    };
+
+    for (const route of map.routes ?? []) {
+      const p = make(route.kind, sampleRoute(route, 0.35));
+      if (p) this.routePaths.push(p);
+    }
+    // the river itself is a route for the barges
+    {
+      const samples: Array<[number, number]> = [];
+      for (let x = 6; x < map.width - 4; x += 3) {
+        samples.push([x, riverCenterY(x) + (riverHalfWidth(x) > 4 ? 2 : 0)]);
+      }
+      const p = make('lane', samples);
+      if (p) {
+        p.kind = 'lane';
+        (p as RoutePath & { isRiver?: boolean }).isRiver = true;
+        this.routePaths.push(p);
+      }
+    }
+  }
+
+  /** All the tarmac, verges, flowers, sleepers and rails — drawn once. */
+  private drawRoutes(map: CityMap): void {
+    const g = this.routesG;
+    let flowerSeed = 0x5eed1;
+    const rnd = (): number => {
+      flowerSeed = (flowerSeed * 1664525 + 1013904223) >>> 0;
+      return flowerSeed / 0xffffffff;
+    };
+
+    const stroke = (
+      path: RoutePath,
+      width: number,
+      color: number,
+      alpha = 1,
+      offset = 0,
+    ): void => {
+      const first = path.pts[0];
+      if (!first) return;
+      g.moveTo(first.x, first.y + offset);
+      for (let k = 1; k < path.pts.length; k++) {
+        const p = path.pts[k];
+        if (p) g.lineTo(p.x, p.y + offset);
+      }
+      g.stroke({ color, width, alpha, cap: 'round', join: 'round' });
+    };
+
+    // under-layers first: verges, casings
+    for (const path of this.routePaths) {
+      if ((path as RoutePath & { isRiver?: boolean }).isRiver) continue;
+      const st = ROUTE_STYLE[path.kind];
+      if (path.kind === 'lane' || path.kind === 'street') {
+        stroke(path, st.width + 4.5 * RES, 0x79a04e, 0.55); // grass verge
+      }
+      if (path.kind === 'arterial') {
+        stroke(path, st.width + 6 * RES, 0x79a04e, 0.4); // wide verge
+        stroke(path, st.width + 3 * RES, 0x3f8f4e, 0.85); // cycle lanes
+      }
+      stroke(path, st.width + 2 * RES, 0x241c38, 0.6); // ink casing
+    }
+    // carriageways
+    for (const path of this.routePaths) {
+      if ((path as RoutePath & { isRiver?: boolean }).isRiver) continue;
+      const st = ROUTE_STYLE[path.kind];
+      if (path.kind === 'rail') {
+        stroke(path, st.width, 0x4a4555, 0.95); // ballast
+        continue;
+      }
+      stroke(path, st.width, st.color, 1);
+      if (path.kind === 'motorway') {
+        stroke(path, 1.4 * RES, 0x8fb35c, 1); // grassed median
+        stroke(path, 0.9 * RES, 0xe8e2d2, 0.9, -st.width / 2 + 1.2 * RES);
+        stroke(path, 0.9 * RES, 0xe8e2d2, 0.9, st.width / 2 - 1.2 * RES);
+      }
+    }
+    // details: dashes, rails+sleepers, bridge piers, flowers
+    for (const path of this.routePaths) {
+      if ((path as RoutePath & { isRiver?: boolean }).isRiver) continue;
+      const st = ROUTE_STYLE[path.kind];
+      if (path.kind === 'rail') {
+        // sleepers then twin rails
+        for (let d = 0; d < path.total; d += 5.5 * RES) {
+          const p = this.pointAt(path, d);
+          if (!p) continue;
+          const px = -p.ny * 2.6 * RES;
+          const py = p.nx * 2.6 * RES;
+          g.moveTo(p.x - px, p.y - py).lineTo(p.x + px, p.y + py);
+        }
+        g.stroke({ color: 0x6e5a43, width: 1.1 * RES, alpha: 0.9 });
+        for (const side of [-1.6 * RES, 1.6 * RES]) {
+          let started = false;
+          for (let k = 0; k < path.pts.length; k++) {
+            const p = this.pointAt(path, path.cum[k] ?? 0);
+            if (!p) continue;
+            const x = p.x - p.ny * side;
+            const y = p.y + p.nx * side;
+            if (!started) {
+              g.moveTo(x, y);
+              started = true;
+            } else {
+              g.lineTo(x, y);
+            }
+          }
+          g.stroke({ color: 0x9aa4b5, width: 0.9 * RES, alpha: 1 });
+        }
+      } else if (path.kind === 'arterial' || path.kind === 'motorway') {
+        for (let d = 6 * RES; d < path.total; d += 26 * RES) {
+          const p0 = this.pointAt(path, d);
+          const p1 = this.pointAt(path, d + 9 * RES);
+          if (!p0 || !p1) continue;
+          const off = path.kind === 'motorway' ? st.width / 4 : 0;
+          g.moveTo(p0.x - p0.ny * off, p0.y + p0.nx * off).lineTo(p1.x - p1.ny * off, p1.y + p1.nx * off);
+          if (path.kind === 'motorway') {
+            g.moveTo(p0.x + p0.ny * off, p0.y - p0.nx * off).lineTo(p1.x + p1.ny * off, p1.y - p1.nx * off);
+          }
+        }
+        g.stroke({ color: 0xe8e2d2, width: 1 * RES, alpha: 0.75 });
+      }
+      // piers where the route crosses water
+      for (let k = 1; k < path.pts.length - 1; k += 3) {
+        const p = path.pts[k];
+        if (p?.water) {
+          g.rect(p.x - 2.2 * RES, p.y + 2 * RES, 4.4 * RES, 5 * RES);
+          g.fill({ color: 0xb8b2c4, alpha: 0.95 });
+        }
+      }
+      // randomized flowers along the quiet verges — never homogeneous
+      if (path.kind === 'street' || path.kind === 'lane' || path.kind === 'arterial') {
+        for (let d = rnd() * 30 * RES; d < path.total; d += (22 + rnd() * 46) * RES) {
+          const p = this.pointAt(path, d);
+          if (!p || p.water) continue;
+          const side = rnd() < 0.5 ? -1 : 1;
+          const off = (st.width / 2 + (2.2 + rnd() * 2.4) * RES) * side;
+          const fx = p.x - p.ny * off;
+          const fy = p.y + p.nx * off;
+          const color = FLOWERS[Math.floor(rnd() * FLOWERS.length)] ?? 0xf4f1ea;
+          for (let f = 0; f < 2 + Math.floor(rnd() * 3); f++) {
+            g.circle(fx + (rnd() - 0.5) * 5 * RES, fy + (rnd() - 0.5) * 3 * RES, 0.9 * RES);
+            g.fill({ color, alpha: 0.95 });
+          }
+        }
+      }
+    }
+  }
+
+  /** Point + unit tangent at distance d along a path. */
+  private pointAt(
+    path: RoutePath,
+    d: number,
+  ): { x: number; y: number; nx: number; ny: number; water: boolean } | undefined {
+    if (path.pts.length < 2) return undefined;
+    const dd = Math.min(Math.max(d, 0), path.total - 1e-3);
+    let lo = 0;
+    let hi = path.cum.length - 1;
+    while (lo + 1 < hi) {
+      const mid = (lo + hi) >> 1;
+      if ((path.cum[mid] ?? 0) <= dd) lo = mid;
+      else hi = mid;
+    }
+    const c0 = path.cum[lo] ?? 0;
+    const c1 = path.cum[lo + 1] ?? c0 + 1;
+    const p0 = path.pts[lo];
+    const p1 = path.pts[lo + 1];
+    if (!p0 || !p1) return undefined;
+    const t = Math.min(1, Math.max(0, (dd - c0) / Math.max(1e-6, c1 - c0)));
+    const dx = p1.x - p0.x;
+    const dy = p1.y - p0.y;
+    const len = Math.hypot(dx, dy) || 1;
+    return {
+      x: p0.x + dx * t,
+      y: p0.y + dy * t,
+      nx: dx / len,
+      ny: dy / len,
+      water: t < 0.5 ? p0.water : p1.water,
+    };
+  }
+
+  // --- the living world -------------------------------------------------------
+
+  private spawnVehicles(): void {
+    let seed = 0xcab5;
     const rnd = (): number => {
       seed = (seed * 1664525 + 1013904223) >>> 0;
       return seed / 0xffffffff;
     };
-    for (let k = 0; k < count; k++) {
-      const cur = tiles[Math.floor(rnd() * tiles.length)] ?? tiles[0] ?? 0;
-      const nbs = this.roadNeighbors.get(cur) ?? [];
-      const next = nbs[Math.floor(rnd() * nbs.length)] ?? cur;
-      const g = new Graphics();
-      const isTaxi = rnd() < 0.12;
-      const body = isTaxi ? 0xffd277 : CAR_COLORS[Math.floor(rnd() * CAR_COLORS.length)] ?? 0xf4f1ea;
-      const L = 7 * RES;
-      const W2 = 4 * RES;
-      g.roundRect(-L / 2, -W2 / 2, L, W2, 1.5 * RES).fill(body);
-      g.roundRect(-L * 0.18, -W2 * 0.34, L * 0.42, W2 * 0.68, RES).fill(
-        isTaxi ? TAXI : 0x27324d,
-      );
-      this.carLayer.addChild(g);
-      this.cars.push({ cur, next, prev: cur, t: rnd(), speed: 0.55 + rnd() * 0.5, g });
-      void map;
+    let cars = 0;
+    for (const path of this.routePaths) {
+      const river = (path as RoutePath & { isRiver?: boolean }).isRiver === true;
+      const st = ROUTE_STYLE[path.kind];
+      if (river) {
+        for (let b = 0; b < 9; b++) {
+          const hull = new Graphics();
+          const big = rnd() < 0.3;
+          const L = (big ? 13 : 9) * RES;
+          const W2 = (big ? 5 : 3.6) * RES;
+          hull.roundRect(-L / 2, -W2 / 2, L, W2, W2 / 2).fill(big ? 0x39426e : 0x6e5a43);
+          hull.rect(-L * 0.1, -W2 * 0.3, L * 0.3, W2 * 0.6).fill(0xf4f1ea);
+          this.vehicleLayer.addChild(hull);
+          this.vehicles.push({
+            path,
+            s: rnd() * path.total,
+            dir: rnd() < 0.5 ? 1 : -1,
+            speed: 0.5 + rnd() * 0.4,
+            g: hull,
+            cars: [],
+            kind: 'boat',
+          });
+        }
+        continue;
+      }
+      if (path.kind === 'rail') {
+        for (let t = 0; t < 2; t++) {
+          const loco = new Graphics();
+          const carsG: Graphics[] = [];
+          const mk = (lead: boolean): Graphics => {
+            const c = new Graphics();
+            c.roundRect(-5.5 * RES, -2.6 * RES, 11 * RES, 5.2 * RES, 1.4 * RES).fill(0x39426e);
+            c.rect(-4.5 * RES, -1.4 * RES, 9 * RES, 1 * RES).fill(0xffd277);
+            if (lead) c.rect(3.6 * RES, -2 * RES, 1.6 * RES, 4 * RES).fill(0xff8a1e);
+            return c;
+          };
+          loco.addChild(mk(true));
+          this.vehicleLayer.addChild(loco);
+          for (let k = 0; k < 3; k++) {
+            const c = mk(false);
+            this.vehicleLayer.addChild(c);
+            carsG.push(c);
+          }
+          this.vehicles.push({
+            path,
+            s: rnd() * path.total,
+            dir: rnd() < 0.5 ? 1 : -1,
+            speed: ROUTE_STYLE.rail.speed * (0.85 + rnd() * 0.3),
+            g: loco,
+            cars: carsG,
+            kind: 'train',
+          });
+        }
+        continue;
+      }
+      // cars by route length
+      const want = Math.min(40, Math.floor(path.total / (st.perTile * path.pxPerTile)));
+      for (let k = 0; k < want && cars < 320; k++) {
+        cars++;
+        const isTaxi = rnd() < 0.1;
+        const body = isTaxi ? 0xffd277 : CAR_COLORS[Math.floor(rnd() * CAR_COLORS.length)] ?? 0xf4f1ea;
+        const gg = new Graphics();
+        const L = 7 * RES;
+        const W2 = 4 * RES;
+        gg.roundRect(-L / 2, -W2 / 2, L, W2, 1.5 * RES).fill(body);
+        gg.roundRect(-L * 0.18, -W2 * 0.34, L * 0.42, W2 * 0.68, RES).fill(0x27324d);
+        this.vehicleLayer.addChild(gg);
+        this.vehicles.push({
+          path,
+          s: rnd() * path.total,
+          dir: rnd() < 0.5 ? 1 : -1,
+          speed: st.speed * (0.8 + rnd() * 0.45),
+          g: gg,
+          cars: [],
+          kind: 'car',
+        });
+      }
     }
   }
 
-  private stepCars(dt: number): void {
-    const map = this.map;
-    if (!map || this.cars.length === 0 || !this.carLayer.visible) return;
-    const w = map.width;
-    for (const car of this.cars) {
-      car.t += dt * car.speed;
-      while (car.t >= 1) {
-        car.t -= 1;
-        const arrived = car.next;
-        const nbs = this.roadNeighbors.get(arrived) ?? [];
-        let pick = arrived;
-        if (nbs.length === 1) {
-          pick = nbs[0] ?? arrived;
-        } else if (nbs.length > 1) {
-          // avoid U-turns at junctions
-          const options = nbs.filter((n) => n !== car.cur);
-          pick = options[Math.floor(Math.random() * options.length)] ?? nbs[0] ?? arrived;
-        }
-        car.prev = car.cur;
-        car.cur = arrived;
-        car.next = pick;
+  private stepVehicles(dt: number): void {
+    if (!this.vehicleLayer.visible) return;
+    for (const v of this.vehicles) {
+      v.s += dt * v.speed * v.path.pxPerTile * v.dir;
+      if (v.s < 0 || v.s > v.path.total) {
+        v.dir = -v.dir as 1 | -1;
+        v.s = Math.min(Math.max(v.s, 0), v.path.total);
       }
-      const ax = car.cur % w;
-      const ay = Math.floor(car.cur / w);
-      const bx = car.next % w;
-      const by = Math.floor(car.next / w);
-      const a = this.tileCentre(ax, ay);
-      const b = this.tileCentre(bx, by);
-      const dirX = b.x - a.x;
-      const dirY = b.y - a.y;
-      const len = Math.hypot(dirX, dirY) || 1;
-      // keep left: offset to the left of travel, like home
-      const lane = 6 * RES;
-      const ox = (dirY / len) * lane * -1;
-      const oy = (dirX / len) * lane;
-      const lift = map.terrain[car.cur] === TERRAIN.water ? 10 * RES : 0; // bridges
-      car.g.position.set(a.x + dirX * car.t + ox, a.y + dirY * car.t + oy - lift);
-      if (dirX !== 0 || dirY !== 0) car.g.rotation = Math.atan2(dirY, dirX);
+      const lane =
+        v.kind === 'car'
+          ? (v.path.kind === 'motorway' ? 4 * RES : v.path.kind === 'arterial' ? 2.6 * RES : 1.6 * RES) * v.dir
+          : v.kind === 'boat'
+            ? 4 * RES * v.dir
+            : 0;
+      const place = (g: Graphics, dist: number): void => {
+        const p = this.pointAt(v.path, dist);
+        if (!p) return;
+        const lift = p.water && v.kind !== 'boat' ? 8 * RES : 0;
+        g.position.set(p.x - p.ny * lane, p.y + p.nx * lane - lift);
+        g.rotation = Math.atan2(p.ny * v.dir, p.nx * v.dir);
+      };
+      place(v.g, v.s);
+      for (let k = 0; k < v.cars.length; k++) {
+        const c = v.cars[k];
+        if (c) place(c, v.s - v.dir * (k + 1) * 12 * RES);
+      }
+    }
+  }
+
+  private animate(dt: number): void {
+    if (this.destroyed || !this.map) return;
+    this.stepVehicles(dt);
+    this.stepRotors(dt);
+    this.stepFlow(dt);
+    this.stepPulses(dt);
+    this.bobPhase += dt;
+    for (const child of this.siteLayer.children) {
+      const base = (child as Container & { baseY?: number }).baseY;
+      if (base !== undefined) child.y = base + Math.sin(this.bobPhase * 2.4 + child.x * 0.01) * 4 * RES;
     }
   }
 
   private stepRotors(dt: number): void {
-    if (this.rotors.length === 0) return;
     for (const r of this.rotors) {
-      r.g.rotation += dt * (r.g.visible ? (0.6 + 2.6 * this.windNow) * ((r.g as RotorG).spin ?? 1) : 0);
+      r.g.rotation += dt * (0.6 + 2.6 * this.windNow) * ((r.g as RotorG).spin ?? 1);
     }
   }
 
@@ -463,7 +810,6 @@ export class MapRenderer {
       const distBase = (this.flowPhase * Math.abs(anim.speed)) % gap;
       for (let d = distBase; d < total; d += gap) {
         const s = anim.speed > 0 ? d : total - d;
-        // locate segment
         let seg = 0;
         while (seg + 1 < anim.cum.length && (anim.cum[seg + 1] ?? 0) < s) seg++;
         const c0 = anim.cum[seg] ?? 0;
@@ -476,7 +822,6 @@ export class MapRenderer {
         const y = p0.y + (p1.y - p0.y) * t;
         let ang = Math.atan2(p1.y - p0.y, p1.x - p0.x);
         if (anim.speed < 0) ang += Math.PI;
-        // chevron pointing along flow
         const ca = Math.cos(ang);
         const sa = Math.sin(ang);
         this.flowG.poly([
@@ -498,7 +843,7 @@ export class MapRenderer {
     for (let i = 0; i < coverage.length && budget > 0; i++) {
       const was = prev[i];
       const now = coverage[i];
-      if (now === COV.on && (was === COV.unserved || was === COV.off) ) {
+      if (now === COV.on && (was === COV.unserved || was === COV.off)) {
         this.pulses.push({ x: i % map.width, y: Math.floor(i / map.width), age: 0 });
         budget--;
       }
@@ -535,12 +880,44 @@ export class MapRenderer {
       if (!a || a.kind !== 'gen') continue;
       const cap = GENS[a.gen].capacityMW;
       const out = mwOf.get(r.assetId) ?? 0;
-      // turning speed follows actual dispatch; idles slowly when parked
       (r.g as RotorG).spin = out > 0 ? 0.5 + (out / cap) * 1.2 : 0.12;
     }
   }
 
-  // --- dynamic layers ---------------------------------------------------------
+  // --- bubbles: applications, tenders and angry customers ---------------------
+
+  private rebuildSites(sites: SiteView[]): void {
+    this.siteLayer.removeChildren().forEach((c) => c.destroy({ children: true }));
+    const STYLE: Record<SiteView['icon'], { bg: number; glyph: string; fg: number }> = {
+      application: { bg: 0xffd277, glyph: '!', fg: 0x10162f },
+      tender: { bg: 0x5ea3ff, glyph: '£', fg: 0x10162f },
+      overdue: { bg: 0xe0697a, glyph: '⚡', fg: 0xfff6e8 },
+      building: { bg: 0x9aa4b5, glyph: '⛏', fg: 0x10162f },
+    };
+    for (const site of sites) {
+      const st = STYLE[site.icon];
+      const c = this.tileCentre(site.x, site.y);
+      const bubble = new Container() as Container & { baseY?: number };
+      const g = new Graphics();
+      const r = 11 * RES;
+      g.circle(0, -r * 2.1, r).fill({ color: st.bg, alpha: 0.96 });
+      g.poly([-r * 0.4, -r * 1.35, r * 0.4, -r * 1.35, 0, 0]).fill({ color: st.bg, alpha: 0.96 });
+      g.circle(0, -r * 2.1, r).stroke({ color: 0x241c38, width: 1.4 * RES, alpha: 0.9 });
+      bubble.addChild(g);
+      const label = new Text({
+        text: st.glyph,
+        style: { fontFamily: 'monospace', fontSize: 13 * RES, fontWeight: '800', fill: st.fg },
+      });
+      label.anchor.set(0.5);
+      label.position.set(0, -r * 2.1);
+      bubble.addChild(label);
+      bubble.position.set(c.x, c.y - 30 * RES);
+      bubble.baseY = c.y - 30 * RES;
+      this.siteLayer.addChild(bubble);
+    }
+  }
+
+  // --- dynamic layers ----------------------------------------------------------
 
   private drawFleet(vans: VanView[], jobs: JobView[]): void {
     this.jobsG.clear();
@@ -552,7 +929,6 @@ export class MapRenderer {
       this.jobsG.stroke({ color: 0xe0697a, width: 4 * RES, alpha: 0.9 });
       this.jobsG.circle(c.x, c.y - 32 * RES, 4 * RES).fill({ color: 0xe0697a, alpha: 0.95 });
     }
-
     const tex = this.textures.get('van');
     const seen = new Set<number>();
     for (const v of vans) {
@@ -575,17 +951,20 @@ export class MapRenderer {
     }
   }
 
-  /** Soft smog blobs around running thermal plant. */
   private drawSmog(assets: PlacedAsset[], mwOf: Map<number, number>): void {
     this.smogG.clear();
     for (const a of assets) {
-      if (a.kind !== 'gen' || (a.gen !== 'gasCCGT' && a.gen !== 'gasPeaker' && a.gen !== 'biomass'))
+      if (
+        a.kind !== 'gen' ||
+        (a.gen !== 'gasCCGT' && a.gen !== 'gasPeaker' && a.gen !== 'biomass' && a.gen !== 'coal')
+      )
         continue;
       const out = mwOf.get(a.id) ?? 0;
       if (out <= 0) continue;
       const c = this.tileCentre(a.x, a.y);
       const cap = GENS[a.gen].capacityMW;
-      const r = (5 + 6 * Math.min(1, out / cap)) * (a.gen === 'gasCCGT' ? 1 : 0.55);
+      const big = a.gen === 'gasCCGT' || a.gen === 'coal';
+      const r = (5 + 6 * Math.min(1, out / cap)) * (big ? 1 : 0.55);
       for (const [mul, alpha] of [
         [1.6, 0.05],
         [1.0, 0.08],
@@ -593,7 +972,7 @@ export class MapRenderer {
       ] as const) {
         this.smogG
           .ellipse(c.x + 14 * RES, c.y - 10 * RES, r * mul * HALF_W * 0.5, r * mul * HALF_H * 0.5)
-          .fill({ color: 0x6a6276, alpha });
+          .fill({ color: a.gen === 'coal' ? 0x57505e : 0x6a6276, alpha });
       }
     }
   }
@@ -608,10 +987,15 @@ export class MapRenderer {
 
     if (ghost.kind === 'tile') {
       const ok = ghost.ok;
-      this.diamond(this.ghostG, ghost.x, ghost.y, 1.0);
-      this.ghostG.fill({ color: ok ? 0x7bc47f : 0xe0697a, alpha: 0.3 });
-      this.diamond(this.ghostG, ghost.x, ghost.y, 1.0);
-      this.ghostG.stroke({ color: ok ? 0x7bc47f : 0xe0697a, width: 2 * RES, alpha: 0.9 });
+      const [fw, fh] = ghost.fp ?? [1, 1];
+      for (let dy = 0; dy < fh; dy++) {
+        for (let dx = 0; dx < fw; dx++) {
+          this.diamond(this.ghostG, ghost.x + dx, ghost.y + dy, 1.0);
+          this.ghostG.fill({ color: ok ? 0x7bc47f : 0xe0697a, alpha: 0.3 });
+          this.diamond(this.ghostG, ghost.x + dx, ghost.y + dy, 1.0);
+          this.ghostG.stroke({ color: ok ? 0x7bc47f : 0xe0697a, width: 2 * RES, alpha: 0.9 });
+        }
+      }
       if (ghost.radius !== undefined && ok) {
         this.tileCircle(this.ghostG, ghost.x, ghost.y, ghost.radius);
         this.ghostG.stroke({ color: 0xffb066, width: 2 * RES, alpha: 0.55 });
@@ -621,7 +1005,7 @@ export class MapRenderer {
         if (tex) {
           const s = new Sprite(tex);
           const c = this.tileCentre(ghost.x, ghost.y);
-          s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
+          s.position.set(c.x - fh * HALF_W, c.y - HALF_H - (CELL_H - FLOOR_H));
           s.alpha = 0.65;
           this.world.addChild(s);
           this.ghostSprite = s;
@@ -633,7 +1017,6 @@ export class MapRenderer {
       const color = ghost.ok ? LEVEL_COLOR[ghost.level] : 0xe0697a;
       this.ghostG.moveTo(a.x, a.y - 8 * RES).lineTo(b.x, b.y - 8 * RES);
       this.ghostG.stroke({ color, width: LEVEL_WIDTH[ghost.level], alpha: 0.55 });
-      // preview where the supports will stand
       const map = this.map;
       if (map && ghost.ok) {
         for (const i of ghost.pylons ?? []) {
@@ -654,10 +1037,9 @@ export class MapRenderer {
   private rebuildAssetSprites(assets: PlacedAsset[], simTimeMin: number): void {
     this.assetLayer.removeChildren().forEach((c) => c.destroy());
     this.rotors = [];
+    const map = this.map;
     for (const a of assets) {
       if (a.kind === 'line') {
-        // the line's supports: pylons or poles standing along the route
-        const map = this.map;
         const tex = this.textures.get(PYLON_SPRITE[a.level]);
         if (!map || !tex || a.build === 'underground') continue;
         for (const i of a.pylons ?? []) {
@@ -681,13 +1063,17 @@ export class MapRenderer {
             : 'depot';
       const tex = name ? this.textures.get(name) : undefined;
       if (!tex) continue;
+      const [fw, fh] = a.kind === 'gen' ? (GENS[a.gen].footprint ?? [1, 1]) : [1, 1];
       const s = new Sprite(tex);
       const c = this.tileCentre(a.x, a.y);
-      s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
-      s.zIndex = a.x + a.y;
+      if (!building && (fw > 1 || fh > 1)) {
+        s.position.set(c.x - fh * HALF_W, c.y - HALF_H - (CELL_H - FLOOR_H));
+      } else {
+        s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
+      }
+      s.zIndex = a.x + fw - 1 + a.y + fh - 1;
       this.assetLayer.addChild(s);
 
-      // live rotors on commissioned turbines
       if (!building && a.kind === 'gen' && (a.gen === 'windOnshore' || a.gen === 'windOffshore')) {
         for (const spec of WIND_HUBS[a.gen === 'windOffshore' ? 'offshore' : 'onshore']) {
           const [hx, hy] = windHubOffset(spec);
@@ -700,7 +1086,7 @@ export class MapRenderer {
           rotor.stroke({ color: 0xf4f1ea, width: 2.2 * RES, cap: 'round' });
           rotor.circle(0, 0, 2.6 * RES).fill(0xff8a1e);
           rotor.position.set(c.x - HALF_W + hx, c.y + HALF_H - CELL_H + hy);
-          rotor.scale.y = 0.92; // squash into the iso plane
+          rotor.scale.y = 0.92;
           rotor.zIndex = a.x + a.y + 0.1;
           rotor.spin = 1;
           this.assetLayer.addChild(rotor);
@@ -740,7 +1126,6 @@ export class MapRenderer {
         continue;
       }
 
-      // overhead: hop support to support with catenary sag
       const attach = ATTACH_Z[a.level];
       const supports: Array<{ x: number; y: number }> = [];
       {
@@ -758,7 +1143,6 @@ export class MapRenderer {
         supports.push({ x: c.x, y: c.y - END_Z });
       }
 
-      // 33 kV runs three-phase: a visible triple conductor on the crossarm
       const strands = a.level === 33 ? [-3 * RES, 0, 3 * RES] : [0];
       const animPts: Array<{ x: number; y: number }> = [];
       for (const offset of strands) {
@@ -786,7 +1170,6 @@ export class MapRenderer {
     }
   }
 
-  /** Stroke a polyline with the dark casing underneath for contrast. */
   private strokeSpan(
     pts: Array<{ x: number; y: number }>,
     width: number,
@@ -811,7 +1194,6 @@ export class MapRenderer {
       }
       this.linesG.stroke({ color, width, alpha, cap: 'round', join: 'round' });
     } else {
-      // dashed: out of service
       for (let i = 0; i + 1 < pts.length; i += 2) {
         const p0 = pts[i];
         const p1 = pts[i + 1];
@@ -851,11 +1233,11 @@ export class MapRenderer {
         if (cov === COV.empty || cov === COV.on) continue;
         this.diamond(this.coverageG, x, y, 1.0);
         if (cov === COV.unserved) {
-          this.coverageG.fill({ color: 0x0a0e22, alpha: 0.5 }); // dark, cold, waiting
+          this.coverageG.fill({ color: 0x0a0e22, alpha: 0.5 });
         } else if (cov === COV.off) {
-          this.coverageG.fill({ color: 0xe0697a, alpha: 0.4 }); // blacked out
+          this.coverageG.fill({ color: 0xe0697a, alpha: 0.4 });
         } else {
-          this.coverageG.fill({ color: 0xf5c469, alpha: 0.28 }); // brownout
+          this.coverageG.fill({ color: 0xf5c469, alpha: 0.28 });
         }
       }
     }
@@ -871,14 +1253,11 @@ export class MapRenderer {
     ]);
   }
 
-  /** Tile-space circle (e.g. service radius) projected to the iso plane. */
   private tileCircle(g: Graphics, x: number, y: number, r: number): void {
     const pts: number[] = [];
     for (let i = 0; i < 40; i++) {
       const a = (i / 40) * Math.PI * 2;
-      const tx = x + Math.cos(a) * r;
-      const ty = y + Math.sin(a) * r;
-      const c = this.tileCentre(tx, ty);
+      const c = this.tileCentre(x + Math.cos(a) * r, y + Math.sin(a) * r);
       pts.push(c.x, c.y);
     }
     g.poly(pts);
@@ -898,28 +1277,12 @@ export class MapRenderer {
     ctx.putImageData(new ImageData(atlas.pixels, atlas.width, atlas.height), 0, 0);
     const base = Texture.from(canvas);
     base.source.scaleMode = 'linear';
-    for (const [name, { x, y }] of atlas.frames) {
+    for (const [name, f] of atlas.frames) {
       this.textures.set(
         name,
-        new Texture({ source: base.source, frame: new Rectangle(x, y, CELL_W, CELL_H) }),
+        new Texture({ source: base.source, frame: new Rectangle(f.x, f.y, f.w, f.h) }),
       );
-    }
-  }
-
-  private buildCity(map: CityMap): void {
-    // painter order: back-to-front along x+y diagonals
-    for (let k = 0; k <= map.width + map.height - 2; k++) {
-      const xStart = Math.max(0, k - map.height + 1);
-      const xEnd = Math.min(map.width - 1, k);
-      for (let x = xStart; x <= xEnd; x++) {
-        const y = k - x;
-        const tex = this.textures.get(spriteNameFor(map, x, y));
-        if (!tex) continue;
-        const s = new Sprite(tex);
-        const c = this.tileCentre(x, y);
-        s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
-        this.city.addChild(s);
-      }
+      this.frameSize.set(name, { w: f.w, h: f.h });
     }
   }
 
@@ -937,7 +1300,7 @@ export class MapRenderer {
 
   private attachInput(map: CityMap): void {
     const canvas = this.app.canvas;
-    canvas.style.touchAction = 'none'; // we own pan + pinch
+    canvas.style.touchAction = 'none';
     const touches = new Map<number, { x: number; y: number }>();
     let pinchDist = 0;
 
@@ -947,7 +1310,7 @@ export class MapRenderer {
         const [a, b] = [...touches.values()];
         pinchDist = a && b ? Math.hypot(b.x - a.x, b.y - a.y) : 0;
         this.dragging = false;
-        this.dragTravel = Number.POSITIVE_INFINITY; // a pinch is never a click
+        this.dragTravel = Number.POSITIVE_INFINITY;
       } else {
         this.dragging = true;
         this.dragTravel = 0;
@@ -975,7 +1338,6 @@ export class MapRenderer {
     canvas.addEventListener('pointermove', (e) => {
       if (touches.has(e.pointerId)) touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.size === 2) {
-        // pinch: zoom about the midpoint, panning with it
         const [a, b] = [...touches.values()];
         if (!a || !b) return;
         const dist = Math.hypot(b.x - a.x, b.y - a.y);
@@ -1025,10 +1387,6 @@ export class MapRenderer {
   }
 }
 
-interface RotorG extends Graphics {
-  spin?: number;
-}
-
 /** Chevrons ride brighter than the line they sit on. */
 function tinge(color: number): number {
   const r = Math.min(255, ((color >> 16) & 0xff) + 70);
@@ -1036,3 +1394,7 @@ function tinge(color: number): number {
   const b = Math.min(255, (color & 0xff) + 70);
   return (r << 16) | (g << 8) | b;
 }
+
+// keep the suitability overlay honest about who lives where after growth
+export { CUSTOMERS_PER_TILE };
+export type { Zone };

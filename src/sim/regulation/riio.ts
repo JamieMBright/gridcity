@@ -58,6 +58,8 @@ export interface PeriodState {
   ciStart: number;
   cmlStart: number;
   curtailedFirmStart: number;
+  /** Developer complaints lodged with the regulator this period. */
+  complaints: number;
 }
 
 export function newPeriod(index: number, startMin: number, targets: PeriodTargets): PeriodState {
@@ -73,6 +75,7 @@ export function newPeriod(index: number, startMin: number, targets: PeriodTarget
     ciStart: 0,
     cmlStart: 0,
     curtailedFirmStart: 0,
+    complaints: 0,
   };
 }
 
@@ -129,7 +132,9 @@ export function closePeriod(p: PeriodState, actuals: PeriodActuals): ReportCard 
     scores[key] = scoreOne(key, actuals[key], p.targets[key]);
     composite += scores[key].score * WEIGHTS[key];
   }
-  composite = Math.round(composite);
+  // every developer complaint to the regulator dents the rating
+  composite -= Math.min(12, p.complaints * 3);
+  composite = Math.max(0, Math.round(composite));
   return {
     index: p.index,
     closedAtMin: p.startMin + PERIOD_MIN,

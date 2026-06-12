@@ -22,6 +22,7 @@ const ZONE_NAMES: Record<Zone, string> = {
   [ZONE.windSite]: 'Offshore wind zone',
   [ZONE.nuclearSite]: 'Nuclear-capable site',
   [ZONE.cbd]: 'Skyscraper district',
+  [ZONE.newEstate]: 'New-build estate (iDNO)',
 };
 
 const TERRAIN_NAMES: Record<Terrain, string> = {
@@ -29,6 +30,13 @@ const TERRAIN_NAMES: Record<Terrain, string> = {
   [TERRAIN.land]: 'Land',
   [TERRAIN.hill]: 'Hills',
   [TERRAIN.trees]: 'Woodland',
+};
+
+const ROAD_NAMES: Record<number, string | undefined> = {
+  2: 'Street',
+  3: 'A road',
+  4: 'Motorway',
+  5: 'Railway',
 };
 
 const COV_BADGE: Record<number, { label: string; color: string }> = {
@@ -50,7 +58,7 @@ export function InfoPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   const councilId = map.council[i] ?? NO_COUNCIL;
   const council = councilId === NO_COUNCIL ? undefined : map.councils[councilId];
   const customers = map.customers[i] ?? 0;
-  const road = map.road[i] === 1;
+  const roadClass = map.road[i] ?? 0;
   const cov = snapshot?.coverage[i] ?? COV.empty;
   const badge = COV_BADGE[cov];
 
@@ -71,7 +79,7 @@ export function InfoPanel({ frame }: { frame?: React.CSSProperties } = {}) {
       }}
     >
       <div style={{ color: theme.orange, fontWeight: 700 }}>
-        {road ? 'Street' : ZONE_NAMES[zone]}
+        {ROAD_NAMES[roadClass] ?? ZONE_NAMES[zone]}
       </div>
       <div style={{ color: theme.slate, fontSize: 11 }}>
         {TERRAIN_NAMES[terrain]} · tile {hovered.x},{hovered.y}

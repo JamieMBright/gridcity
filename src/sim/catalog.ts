@@ -8,6 +8,7 @@ import type { VoltageLevel } from './grid/types';
 export type GenType =
   | 'gasCCGT'
   | 'gasPeaker'
+  | 'coal'
   | 'nuclear'
   | 'solarFarm'
   | 'windOnshore'
@@ -36,6 +37,9 @@ export interface GenSpec {
   planningDays: number;
   /** Construction, game-days until the plant is commissioned. */
   buildDays: number;
+  /** Tile footprint [w, h]; omitted = a single tile. Big thermal plant
+   *  spreads out — cooling towers and all sorts. */
+  footprint?: [number, number];
   /** Storage capacity, MWh (batteries only). */
   energyMWh?: number;
 }
@@ -65,6 +69,19 @@ export const GENS: Record<GenType, GenSpec> = {
     planningDays: 30,
     buildDays: 45,
   },
+  coal: {
+    name: 'Coal station',
+    capacityMW: 1500,
+    level: 400,
+    capexK: 1_600_000,
+    opexFrac: 0.03,
+    marginalCostK: 0.06,
+    carbonG: 820,
+    siting: 'land',
+    planningDays: 120,
+    buildDays: 360,
+    footprint: [3, 2],
+  },
   nuclear: {
     name: 'Nuclear',
     capacityMW: 3200,
@@ -76,6 +93,7 @@ export const GENS: Record<GenType, GenSpec> = {
     siting: 'nuclearSite',
     planningDays: 365,
     buildDays: 720,
+    footprint: [2, 2],
   },
   solarFarm: {
     name: 'Solar farm',

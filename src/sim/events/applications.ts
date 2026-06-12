@@ -57,9 +57,15 @@ const SPECS: Record<AppKind, { mw: number; customers: number }> = {
   solarFarm: { mw: 50, customers: 0 },
   windOnshore: { mw: 100, customers: 0 },
   battery: { mw: 100, customers: 0 },
-  dataCentre: { mw: 18, customers: 40 },
+  dataCentre: { mw: 60, customers: 50 }, // mw randomized 40–120 at spawn
   evHub: { mw: 8, customers: 25 },
 };
+
+/** Data-centre demand band, MW (uniform at spawn). */
+export const DATACENTRE_MW_MIN = 40;
+export const DATACENTRE_MW_MAX = 120;
+/** Data centres want dense urban fabric: tiles at least this populous. */
+export const DATACENTRE_MIN_CUSTOMERS = 60;
 
 function findSite(
   map: CityMap,
@@ -85,8 +91,8 @@ function findSite(
         if (zone === ZONE.none && terrain === TERRAIN.land) return { x, y };
         break;
       case 'dataCentre':
-        if (zone === ZONE.industrial || (zone === ZONE.none && terrain === TERRAIN.land && x > 80))
-          return { x, y };
+        // hyperscalers want the dense urban grid: fibre, staff, latency
+        if ((map.customers[i] ?? 0) >= DATACENTRE_MIN_CUSTOMERS) return { x, y };
         break;
       case 'evHub':
         if (zone === ZONE.none && terrain === TERRAIN.land) return { x, y };
@@ -113,18 +119,26 @@ export function maybeSpawnApplication(
   const p = dtMin / (meanIntervalDays(servedCustomers) * 1440);
   if (!rng.chance(p)) return undefined;
   const kinds: AppKind[] = ['solarFarm', 'solarFarm', 'windOnshore', 'battery', 'dataCentre', 'evHub'];
+  // data centres smell a grid that can feed them: the bigger the served
+  // base, the more often they come knocking
+  if (servedCustomers > 10_000) kinds.push('dataCentre');
+  if (servedCustomers > 30_000) kinds.push('dataCentre', 'dataCentre');
   const kind = kinds[rng.int(kinds.length)] ?? 'solarFarm';
   const site = findSite(map, rng, kind, taken);
   if (!site) return undefined;
   const names = NAMES[kind];
   const spec = SPECS[kind];
+  const mw =
+    kind === 'dataCentre'
+      ? DATACENTRE_MW_MIN + rng.int(DATACENTRE_MW_MAX - DATACENTRE_MW_MIN + 1)
+      : spec.mw;
   return {
     id: nextId,
     kind,
     name: names[rng.int(names.length)] ?? kind,
     x: site.x,
     y: site.y,
-    mw: spec.mw,
+    mw,
     customers: spec.customers,
     decideByMin: simTimeMin + DECIDE_DAYS * 1440,
     status: 'open',

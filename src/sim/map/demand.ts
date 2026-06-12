@@ -40,7 +40,13 @@ export function tileDemand(
   };
   const councilId = map.council[i] ?? NO_COUNCIL;
   const a = councilId === NO_COUNCIL ? undefined : councils?.get(councilId);
-  if (a && customers > 0) {
+  if (zone === ZONE.newEstate && customers > 0) {
+    // new-build estate: every home already has the EV, the heat pump and
+    // the solar — they're just waiting for someone to energize the iDNO
+    d.evMW = (customers * 0.9 * EV_KW) / 1000;
+    d.hpMW = (customers * 0.95 * HP_KW) / 1000;
+    d.pvMW = (customers * 0.85 * PV_EXPORT_KW) / 1000;
+  } else if (a && customers > 0) {
     d.evMW = (customers * a.ev * EV_KW) / 1000;
     d.hpMW = (customers * a.hp * HP_KW) / 1000;
     d.pvMW = (customers * a.pv * PV_EXPORT_KW) / 1000;
