@@ -32,8 +32,10 @@ model it the way GB actually works, then simplify for fun.
   e2e duplication was deliberately removed — local must stay identical
   to a clean checkout: fresh server, no reuse).
 - Use subagents for parallel independent work (art vs sim vs renderer).
-- The owner merges from their phone, or says "merge" — then create the
-  PR, wait for the fast CI, merge. Never push to main directly.
+- **Auto-merge is standing policy** (owner-authorized): when a work
+  package is complete and the full local suite is green, create the PR,
+  wait for CI, and merge it yourself — no need to ask. Never push to
+  main directly; never merge with failing checks.
 
 ## Architecture in one breath
 
