@@ -66,6 +66,11 @@ import {
 } from './networkSprites';
 import {
   groundFieldTile,
+  groundMarshTile,
+  groundPloughTile,
+  groundRapeTile,
+  hedgerowTile,
+  orchardTile,
   groundGrassTile,
   groundMoorTile,
   groundParkTile,
@@ -110,6 +115,11 @@ function buildSpriteCells(): Map<string, Cell> {
   for (let i = 0; i < 2; i++) set(`ground_pave_${i}`, groundPaveTile(i + 6));
   for (let i = 0; i < 2; i++) set(`ground_field_${i}`, groundFieldTile(i + 11));
   set('ground_moor', groundMoorTile(15));
+  set('ground_rape', groundRapeTile(16));
+  set('ground_plough', groundPloughTile(18));
+  for (let i = 0; i < 2; i++) set(`ground_marsh_${i}`, groundMarshTile(19 + i));
+  for (let i = 0; i < 2; i++) set(`hedgerow_${i}`, hedgerowTile(23 + i, i));
+  set('orchard_0', orchardTile(27));
   set('ground_park', groundParkTile(17));
   for (let mask = 0; mask < 16; mask++) set(`water_${mask}`, waterTile(61, mask));
   // world structures (transparent floors)

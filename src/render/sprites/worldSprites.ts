@@ -7,9 +7,9 @@
 // shares u=0.
 
 import { Rng } from '../../sim/rng';
-import { INK, INK_W, Iso, lit, P, shaded, top } from './iso';
+import { INK, INK_W, Iso, lit, P, RES, shaded, top } from './iso';
 import { COLORS } from './palette';
-import { alpha, darken, lighten } from './raster';
+import { alpha, darken, hex, lighten } from './raster';
 
 // --- Flat ground tiles (the ground pass) ------------------------------------
 
@@ -97,6 +97,105 @@ export function groundParkTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const stripe = alpha(lighten(COLORS.grass, 0.26), 0.5);
   for (let t = 0.14 + (rng.chance(0.5) ? 0.07 : 0); t < 0.95; t += 0.28) {
     iso.quad(0.02, t, 0.98, t + 0.14, 0, stripe);
+  }
+  return iso.build();
+}
+
+/** Rapeseed in bloom: the violently yellow parcel every spring drive knows. */
+export function groundRapeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 8443 + 9);
+  const rape = hex('#e8d23f');
+  iso.floor(rape, darken(rape, 0.12));
+  // blossom froth: lighter daubs over the bloom
+  for (let i = 0; i < 5; i++) {
+    const u = rng.range(0.05, 0.7);
+    const v = rng.range(0.05, 0.7);
+    iso.quad(u, v, u + rng.range(0.1, 0.25), v + rng.range(0.1, 0.25), 0, alpha(lighten(rape, 0.16), 0.6));
+  }
+  // tractor tramlines
+  for (let v = 0.18 + rng.range(0, 0.08); v < 0.95; v += 0.3) {
+    iso.quad(0.04, v, 0.96, v + 0.025, 0, alpha(darken(rape, 0.2), 0.5));
+  }
+  return iso.build();
+}
+
+/** Ploughed earth: bare brown furrows waiting for the drill. */
+export function groundPloughTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 9341 + 7);
+  const soil = hex('#8a6242');
+  iso.floor(soil, darken(soil, 0.14));
+  const off = rng.range(0, 0.05);
+  for (let v = 0.06 + off; v < 0.97; v += 0.09) {
+    iso.quad(0.02, v, 0.98, v + 0.035, 0, alpha(darken(soil, 0.22), 0.65));
+  }
+  if (rng.chance(0.3)) {
+    // a chalky patch
+    const u = rng.range(0.2, 0.6);
+    iso.quad(u, rng.range(0.2, 0.6), u + 0.2, rng.range(0.5, 0.8), 0, alpha(lighten(soil, 0.18), 0.4));
+  }
+  return iso.build();
+}
+
+/** Estuary marsh: wet olive flats, reed tufts, standing water glints. */
+export function groundMarshTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 7717 + 5);
+  const marsh = hex('#7d8a4e');
+  iso.floor(marsh, darken(marsh, 0.14));
+  // standing water pools
+  for (let i = 0; i < 2 + rng.int(2); i++) {
+    const u = rng.range(0.1, 0.6);
+    const v = rng.range(0.1, 0.6);
+    iso.quad(u, v, u + rng.range(0.12, 0.3), v + rng.range(0.1, 0.22), 0, alpha(COLORS.water, 0.55));
+    iso.quad(u + 0.02, v + 0.02, u + 0.08, v + 0.05, 0, alpha(COLORS.waterGlint, 0.5));
+  }
+  // reed tufts
+  for (let i = 0; i < 5; i++) {
+    const [px, py] = P(rng.range(0.1, 0.9), rng.range(0.1, 0.9), 0);
+    for (let r = -1; r <= 1; r++) {
+      iso.r.line([px + r * 1.2 * RES, py], [px + r * 2 * RES, py - (4 + rng.int(3)) * RES], 0.7 * RES, darken(marsh, 0.3));
+    }
+  }
+  return iso.build();
+}
+
+/** Hedgerow along the parcel boundary (S + E edges), with a field oak. */
+export function hedgerowTile(seed: number, variantIx: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 6553 + variantIx * 29 + 3);
+  const hedge = COLORS.treeDeep;
+  if (variantIx === 0) {
+    iso.box(0.02, 0.9, 0.98, 0.99, 0, 5 + rng.int(3), hedge, { ink: false });
+  } else {
+    iso.box(0.9, 0.02, 0.99, 0.98, 0, 5 + rng.int(3), hedge, { ink: false });
+  }
+  // gappy field gate
+  if (rng.chance(0.4)) {
+    const u = rng.range(0.3, 0.6);
+    if (variantIx === 0) {
+      const [gx, gy] = P(u, 0.95, 0);
+      iso.r.line([gx - 4 * RES, gy], [gx + 4 * RES, gy - 2 * RES], 0.9 * RES, hex('#7a5a3c'));
+      iso.r.line([gx - 4 * RES, gy - 3 * RES], [gx + 4 * RES, gy - 5 * RES], 0.9 * RES, hex('#7a5a3c'));
+    }
+  }
+  if (rng.chance(0.45)) {
+    iso.ball(rng.range(0.25, 0.7), rng.range(0.2, 0.6), 0.12, 26, COLORS.treeGreen);
+  }
+  return iso.build();
+}
+
+/** Orchard: fruit trees in tidy rows over grass. */
+export function orchardTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 5471 + 13);
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 3; col++) {
+      const u = 0.18 + col * 0.3 + rng.range(-0.03, 0.03);
+      const v = 0.18 + row * 0.3 + rng.range(-0.03, 0.03);
+      iso.ball(u, v, 0.075, 13 + rng.int(4), rng.chance(0.3) ? COLORS.treeLime : COLORS.treeGreen);
+    }
   }
   return iso.build();
 }

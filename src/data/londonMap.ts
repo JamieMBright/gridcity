@@ -249,6 +249,38 @@ export function buildLondonMap(): CityMap {
     if (rng.chance(0.3)) setTerrain(x, cy + 2, TERRAIN.water);
   }
 
+  // 1b) Tributaries: the Lea down from the north, the Wey/Mole up from
+  // the Surrey hills, the Colne in the west — thin winding water
+  const TRIBUTARIES: Array<Array<[number, number]>> = [
+    [[134, 14], [132, 30], [134, 46], [130, 62], [127, 74], [125, riverCenterY(125) - 1]], // Lea
+    [[98, 154], [102, 136], [100, 120], [102, 106], [101, riverCenterY(101) + 2]], // Wey/Mole
+    [[52, 18], [48, 38], [44, 60], [42, 84], [42, riverCenterY(42) - 1]], // Colne
+  ];
+  for (const trib of TRIBUTARIES) {
+    for (const [sx, sy] of sampleRoute({ kind: 'lane', pts: trib }, 0.4)) {
+      const tx = Math.round(sx + rng.range(-0.3, 0.3));
+      const ty = Math.round(sy);
+      setTerrain(tx, ty, TERRAIN.water);
+      if (rng.chance(0.35)) setTerrain(tx + 1, ty, TERRAIN.water);
+    }
+  }
+  // reservoir chains: along the Lea valley and out west by the Colne
+  for (const [cx, cy, r] of [
+    [136, 38, 2.2],
+    [135, 46, 2.6],
+    [138, 54, 2],
+    [38, 92, 2.8],
+    [44, 88, 2],
+    [206, 116, 2.2],
+  ] as const) {
+    for (let y = Math.floor(cy - r - 1); y <= cy + r + 1; y++) {
+      for (let x = Math.floor(cx - r - 1); x <= cx + r + 1; x++) {
+        const d = Math.hypot(x - cx, y - cy);
+        if (d <= r || (d <= r + 0.8 && rng.chance(0.4))) setTerrain(x, y, TERRAIN.water);
+      }
+    }
+  }
+
   // 2) Hills: the Chiltern edge NW, the North Downs along the south
   for (let x = 0; x < w; x++) {
     const ridgeN = 4 + 3 * Math.sin(x / 16) + rng.range(0, 2) + (x < 60 ? 3 : 0);
@@ -351,6 +383,16 @@ export function buildLondonMap(): CityMap {
   zoneRect(138, 86, 154, 92, ZONE.industrial, 2);
   zoneBlob(94, 70, 3, ZONE.industrial);
   zoneRect(186, 62, 198, 70, ZONE.industrial, 2);
+
+  // 5b) Copses: small woods scattered through the open countryside so the
+  // belt reads as enclosed English farmland, not a snooker table
+  for (let attempt = 0; attempt < 90; attempt++) {
+    const cx = 4 + rng.int(w - 8);
+    const cy = 6 + rng.int(h - 12);
+    if (zone[idx(cx, cy)] !== ZONE.none) continue;
+    if (!isLand(cx, cy)) continue;
+    forestBlob(cx, cy, 1 + rng.int(2));
+  }
 
   // 6) Satellite towns and villages beyond the belt
   for (const t of TOWNS) {
