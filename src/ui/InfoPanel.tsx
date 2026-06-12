@@ -36,7 +36,7 @@ const COV_BADGE: Record<number, { label: string; color: string }> = {
   [COV.off]: { label: 'blackout', color: theme.danger },
 };
 
-export function InfoPanel() {
+export function InfoPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   const hovered = useAppStore((s) => s.hoveredTile);
   const snapshot = useAppStore((s) => s.snapshot);
   if (!hovered) return null;
@@ -65,6 +65,7 @@ export function InfoPanel() {
         padding: '10px 14px',
         pointerEvents: 'none',
         lineHeight: 1.5,
+        ...frame,
       }}
     >
       <div style={{ color: theme.orange, fontWeight: 700 }}>

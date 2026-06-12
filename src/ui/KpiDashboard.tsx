@@ -38,7 +38,7 @@ export function KpiDashboard() {
       onClick={() => setOpen(false)}
     >
       <div
-        style={{ ...panelStyle, width: 460, padding: '16px 20px' }}
+        style={{ ...panelStyle, width: 'min(460px, 94vw)', padding: '16px 20px' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>

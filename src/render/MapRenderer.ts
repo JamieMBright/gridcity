@@ -937,22 +937,61 @@ export class MapRenderer {
 
   private attachInput(map: CityMap): void {
     const canvas = this.app.canvas;
+    canvas.style.touchAction = 'none'; // we own pan + pinch
+    const touches = new Map<number, { x: number; y: number }>();
+    let pinchDist = 0;
 
     canvas.addEventListener('pointerdown', (e) => {
-      this.dragging = true;
-      this.dragTravel = 0;
-      this.lastPointer = { x: e.clientX, y: e.clientY };
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (touches.size === 2) {
+        const [a, b] = [...touches.values()];
+        pinchDist = a && b ? Math.hypot(b.x - a.x, b.y - a.y) : 0;
+        this.dragging = false;
+        this.dragTravel = Number.POSITIVE_INFINITY; // a pinch is never a click
+      } else {
+        this.dragging = true;
+        this.dragTravel = 0;
+        this.lastPointer = { x: e.clientX, y: e.clientY };
+      }
       canvas.setPointerCapture(e.pointerId);
     });
+    const release = (e: PointerEvent): void => {
+      touches.delete(e.pointerId);
+      if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+    };
     canvas.addEventListener('pointerup', (e) => {
+      const wasPinching = touches.size >= 2;
+      release(e);
       this.dragging = false;
-      canvas.releasePointerCapture(e.pointerId);
-      if (this.dragTravel <= CLICK_SLOP_PX) {
+      if (!wasPinching && this.dragTravel <= CLICK_SLOP_PX) {
         const tile = this.tileFromClient(map, e.clientX, e.clientY);
         if (tile) this.onTileClick?.(tile);
       }
     });
+    canvas.addEventListener('pointercancel', (e) => {
+      release(e);
+      this.dragging = false;
+    });
     canvas.addEventListener('pointermove', (e) => {
+      if (touches.has(e.pointerId)) touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (touches.size === 2) {
+        // pinch: zoom about the midpoint, panning with it
+        const [a, b] = [...touches.values()];
+        if (!a || !b) return;
+        const dist = Math.hypot(b.x - a.x, b.y - a.y);
+        if (pinchDist > 0 && dist > 0) {
+          const rect = canvas.getBoundingClientRect();
+          const mx = (a.x + b.x) / 2 - rect.left;
+          const my = (a.y + b.y) / 2 - rect.top;
+          const old = this.world.scale.x;
+          const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, old * (dist / pinchDist)));
+          this.world.x = mx - ((mx - this.world.x) / old) * next;
+          this.world.y = my - ((my - this.world.y) / old) * next;
+          this.world.scale.set(next);
+        }
+        pinchDist = dist;
+        return;
+      }
       if (this.dragging) {
         this.world.x += e.clientX - this.lastPointer.x;
         this.world.y += e.clientY - this.lastPointer.y;

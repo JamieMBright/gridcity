@@ -110,7 +110,7 @@ function SoundButton() {
   );
 }
 
-export function Hud() {
+export function Hud({ compact = false }: { compact?: boolean } = {}) {
   const snapshot = useAppStore((s) => s.snapshot);
   const gridView = useAppStore((s) => s.gridView);
   const setGridView = useAppStore((s) => s.setGridView);
@@ -122,16 +122,19 @@ export function Hud() {
       style={{
         ...panelStyle,
         position: 'absolute',
-        bottom: 12,
+        bottom: compact ? 6 : 12,
         left: '50%',
         transform: 'translateX(-50%)',
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
-        padding: '6px 12px',
+        gap: compact ? 4 : 10,
+        padding: compact ? '4px 8px' : '6px 12px',
+        maxWidth: 'calc(100vw - 8px)',
+        whiteSpace: 'nowrap',
+        fontSize: compact ? 11 : undefined,
       }}
     >
-      <span style={{ minWidth: 110, color: theme.gold }}>
+      <span style={{ minWidth: compact ? 0 : 110, color: theme.gold }}>
         {snapshot ? formatGameClock(snapshot.simTimeMin) : '—'}
       </span>
       <span style={{ display: 'flex', gap: 2 }}>
@@ -158,7 +161,7 @@ export function Hud() {
           );
         })}
       </span>
-      <RiioButton />
+      {!compact && <RiioButton />}
       <SoundButton />
       <button
         onClick={() => setGridView(!gridView)}
@@ -175,7 +178,7 @@ export function Hud() {
           cursor: 'pointer',
         }}
       >
-        ⚡ grid view
+        {compact ? '⚡' : '⚡ grid view'}
       </button>
     </div>
     </>

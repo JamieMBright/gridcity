@@ -20,7 +20,7 @@ const btn = (color: string): React.CSSProperties => ({
   cursor: 'pointer',
 });
 
-export function InboxPanel() {
+export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   const snapshot = useAppStore((s) => s.snapshot);
   const requestPan = useAppStore((s) => s.requestPan);
   const [open, setOpen] = useState(true);
@@ -50,6 +50,7 @@ export function InboxPanel() {
         padding: '8px 12px',
         fontSize: 12,
         lineHeight: 1.5,
+        ...frame,
       }}
     >
       <div

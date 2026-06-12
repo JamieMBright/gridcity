@@ -49,6 +49,8 @@ function handleTileClick(x: number, y: number): void {
 
   switch (tool.t) {
     case 'inspect':
+      // touch devices don't hover: a tap inspects the tile
+      useAppStore.getState().setHoveredTile({ x, y });
       return;
     case 'gen':
     case 'sub':

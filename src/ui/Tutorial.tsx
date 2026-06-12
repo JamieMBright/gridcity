@@ -67,7 +67,7 @@ export function Tutorial() {
         top: 56,
         left: '50%',
         transform: 'translateX(-50%)',
-        width: 420,
+        width: 'min(420px, 92vw)',
         padding: '10px 14px',
         border: `1px solid ${theme.orange}`,
         zIndex: 5,

@@ -4,7 +4,7 @@ import { VAN_OPEX_K_YR, VEG_POLICY, type VegPolicy } from '../sim/catalog';
 import { MAX_VANS } from '../sim/fleet/fleet';
 import { panelStyle, theme } from './theme';
 
-export function FleetPanel() {
+export function FleetPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   const snapshot = useAppStore((s) => s.snapshot);
   if (!snapshot) return null;
   const fleet = snapshot.fleet;
@@ -23,6 +23,7 @@ export function FleetPanel() {
         padding: '8px 12px',
         fontSize: 12,
         lineHeight: 1.6,
+        ...frame,
       }}
     >
       <div style={{ color: theme.slate, fontSize: 10, letterSpacing: '0.12em' }}>FIELD FLEET</div>

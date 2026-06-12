@@ -8,12 +8,14 @@ import { InboxPanel } from '../ui/InboxPanel';
 import { InfoPanel } from '../ui/InfoPanel';
 import { KpiDashboard } from '../ui/KpiDashboard';
 import { MapView } from '../ui/MapView';
+import { MobileChrome } from '../ui/MobileChrome';
 import { StartMenu } from '../ui/StartMenu';
 import { Tutorial } from '../ui/Tutorial';
 import { panelStyle, theme } from '../ui/theme';
 import { playSfx } from '../audio/audio';
 import { HOTKEYS } from './hotkeys';
 import { useAppStore } from './store';
+import { useIsMobile } from './useIsMobile';
 import { initWorker, setSimSpeed } from './workerBridge';
 
 function Wordmark() {
@@ -160,6 +162,7 @@ export function App() {
     initWorker();
   }, []);
   useKeyboard();
+  const isMobile = useIsMobile();
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
@@ -174,15 +177,21 @@ export function App() {
             'linear-gradient(160deg, rgba(255,178,102,0.10) 0%, rgba(224,105,122,0.07) 45%, rgba(16,22,48,0.16) 100%)',
         }}
       />
-      <Wordmark />
-      <BuildPalette />
-      <InfoPanel />
-      <BillPanel />
-      <FleetPanel />
-      <InboxPanel />
-      <AlertsFeed />
-      <Hud />
-      <StatusBar />
+      {isMobile ? (
+        <MobileChrome />
+      ) : (
+        <>
+          <Wordmark />
+          <BuildPalette />
+          <InfoPanel />
+          <BillPanel />
+          <FleetPanel />
+          <InboxPanel />
+          <AlertsFeed />
+          <StatusBar />
+        </>
+      )}
+      <Hud compact={isMobile} />
       <Toast />
       <Tutorial />
       <KpiDashboard />

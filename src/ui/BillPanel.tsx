@@ -2,7 +2,7 @@ import { useAppStore } from '../app/store';
 import { sendCommand } from '../app/workerBridge';
 import { fmtMoneyK, panelStyle, theme } from './theme';
 
-export function BillPanel() {
+export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   const snapshot = useAppStore((s) => s.snapshot);
   if (!snapshot) return null;
   const b = snapshot.bill;
@@ -18,6 +18,7 @@ export function BillPanel() {
         width: 230,
         padding: '10px 14px',
         lineHeight: 1.55,
+        ...frame,
       }}
     >
       <div style={{ color: theme.slate, fontSize: 10, letterSpacing: '0.12em' }}>
