@@ -351,6 +351,40 @@ export function batteryTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
+/** HVDC interconnector terminal: the valves live indoors, so the site
+ *  reads as a tall boxy converter hall (navy, windowless, white roof
+ *  stripe, orange brand band) beside a modest DC switchyard — one
+ *  gantry, a converter transformer and a pair of white smoothing-
+ *  reactor drums. The submarine cable leaves off-map. */
+export function interconnectorTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  padFloor(iso);
+  fence(iso, 0.06, 12);
+  // converter hall
+  iso.shadow(0.1, 0.12, 0.56, 0.62, 0.22, 0.26);
+  iso.box(0.1, 0.12, 0.56, 0.62, 0, 36, NAVY);
+  iso.quad(0.12, 0.14, 0.54, 0.6, 36.2, lighten(NAVY, 0.08));
+  // white sign band high on the front face, orange band below it
+  iso.r.poly(
+    [P(0.12, 0.62 + 0.001, 32), P(0.54, 0.62 + 0.001, 32), P(0.54, 0.62 + 0.001, 28), P(0.12, 0.62 + 0.001, 28)],
+    COLORS.white,
+  );
+  iso.r.poly(
+    [P(0.56 + 0.001, 0.14, 26), P(0.56 + 0.001, 0.6, 26), P(0.56 + 0.001, 0.6, 21), P(0.56 + 0.001, 0.14, 21)],
+    COLORS.orange,
+  );
+  // DC yard: gantry across the back, converter transformer, drums
+  gantry(iso, 0.66, 0.92, 0.2, 42);
+  transformer(iso, 0.64, 0.4, 0.24, 18);
+  for (const v0 of [0.7, 0.82] as const) {
+    iso.shadow(0.66, v0, 0.78, v0 + 0.09, 0.06, 0.12);
+    iso.box(0.66, v0, 0.78, v0 + 0.09, 0, 10, COLORS.white);
+    iso.quad(0.665, v0 + 0.005, 0.775, v0 + 0.085, 10.2, COLORS.steel);
+  }
+  return iso.build();
+}
+
 /** Steel lattice transmission pylon, drawn as a true line figure: legs,
  *  zig-zag bracing, taper, three crossarm pairs with insulator drops. */
 function latticePylon(iso: Iso, u: number, v: number, hgt: number, span: number): void {

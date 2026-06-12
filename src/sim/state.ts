@@ -89,6 +89,14 @@ export interface GameState {
   flexYrK: number;
   /** rolling constraint compensation, £k/yr. */
   constraintYrK: number;
+  /** rolling network I²R losses priced at the running marginal price,
+   *  £k/yr — a DNO cost, recovered through the bill's losses line. */
+  lossYrK: number;
+  /** Bill drill-down (#52): per-asset itemised accumulators, EMA-decayed
+   *  with the SAME tau as their headline lines so each list reconciles
+   *  to its bill line. capex/opex detail is never stored — it's derived
+   *  on demand from the asset register (tick.billDetailRows). */
+  billDetail: BillDetailState;
   /** lifetime curtailed energy by connection type, MWh. */
   curtailedFirmMWh: number;
   curtailedFlexMWh: number;
@@ -114,6 +122,21 @@ export interface GameState {
    *  here and decay with a 1-game-year tau; rides the bill's
    *  constraint/damages line via computeBill's penaltyYrK input). */
   stormPrepYrK?: number | undefined;
+}
+
+/** Itemised bill accumulators (compact: pruned EMAs, not ledgers). */
+export interface BillDetailState {
+  /** gen asset id → constraint compensation {MWh/yr curtailed, £k/yr}. */
+  constraints: Map<number, { mwhYr: number; kYr: number }>;
+  /** gen asset id → PPA delivery {MWh/yr delivered, top-up £k/yr}. */
+  ppa: Map<number, { mwhYr: number; topupKYr: number }>;
+  /** owning asset id (line, or sub for its transformers) → I²R loss
+   *  cost at the running marginal price, £k/yr. */
+  losses: Map<number, number>;
+}
+
+export function newBillDetail(): BillDetailState {
+  return { constraints: new Map(), ppa: new Map(), losses: new Map() };
 }
 
 /** One infill mutation: tile `i` became `zone` with `customers`. */
@@ -174,6 +197,8 @@ export function newGame(): GameState {
     levyPct: 0.5,
     flexYrK: 0,
     constraintYrK: 0,
+    lossYrK: 0,
+    billDetail: newBillDetail(),
     curtailedFirmMWh: 0,
     curtailedFlexMWh: 0,
     nextAppId: 1,
@@ -353,6 +378,13 @@ export interface SaveData {
   levyPct?: number;
   flexYrK?: number;
   constraintYrK?: number;
+  lossYrK?: number;
+  /** Bill drill-down maps, flattened: [assetId, mwhYr, kYr]. */
+  billConstraints?: Array<[number, number, number]>;
+  /** [assetId, mwhYr, topupKYr]. */
+  billPpa?: Array<[number, number, number]>;
+  /** [assetId, kYr]. */
+  billLosses?: Array<[number, number]>;
   curtailedFirmMWh?: number;
   curtailedFlexMWh?: number;
   nextAppId?: number;
@@ -406,6 +438,14 @@ export function serialize(s: GameState): SaveData {
     levyPct: s.levyPct,
     flexYrK: s.flexYrK,
     constraintYrK: s.constraintYrK,
+    lossYrK: s.lossYrK,
+    billConstraints: [...s.billDetail.constraints.entries()].map(
+      ([id, v]): [number, number, number] => [id, v.mwhYr, v.kYr],
+    ),
+    billPpa: [...s.billDetail.ppa.entries()].map(
+      ([id, v]): [number, number, number] => [id, v.mwhYr, v.topupKYr],
+    ),
+    billLosses: [...s.billDetail.losses.entries()],
     curtailedFirmMWh: s.curtailedFirmMWh,
     curtailedFlexMWh: s.curtailedFlexMWh,
     nextAppId: s.nextAppId,
@@ -462,6 +502,14 @@ export function deserialize(d: SaveData): GameState {
     levyPct: d.levyPct ?? 0.5,
     flexYrK: d.flexYrK ?? 0,
     constraintYrK: d.constraintYrK ?? 0,
+    lossYrK: d.lossYrK ?? 0,
+    billDetail: {
+      constraints: new Map(
+        (d.billConstraints ?? []).map(([id, mwhYr, kYr]) => [id, { mwhYr, kYr }]),
+      ),
+      ppa: new Map((d.billPpa ?? []).map(([id, mwhYr, topupKYr]) => [id, { mwhYr, topupKYr }])),
+      losses: new Map(d.billLosses ?? []),
+    },
     curtailedFirmMWh: d.curtailedFirmMWh ?? 0,
     curtailedFlexMWh: d.curtailedFlexMWh ?? 0,
     nextAppId: d.nextAppId ?? 1,

@@ -2,7 +2,7 @@
 // by the worker (authoritative) and the UI (ghost previews), so the cost a
 // player is quoted is exactly the cost that lands on the bill.
 
-import { assetLevels, type PlacedAsset } from './assets';
+import { assetLevels, type BatteryPolicy, type PlacedAsset } from './assets';
 import {
   DEPOT,
   GENS,
@@ -40,6 +40,9 @@ export type Command =
   /** Refit a substation transformer (manual sizing switches auto off),
    *  or hand sizing back to auto-reinforcement. */
   | { type: 'setSubMva'; assetId: number; mva?: number; auto?: boolean }
+  /** Set a battery's dispatch policy (ROADMAP #12): peak shave (the
+   *  default), national-price arbitrage, or emergency reserve. */
+  | { type: 'setBatteryPolicy'; assetId: number; policy: BatteryPolicy }
   /** Rebuild an overhead line as an underground cable (full UG price). */
   | { type: 'convertLine'; assetId: number }
   /** Bury only the span of an overhead line bracketing (x,y): the line
@@ -261,6 +264,17 @@ export function siteErrorAt(
       if (t !== TERRAIN.water) return 'tidal turbines sit in the water';
       return undefined;
     }
+    if (siting === 'edge') {
+      // interconnectors land where the licence area meets the wider
+      // world: the converter hall stands on dry land hard against the
+      // map boundary, its HVDC cable running off-map to the continent
+      if (t === TERRAIN.water) return 'the converter hall sits on dry land at its landfall';
+      const edgeDist = Math.min(x, y, map.width - 1 - x, map.height - 1 - y);
+      if (edgeDist > 2) {
+        return 'interconnectors come ashore at the map edge — build within 2 tiles of the boundary';
+      }
+      return undefined;
+    }
     // land plant
     if (t === TERRAIN.water) return 'cannot build on water';
     if (z === ZONE.posh) return 'the conservation area will never allow that';
@@ -403,6 +417,32 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       const spec = cmd.spec;
       const check = checkBuild(map, state.assets.values(), spec);
       if (!check.ok) return { ok: false, error: check.error };
+      if (spec.kind === 'gen' && spec.gen === 'interconnector') {
+        // interconnectors are PLAYER-OWNED network assets, not developer
+        // plant: no tender and no PPA — the build lands the asset
+        // directly and its capex is recovered through DUoS with the
+        // wires (bill.ts carries the matching exception). The energy it
+        // imports is bought at the national price through dispatch.
+        const g = GENS[spec.gen];
+        const id = state.nextAssetId++;
+        state.assets.set(id, {
+          id,
+          kind: 'gen',
+          gen: spec.gen,
+          x: spec.x,
+          y: spec.y,
+          liveAtMin: state.simTimeMin + (g.planningDays + g.buildDays) * 1440,
+        });
+        state.assetsVersion++;
+        pushEvent(
+          state,
+          'info',
+          `${g.name} consented — converter hall under construction at the landfall`,
+          spec.x,
+          spec.y,
+        );
+        return { ok: true, assetId: id };
+      }
       if (spec.kind === 'gen') {
         // the operator doesn't build power stations: designating a site
         // opens a tender that developers bid on (accepted via acceptBid)
@@ -717,6 +757,19 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       }
       if (cmd.auto !== undefined) asset.mvaAuto = cmd.auto;
       state.assetsVersion++;
+      return { ok: true };
+    }
+
+    case 'setBatteryPolicy': {
+      const asset = state.assets.get(cmd.assetId);
+      if (!asset || asset.kind !== 'gen' || asset.gen !== 'battery') {
+        return { ok: false, error: 'no such battery' };
+      }
+      asset.policy = cmd.policy;
+      // no assetsVersion bump: policy steers dispatch, not topology —
+      // the next solve reads it straight off the asset. Undo-safety
+      // comes free: the worker snapshots state before any mutating
+      // command, and policy rides PlacedAsset serialization.
       return { ok: true };
     }
 

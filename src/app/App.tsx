@@ -12,6 +12,7 @@ import { MapView } from '../ui/MapView';
 import { MobileChrome } from '../ui/MobileChrome';
 import { SearchBox } from '../ui/SearchBox';
 import { StartMenu } from '../ui/StartMenu';
+import { StoryIntro } from '../ui/StoryIntro';
 import { Tutorial } from '../ui/Tutorial';
 import { panelStyle, theme } from '../ui/theme';
 import { playSfx } from '../audio/audio';
@@ -138,6 +139,8 @@ function useKeyboard(): void {
         s.setHeadroom(!s.headroom);
       } else if (key === 'n') {
         s.setN1(!s.n1);
+      } else if (key === 'f') {
+        s.setForecastOn(!s.forecastOn);
       } else if (key === 'k') {
         s.setKpiOpen(!s.kpiOpen);
       } else if (key === 'u') {
@@ -239,6 +242,7 @@ export function App() {
       <Toast />
       <Tutorial />
       {!menuOpen && <BalancePanel />}
+      <StoryIntro />
       <KpiDashboard />
       <StartMenu />
     </div>

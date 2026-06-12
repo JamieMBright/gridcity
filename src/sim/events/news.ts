@@ -7,6 +7,7 @@ import type { Rng } from '../rng';
 import { DEVELOPERS } from './developers';
 import type { GameState } from '../state';
 import { pushEvent } from '../state';
+import { inRebuildYear, STORY_FRAGMENTS } from '../scenario/story';
 
 /** Mean game-days between ambient headlines. */
 const NEWS_MEAN_DAYS = 1.6;
@@ -61,6 +62,10 @@ function liveColour(state: GameState, rng: Rng): string | undefined {
 /** Maybe push one ambient headline this tick. */
 export function maybeAmbientNews(state: GameState, rng: Rng, dtMin: number): void {
   if (!rng.chance(dtMin / (NEWS_MEAN_DAYS * 1440))) return;
-  const msg = liveColour(state, rng) ?? HEADLINES[rng.int(HEADLINES.length)] ?? '';
+  // year one carries the mystery: every few headlines, the inquiry mutters
+  const storyTurn = inRebuildYear(state.simTimeMin) && rng.chance(0.25);
+  const msg = storyTurn
+    ? (STORY_FRAGMENTS[rng.int(STORY_FRAGMENTS.length)] ?? '')
+    : (liveColour(state, rng) ?? HEADLINES[rng.int(HEADLINES.length)] ?? '');
   if (msg) pushEvent(state, 'info', `📰 ${msg}`);
 }

@@ -35,6 +35,7 @@ const RAIL: RailItem[] = [
   { icon: '☢️', tool: { t: 'gen', gen: 'nuclear' }, label: 'Nuclear' },
   { icon: '🔋', tool: { t: 'gen', gen: 'battery' }, label: 'Battery' },
   { icon: '⬛', tool: { t: 'gen', gen: 'coal' }, label: 'Coal station' },
+  { icon: '🔌', tool: { t: 'gen', gen: 'interconnector' }, label: 'Interconnector' },
   { icon: 'BSP', tool: { t: 'sub', sub: 'bulk' }, label: 'Bulk supply point' },
   { icon: 'GRD', tool: { t: 'sub', sub: 'grid' }, label: 'Grid substation' },
   { icon: 'DST', tool: { t: 'sub', sub: 'dist' }, label: 'Distribution sub' },

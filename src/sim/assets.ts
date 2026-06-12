@@ -16,6 +16,12 @@ import type { Branch, Bus, Network, VoltageLevel } from './grid/types';
 
 export type PlacedAsset = GenAsset | SubAsset | LineAsset | DepotAsset;
 
+/** Battery dispatch policy (ROADMAP #12). 'shave' is the original
+ *  self-management behaviour and the default for unset assets: charge on
+ *  cheap local surplus, discharge into the local peak. 'arbitrage' trades
+ *  the national price; 'reserve' holds ≥50% SoC for island emergencies. */
+export type BatteryPolicy = 'shave' | 'arbitrage' | 'reserve';
+
 /** Field-operations depot: not electrical, stations repair vans. */
 export interface DepotAsset {
   id: number;
@@ -41,6 +47,9 @@ export interface GenAsset {
   /** Game-minute the plant is commissioned (planning + construction).
    *  Until then it exists on the network but generates nothing. */
   liveAtMin?: number | undefined;
+  /** Batteries only: dispatch policy (default 'shave' — saves from
+   *  before this field hydrate to today's behaviour unchanged). */
+  policy?: BatteryPolicy | undefined;
 }
 
 export interface SubAsset {

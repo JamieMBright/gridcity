@@ -20,7 +20,12 @@ import {
   LATE_PENALTY_K_PER_DAY,
   maybeSpawnApplication,
 } from './events/applications';
-import { bumpAllMoods, dingCurtailedDevelopers, stepTenders } from './events/developers';
+import {
+  bumpAllMoods,
+  developerOf,
+  dingCurtailedDevelopers,
+  stepTenders,
+} from './events/developers';
 import { maybeAmbientNews } from './events/news';
 import {
   DLR_RATING_MUL,
@@ -37,7 +42,12 @@ import {
 import { growVegetation, isStorm, rollFaults } from './reliability/faults';
 import { stormPrepYrK } from './reliability/stormprep';
 import { stepFleet, syncVans } from './fleet/fleet';
-import { computeBill, type BillBreakdown } from './regulation/bill';
+import {
+  assetCapexK,
+  assetOpexFrac,
+  computeBill,
+  type BillBreakdown,
+} from './regulation/bill';
 import { updateReliability } from './regulation/kpis';
 import {
   closePeriod,
@@ -52,9 +62,10 @@ import { assetAtTile } from './commands';
 import { assignServiceAreas, computeSubLoads, type ServiceAreas } from './service';
 import { CUSTOMERS_PER_TILE, NO_COUNCIL, RC, TERRAIN, ZONE } from './map/types';
 import { buildDemandField } from './map/demand';
-import { pushEvent, type GameState, type SimContext } from './state';
-import { GENS } from './catalog';
-import { MINUTES_PER_TICK } from './protocol';
+import { pushEvent, type BillDetailState, type GameState, type SimContext } from './state';
+import { ANNUITY_FACTOR, GENS } from './catalog';
+import { MINUTES_PER_TICK, type BillDetailLine, type BillDetailRow } from './protocol';
+import type { PlacedAsset } from './assets';
 
 export { COV } from './coverage';
 
@@ -96,10 +107,30 @@ export interface BranchView {
   kind: 'line' | 'tx';
   flowMW: number;
   ratingMW: number;
+  /** I²R loss at the current flow, MW (absent when out / no flow). */
+  lossMW?: number | undefined;
   /** Out of service: repair game-minutes remaining, or -1 awaiting crew. */
   outMin?: number | undefined;
   /** Why it's out (storm/tree/overload) — the inspector's diagnosis. */
   cause?: string | undefined;
+}
+
+// --- network losses (I²R) ------------------------------------------------
+//
+// Per-unit I²R on the catalog's 100 MVA system base: with V ≈ 1 pu,
+// loss_pu = flow_pu² · r_pu, i.e. lossMW = flowMW² · r / S_BASE. No
+// extra calibration constant is needed — the catalog's r values already
+// land a heavily loaded long 132 kV run in the real 2–4% band: 240 MW
+// over 30 km (r = 30 · 0.0004 = 0.012 pu) loses 240² · 0.012 / 100
+// ≈ 6.9 MW ≈ 2.9% of its flow. Resistance never changes after build:
+// re-conductoring (uprating) raises ratings, not r, and the catalog
+// carries the same rPerTile for cable as for overhead — only shorter
+// or lower-r routes cut losses.
+export const LOSS_S_BASE_MVA = 100;
+
+/** I²R loss of one branch at a given flow, MW. */
+export function branchLossMW(flowMW: number, rPu: number): number {
+  return (flowMW * flowMW * rPu) / LOSS_S_BASE_MVA;
 }
 
 export interface TickOutputs {
@@ -503,7 +534,25 @@ export function solveTick(
       applyOutages(derived.net, state);
       ({ dispatch, pf } = runPowerFlow(state, ctx, derived, 0));
     }
+  }
 
+  // network losses at the final operating point: per branch (for the
+  // line inspector, even while paused) and per owning asset (for the
+  // bill drill-down)
+  const lossOfBranch = new Map<number, number>();
+  const lossOfAsset = new Map<number, number>();
+  let lossMWTotal = 0;
+  for (const br of derived.net.branches) {
+    if (!br.inService) continue;
+    const mw = branchLossMW(pf.flowMW.get(br.id) ?? 0, br.r);
+    if (mw <= 0) continue;
+    lossOfBranch.set(br.id, mw);
+    const owner = assetOfId(br.id);
+    lossOfAsset.set(owner, (lossOfAsset.get(owner) ?? 0) + mw);
+    lossMWTotal += mw;
+  }
+
+  if (dtMin > 0) {
     // rolling KPIs
     const alpha = dtMin / (dtMin + KPI_EMA_TAU_MIN);
     state.energyCostYrK += (dispatch.costKPerHour * 8760 - state.energyCostYrK) * alpha;
@@ -511,6 +560,10 @@ export function solveTick(
     state.carbonEMA += (dispatch.carbonG - state.carbonEMA) * alpha;
     state.flexYrK += (dispatch.flexCostKPerHour * 8760 - state.flexYrK) * alpha;
     state.constraintYrK += (dispatch.constraintKPerHour * 8760 - state.constraintYrK) * alpha;
+    // losses bought at the running marginal price (the DNO's energy)
+    const lossKPerHour = (lossMWTotal * dispatch.priceMWh) / 1000;
+    state.lossYrK += (lossKPerHour * 8760 - state.lossYrK) * alpha;
+    foldBillDetail(state.billDetail, dispatch, lossOfAsset, dispatch.priceMWh, alpha);
     state.curtailedFirmMWh += (dispatch.curtailedFirmMW * dtMin) / 60;
     state.curtailedFlexMWh += (dispatch.curtailedFlexMW * dtMin) / 60;
     state.rngState = rng.getState();
@@ -533,7 +586,7 @@ export function solveTick(
   // councils: adoption + satisfaction (and accepted-connection progress)
   const satisfactionAvg = stepCouncils(state, ctx, derived, coverage, pf, dtMin);
 
-  const branches = buildBranchViews(state, pf);
+  const branches = buildBranchViews(state, pf, lossOfBranch);
   const volts: Array<[number, number, number]> = [];
   for (const bus of derived.net.buses) {
     const asset = state.assets.get(assetOfId(bus.id));
@@ -562,6 +615,7 @@ export function solveTick(
     assets: state.assets.values(),
     energyYrK: state.energyCostYrK,
     ppaYrK: state.genCostYrK,
+    lossYrK: state.lossYrK,
     servedCustomers,
     totalCustomers: derived.service.totalCustomers,
     fleetSize: state.fleetSize,
@@ -859,7 +913,135 @@ function buildCoverage(
   return coverage;
 }
 
-function buildBranchViews(state: GameState, pf: PowerFlowResult): BranchView[] {
+// --- bill drill-down (#52) -------------------------------------------------
+
+/** Detail entries whose every component decays below this fall out of
+ *  the maps (compact state, not a ledger). Small enough that an EMA
+ *  still ramping up from zero is never culled — only entries whose
+ *  source has been quiet for many taus. £k/yr / MWh/yr scale. */
+const DETAIL_EPS = 1e-6;
+
+/** Fold one tick's per-unit dispatch detail into the state's itemised
+ *  EMA maps — the SAME alpha as the headline lines (energyCostYrK et
+ *  al.), so each list's sum tracks its bill line exactly (± pruning). */
+function foldBillDetail(
+  detail: BillDetailState,
+  dispatch: DispatchResult,
+  lossOfAsset: Map<number, number>,
+  priceMWh: number,
+  alpha: number,
+): void {
+  // constraints: per curtailed firm unit, annualized
+  const cTarget = new Map<number, { mwhYr: number; kYr: number }>();
+  for (const [id, mw, k] of dispatch.constraintDetail) {
+    const t = cTarget.get(id) ?? { mwhYr: 0, kYr: 0 };
+    t.mwhYr += mw * 8760;
+    t.kYr += k * 8760;
+    cTarget.set(id, t);
+  }
+  for (const id of new Set([...detail.constraints.keys(), ...cTarget.keys()])) {
+    const cur = detail.constraints.get(id) ?? { mwhYr: 0, kYr: 0 };
+    const t = cTarget.get(id) ?? { mwhYr: 0, kYr: 0 };
+    const mwhYr = cur.mwhYr + (t.mwhYr - cur.mwhYr) * alpha;
+    const kYr = cur.kYr + (t.kYr - cur.kYr) * alpha;
+    if (Math.max(mwhYr, kYr) < DETAIL_EPS) detail.constraints.delete(id);
+    else detail.constraints.set(id, { mwhYr, kYr });
+  }
+
+  // PPA top-ups: per delivering unit with a strike
+  const pTarget = new Map<number, { mwhYr: number; topupKYr: number }>();
+  for (const [id, mw, k] of dispatch.ppaDetail) {
+    const t = pTarget.get(id) ?? { mwhYr: 0, topupKYr: 0 };
+    t.mwhYr += mw * 8760;
+    t.topupKYr += k * 8760;
+    pTarget.set(id, t);
+  }
+  for (const id of new Set([...detail.ppa.keys(), ...pTarget.keys()])) {
+    const cur = detail.ppa.get(id) ?? { mwhYr: 0, topupKYr: 0 };
+    const t = pTarget.get(id) ?? { mwhYr: 0, topupKYr: 0 };
+    const mwhYr = cur.mwhYr + (t.mwhYr - cur.mwhYr) * alpha;
+    const topupKYr = cur.topupKYr + (t.topupKYr - cur.topupKYr) * alpha;
+    if (Math.max(mwhYr, topupKYr) < DETAIL_EPS) detail.ppa.delete(id);
+    else detail.ppa.set(id, { mwhYr, topupKYr });
+  }
+
+  // losses: per owning asset, priced at the running marginal price
+  const lTarget = new Map<number, number>();
+  for (const [id, mw] of lossOfAsset) lTarget.set(id, (mw * priceMWh * 8760) / 1000);
+  for (const id of new Set([...detail.losses.keys(), ...lTarget.keys()])) {
+    const cur = detail.losses.get(id) ?? 0;
+    const kYr = cur + ((lTarget.get(id) ?? 0) - cur) * alpha;
+    if (kYr < DETAIL_EPS) detail.losses.delete(id);
+    else detail.losses.set(id, kYr);
+  }
+}
+
+/** Top contributors shown when a bill line is tapped. */
+const DETAIL_TOP_ROWS = 12;
+
+/** Itemise one bill line: stored EMA maps for the flow-derived lines
+ *  (constraints / ppa / losses), the live asset register for capex /
+ *  opex (same inclusion rule as computeBill). Sorted by £, top 12. */
+export function billDetailRows(state: GameState, line: BillDetailLine): BillDetailRow[] {
+  const place = (
+    a: PlacedAsset | undefined,
+  ): { x?: number | undefined; y?: number | undefined } => {
+    if (!a) return {};
+    if (a.kind !== 'line') return { x: a.x, y: a.y };
+    const ea = state.assets.get(a.a);
+    const eb = state.assets.get(a.b);
+    if (!ea || ea.kind === 'line' || !eb || eb.kind === 'line') return {};
+    return { x: Math.round((ea.x + eb.x) / 2), y: Math.round((ea.y + eb.y) / 2) };
+  };
+  const label = (a: PlacedAsset | undefined): string => {
+    if (!a) return 'demolished asset';
+    if (a.kind === 'gen') {
+      const dev = a.developer !== undefined ? developerOf(a.developer)?.name : undefined;
+      return dev ? `${GENS[a.gen].name} — ${dev}` : GENS[a.gen].name;
+    }
+    if (a.kind === 'sub') return SUBS[a.sub].name.split(' (')[0] ?? 'substation';
+    if (a.kind === 'depot') return 'Field depot';
+    return `${a.level} kV ${a.build === 'underground' ? 'cable' : 'line'} · ${a.lengthTiles} km`;
+  };
+
+  const rows: BillDetailRow[] = [];
+  if (line === 'constraints') {
+    for (const [id, v] of state.billDetail.constraints) {
+      const a = state.assets.get(id);
+      rows.push({ assetId: id, label: label(a), mwhYr: v.mwhYr, kYr: v.kYr, ...place(a) });
+    }
+  } else if (line === 'ppa') {
+    for (const [id, v] of state.billDetail.ppa) {
+      const a = state.assets.get(id);
+      rows.push({ assetId: id, label: label(a), mwhYr: v.mwhYr, kYr: v.topupKYr, ...place(a) });
+    }
+  } else if (line === 'losses') {
+    for (const [id, kYr] of state.billDetail.losses) {
+      const a = state.assets.get(id);
+      rows.push({ assetId: id, label: label(a), kYr, ...place(a) });
+    }
+  } else {
+    // capex / opex: derived live, mirroring computeBill — generation is
+    // private spend (interconnector excepted: the player's own asset),
+    // and the iDNO's iron never bills
+    for (const a of state.assets.values()) {
+      if (a.kind === 'gen' && a.gen !== 'interconnector') continue;
+      if (a.kind === 'sub' && a.idno) continue;
+      const capex = assetCapexK(a);
+      const kYr = line === 'capex' ? capex * ANNUITY_FACTOR : capex * assetOpexFrac(a);
+      if (kYr <= 0) continue;
+      rows.push({ assetId: a.id, label: label(a), kYr, ...place(a) });
+    }
+  }
+  rows.sort((a, b) => b.kYr - a.kYr);
+  return rows.slice(0, DETAIL_TOP_ROWS);
+}
+
+function buildBranchViews(
+  state: GameState,
+  pf: PowerFlowResult,
+  lossOfBranch: Map<number, number>,
+): BranchView[] {
   const lineMul = state.tech.dlr ? DLR_RATING_MUL : 1;
   const views: BranchView[] = [];
   for (const a of state.assets.values()) {
@@ -870,6 +1052,7 @@ function buildBranchViews(state: GameState, pf: PowerFlowResult): BranchView[] {
         kind: 'line',
         flowMW: pf.flowMW.get(id) ?? 0,
         ratingMW: LINES[a.level].ratingMW * lineMul * (a.uprated ? LINE_UPRATE_MUL : 1),
+        lossMW: lossOfBranch.get(id),
         outMin: state.outages.get(id),
         cause: state.outageCause.get(id),
       });
@@ -882,6 +1065,7 @@ function buildBranchViews(state: GameState, pf: PowerFlowResult): BranchView[] {
           kind: 'tx',
           flowMW: pf.flowMW.get(id) ?? 0,
           ratingMW: TX_PAIR[`${levels[k]}/${levels[k + 1]}`]?.ratingMW ?? SUBS[a.sub].txRatingMW,
+          lossMW: lossOfBranch.get(id),
           outMin: state.outages.get(id),
           cause: state.outageCause.get(id),
         });

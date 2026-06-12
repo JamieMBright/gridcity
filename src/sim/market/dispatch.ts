@@ -3,12 +3,14 @@
 // connected ones are curtailed first when there's surplus (that was the
 // deal), then the merit order stacks nuclear → batteries → gas until the
 // moment's load is met. Rooftop PV export offsets local demand and can
-// flow back up the network. Batteries charge themselves on cheap surplus
-// and discharge into the evening peak. Firm curtailment is compensated
-// (constraint payments → bill); flexible curtailment is just logged.
+// flow back up the network. Batteries follow a player-set policy (peak
+// shave / national-price arbitrage / emergency reserve); interconnectors
+// import at the deterministic national price. Firm curtailment is
+// compensated (constraint payments → bill); flexible curtailment is just
+// logged.
 
 import { BATTERY_EFFICIENCY, GENS, strikeMWh, SUBS } from '../catalog';
-import { busId, subMva, type PlacedAsset } from '../assets';
+import { busId, subMva, type BatteryPolicy, type PlacedAsset } from '../assets';
 import { findIslands } from '../grid/topology';
 import type { Injection, Network } from '../grid/types';
 import {
@@ -16,6 +18,7 @@ import {
   evProfile,
   hpProfile,
   processProfile,
+  seasonFactor,
   sunFactor,
   tideFactor,
   windFactor,
@@ -25,6 +28,51 @@ import type { SubLoad } from '../service';
 
 /** Merit-order cost assigned to battery discharge (displaces gas only). */
 const BATTERY_DISPATCH_COST_K = 0.06;
+/** Battery 'arbitrage' policy price bands, £k/MWh: charge below the
+ *  floor, discharge above the ceiling — judged against the national
+ *  price, local conditions be damned. */
+export const ARBITRAGE_CHARGE_BELOW_K = 0.06;
+export const ARBITRAGE_DISCHARGE_ABOVE_K = 0.11;
+/** Arbitrage discharge is offered at the very front of the non-must-run
+ *  stack: the player has decided the price is right, so it runs. */
+const ARBITRAGE_DISCHARGE_COST_K = 0.005;
+/** The 'reserve' policy holds this fraction of the store for the day
+ *  its island would otherwise go dark. */
+export const RESERVE_SOC_FRAC = 0.5;
+/** Reserve refills from the grid at this fraction of its rate while
+ *  below the floor: an emergency store mustn't cook the local network
+ *  (or distort the merit order) getting back to standby. */
+export const RESERVE_REFILL_FRAC = 0.2;
+
+/** GB national wholesale price, £/MWh — what the interconnector imports
+ *  at and what battery arbitrage trades against. Deterministic, no RNG:
+ *  a daily shape (cheap nights ~£45/MWh, evening peaks ~£140/MWh plus a
+ *  smaller morning shoulder), scaled +30% in deep winter via
+ *  seasonFactor, with a £60/MWh scarcity kicker whenever a calm-cold
+ *  regime sits over GB — the dunkelflaute: no wind anywhere and
+ *  everyone's heating on. Accepts the sim's WeatherState or the
+ *  snapshot's weather (the UI quotes "import price now" off the very
+ *  same series the worker dispatches against). */
+export function nationalPriceMWh(
+  simTimeMin: number,
+  weather: { regime?: string | undefined },
+): number {
+  const h = (simTimeMin / 60) % 24;
+  const evening = Math.exp(-(((h - 18.5) / 2.4) ** 2));
+  const morning = 0.35 * Math.exp(-(((h - 8) / 1.8) ** 2));
+  let p = 45 + 95 * Math.min(1, evening + morning);
+  p *= 1 + 0.3 * seasonFactor(simTimeMin);
+  if (weather.regime === 'calm-cold') p += 60;
+  return p;
+}
+
+/** nationalPriceMWh in the sim's £k/MWh money unit. */
+export function nationalPriceK(
+  simTimeMin: number,
+  weather: { regime?: string | undefined },
+): number {
+  return nationalPriceMWh(simTimeMin, weather) / 1000;
+}
 /** Compensation for constraining off a firm connection, £k/MWh. */
 export const CONSTRAINT_COMP_K = 0.06;
 /** Price paid to demand turning down in the flexibility market, £k/MWh. */
@@ -63,6 +111,13 @@ export interface DispatchResult {
   flexCostKPerHour: number;
   /** Constraint compensation to firm connections this hour, £k. */
   constraintKPerHour: number;
+  /** Per-unit constraint rows: [gen asset id, curtailed MW, £k/h]. The
+   *  bill drill-down's source — dispatch stays pure, tick folds these
+   *  into the state's EMA maps. Sums to constraintKPerHour. */
+  constraintDetail: Array<[number, number, number]>;
+  /** Per-unit PPA rows: [gen asset id, delivered MW, top-up £k/h].
+   *  Top-ups sum to ppaTopupKPerHour. */
+  ppaDetail: Array<[number, number, number]>;
   /** Marginal price of the most expensive running unit, £/MWh. */
   priceMWh: number;
   /** Dispatch-weighted carbon intensity, g/kWh. */
@@ -139,7 +194,13 @@ export function runDispatch(
   }
   interface IslandAgg {
     units: Unit[];
-    batteries: Array<{ id: number; bus: number; rateMW: number; energyMWh: number }>;
+    batteries: Array<{
+      id: number;
+      bus: number;
+      rateMW: number;
+      energyMWh: number;
+      policy: BatteryPolicy;
+    }>;
     subs: SubNow[];
   }
   const byIsland = new Map<number, IslandAgg>();
@@ -168,6 +229,7 @@ export function runDispatch(
             bus,
             rateMW: spec.capacityMW,
             energyMWh: spec.energyMWh ?? 0,
+            policy: a.policy ?? 'shave',
           });
         }
       } else {
@@ -176,17 +238,22 @@ export function runDispatch(
           a.gen === 'windOnshore' ||
           a.gen === 'windOffshore' ||
           a.gen === 'tidal';
+        // the interconnector imports at the live national price (merit-
+        // ordered like any unit) and never carries a PPA — it's the
+        // player's own network asset buying energy from over the water
+        const interconnector = a.gen === 'interconnector';
         agg(gi).units.push({
           id: a.id,
           bus,
           availMW: building ? 0 : availability(a, inp),
-          costK: spec.marginalCostK,
+          costK: interconnector ? nationalPriceK(inp.simTimeMin, inp.weather) : spec.marginalCostK,
           carbonG: spec.carbonG,
           mustRun: renewable && !a.flex && !building,
           flex: a.flex === true && !building,
           isBattery: false,
-          ppaK:
-            a.ppaMWh !== undefined
+          ppaK: interconnector
+            ? undefined
+            : a.ppaMWh !== undefined
               ? a.ppaMWh / 1000
               : a.developer !== undefined
                 ? strikeMWh(a.gen) / 1000
@@ -234,6 +301,9 @@ export function runDispatch(
   let connectedMW = 0;
   let servedMW = 0;
 
+  const constraintDetail: Array<[number, number, number]> = [];
+  const ppaDetail: Array<[number, number, number]> = [];
+
   const recordCurtailed = (u: Unit, mw: number): void => {
     if (mw <= 0) return;
     if (u.flex) {
@@ -241,6 +311,7 @@ export function runDispatch(
     } else {
       curtailedFirmMW += mw;
       constraintKPerHour += mw * CONSTRAINT_COMP_K;
+      constraintDetail.push([u.id, mw, mw * CONSTRAINT_COMP_K]);
     }
   };
 
@@ -253,41 +324,73 @@ export function runDispatch(
       else exportMW += -s.cappedNowMW;
     }
 
-    // battery self-management: charge on surplus cheap power, otherwise
-    // offer discharge into the stack between nuclear and gas
+    // battery dispatch by policy (ROADMAP #12). 'shave' (the default,
+    // and the original self-management): charge on cheap local surplus,
+    // otherwise offer discharge into the stack between nuclear and gas.
+    // 'arbitrage': trade the national price — charge cheap, discharge
+    // dear, the local peak be damned. 'reserve': hold ≥50% SoC and
+    // discharge only when the island would otherwise go unserved.
+    const natK = nationalPriceK(inp.simTimeMin, inp.weather);
+    const unitCapMW = island.units.reduce((s, u) => s + u.availMW, 0);
+    // would this island fall short without its batteries? (the supply-
+    // shortfall condition the reserve policy is held against)
+    const wouldFallShort = Math.max(0, demand - exportMW) > unitCapMW + 1e-9;
     const cheapMW =
       exportMW +
       island.units.reduce((s, u) => s + (u.mustRun || u.costK <= 0.02 ? u.availMW : 0), 0);
+    // shave keeps the original gate: on a cheap-surplus moment every
+    // shave battery charges (some may get 0 once the surplus is taken),
+    // and none of them counter-discharges
+    const cheapSurplus = cheapMW > demand;
+    let surplus = Math.max(0, cheapMW - demand);
     const charging = new Map<number, number>();
     const stack: Unit[] = [...island.units];
-    if (cheapMW > demand) {
-      let surplus = cheapMW - demand;
-      for (const b of island.batteries) {
-        const soc = inp.soc.get(b.id) ?? 0;
-        const headroomMW =
-          inp.dtMin > 0 ? ((b.energyMWh - soc) / BATTERY_EFFICIENCY) * (60 / inp.dtMin) : b.rateMW;
-        const mw = Math.max(0, Math.min(b.rateMW, headroomMW, surplus));
-        if (mw > 0) {
-          charging.set(b.id, mw);
-          surplus -= mw;
-          demand += mw;
-        }
-      }
-    } else {
-      for (const b of island.batteries) {
-        const soc = inp.soc.get(b.id) ?? 0;
+    for (const b of island.batteries) {
+      const soc = inp.soc.get(b.id) ?? 0;
+      const headroomMW =
+        inp.dtMin > 0 ? ((b.energyMWh - soc) / BATTERY_EFFICIENCY) * (60 / inp.dtMin) : b.rateMW;
+      const charge = (mw: number): void => {
+        const take = Math.max(0, Math.min(b.rateMW, headroomMW, mw));
+        if (take <= 0) return;
+        charging.set(b.id, take);
+        demand += take;
+        surplus = Math.max(0, cheapMW - demand);
+      };
+      const offer = (costK: number): void => {
         const socMW = inp.dtMin > 0 ? soc * (60 / inp.dtMin) : b.rateMW;
-        const availMW = Math.max(0, Math.min(b.rateMW, socMW));
         stack.push({
           id: b.id,
           bus: b.bus,
-          availMW,
-          costK: BATTERY_DISPATCH_COST_K,
+          availMW: Math.max(0, Math.min(b.rateMW, socMW)),
+          costK,
           carbonG: 0,
           mustRun: false,
           flex: false,
           isBattery: true,
         });
+      };
+      if (b.policy === 'arbitrage') {
+        if (natK < ARBITRAGE_CHARGE_BELOW_K) {
+          charge(b.rateMW); // cheap night: fill up off whatever is running
+        } else if (natK > ARBITRAGE_DISCHARGE_ABOVE_K) {
+          offer(ARBITRAGE_DISCHARGE_COST_K); // dear peak: sell everything
+        }
+      } else if (b.policy === 'reserve') {
+        if (wouldFallShort && soc > 0) {
+          // this is the event the reserve was held for: the whole store
+          // is on the table until the island is whole again
+          offer(BATTERY_DISPATCH_COST_K);
+        } else {
+          // hold ≥50% SoC: trickle-refill from the grid while below the
+          // floor (gently — see RESERVE_REFILL_FRAC), and only soak up
+          // genuine surplus above it
+          const floor = b.energyMWh * RESERVE_SOC_FRAC;
+          charge(soc < floor ? Math.max(surplus, b.rateMW * RESERVE_REFILL_FRAC) : surplus);
+        }
+      } else if (cheapSurplus) {
+        charge(surplus); // 'shave': charge on cheap local surplus…
+      } else {
+        offer(BATTERY_DISPATCH_COST_K); // …else stand ready for the peak
       }
     }
 
@@ -335,7 +438,11 @@ export function runDispatch(
       if (mw > 0) {
         injections.push({ bus: u.bus, pMW: mw });
         costKPerHour += mw * u.costK;
-        if (u.ppaK !== undefined) ppaTopupKPerHour += mw * Math.max(0, u.ppaK - u.costK);
+        if (u.ppaK !== undefined) {
+          const topupK = mw * Math.max(0, u.ppaK - u.costK);
+          ppaTopupKPerHour += topupK;
+          ppaDetail.push([u.id, mw, topupK]);
+        }
         priceMWh = Math.max(priceMWh, u.costK * 1000);
         carbonNum += mw * u.carbonG;
         carbonDen += mw;
@@ -353,10 +460,12 @@ export function runDispatch(
       genMW.set(id, -mw);
       injections.push({ bus: b.bus, pMW: -mw });
       if (inp.dtMin > 0) {
-        const cap = GENS.battery.energyMWh ?? 0;
         inp.soc.set(
           id,
-          Math.min(cap, (inp.soc.get(id) ?? 0) + (mw * inp.dtMin * BATTERY_EFFICIENCY) / 60),
+          Math.min(
+            b.energyMWh,
+            (inp.soc.get(id) ?? 0) + (mw * inp.dtMin * BATTERY_EFFICIENCY) / 60,
+          ),
         );
       }
     }
@@ -388,6 +497,8 @@ export function runDispatch(
     ppaTopupKPerHour,
     flexCostKPerHour,
     constraintKPerHour,
+    constraintDetail,
+    ppaDetail,
     priceMWh,
     carbonG: carbonDen > 0 ? carbonNum / carbonDen : 0,
     curtailedFirmMW,
