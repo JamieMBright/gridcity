@@ -269,6 +269,29 @@ function BalanceButton() {
   );
 }
 
+function HeadroomButton() {
+  const on = useAppStore((s) => s.headroom);
+  const setHeadroom = useAppStore((s) => s.setHeadroom);
+  return (
+    <button
+      onClick={() => setHeadroom(!on)}
+      title="Headroom heatmap: corridors coloured by spare capacity (H)"
+      style={{
+        padding: '3px 8px',
+        borderRadius: 5,
+        border: `1px solid ${on ? theme.orange : theme.navyLight}`,
+        background: on ? theme.orange : 'transparent',
+        color: on ? theme.navy : theme.slate,
+        fontFamily: theme.font,
+        fontSize: 12,
+        cursor: 'pointer',
+      }}
+    >
+      ▦
+    </button>
+  );
+}
+
 function RiioButton() {
   const kpiOpen = useAppStore((s) => s.kpiOpen);
   const setKpiOpen = useAppStore((s) => s.setKpiOpen);
@@ -374,6 +397,7 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
       <SkipButtons compact={compact} />
       <UndoRedo />
       <BalanceButton />
+      <HeadroomButton />
       {!compact && <RiioButton />}
       <SoundButton />
       <button

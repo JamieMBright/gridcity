@@ -321,6 +321,12 @@ export function MapView() {
     rendererRef.current?.setCouncilHighlight(highlightCouncil);
   }, [highlightCouncil]);
 
+  // headroom heatmap (re-colours on the next snapshot pass)
+  const headroom = useAppStore((s) => s.headroom);
+  useEffect(() => {
+    rendererRef.current?.setOverlay(headroom ? 'headroom' : 'none');
+  }, [headroom]);
+
   // highlight whatever the pinned inspector card is talking about, and
   // have the worker record its performance history for the sparkline
   const selectedAsset = useAppStore((s) => s.selectedAsset);

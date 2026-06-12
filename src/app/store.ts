@@ -62,6 +62,8 @@ interface AppState {
   /** The grid-balance report + panel state. */
   balance: BalanceReport | undefined;
   balanceOpen: boolean;
+  /** Headroom heatmap toggle (corridors coloured by spare capacity). */
+  headroom: boolean;
   /** Council ring-fence highlight on the map (balance row click). */
   highlightCouncil: number | undefined;
   menuOpen: boolean;
@@ -86,6 +88,7 @@ interface AppState {
   setStudy: (study: ConnectionStudy) => void;
   setBalance: (report: BalanceReport) => void;
   setBalanceOpen: (open: boolean) => void;
+  setHeadroom: (on: boolean) => void;
   setHighlightCouncil: (id: number | undefined) => void;
   setMenuOpen: (open: boolean) => void;
   setTutorialStep: (step: number | undefined) => void;
@@ -121,6 +124,7 @@ export const useAppStore = create<AppState>((set) => ({
   studies: {},
   balance: undefined,
   balanceOpen: false,
+  headroom: false,
   highlightCouncil: undefined,
   menuOpen: true,
   tutorialStep: undefined,
@@ -161,6 +165,7 @@ export const useAppStore = create<AppState>((set) => ({
   setBalance: (balance) => set({ balance }),
   setBalanceOpen: (balanceOpen) =>
     set(balanceOpen ? { balanceOpen } : { balanceOpen, highlightCouncil: undefined }),
+  setHeadroom: (headroom) => set({ headroom }),
   setHighlightCouncil: (highlightCouncil) => set({ highlightCouncil }),
   setMenuOpen: (menuOpen) => set({ menuOpen }),
   setTutorialStep: (tutorialStep) => set({ tutorialStep }),

@@ -12,6 +12,21 @@
 
 ## Open
 
+- [ ] **ROADMAP #3 Reinforcement planner + #25 Ring-main assist (this
+      prompt)**: `src/sim/planner.ts` — `planReinforcement(state, ctx,
+      scopeId)` builds 2–4 costed candidate bundles (bigger TXs / second
+      circuit / re-conductor / battery tender) off the balance engine's
+      shortfall, each scored on a serialize/deserialize clone (residual
+      shortfall + capex + £/home/yr via DOMESTIC_NETWORK_SHARE) with
+      ready-to-send commands; `proposeLoop(state, ctx, subId)` finds the
+      cheapest radial-closing line topologically (findIslands, priceLine).
+      Protocol `plan`/`proposeLoop` → `plan` response; worker cases;
+      BalancePanel "plan works" → option cards → approve (multi-command =
+      multiple undo steps, v1); store `plan`+`setPlan` (additive);
+      workerBridge requestPlan/proposeLoop. tests/planner.test.ts:
+      planner ≥2 options, best residual < shortfall, live state
+      untouched; proposeLoop survives original-feeder removal.
+
 - [ ] **"Do all" campaign (owner, 2026-06-12): implement ROADMAP.md in
       full**, tier by tier in gated waves (each wave: full local suite →
       PR → auto-merge). Wave 1 IN FLIGHT: #1 waypoints (main lane —

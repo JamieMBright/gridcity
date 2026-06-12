@@ -10,6 +10,7 @@ import { InfoPanel } from '../ui/InfoPanel';
 import { KpiDashboard } from '../ui/KpiDashboard';
 import { MapView } from '../ui/MapView';
 import { MobileChrome } from '../ui/MobileChrome';
+import { SearchBox } from '../ui/SearchBox';
 import { StartMenu } from '../ui/StartMenu';
 import { Tutorial } from '../ui/Tutorial';
 import { panelStyle, theme } from '../ui/theme';
@@ -133,6 +134,8 @@ function useKeyboard(): void {
         s.setGridView(!s.gridView);
       } else if (key === 'b') {
         s.setBalanceOpen(!s.balanceOpen);
+      } else if (key === 'h') {
+        s.setHeadroom(!s.headroom);
       } else if (key === 'k') {
         s.setKpiOpen(!s.kpiOpen);
       } else if (key === 'u') {
@@ -220,6 +223,7 @@ export function App() {
         ) : (
           <>
             <Wordmark />
+            <SearchBox />
             <BuildPalette />
             <InfoPanel />
             <BillPanel />
