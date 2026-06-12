@@ -1,6 +1,7 @@
 # ElectriCity — CLAUDE.md
 
 Read this first, every session. Then read TASKS.md and follow its protocol.
+ROADMAP.md holds the ranked improvement backlog in build-ready detail.
 
 ## What this game is
 

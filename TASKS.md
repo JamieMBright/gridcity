@@ -27,6 +27,10 @@
 
 ### "Suggest 50 improvements ranked by impact" prompt
 - [x] Delivered in chat (2026-06-12); owner picks become new entries here
+- [x] "Expand on all points in rich detail and add to the plan" →
+      ROADMAP.md created: all 50 items with design, build notes and
+      verification, ranked in four tiers; items graduate into this
+      ledger when the owner schedules them (CLAUDE.md points at it)
 
 ### Grid balance / energy accounting prompt
 - [x] GRID BALANCE view (⚖ HUD button / B): whole-map gross position —
