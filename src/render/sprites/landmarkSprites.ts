@@ -11,6 +11,12 @@ import { alpha, darken, hex, lighten, type Pt, type RGBA } from './raster';
 const STONE = hex('#d9cdb4');
 const STONE_DARK = hex('#b3a78e');
 const BRICK = hex('#a8543c');
+/** Warm Bath-stone gold — the Palace of Westminster. */
+const BATH = hex('#e3cf9d');
+/** Pale Portland stone — St Paul's, Tower Bridge. */
+const PORTLAND = hex('#e0d9c6');
+/** Lead-grey roofs, cupolas and turret caps. */
+const LEAD = hex('#5d6b80');
 
 // --- Skyscrapers (CBD districts) -------------------------------------------
 
@@ -23,7 +29,9 @@ export function skyscraperTile(seed: number, kind: number): Uint8ClampedArray<Ar
   const v0 = 0.2;
   const u1 = 0.8;
   const v1 = 0.8;
-  const H = 150 + kind * 22 + (seed % 2) * 12;
+  // kept under ~170 incl. crowns so the landmark towers (the glass shard
+  // above all) clearly out-scale the ordinary CBD fabric
+  const H = 96 + kind * 14 + (seed % 2) * 8;
   iso.shadow(u0, v0, u1, v1, 0.4, 0.3);
   // glass body: dusk face + sunset face
   iso.r.poly([P(u0, v1, H), P(u1, v1, H), P(u1, v1, 0), P(u0, v1, 0)], COLORS.glassDark, shaded(COLORS.glassSky, 0.2));
@@ -67,132 +75,363 @@ export function skyscraperTile(seed: number, kind: number): Uint8ClampedArray<Ar
 
 // --- Riverside icons ---------------------------------------------------------
 
-/** Parliament: the long gothic hall and the clock tower. */
+/** The Palace of Westminster, to scale: a gothic riverfront palace in
+ *  Bath-stone gold whose three ranges STEP along the river bend exactly
+ *  as the map reserves them (three 1x2 columns staircasing north-east) —
+ *  Victoria Tower at the south-west end, pinnacled river fronts, Central
+ *  Tower over the lobby, and BIG BEN's clock tower (faces, hands, green
+ *  spire) at the north-east end by the bridge. SW-anchored multi-tile
+ *  sprite on a 3x5 canvas: the chooser emits it on the reservation's
+ *  (min x, max y) tile. */
 export function parliamentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso();
+  const iso = new Iso(3, 5, { swAnchor: true });
   void seed;
-  // the hall
-  iso.shadow(0.08, 0.36, 0.7, 0.74, 0.18, 0.22);
-  iso.box(0.08, 0.36, 0.7, 0.74, 0, 26, STONE);
-  iso.gable(0.08, 0.36, 0.7, 0.74, 26, 8, 'u', darken(STONE_DARK, 0.15), STONE);
-  // gothic window ribs along the front
-  for (let u = 0.12; u < 0.66; u += 0.07) {
-    iso.r.line(P(u, 0.74, 4), P(u, 0.74, 22), 0.9 * RES, shaded(STONE, 0.3));
-  }
-  // pinnacles
-  for (const u of [0.08, 0.38, 0.7]) {
-    iso.box(u - 0.012, 0.34, u + 0.012, 0.38, 26, 40, STONE);
-  }
-  // the clock tower
-  const tu = 0.8;
-  const tv = 0.62;
-  iso.box(tu - 0.05, tv - 0.05, tu + 0.05, tv + 0.05, 0, 64, STONE);
-  // clock faces (left + right) with hands
-  for (const side of ['l', 'r'] as const) {
-    const f: Pt = side === 'l' ? P(tu, tv + 0.051, 56) : P(tu + 0.051, tv, 56);
-    const r = 4.6 * RES;
-    const pts: Pt[] = [];
+  const ROOF = hex('#5a705f'); // weathered bronze-green palace roofs
+  const RIB = shaded(BATH, 0.34);
+
+  // one gothic range per reserved column, ridge running with the river
+  const range = (k: number, vTop: number, vTail: number): void => {
+    const u0 = k === 0 ? 0.04 : k - 0.02; // ranges share edges, no gaps
+    const u1 = k === 2 ? 2.96 : k + 1.02;
+    const sv0 = vTop + 0.06;
+    const sv1 = vTop + vTail;
+    iso.shadow(u0, sv0, u1, sv1, 0.2, 0.2);
+    iso.box(u0, sv0, u1, sv1, 0, 38, BATH);
+    // gothic glazing between stone ribs along the river (east) face
+    iso.windowsRight(u1, sv0 + 0.12, sv1 - 0.12, 7, 31, 6, alpha(COLORS.glassDark, 0.95), lighten(BATH, 0.18));
+    for (let v = sv0 + 0.1; v < sv1 - 0.04; v += 0.155) {
+      iso.r.line(iso.P(u1, v, 4), iso.P(u1, v, 35), 0.9 * RES, RIB);
+    }
+    iso.gable(u0, sv0, u1, sv1, 38, 11, 'v', ROOF, BATH);
+    // pinnacle comb along the river eave + the south gable end
+    for (let v = sv0 + 0.1; v < sv1; v += 0.17) {
+      const pb = iso.P(u1 + 0.012, v, 37);
+      const pt = iso.P(u1 + 0.012, v, 45);
+      iso.r.line(pb, pt, 1.1 * RES, BATH);
+      iso.r.poly([[pt[0] - 1.3 * RES, pt[1]], [pt[0] + 1.3 * RES, pt[1]], [pt[0], pt[1] - 3.6 * RES]], lit(BATH, 0.1));
+    }
+    // rose window in the south gable end
+    const g = iso.P((u0 + u1) / 2, sv1 + 0.005, 43);
+    const rose: Pt[] = [];
     for (let i = 0; i < 10; i++) {
       const a = (i / 10) * Math.PI * 2;
-      pts.push([f[0] + Math.cos(a) * r, f[1] + Math.sin(a) * r * 0.92]);
+      rose.push([g[0] + Math.cos(a) * 4.4 * RES, g[1] + Math.sin(a) * 4.1 * RES]);
     }
-    iso.r.poly(pts, COLORS.white);
-    iso.r.polyline(pts, INK_W * 0.7, INK, true);
-    iso.r.line(f, [f[0] + r * 0.55, f[1] - r * 0.3], 0.8 * RES, INK);
-    iso.r.line(f, [f[0] - r * 0.2, f[1] - r * 0.55], 0.8 * RES, INK);
+    iso.r.poly(rose, alpha(COLORS.glassDark, 0.95));
+    iso.r.polyline(rose, INK_W * 0.5, lighten(BATH, 0.2), true);
+  };
+  range(0, 3, 2.25); // the Lords, stepping down to Victoria Tower
+  range(1, 1, 2.3); // the central range
+  range(2, 0, 2.15); // the Commons, up by the bridge
+
+  // Central Tower: the octagonal lantern spire over the lobby
+  iso.box(1.36, 1.98, 1.64, 2.26, 38, 60, BATH);
+  iso.hip(1.34, 1.96, 1.66, 2.28, 60, 16, ROOF);
+  iso.r.line(iso.P(1.5, 2.12, 76), iso.P(1.5, 2.12, 82), 1 * RES, COLORS.glassLit);
+
+  // Victoria Tower: the great square tower over the Lords (SW end)
+  iso.box(0.26, 4.32, 0.74, 4.8, 0, 90, BATH);
+  iso.windowsLeft(4.8, 0.34, 0.66, 10, 82, 2, alpha(COLORS.glassDark, 0.92), lighten(BATH, 0.15));
+  for (const [cu, cv] of [
+    [0.29, 4.35],
+    [0.71, 4.35],
+    [0.29, 4.77],
+    [0.71, 4.77],
+  ] as const) {
+    iso.box(cu - 0.03, cv - 0.03, cu + 0.03, cv + 0.03, 90, 102, BATH);
+    const t = iso.P(cu, cv, 102);
+    iso.r.poly([[t[0] - 1.6 * RES, t[1]], [t[0] + 1.6 * RES, t[1]], [t[0], t[1] - 5 * RES]], lit(BATH, 0.12));
   }
-  // belfry + spire
-  iso.box(tu - 0.055, tv - 0.055, tu + 0.055, tv + 0.055, 64, 72, STONE_DARK);
-  iso.hip(tu - 0.05, tv - 0.05, tu + 0.05, tv + 0.05, 72, 16, hex('#46518f'));
+  iso.hip(0.32, 4.38, 0.68, 4.74, 90, 10, ROOF);
+  const fm = iso.P(0.5, 4.56, 100);
+  iso.r.line(fm, [fm[0], fm[1] - 12 * RES], 1 * RES, INK);
+  iso.r.poly([[fm[0], fm[1] - 12 * RES], [fm[0] + 7 * RES, fm[1] - 10.4 * RES], [fm[0], fm[1] - 8.8 * RES]], COLORS.orange);
+
+  // BIG BEN — the clock tower at the NE end, head and shoulders over
+  // the palace, with gilt-ringed faces and the green spire
+  const tu = 2.5;
+  const tv = 1.42;
+  const th = 0.105;
+  iso.box(tu - th, tv - th, tu + th, tv + th, 0, 92, lighten(BATH, 0.06));
+  iso.r.line(iso.P(tu - th + 0.03, tv + th, 6), iso.P(tu - th + 0.03, tv + th, 86), 0.8 * RES, RIB);
+  iso.r.line(iso.P(tu + th - 0.03, tv + th, 6), iso.P(tu + th - 0.03, tv + th, 86), 0.8 * RES, RIB);
+  // clock stage, slightly proud of the shaft
+  const ch = th + 0.022;
+  iso.box(tu - ch, tv - ch, tu + ch, tv + ch, 92, 114, BATH);
+  for (const side of ['l', 'r'] as const) {
+    const f: Pt = side === 'l' ? iso.P(tu, tv + ch + 0.004, 103) : iso.P(tu + ch + 0.004, tv, 103);
+    const r = 7.2 * RES;
+    const ring: Pt[] = [];
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2;
+      ring.push([f[0] + Math.cos(a) * r, f[1] + Math.sin(a) * r * 0.94]);
+    }
+    iso.r.poly(ring, COLORS.white);
+    iso.r.polyline(ring, 1.2 * RES, hex('#8a7434'), true);
+    iso.r.polyline(ring, INK_W * 0.55, INK, true);
+    iso.r.line(f, [f[0] + r * 0.52, f[1] - r * 0.3], 1 * RES, INK);
+    iso.r.line(f, [f[0] - r * 0.18, f[1] - r * 0.6], 1 * RES, INK);
+  }
+  // belfry louvres + the green spire and gilt finial
+  iso.box(tu - th, tv - th, tu + th, tv + th, 114, 123, BATH);
+  iso.r.poly(
+    [iso.P(tu - 0.05, tv + th + 0.002, 121), iso.P(tu + 0.05, tv + th + 0.002, 121), iso.P(tu + 0.05, tv + th + 0.002, 116), iso.P(tu - 0.05, tv + th + 0.002, 116)],
+    darken(BATH, 0.4),
+  );
+  iso.hip(tu - th - 0.015, tv - th - 0.015, tu + th + 0.015, tv + th + 0.015, 123, 16, ROOF);
+  iso.r.line(iso.P(tu, tv, 139), iso.P(tu, tv, 147), 1.2 * RES, COLORS.glassLit);
   return iso.build();
 }
 
-/** The big observation wheel, pods and all. */
+/** The GREAT observation wheel on the south bank: a thin white rim and
+ *  spokes nearly three houses' height across, capsules dotted around the
+ *  outside, A-frame legs and a back-stay. Fills the cell's full headroom. */
 export function eyeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   void seed;
-  const [cx, cyB] = P(0.5, 0.55, 0);
-  const R = 0.36 * (CELL_W / 2);
-  const cy = cyB - 52 * RES;
-  // A-frame legs
-  iso.r.line([cx - 14 * RES, cyB], [cx, cy], 2 * RES, COLORS.white);
-  iso.r.line([cx + 14 * RES, cyB], [cx, cy], 2 * RES, COLORS.white);
-  // rim (two strokes for depth) + spokes + pods
-  const rim: Pt[] = [];
-  for (let i = 0; i <= 36; i++) {
-    const a = (i / 36) * Math.PI * 2;
-    rim.push([cx + Math.cos(a) * R, cy + Math.sin(a) * R * 0.96]);
-  }
-  iso.r.polyline(rim, 1.6 * RES, COLORS.steel);
-  iso.r.polyline(rim.map(([x, y]): Pt => [x, y - 1.6 * RES]), 0.9 * RES, alpha(COLORS.white, 0.85));
-  for (let i = 0; i < 12; i++) {
-    const a = (i / 12) * Math.PI * 2;
-    const sx = cx + Math.cos(a) * R;
-    const sy = cy + Math.sin(a) * R * 0.96;
-    iso.r.line([cx, cy], [sx, sy], 0.7 * RES, alpha(COLORS.steel, 0.8));
-    // pod
-    iso.r.poly(
-      [[sx - 2.4 * RES, sy - 1.8 * RES], [sx + 2.4 * RES, sy - 1.8 * RES], [sx + 2.4 * RES, sy + 1.8 * RES], [sx - 2.4 * RES, sy + 1.8 * RES]],
-      i % 3 === 0 ? COLORS.orange : COLORS.glassSky,
-    );
-  }
-  iso.r.poly([[cx - 2.5 * RES, cy - 2.5 * RES], [cx + 2.5 * RES, cy - 2.5 * RES], [cx + 2.5 * RES, cy + 2.5 * RES], [cx - 2.5 * RES, cy + 2.5 * RES]], COLORS.white);
-  return iso.build();
-}
-
-/** The cathedral: nave, drum, dome and lantern. */
-export function domeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso();
-  void seed;
-  iso.shadow(0.12, 0.3, 0.86, 0.72, 0.2, 0.22);
-  iso.box(0.12, 0.3, 0.86, 0.72, 0, 24, STONE);
-  // columned front (right face)
-  for (let v = 0.34; v < 0.7; v += 0.06) {
-    iso.r.line(P(0.86, v, 2), P(0.86, v, 20), 1 * RES, shaded(STONE, 0.25));
-  }
-  // drum + dome
-  const [cx, cyB] = P(0.48, 0.5, 0);
-  const drum = 34 * RES;
-  iso.box(0.36, 0.38, 0.6, 0.62, 24, 34, STONE_DARK);
-  const R = 0.17 * (CELL_W / 2);
-  const domePts = (s: number): Pt[] => {
+  const [cx, cyB] = P(0.55, 0.58, 0);
+  const R = 57 * RES; // great wheel radius — the whole cell width
+  const cy = cyB - 72 * RES; // hub height
+  iso.shadow(0.28, 0.5, 0.78, 0.72, 0.22, 0.16);
+  // support: A-frame legs to the hub + a slim back-stay
+  iso.r.line([cx + 30 * RES, cyB + 2 * RES], [cx, cy], 1.6 * RES, shaded(COLORS.white, 0.2));
+  iso.r.line([cx - 28 * RES, cyB + 3 * RES], [cx, cy], 2.6 * RES, COLORS.white);
+  iso.r.line([cx - 8 * RES, cyB + 5 * RES], [cx, cy], 2.6 * RES, COLORS.white);
+  iso.r.line([cx - 24 * RES, cyB - 16 * RES], [cx - 11 * RES, cyB - 22 * RES], 1.1 * RES, COLORS.white);
+  // rim: white outer + slim steel inner ring
+  const ring = (r: number): Pt[] => {
     const pts: Pt[] = [];
-    for (let i = 0; i <= 10; i++) {
-      const a = Math.PI * (i / 10);
-      pts.push([cx + Math.cos(a) * R * s, cyB - drum - Math.sin(a) * R * 1.1 * s]);
+    for (let i = 0; i <= 48; i++) {
+      const a = (i / 48) * Math.PI * 2;
+      pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r * 0.97]);
     }
     return pts;
   };
-  iso.r.poly(domePts(1), shaded(hex('#5e7d6b'), 0.1));
-  iso.r.poly(domePts(0.7), lit(hex('#5e7d6b'), 0.12));
-  iso.r.polyline(domePts(1), INK_W, INK);
-  // lantern + gold cross
-  iso.r.rect(cx - 1.6 * RES, cyB - drum - R * 1.1 - 8 * RES, cx + 1.6 * RES, cyB - drum - R * 1.1, COLORS.white);
-  iso.r.line([cx, cyB - drum - R * 1.1 - 8 * RES], [cx, cyB - drum - R * 1.1 - 13 * RES], 1 * RES, COLORS.glassLit);
-  iso.r.line([cx - 2 * RES, cyB - drum - R * 1.1 - 11 * RES], [cx + 2 * RES, cyB - drum - R * 1.1 - 11 * RES], 1 * RES, COLORS.glassLit);
+  iso.r.polyline(ring(R), 1.7 * RES, COLORS.white, true);
+  iso.r.polyline(ring(R - 2.8 * RES), 0.9 * RES, alpha(COLORS.steel, 0.85), true);
+  // spokes — thin cables to the hub
+  for (let i = 0; i < 24; i++) {
+    const a = (i / 24) * Math.PI * 2 + 0.13;
+    iso.r.line([cx, cy], [cx + Math.cos(a) * (R - 2.8 * RES), cy + Math.sin(a) * (R - 2.8 * RES) * 0.97], 0.55 * RES, alpha(COLORS.steel, 0.7));
+  }
+  // capsules riding the OUTSIDE of the rim
+  for (let i = 0; i < 24; i++) {
+    const a = (i / 24) * Math.PI * 2 + 0.13;
+    const sx = cx + Math.cos(a) * (R + 3.4 * RES);
+    const sy = cy + Math.sin(a) * (R + 3.4 * RES) * 0.97;
+    iso.r.poly(
+      [[sx - 2.8 * RES, sy - 2 * RES], [sx + 2.8 * RES, sy - 2 * RES], [sx + 2.8 * RES, sy + 2 * RES], [sx - 2.8 * RES, sy + 2 * RES]],
+      i === 6 ? COLORS.orange : COLORS.glassSky,
+    );
+    iso.r.polyline(
+      [[sx - 2.8 * RES, sy - 2 * RES], [sx + 2.8 * RES, sy - 2 * RES], [sx + 2.8 * RES, sy + 2 * RES], [sx - 2.8 * RES, sy + 2 * RES]],
+      INK_W * 0.35,
+      alpha(INK, 0.6),
+      true,
+    );
+  }
+  // hub
+  const hub: Pt[] = [];
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    hub.push([cx + Math.cos(a) * 4.4 * RES, cy + Math.sin(a) * 4.2 * RES]);
+  }
+  iso.r.poly(hub, COLORS.white);
+  iso.r.polyline(hub, INK_W * 0.6, INK, true);
+  // boarding platform under the wheel
+  iso.box(0.36, 0.6, 0.74, 0.76, 0, 4.5, COLORS.white, { ink: false, topC: lighten(COLORS.pavement, 0.1) });
   return iso.build();
 }
 
-/** The glass shard: a tapering spire of sunset glass. */
+/** St Paul's, to scale on a 2x2 block: long classical nave with two
+ *  storeys of windows, transept, the colonnaded drum, the great
+ *  grey-green dome with its lantern and gold cross, twin west towers
+ *  and the pedimented portico. SW-anchored multi-tile sprite. */
+export function domeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true });
+  void seed;
+  const DOME = hex('#7c948a'); // the grey-green lead dome
+  // the cathedral keeps to the WEST of its close (the east strip stays
+  // open lawn): its tall masses then never fight the fabric drawn after
+  // it to the north-east
+  iso.shadow(0.12, 0.5, 1.56, 1.5, 0.22, 0.24);
+
+  // transept arms first (north-south), then the long nave over them
+  iso.box(0.66, 0.5, 1.08, 1.52, 0, 28, PORTLAND);
+  iso.box(0.12, 0.62, 1.58, 1.44, 0, 30, PORTLAND);
+  // two storeys of round-headed windows down the east flank
+  iso.windowsRight(1.58, 0.68, 1.4, 3.5, 12, 6, alpha(COLORS.glassDark, 0.9), COLORS.white);
+  iso.windowsRight(1.58, 0.68, 1.4, 16, 25, 6, alpha(COLORS.glassDark, 0.9), COLORS.white);
+  // balustraded parapet
+  iso.box(0.1, 0.6, 1.6, 1.46, 30, 33, lighten(PORTLAND, 0.1), { ink: false });
+
+  // the show front faces the street: portico columns under a pediment,
+  // flanked by the twin towers with their lead cupolas
+  iso.box(0.5, 1.44, 1.2, 1.55, 0, 26, PORTLAND, { ink: false });
+  for (let cu = 0.54; cu <= 1.12; cu += 0.067) {
+    iso.r.poly([iso.P(cu, 1.552, 24), iso.P(cu + 0.026, 1.552, 24), iso.P(cu + 0.026, 1.552, 2), iso.P(cu, 1.552, 2)], COLORS.white);
+  }
+  iso.r.poly([iso.P(0.5, 1.552, 30), iso.P(1.2, 1.552, 30), iso.P(1.2, 1.552, 26), iso.P(0.5, 1.552, 26)], lighten(PORTLAND, 0.12));
+  iso.r.poly([iso.P(0.5, 1.552, 30), iso.P(1.2, 1.552, 30), iso.P(0.85, 1.552, 41)], lighten(PORTLAND, 0.16));
+  iso.r.polyline([iso.P(0.5, 1.552, 30), iso.P(1.2, 1.552, 30), iso.P(0.85, 1.552, 41)], INK_W * 0.8, INK, true);
+  for (const tu of [0.26, 1.44] as const) {
+    iso.box(tu - 0.12, 1.32, tu + 0.12, 1.56, 0, 50, PORTLAND);
+    iso.hip(tu - 0.14, 1.3, tu + 0.14, 1.58, 50, 12, LEAD);
+    const tt = iso.P(tu, 1.44, 62);
+    iso.r.line(tt, [tt[0], tt[1] - 4 * RES], 1 * RES, COLORS.glassLit);
+  }
+
+  // the drum: a square base, then the colonnaded ring
+  iso.box(0.62, 0.77, 1.12, 1.27, 28, 38, PORTLAND);
+  const [dx, dyB] = iso.P(0.87, 1.02, 0);
+  const DR = 0.52 * (CELL_W / 2);
+  const ring = (s: number, z: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 28; i++) {
+      const a = (i / 28) * Math.PI * 2;
+      pts.push([dx + Math.cos(a) * DR * s, dyB - z * RES + Math.sin(a) * DR * s * 0.48]);
+    }
+    return pts;
+  };
+  iso.r.poly([...ring(0.92, 38), ...ring(0.92, 56).reverse()], PORTLAND);
+  // peristyle columns around the visible front of the drum
+  for (let t = 0; t <= 10; t++) {
+    const a = (t / 10) * Math.PI;
+    const px = dx + Math.cos(a) * DR * 0.92;
+    const py = dyB - 47 * RES + Math.sin(a) * DR * 0.92 * 0.48;
+    iso.r.line([px, py - 8 * RES], [px, py + 8 * RES], 1.1 * RES, a < Math.PI * 0.45 ? lit(PORTLAND, 0.2) : COLORS.white);
+  }
+  iso.r.polyline(ring(0.92, 56), INK_W * 0.6, alpha(INK, 0.6), true);
+  // the stone gallery — the gold-touched band the dome springs from
+  iso.r.poly([...ring(0.98, 56), ...ring(0.98, 60).reverse()], lighten(PORTLAND, 0.14));
+
+  // the great dome itself, ribs and all
+  const domeR = DR * 0.95;
+  const dome = (s: number, dzx = 0): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 16; i++) {
+      const a = Math.PI * (i / 16);
+      pts.push([dx + dzx + Math.cos(a) * domeR * s, dyB - 60 * RES - Math.sin(a) * domeR * 1.12 * s]);
+    }
+    return pts;
+  };
+  iso.r.poly(dome(1), shaded(DOME, 0.08), lit(DOME, 0.05));
+  iso.r.poly(dome(0.66, domeR * 0.16), lit(DOME, 0.16));
+  // meridian ribs
+  for (const k of [-0.62, -0.2, 0.24, 0.66]) {
+    const baseX = dx + k * domeR;
+    const topX = dx + k * domeR * 0.12;
+    iso.r.line([baseX, dyB - 60 * RES], [topX, dyB - 60 * RES - domeR * 1.09], 0.8 * RES, alpha(darken(DOME, 0.25), 0.8));
+  }
+  iso.r.polyline(dome(1), INK_W * 0.9, INK);
+  // lantern + the gold ball and cross
+  const topY = dyB - 60 * RES - domeR * 1.12;
+  iso.r.rect(dx - 2.6 * RES, topY - 9 * RES, dx + 2.6 * RES, topY + 1 * RES, COLORS.white);
+  iso.r.polyline(
+    [[dx - 2.6 * RES, topY - 9 * RES], [dx + 2.6 * RES, topY - 9 * RES], [dx + 2.6 * RES, topY + 1 * RES]],
+    INK_W * 0.5,
+    alpha(INK, 0.7),
+  );
+  iso.r.poly([[dx - 2 * RES, topY - 9 * RES], [dx + 2 * RES, topY - 9 * RES], [dx, topY - 13 * RES]], LEAD);
+  iso.r.line([dx, topY - 13 * RES], [dx, topY - 18 * RES], 1 * RES, COLORS.glassLit);
+  iso.r.line([dx - 2 * RES, topY - 16.4 * RES], [dx + 2 * RES, topY - 16.4 * RES], 1 * RES, COLORS.glassLit);
+  return iso.build();
+}
+
+/** THE SHARD: the tallest thing on the map — a slender tapering spike of
+ *  pale sky-reflecting glass, facet seams up its faces and the
+ *  characteristic open splintered tip where the facets stop short. */
 export function spireTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   void seed;
-  const H = 200;
   const u = 0.5;
-  const v = 0.5;
-  const base = 0.26;
-  iso.shadow(u - base, v - base * 0.5, u + base, v + base, 0.42, 0.3);
+  const v = 0.52;
+  const b = 0.3;
+  const H = 176;
+  iso.shadow(u - b, v - b * 0.4, u + b, v + b, 0.45, 0.28);
   const apex = P(u + 0.02, v - 0.02, H);
-  // three visible shards
-  iso.r.poly([P(u - base, v + base, 0), P(u + base * 0.2, v + base, 0), apex], COLORS.glassDark);
-  iso.r.poly([P(u + base * 0.2, v + base, 0), P(u + base, v + base * 0.2, 0), apex], COLORS.glassSunset);
-  iso.r.poly([P(u + base, v + base * 0.2, 0), P(u + base, v - base, 0), apex], COLORS.glassSky);
-  iso.edge(P(u - base, v + base, 0), apex);
-  iso.edge(P(u + base * 0.2, v + base, 0), apex);
-  iso.edge(P(u + base, v + base * 0.2, 0), apex);
-  iso.edge(P(u + base, v - base, 0), apex);
-  // splinter top
-  iso.r.line(apex, [apex[0] + 1.5 * RES, apex[1] - 6 * RES], 1 * RES, alpha(COLORS.glassSky, 0.9));
+  const L = P(u - b, v + b * 0.85, 0);
+  const F = P(u + b * 0.15, v + b, 0);
+  const Rr = P(u + b, v + b * 0.15, 0);
+  const Bk = P(u + b * 0.78, v - b, 0);
+  const along = (c: Pt, t: number): Pt => [c[0] + (apex[0] - c[0]) * t, c[1] + (apex[1] - c[1]) * t];
+  // facets: each stops at its own height — the open splintered crown.
+  // Pale glass, brighter toward the sky reflection at the top.
+  iso.r.poly([L, F, along(F, 0.86), along(L, 0.93)], hex('#dceaf2'), hex('#9fb3cf'));
+  iso.r.poly([F, Rr, along(Rr, 0.955), along(F, 0.86)], hex('#eef5fa'), hex('#c4d9e8'));
+  iso.r.poly([Rr, Bk, along(Bk, 0.89), along(Rr, 0.955)], hex('#c2d2e6'), hex('#8b9fc0'));
+  // splinter blades continuing past each facet edge, gaps between
+  const blade = (c: Pt, t0: number, t1: number, w: number, col: RGBA): void => {
+    const a0 = along(c, t0);
+    const a1 = along(c, t1);
+    iso.r.poly([[a0[0] - w, a0[1]], [a0[0] + w, a0[1]], a1], col);
+  };
+  blade(L, 0.93, 1.0, 1.6 * RES, hex('#b7c8de'));
+  blade(F, 0.86, 0.97, 2 * RES, hex('#d3e3ee'));
+  blade(Rr, 0.955, 1.06, 1.7 * RES, hex('#e4eef6'));
+  blade(Bk, 0.89, 1.0, 1.3 * RES, hex('#a9bcd6'));
+  // faint floor lines across the two big faces
+  for (let z = 12; z < 150; z += 11) {
+    const t = z / H;
+    iso.r.line(along(L, t), along(F, t), 0.45 * RES, alpha(COLORS.white, 0.28));
+    iso.r.line(along(F, t), along(Rr, t), 0.45 * RES, alpha(COLORS.white, 0.22));
+  }
+  // facet seams + a light silhouette ink (glass, not stone)
+  iso.r.line(F, along(F, 0.97), 0.8 * RES, alpha(COLORS.white, 0.9));
+  iso.r.line(Rr, along(Rr, 1.06), 0.7 * RES, alpha(COLORS.white, 0.75));
+  iso.r.line(L, along(L, 1.0), INK_W * 0.7, alpha(INK, 0.7));
+  iso.r.line(Bk, along(Bk, 1.0), INK_W * 0.6, alpha(INK, 0.55));
+  // street-level podium + canopy
+  iso.box(u - b * 0.9, v - b * 0.4, u + b * 0.9, v + b * 0.95, 0, 6, COLORS.glassDark, { topC: COLORS.steel });
+  return iso.build();
+}
+
+/** The Gherkin: the City's rounded glass bullet with its diagonal
+ *  lattice — bulging waist, tapering to a lens at the tip. */
+export function gherkinTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  iso.shadow(0.32, 0.34, 0.68, 0.66, 0.3, 0.26);
+  const [cx, cyB] = P(0.5, 0.5, 0);
+  const H = 126;
+  const Rm = 25 * RES;
+  // bullet profile: waisted at the base, widest a third up, closing to a tip
+  const prof = (t: number): number => Rm * Math.sin(Math.PI * (0.24 + 0.76 * t));
+  const yAt = (t: number): number => cyB - H * RES * t;
+  const STEPS = 22;
+  const outline: Pt[] = [];
+  for (let i = 0; i <= STEPS; i++) outline.push([cx - prof(i / STEPS), yAt(i / STEPS)]);
+  for (let i = STEPS; i >= 0; i--) outline.push([cx + prof(i / STEPS), yAt(i / STEPS)]);
+  iso.r.poly(outline, lighten(COLORS.glassSky, 0.28), hex('#48587c'));
+  // sunset-lit eastern flank
+  const litSide: Pt[] = [];
+  for (let i = 0; i <= STEPS; i++) litSide.push([cx + prof(i / STEPS) * 0.35, yAt(i / STEPS)]);
+  for (let i = STEPS; i >= 0; i--) litSide.push([cx + prof(i / STEPS) * 0.96, yAt(i / STEPS)]);
+  iso.r.poly(litSide, alpha(COLORS.glassSunset, 0.4), alpha(hex('#46518f'), 0.35));
+  // the diagonal lattice, both helix families wrapping the shell
+  for (const dir of [1, -1]) {
+    for (let k = 0; k < 6; k++) {
+      const pts: Pt[] = [];
+      for (let i = 0; i <= STEPS; i++) {
+        const t = i / STEPS;
+        const a = (k / 6) * Math.PI * 2 + dir * t * 4.2;
+        const c = Math.cos(a);
+        if (c < -0.15) {
+          if (pts.length > 1) iso.r.polyline(pts, 0.65 * RES, alpha(hex('#2e3d57'), 0.75));
+          pts.length = 0;
+          continue;
+        }
+        pts.push([cx + prof(t) * c, yAt(t)]);
+      }
+      if (pts.length > 1) iso.r.polyline(pts, 0.65 * RES, alpha(hex('#2e3d57'), 0.75));
+    }
+  }
+  // crown lens + silhouette ink
+  iso.r.poly(
+    [[cx - 2.4 * RES, yAt(0.965)], [cx + 2.4 * RES, yAt(0.965)], [cx, yAt(1) - 1.5 * RES]],
+    alpha(COLORS.white, 0.85),
+  );
+  iso.r.polyline(outline, INK_W * 0.6, alpha(INK, 0.75), true);
   return iso.build();
 }
 
@@ -225,40 +464,105 @@ export function fortressTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
-/** Twin-tower bascule bridge deck, one river tile's worth. The deck runs
- *  with the road (N–S through the cell); towers rise beside the carriageway. */
+/** TOWER BRIDGE, whole: one sprite spanning the river's four tiles
+ *  (1x4, SW-anchored on the southernmost water tile). Two gothic stone
+ *  towers with corner turrets rise from mid-river piers, the twin high
+ *  walkways run between them, and the pale blue suspension chains sweep
+ *  down to shore turrets on each bank. The deck centre stays open so the
+ *  street ribbon and its traffic pass between the balustrades. */
 export function towerBridgeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso();
+  const iso = new Iso(1, 4, { swAnchor: true });
   void seed;
-  const deckZ = 7;
-  // (no deck slab — the street ribbon provides the carriageway)
-  // side girders in the brand blue
-  for (const u of [0.3, 0.7]) {
-    iso.r.poly([P(u, 0, deckZ + 3), P(u, 1, deckZ + 3), P(u, 1, deckZ - 2), P(u, 0, deckZ - 2)], hex('#5e8fc2'));
-    iso.r.line(P(u, 0, deckZ + 3), P(u, 1, deckZ + 3), INK_W, INK);
+  const CHAIN = hex('#8fb3d4');
+  const deckZ = 8;
+  const T1 = 1.3; // north tower (v)
+  const T2 = 2.7; // south tower (v)
+  const TOP = 60; // tower shaft top
+
+  // mid-river stone piers with pointed cutwaters
+  for (const tv of [T1, T2]) {
+    iso.box(0.22, tv - 0.34, 0.78, tv + 0.34, -7, 2, COLORS.concrete, { topC: lighten(COLORS.concrete, 0.1) });
+    iso.r.poly([iso.P(0.22, tv - 0.34, 2), iso.P(0.78, tv - 0.34, 2), iso.P(0.5, tv - 0.52, 2)], lighten(COLORS.concrete, 0.06));
+    iso.r.poly([iso.P(0.22, tv + 0.34, 2), iso.P(0.78, tv + 0.34, 2), iso.P(0.5, tv + 0.52, 2)], shaded(COLORS.concrete, 0.12));
   }
-  // stone towers either side of the deck with navy caps
-  for (const [u, v] of [
-    [0.2, 0.3],
-    [0.8, 0.7],
-  ] as const) {
-    iso.shadow(u - 0.07, v - 0.05, u + 0.07, v + 0.08, 0.1, 0.16);
-    iso.box(u - 0.07, v - 0.07, u + 0.07, v + 0.07, -2, 40, STONE);
-    iso.hip(u - 0.085, v - 0.085, u + 0.085, v + 0.085, 40, 11, hex('#46518f'));
+  // shore abutment turrets where the chains land — up on the banks,
+  // just past the water tiles the sprite reserves
+  for (const av of [-0.12, 4.12]) {
+    iso.box(0.34, av - 0.14, 0.66, av + 0.14, 0, 18, PORTLAND);
+    iso.hip(0.32, av - 0.16, 0.68, av + 0.16, 18, 6, LEAD);
   }
-  // suspension chains swooping between the towers
-  const a = P(0.2, 0.3, 38);
-  const b = P(0.8, 0.7, 38);
-  const mid: Pt = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + 14 * RES];
-  const chain: Pt[] = [];
-  for (let i = 0; i <= 12; i++) {
-    const t = i / 12;
-    chain.push([
-      (1 - t) * (1 - t) * a[0] + 2 * (1 - t) * t * mid[0] + t * t * b[0],
-      (1 - t) * (1 - t) * a[1] + 2 * (1 - t) * t * mid[1] + t * t * b[1],
-    ]);
+  // deck balustrades — carriageway ribbon (and its cars) run between them
+  for (const du of [0.3, 0.7]) {
+    iso.r.poly(
+      [iso.P(du, 0.05, deckZ + 2.5), iso.P(du, 3.95, deckZ + 2.5), iso.P(du, 3.95, deckZ - 3), iso.P(du, 0.05, deckZ - 3)],
+      alpha(CHAIN, 0.92),
+    );
+    iso.r.line(iso.P(du, 0.05, deckZ + 2.5), iso.P(du, 3.95, deckZ + 2.5), INK_W * 0.7, INK);
   }
-  iso.r.polyline(chain, 1.1 * RES, COLORS.white);
+  // suspension chains: shore tie, the mid-river sweep, shore tie — with
+  // hangers dropping to the deck. Drawn each side of the carriageway.
+  const chainSide = (du: number): void => {
+    const seg = (vA: number, zA: number, vB: number, zB: number, sag: number): void => {
+      const pts: Pt[] = [];
+      for (let i = 0; i <= 14; i++) {
+        const t = i / 14;
+        const z = zA + (zB - zA) * t - sag * 4 * t * (1 - t);
+        pts.push(iso.P(du, vA + (vB - vA) * t, z));
+      }
+      iso.r.polyline(pts, 1.7 * RES, CHAIN);
+      for (let i = 2; i <= 12; i += 2) {
+        const t = i / 14;
+        const z = zA + (zB - zA) * t - sag * 4 * t * (1 - t);
+        iso.r.line(iso.P(du, vA + (vB - vA) * t, z), iso.P(du, vA + (vB - vA) * t, deckZ + 2), 0.6 * RES, alpha(CHAIN, 0.8));
+      }
+    };
+    seg(-0.08, 17, T1 - 0.2, 52, 0);
+    seg(T1 + 0.2, 52, T2 - 0.2, 52, 13);
+    seg(T2 + 0.2, 52, 4.08, 17, 0);
+  };
+  chainSide(0.3);
+  chainSide(0.7);
+
+  // the two gothic towers
+  for (const tv of [T1, T2]) {
+    iso.box(0.24, tv - 0.26, 0.76, tv + 0.26, 2, 12, PORTLAND);
+    iso.box(0.29, tv - 0.21, 0.71, tv + 0.21, 12, TOP, PORTLAND);
+    // pointed portal over the roadway + gothic glazing up the shaft
+    iso.r.poly(
+      [iso.P(0.4, tv + 0.212, 12), iso.P(0.4, tv + 0.212, 28), iso.P(0.5, tv + 0.212, 38), iso.P(0.6, tv + 0.212, 28), iso.P(0.6, tv + 0.212, 12)],
+      alpha(hex('#241c38'), 0.92),
+    );
+    iso.r.poly([iso.P(0.455, tv + 0.212, 55), iso.P(0.545, tv + 0.212, 55), iso.P(0.545, tv + 0.212, 42), iso.P(0.455, tv + 0.212, 42)], COLORS.glassDark);
+    iso.r.poly([iso.P(0.712, tv - 0.06, 53), iso.P(0.712, tv + 0.06, 53), iso.P(0.712, tv + 0.06, 40), iso.P(0.712, tv - 0.06, 40)], COLORS.glassDark);
+    // corner turrets with lead caps and gilt finials
+    for (const [cu, cv] of [
+      [0.31, tv - 0.19],
+      [0.69, tv - 0.19],
+      [0.31, tv + 0.19],
+      [0.69, tv + 0.19],
+    ] as const) {
+      iso.box(cu - 0.048, cv - 0.048, cu + 0.048, cv + 0.048, 12, TOP + 12, PORTLAND);
+      iso.hip(cu - 0.058, cv - 0.058, cu + 0.058, cv + 0.058, TOP + 12, 9, LEAD);
+      const ft = iso.P(cu, cv, TOP + 21);
+      iso.r.line(ft, [ft[0], ft[1] - 3.5 * RES], 0.9 * RES, COLORS.glassLit);
+    }
+    iso.hip(0.33, tv - 0.17, 0.67, tv + 0.17, TOP, 12, LEAD);
+  }
+
+  // the twin high-level walkways, lattice-braced
+  for (const du of [0.36, 0.64] as const) {
+    iso.r.poly(
+      [iso.P(du, T1 + 0.18, 55), iso.P(du, T2 - 0.18, 55), iso.P(du, T2 - 0.18, 47), iso.P(du, T1 + 0.18, 47)],
+      alpha(CHAIN, 0.95),
+    );
+    for (let wv = T1 + 0.22; wv < T2 - 0.26; wv += 0.16) {
+      iso.r.line(iso.P(du, wv, 47), iso.P(du, wv + 0.16, 55), 0.7 * RES, shaded(CHAIN, 0.25));
+      iso.r.line(iso.P(du, wv, 55), iso.P(du, wv + 0.16, 47), 0.7 * RES, shaded(CHAIN, 0.25));
+    }
+    iso.r.line(iso.P(du, T1 + 0.18, 55), iso.P(du, T2 - 0.18, 55), INK_W * 0.6, INK);
+    iso.r.line(iso.P(du, T1 + 0.18, 47), iso.P(du, T2 - 0.18, 47), INK_W * 0.6, INK);
+  }
+  iso.quad(0.36, T1 + 0.18, 0.64, T2 - 0.18, 47, alpha(lighten(CHAIN, 0.2), 0.45));
   return iso.build();
 }
 
@@ -425,23 +729,39 @@ export function zooTile(seed: number, variantIx: number): Uint8ClampedArray<Arra
   return iso.build();
 }
 
-/** The decommissioned river power station: brick cathedral, four chimneys. */
+/** The decommissioned river power station on its 2x2 block: the great
+ *  brick cathedral, corner pavilions, and the four tall cream chimneys.
+ *  SW-anchored multi-tile sprite. */
 export function powerstationTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso();
+  const iso = new Iso(2, 2, { swAnchor: true });
   void seed;
-  iso.shadow(0.1, 0.2, 0.86, 0.74, 0.2, 0.24);
-  iso.box(0.1, 0.2, 0.86, 0.74, 0, 38, BRICK);
-  // long window strips
-  iso.windowsLeft(0.74, 0.16, 0.8, 16, 30, 5, alpha(COLORS.glassDark, 0.95), COLORS.white);
-  // four white chimneys at the corners
+  const CHIM = hex('#e8e0cd');
+  iso.shadow(0.14, 0.3, 1.86, 1.7, 0.24, 0.24);
+  // the great turbine-hall block
+  iso.box(0.14, 0.32, 1.86, 1.68, 0, 50, BRICK);
+  // the long roof: two parallel halls with a valley between
+  iso.gable(0.2, 0.36, 1.8, 0.98, 50, 9, 'u', hex('#6e6884'), BRICK);
+  iso.gable(0.2, 1.02, 1.8, 1.64, 50, 9, 'u', hex('#6e6884'), BRICK);
+  // long window strips down both visible faces
+  iso.windowsLeft(1.68, 0.3, 1.7, 18, 42, 9, alpha(COLORS.glassDark, 0.95), COLORS.white);
+  iso.windowsRight(1.86, 0.42, 1.58, 18, 42, 7, alpha(COLORS.glassDark, 0.95), COLORS.white);
+  // brick pilaster ribs along the south face
+  for (let uu = 0.34; uu < 1.7; uu += 0.19) {
+    iso.r.line(iso.P(uu, 1.68, 2), iso.P(uu, 1.68, 48), 1 * RES, darken(BRICK, 0.18));
+  }
+  // corner pavilions and the four cream chimneys
   for (const [u, v] of [
-    [0.16, 0.26],
-    [0.8, 0.26],
-    [0.16, 0.68],
-    [0.8, 0.68],
+    [0.32, 0.5],
+    [1.68, 0.5],
+    [0.32, 1.5],
+    [1.68, 1.5],
   ] as const) {
-    iso.box(u - 0.035, v - 0.035, u + 0.035, v + 0.035, 38, 86, COLORS.white);
-    iso.quad(u - 0.04, v - 0.04, u + 0.04, v + 0.04, 86, COLORS.steelDark);
+    iso.box(u - 0.14, v - 0.14, u + 0.14, v + 0.14, 50, 64, BRICK);
+    iso.box(u - 0.16, v - 0.16, u + 0.16, v + 0.16, 64, 67, lighten(BRICK, 0.1), { ink: false });
+    // gently tapered cream column with its dark cap
+    iso.box(u - 0.062, v - 0.062, u + 0.062, v + 0.062, 67, 96, CHIM, { ink: false });
+    iso.box(u - 0.05, v - 0.05, u + 0.05, v + 0.05, 96, 126, CHIM);
+    iso.box(u - 0.056, v - 0.056, u + 0.056, v + 0.056, 126, 130, COLORS.steelDark, { ink: false });
   }
   return iso.build();
 }

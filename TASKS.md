@@ -54,9 +54,13 @@
 - [x] Bulk supply points (GSPs) take a 2×2 plot; substation footprints
       plumbed through siting, occupancy, pylon blocking, line endpoints,
       ghost preview, and plot-sized voltage rings
-- [ ] Sprites to match (Hinkley-style reactor hall, gantried switchyard
-      per ref image) — queued behind the in-flight landmark-art agent
-      to avoid atlas clashes; interim art centres on the plot
+- [x] Sprites to match: nuclear redrawn as a 3×2 Hinkley-class campus
+      (pale reactor hall + glazed crown, stepped twin, turbine hall,
+      fuel silos, vent stack, containment dome) and the GSP as a 2×2
+      gantried switchyard (three portal ranks with insulator drops,
+      busbars, transformer banks, control house) — verified on sprite
+      renders; multi-tile sub art uses the gen placement path (GIS
+      vault override stays centred)
 
 ### Blackout explanations prompt (PV at night)
 - [x] Every time a site loses power, an explanation event fires: on
@@ -67,12 +71,18 @@
       (unit-tested with a solar-only island at nightfall)
 
 ### Landmarks-to-scale + road tessellation prompt
-- [ ] Landmarks TO SCALE and recognisable (owner supplied reference art):
-      Parliament + Big Ben across multiple tiles, a great London Eye
-      wheel, a taller glassy Shard, Tower Bridge that LOOKS like Tower
-      Bridge (twin gothic towers + bascule spans over the river); St
-      Paul's dome + Gherkin where feasible — bespoke multi-tile sprites,
-      verified on render previews
+- [x] Landmarks TO SCALE and recognisable (owner supplied reference art):
+      Parliament's three gothic ranges stepping along the river with
+      Victoria Tower and a clock-faced Big Ben; a great London Eye (24
+      capsules, ~3× the terraces); the Shard now the tallest thing on
+      the map with the splintered glass crown (CBD trimmed to keep it
+      so); Tower Bridge as one 1×4 sprite — twin gothic towers, high
+      walkways, pale-blue chains, traffic passing the open deck; St
+      Paul's 2×2 with the great dome; the Gherkin anchored in the City.
+      swAnchor multi-tile mechanism (no renderer special-casing); atlas
+      auto-trim keeps the sheet at 4096×3740 under the mobile ceiling.
+      Previews inspected: landmarks_{westminster,city,towerbridge,
+      battersea}.png + per-sprite renders
 - [x] …their TILE RESERVATIONS are in (map side): Parliament claims a
       3-long × 2-deep river-front precinct stepping along the bank at
       the Westminster bend (embankment + SW rail re-routed behind it),
