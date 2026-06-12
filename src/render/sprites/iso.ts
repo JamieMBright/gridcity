@@ -50,19 +50,45 @@ export function top(c: RGBA, t = 0.28): RGBA {
   return mix(lighten(c, t), SUN_WARM, 0.12);
 }
 
+/** Raster size of a standard (north-corner anchored) multi-tile sprite. */
+export function isoDims(wTiles: number, hTiles: number): { w: number; h: number } {
+  return {
+    w: ((wTiles + hTiles) * CELL_W) / 2,
+    h: ((wTiles + hTiles) * FLOOR_H) / 2 + (CELL_H - FLOOR_H),
+  };
+}
+
+/** Raster size of an SW-anchored multi-tile sprite: the projection shift
+ *  means nothing can land below the block's bottom corner, so the canvas
+ *  is trimmed to CELL_H + (wTiles-1) half-floors — keeps the atlas lean. */
+export function swAnchorDims(wTiles: number, hTiles: number): { w: number; h: number } {
+  return {
+    w: ((wTiles + hTiles) * CELL_W) / 2,
+    h: CELL_H + ((wTiles - 1) * FLOOR_H) / 2,
+  };
+}
+
 export class Iso {
   r: Raster;
   /** Footprint in tiles: u runs 0..wTiles, v runs 0..hTiles. */
   readonly wTiles: number;
   readonly hTiles: number;
+  /** Vertical projection shift (sw-anchored multi-tile sprites). */
+  private readonly yOff: number;
 
-  constructor(wTiles = 1, hTiles = 1) {
+  constructor(wTiles = 1, hTiles = 1, opts: { swAnchor?: boolean } = {}) {
     this.wTiles = wTiles;
     this.hTiles = hTiles;
-    this.r = new Raster(
-      ((wTiles + hTiles) * CELL_W) / 2,
-      ((wTiles + hTiles) * FLOOR_H) / 2 + (CELL_H - FLOOR_H),
-    );
+    // SW anchoring: shift the footprint up so that footprint tile
+    // (0, hTiles-1) — the block's south-west corner — sits exactly where
+    // a 1x1 sprite's floor diamond would. The standard structure placement
+    // (top-left = tileCentre + (-CELL_W/2, FLOOR_H/2 - CELL_H)) used by
+    // both MapRenderer.paintTile and tools/preview then pins the whole
+    // multi-tile sprite correctly when the chooser emits it on the block's
+    // (min x, max y) tile. No renderer special-casing needed.
+    this.yOff = opts.swAnchor ? -((hTiles - 1) * FLOOR_H) / 2 : 0;
+    const dims = opts.swAnchor ? swAnchorDims(wTiles, hTiles) : isoDims(wTiles, hTiles);
+    this.r = new Raster(dims.w, dims.h);
   }
 
   /** Project tile-local (u,v,z) to this sprite's pixel coordinates.
@@ -70,7 +96,7 @@ export class Iso {
   P(u: number, v: number, z = 0): Pt {
     return [
       this.hTiles * (CELL_W / 2) + (u - v) * (CELL_W / 2),
-      CELL_H - FLOOR_H + (u + v) * (FLOOR_H / 2) - z * RES,
+      CELL_H - FLOOR_H + (u + v) * (FLOOR_H / 2) + this.yOff - z * RES,
     ];
   }
 

@@ -4,7 +4,7 @@
 // dimensions and a simple shelf packer lays the sheet out. The browser
 // uploads this to a Pixi texture; the preview tool encodes it to PNG.
 
-import { CELL_H, CELL_W, FLOOR_H } from './iso';
+import { isoDims, swAnchorDims } from './iso';
 import {
   cottageTile,
   councilflatTile,
@@ -31,6 +31,7 @@ import {
   domeTile,
   eyeTile,
   fortressTile,
+  gherkinTile,
   mallTile,
   parliamentTile,
   powerstationTile,
@@ -96,22 +97,44 @@ export interface SpriteAtlas {
 
 interface Cell {
   pixels: Uint8ClampedArray<ArrayBuffer>;
+  /** Frame size on the sheet (transparent right/bottom margins trimmed). */
   w: number;
   h: number;
+  /** Row stride of `pixels` (the sprite's full canvas width). */
+  stride: number;
 }
 
-/** Raster size of a wTiles x hTiles sprite (mirrors the Iso constructor). */
-function tileDims(wTiles: number, hTiles: number): { w: number; h: number } {
-  return {
-    w: ((wTiles + hTiles) * CELL_W) / 2,
-    h: ((wTiles + hTiles) * FLOOR_H) / 2 + (CELL_H - FLOOR_H),
-  };
+/** Sprites are placed by their top-left corner in both renderers, so
+ *  fully-transparent right columns and bottom rows can be dropped from
+ *  the registered frame without moving a single pixel. Keeps the sheet
+ *  under the 4096px mobile-GPU ceiling as landmarks grow multi-tile. */
+function trimmedExtent(pixels: Uint8ClampedArray, w: number, h: number): { w: number; h: number } {
+  let maxX = 0;
+  let maxY = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = w - 1; x >= 0; x--) {
+      if ((pixels[(y * w + x) * 4 + 3] ?? 0) > 0) {
+        if (x > maxX) maxX = x;
+        maxY = y;
+        break;
+      }
+    }
+  }
+  return { w: Math.min(w, maxX + 2), h: Math.min(h, maxY + 2) };
 }
 
 function buildSpriteCells(): Map<string, Cell> {
   const m = new Map<string, Cell>();
-  const set = (name: string, pixels: Uint8ClampedArray<ArrayBuffer>, wTiles = 1, hTiles = 1): void => {
-    m.set(name, { pixels, ...tileDims(wTiles, hTiles) });
+  const set = (
+    name: string,
+    pixels: Uint8ClampedArray<ArrayBuffer>,
+    wTiles = 1,
+    hTiles = 1,
+    sw = false,
+  ): void => {
+    // dims mirror the Iso constructor (sw = SW-anchored landmark blocks)
+    const dims = sw ? swAnchorDims(wTiles, hTiles) : isoDims(wTiles, hTiles);
+    m.set(name, { pixels, ...trimmedExtent(pixels, dims.w, dims.h), stride: dims.w });
   };
   // ground pass (flat tiles, no structures)
   for (let i = 0; i < 4; i++) set(`ground_grass_${i}`, groundGrassTile(i + 1));
@@ -157,18 +180,21 @@ function buildSpriteCells(): Map<string, Cell> {
   set('solarfarm_0', solarFarmTile(171));
   // skyscraper districts + landmarks
   for (let i = 0; i < 3; i++) set(`sky_${i}`, skyscraperTile(201 + i, i));
-  set('lm_parliament', parliamentTile(211));
+  // multi-tile icons are SW-anchored sprites: the chooser emits them on
+  // their block's (min x, max y) tile and standard placement covers all
+  set('lm_parliament', parliamentTile(211), 3, 5, true);
   set('lm_eye', eyeTile(212));
-  set('lm_dome', domeTile(213));
+  set('lm_dome', domeTile(213), 2, 2, true);
   set('lm_spire', spireTile(214));
+  set('lm_gherkin', gherkinTile(223));
   set('lm_fortress', fortressTile(215));
-  set('lm_bridge', towerBridgeTile(216));
+  set('lm_bridge', towerBridgeTile(216), 1, 4, true);
   set('lm_stadium', stadiumTile(217));
   set('lm_arena', arenaTile(218));
   set('lm_mall', mallTile(219));
   set('lm_zoo_0', zooTile(220, 0));
   set('lm_zoo_1', zooTile(221, 1));
-  set('lm_power', powerstationTile(222));
+  set('lm_power', powerstationTile(222), 2, 2, true);
   // civic fabric
   set('lm_station', stationTile(281));
   set('lm_school', schoolTile(282));
@@ -182,13 +208,13 @@ function buildSpriteCells(): Map<string, Cell> {
   // network assets (the player's kit)
   set('sub_dist', subDistTile(181));
   set('sub_grid', subGridTile(182));
-  set('sub_bulk', subBulkTile(183));
+  set('sub_bulk', subBulkTile(183), 2, 2);
   set('sub_pole', subPoleTile(184));
   set('sub_vault', subVaultTile(185));
   set('gen_gas', gasPlantTile(191));
   set('gen_peaker', gasPeakerTile(199));
   set('gen_coal', coalPlantTile(291), 3, 2);
-  set('gen_nuclear', nuclearTile(192));
+  set('gen_nuclear', nuclearTile(192), 3, 2);
   set('gen_windon', windTurbineTile(193, false));
   set('gen_windoff', windTurbineTile(194, true));
   set('gen_solar', solarFarmTile(195));
@@ -239,7 +265,7 @@ export function buildAtlas(): SpriteAtlas {
     const f = frames.get(name);
     if (!f) continue;
     for (let row = 0; row < cell.h; row++) {
-      const src = row * cell.w * 4;
+      const src = row * cell.stride * 4;
       const dst = ((f.y + row) * width + f.x) * 4;
       pixels.set(cell.pixels.subarray(src, src + cell.w * 4), dst);
     }

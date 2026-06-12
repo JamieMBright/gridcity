@@ -1278,10 +1278,11 @@ export class MapRenderer {
             : [1, 1];
       const s = new Sprite(tex);
       const c = this.tileCentre(a.x, a.y);
-      if (!building && a.kind === 'gen' && (fw > 1 || fh > 1)) {
+      // GIS rebuilds swap to single-tile vault art: centre that on the plot
+      const tinyArtOnPlot = a.kind === 'sub' && a.underground === true && (fw > 1 || fh > 1);
+      if (!building && !tinyArtOnPlot && (fw > 1 || fh > 1)) {
         s.position.set(c.x - fh * HALF_W, c.y - HALF_H - (CELL_H - FLOOR_H));
-      } else if (a.kind === 'sub' && (fw > 1 || fh > 1)) {
-        // interim: centre the (still single-tile) yard art on its plot
+      } else if (tinyArtOnPlot) {
         const cc = this.tileCentre(a.x + (fw - 1) / 2, a.y + (fh - 1) / 2);
         s.position.set(cc.x - HALF_W, cc.y + HALF_H - CELL_H);
       } else {

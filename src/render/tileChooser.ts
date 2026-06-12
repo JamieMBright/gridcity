@@ -7,6 +7,23 @@
 import { FLAG_RUNWAY, FLAG_SHOPS, riverCenterY } from '../data/londonMap';
 import { LANDMARK, RC, TERRAIN, ZONE, type CityMap, type Landmark } from '../sim/map/types';
 
+/** Landmarks drawn as ONE multi-tile sprite covering their whole map
+ *  reservation. The sprite is SW-anchored (see Iso swAnchor): emitting it
+ *  on the block's (min x, max y) tile makes the standard 1x1 placement
+ *  formula — used identically by MapRenderer and the preview tool — pin
+ *  the full footprint, with no per-renderer special-casing. */
+const BLOCK_LANDMARKS: ReadonlySet<Landmark> = new Set<Landmark>([
+  LANDMARK.parliament,
+  LANDMARK.dome,
+  LANDMARK.towerBridge,
+  LANDMARK.powerstation,
+]);
+
+/** The Gherkin has no landmark id of its own: it anchors on a fixed CBD
+ *  tile in the City cluster (north of the bridge, east of St Paul's). If
+ *  the map shifts under it the rule degrades to ordinary CBD fabric. */
+const GHERKIN_TILE = { x: 118, y: 77 };
+
 const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {
   [LANDMARK.parliament]: 'lm_parliament',
   [LANDMARK.eye]: 'lm_eye',
@@ -120,7 +137,51 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
   const lm = (map.landmark?.[i] ?? LANDMARK.none) as Landmark;
   if (lm !== LANDMARK.none) {
     const name = LANDMARK_SPRITE[lm];
+    if (name && BLOCK_LANDMARKS.has(lm)) {
+      // one sprite per reservation: only the (min x, max y) tile emits
+      // it; the rest stay clear beneath the sprite. The diagonal probes
+      // keep the anchor unique when the reservation staircases along the
+      // river bank (parliament) rather than filling a rectangle.
+      const same = (xx: number, yy: number): boolean =>
+        xx >= 0 && xx < map.width && yy >= 0 && yy < map.height &&
+        (map.landmark?.[yy * map.width + xx] ?? LANDMARK.none) === lm;
+      const anchor =
+        !same(x - 1, y) && !same(x, y + 1) && !same(x - 1, y + 1) && !same(x - 1, y + 2);
+      return anchor ? name : undefined;
+    }
     if (name) return lm === LANDMARK.zoo ? `${name}_${x % 2}` : name;
+  }
+
+  // the great wheel overhangs its cell: keep the two tiles that paint
+  // after it (east + south) clear so nothing stands across the rim —
+  // that's the Jubilee-Gardens apron around the real thing
+  const lmAt = (xx: number, yy: number): number =>
+    xx >= 0 && xx < map.width && yy >= 0 && yy < map.height
+      ? (map.landmark?.[yy * map.width + xx] ?? LANDMARK.none)
+      : LANDMARK.none;
+  if (
+    lmAt(x - 1, y) === LANDMARK.eye ||
+    lmAt(x, y - 1) === LANDMARK.eye ||
+    lmAt(x, y + 1) === LANDMARK.eye ||
+    lmAt(x - 1, y + 1) === LANDMARK.eye
+  ) {
+    return undefined;
+  }
+  // ...and the bridge approaches stay open along both banks so nothing
+  // stands inside the sweep of the suspension chains
+  if (lmAt(x - 1, y) === LANDMARK.towerBridge || lmAt(x + 1, y) === LANDMARK.towerBridge) {
+    return undefined;
+  }
+  // pockets enclosed by the parliament precinct stay open forecourt —
+  // nothing builds in the crook of the palace's river steps
+  if (
+    (lmAt(x - 1, y) === LANDMARK.parliament ? 1 : 0) +
+      (lmAt(x + 1, y) === LANDMARK.parliament ? 1 : 0) +
+      (lmAt(x, y - 1) === LANDMARK.parliament ? 1 : 0) +
+      (lmAt(x, y + 1) === LANDMARK.parliament ? 1 : 0) >=
+    2
+  ) {
+    return undefined;
   }
 
   const rc = map.road[i] ?? 0;
@@ -135,6 +196,7 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
 
   switch (zone) {
     case ZONE.cbd:
+      if (x === GHERKIN_TILE.x && y === GHERKIN_TILE.y) return 'lm_gherkin';
       return `sky_${v % 3}`;
     case ZONE.urbanCore:
       if (v % 7 < 2) return `tower_${v % 2}`;

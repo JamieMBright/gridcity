@@ -104,19 +104,68 @@ export function subGridTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
-/** 400/132 kV bulk supply point: the big yard. */
+/** 400/132 kV bulk supply point (GSP): a 2x2 sprawling switchyard —
+ *  ranks of lattice gantries with insulator drops, busbar runs, banks
+ *  of transformers, the control house in the corner. */
 export function subBulkTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso();
+  const iso = new Iso(2, 2);
   void seed;
-  padFloor(iso);
-  fence(iso, 0.05, 14);
-  gantry(iso, 0.12, 0.88, 0.16, 78);
-  gantry(iso, 0.12, 0.88, 0.4, 64);
-  transformer(iso, 0.1, 0.56, 0.24, 30);
-  transformer(iso, 0.4, 0.56, 0.24, 30);
-  transformer(iso, 0.7, 0.56, 0.24, 30);
-  iso.box(0.12, 0.84, 0.36, 0.95, 0, 14, COLORS.concrete);
-  iso.quad(0.11, 0.83, 0.37, 0.96, 14, COLORS.orange);
+  iso.floor(PAD, darken(PAD, 0.1));
+  fence(iso, 0.06, 14);
+
+  // multi-tile-safe local kit (the 1x1 helpers project with the bare P)
+  const yardGantry = (u0: number, u1: number, v: number, h: number): void => {
+    for (const u of [u0, u1]) {
+      iso.r.poly([iso.P(u, v, h), iso.P(u + 0.018, v, h), iso.P(u + 0.018, v, 0), iso.P(u, v, 0)], COLORS.steelDark);
+      // lattice hint
+      iso.r.line(iso.P(u, v, h * 0.55), iso.P(u + 0.018, v, h * 0.75), INK_W * 0.6, alpha(COLORS.steel, 0.9));
+      iso.r.line(iso.P(u, v, h * 0.75), iso.P(u + 0.018, v, h * 0.55), INK_W * 0.6, alpha(COLORS.steel, 0.9));
+    }
+    iso.r.poly(
+      [iso.P(u0 - 0.03, v, h), iso.P(u1 + 0.05, v, h), iso.P(u1 + 0.05, v, h - 3), iso.P(u0 - 0.03, v, h - 3)],
+      COLORS.steel,
+    );
+    for (let t = 0.18; t < 0.95; t += 0.16) {
+      const u = u0 + (u1 - u0) * t;
+      iso.r.poly(
+        [iso.P(u, v, h - 3), iso.P(u + 0.01, v, h - 3), iso.P(u + 0.01, v, h - 11), iso.P(u, v, h - 11)],
+        COLORS.white,
+      );
+    }
+  };
+  const yardTx = (u0: number, v0: number, w: number, h: number): void => {
+    const u1 = u0 + w;
+    const v1 = v0 + w * 0.9;
+    iso.shadow(u0, v0, u1, v1, 0.1, 0.2);
+    iso.box(u0, v0, u1, v1, 0, h, NAVY);
+    iso.r.poly(
+      [iso.P(u1 + 0.002, v0, h * 0.45), iso.P(u1 + 0.002, v1, h * 0.45), iso.P(u1 + 0.002, v1, h * 0.28), iso.P(u1 + 0.002, v0, h * 0.28)],
+      alpha(COLORS.orange, 0.95),
+    );
+    for (let t = 0.2; t < 0.95; t += 0.3) {
+      const u = u0 + (u1 - u0) * t;
+      const v = v0 + (v1 - v0) * 0.5;
+      iso.box(u, v, u + 0.022, v + 0.022, h, h + 10, COLORS.white);
+    }
+  };
+
+  // three ranks of portal gantries marching down the yard, 400 side tall
+  yardGantry(0.2, 1.75, 0.3, 86);
+  yardGantry(0.2, 1.75, 0.75, 74);
+  yardGantry(0.2, 1.75, 1.2, 62);
+  // busbar runs between the ranks
+  for (const u of [0.45, 0.95, 1.5]) {
+    iso.r.line(iso.P(u, 0.3, 74), iso.P(u, 0.75, 64), INK_W * 0.7, alpha(COLORS.steelDark, 0.85));
+    iso.r.line(iso.P(u, 0.75, 64), iso.P(u, 1.2, 54), INK_W * 0.7, alpha(COLORS.steelDark, 0.85));
+  }
+  // transformer bank along the low side
+  yardTx(0.18, 1.5, 0.3, 32);
+  yardTx(0.66, 1.5, 0.3, 32);
+  yardTx(1.14, 1.5, 0.3, 32);
+  yardTx(1.62, 1.52, 0.26, 28);
+  // control house with the brand roof
+  iso.box(0.14, 0.06, 0.55, 0.3, 0, 18, COLORS.concrete);
+  iso.quad(0.12, 0.04, 0.57, 0.32, 18, COLORS.orange);
   return iso.build();
 }
 
@@ -146,46 +195,85 @@ export function gasPlantTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
-/** Nuclear: white containment dome + turbine hall on the estuary site. */
+/** Nuclear: a Hinkley-class 3x2 campus — the great pale reactor hall,
+ *  its slightly lower twin, the long turbine hall, fuel silos, a slim
+ *  vent stack and the white containment dome over the far hall. */
 export function nuclearTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso();
+  const iso = new Iso(3, 2);
   void seed;
-  padFloor(iso);
-  // turbine hall
-  iso.shadow(0.08, 0.5, 0.9, 0.9, 0.16, 0.2);
-  iso.box(0.08, 0.5, 0.9, 0.9, 0, 30, COLORS.concrete);
-  iso.windowsLeft(0.9, 0.12, 0.84, 10, 22, 7, COLORS.glassLit, COLORS.white);
-  // containment dome: faceted white dome on a drum
-  const [cx, cy] = P(0.48, 0.28, 0);
-  const drumH = 40;
-  iso.shadow(0.26, 0.1, 0.7, 0.46, 0.2, 0.22);
-  iso.box(0.28, 0.12, 0.68, 0.44, 0, drumH, COLORS.white, {
-    leftC: shaded(COLORS.white, 0.18),
-    rightC: lit(COLORS.white, 0.04),
-    topC: COLORS.white,
+  iso.floor(PAD, darken(PAD, 0.1));
+  fence(iso, 0.05, 13);
+  const HALL = hex('#b9c6d6'); // pale reactor-blue cladding
+  const HALL_DK = darken(HALL, 0.12);
+
+  // long low turbine hall along the front of the site
+  iso.shadow(0.2, 1.25, 2.1, 1.78, 0.14, 0.2);
+  iso.box(0.2, 1.25, 2.1, 1.78, 0, 34, COLORS.concrete);
+  iso.gable(0.2, 1.25, 2.1, 1.78, 34, 8, 'u', darken(COLORS.concrete, 0.12), COLORS.concrete);
+  iso.windowsLeft(1.78, 0.3, 2.0, 12, 24, 10, COLORS.glassLit, COLORS.white);
+
+  // the great reactor hall: tall pale-blue block with a stepped annex
+  iso.shadow(0.35, 0.3, 1.25, 1.15, 0.2, 0.24);
+  iso.box(0.35, 0.3, 1.25, 1.15, 0, 92, HALL, {
+    leftC: shaded(HALL, 0.16),
+    rightC: lit(HALL, 0.05),
+    topC: lighten(HALL, 0.08),
   });
-  const R = 0.2 * (CELL_W / 2); // dome radius in px
-  const drumPx = drumH * RES;
-  const dome = (s: number, c: RGBA): void => {
-    const pts: Pt[] = [];
-    for (let i = 0; i <= 8; i++) {
-      const a = Math.PI * (i / 8);
-      pts.push([cx + Math.cos(a) * R * s, cy - drumPx - Math.sin(a) * R * 0.78 * s]);
-    }
-    iso.r.poly(pts, c);
-  };
-  dome(1, shaded(COLORS.white, 0.1));
-  dome(0.72, lit(COLORS.white, 0.05));
+  // glazed crown band (the Hinkley B green-glass parapet)
+  iso.r.poly(
+    [iso.P(0.35, 1.15, 92), iso.P(1.25, 1.15, 92), iso.P(1.25, 1.15, 82), iso.P(0.35, 1.15, 82)],
+    COLORS.glassDark,
+  );
+  iso.r.poly(
+    [iso.P(1.25, 0.3, 92), iso.P(1.25, 1.15, 92), iso.P(1.25, 1.15, 82), iso.P(1.25, 0.3, 82)],
+    shaded(COLORS.glassDark, 0.1),
+  );
+  // its slightly lower twin behind, stepping down
+  iso.shadow(1.3, 0.42, 2.0, 1.15, 0.16, 0.2);
+  iso.box(1.3, 0.42, 2.0, 1.15, 0, 70, HALL_DK, {
+    leftC: shaded(HALL_DK, 0.14),
+    rightC: lit(HALL_DK, 0.05),
+    topC: lighten(HALL_DK, 0.07),
+  });
+
+  // white containment dome on a drum at the seaward end
   {
-    const pts: Pt[] = [];
-    for (let i = 0; i <= 8; i++) {
-      const a = Math.PI * (i / 8);
-      pts.push([cx + Math.cos(a) * R, cy - drumPx - Math.sin(a) * R * 0.78]);
-    }
-    iso.r.polyline(pts, INK_W, INK);
+    const drumH = 56;
+    iso.box(2.18, 0.5, 2.66, 0.98, 0, drumH, COLORS.white, {
+      leftC: shaded(COLORS.white, 0.18),
+      rightC: lit(COLORS.white, 0.04),
+      topC: COLORS.white,
+    });
+    const [cx, cy] = iso.P(2.42, 0.74, 0);
+    const R = 0.24 * (CELL_W / 2);
+    const drumPx = drumH * RES;
+    const dome = (sc: number, c: RGBA): void => {
+      const pts: Pt[] = [];
+      for (let i = 0; i <= 8; i++) {
+        const a = Math.PI * (i / 8);
+        pts.push([cx + Math.cos(a) * R * sc, cy - drumPx - Math.sin(a) * R * 0.78 * sc]);
+      }
+      iso.r.poly(pts, c);
+    };
+    dome(1, shaded(COLORS.white, 0.1));
+    dome(0.72, lit(COLORS.white, 0.05));
+    iso.r.poly(
+      [[cx - 1.5 * RES, cy - drumPx - R * 0.78 - 4 * RES], [cx + 1.5 * RES, cy - drumPx - R * 0.78 - 4 * RES], [cx + 1.5 * RES, cy - drumPx - R * 0.78], [cx - 1.5 * RES, cy - drumPx - R * 0.78]],
+      COLORS.orange,
+    );
   }
-  // orange beacon
-  iso.r.poly([[cx - 1.5 * RES, cy - drumPx - R * 0.78 - 4 * RES], [cx + 1.5 * RES, cy - drumPx - R * 0.78 - 4 * RES], [cx + 1.5 * RES, cy - drumPx - R * 0.78], [cx - 1.5 * RES, cy - drumPx - R * 0.78]], COLORS.orange);
+
+  // slim vent stack with the white collar + a row of fuel silos
+  iso.box(1.16, 1.2, 1.26, 1.3, 0, 118, lighten(NAVY, 0.12));
+  iso.r.poly(
+    [iso.P(1.155, 1.3, 106), iso.P(1.265, 1.3, 106), iso.P(1.265, 1.3, 98), iso.P(1.155, 1.3, 98)],
+    COLORS.white,
+  );
+  for (let k = 0; k < 4; k++) {
+    const u = 0.16 + k * 0.13;
+    iso.box(u, 0.14, u + 0.09, 0.23, 0, 26, COLORS.white);
+    iso.quad(u - 0.005, 0.135, u + 0.095, 0.235, 26, shaded(COLORS.white, 0.12));
+  }
   return iso.build();
 }
 
