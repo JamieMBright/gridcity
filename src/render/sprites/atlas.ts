@@ -9,6 +9,7 @@ import {
   cottageTile,
   councilflatTile,
   factoryTile,
+  georgianTile,
   greenhouseTile,
   newbuildTile,
   officeTile,
@@ -22,6 +23,7 @@ import {
   warehouseTile,
 } from './buildingSprites';
 import {
+  airportTile,
   arenaTile,
   carparkTile,
   churchTile,
@@ -69,6 +71,7 @@ import {
   groundMarshTile,
   groundPloughTile,
   groundRapeTile,
+  groundRunwayTile,
   hedgerowTile,
   orchardTile,
   groundGrassTile,
@@ -120,6 +123,7 @@ function buildSpriteCells(): Map<string, Cell> {
   for (let i = 0; i < 2; i++) set(`ground_marsh_${i}`, groundMarshTile(19 + i));
   for (let i = 0; i < 2; i++) set(`hedgerow_${i}`, hedgerowTile(23 + i, i));
   set('orchard_0', orchardTile(27));
+  set('ground_runway', groundRunwayTile(28));
   set('ground_park', groundParkTile(17));
   for (let mask = 0; mask < 16; mask++) set(`water_${mask}`, waterTile(61, mask));
   // world structures (transparent floors)
@@ -134,6 +138,7 @@ function buildSpriteCells(): Map<string, Cell> {
   set('terrace_3', terraceTile(84, false));
   for (let i = 0; i < 4; i++) set(`victerrace_${i}`, victerraceTile(251 + i, i));
   for (let i = 0; i < 2; i++) set(`vicshop_${i}`, vicshopTile(261 + i, i));
+  for (let i = 0; i < 2; i++) set(`georgian_${i}`, georgianTile(295 + i, i));
   for (let i = 0; i < 2; i++) set(`councilflat_${i}`, councilflatTile(265 + i, i));
   for (let i = 0; i < 3; i++) set(`newbuild_${i}`, newbuildTile(271 + i, i));
   for (let i = 0; i < 4; i++) set(`semi_${i}`, semiTile(91 + i));
@@ -173,6 +178,7 @@ function buildSpriteCells(): Map<string, Cell> {
   set('lm_carpark', carparkTile(286));
   set('lm_church', churchTile(287));
   set('lm_datacentre', datacentreTile(288));
+  set('lm_airport', airportTile(289));
   // network assets (the player's kit)
   set('sub_dist', subDistTile(181));
   set('sub_grid', subGridTile(182));

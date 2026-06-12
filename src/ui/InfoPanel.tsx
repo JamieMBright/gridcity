@@ -1,5 +1,5 @@
 import { useAppStore } from '../app/store';
-import { getLondonMap } from '../data/londonMap';
+import { getLondonMap, NAMED_PLACES } from '../data/londonMap';
 import { sendCommand } from '../app/workerBridge';
 import { GENS, subCapexK, subRadius, SUBS, type SubType } from '../sim/catalog';
 import { subMva } from '../sim/assets';
@@ -79,7 +79,9 @@ export function InfoPanel({ frame }: { frame?: React.CSSProperties } = {}) {
       }}
     >
       <div style={{ color: theme.orange, fontWeight: 700 }}>
-        {ROAD_NAMES[roadClass] ?? ZONE_NAMES[zone]}
+        {NAMED_PLACES.find((p) => p.x === hovered.x && p.y === hovered.y)?.name ??
+          ROAD_NAMES[roadClass] ??
+          ZONE_NAMES[zone]}
       </div>
       <div style={{ color: theme.slate, fontSize: 11 }}>
         {TERRAIN_NAMES[terrain]} · tile {hovered.x},{hovered.y}

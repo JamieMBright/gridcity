@@ -78,6 +78,7 @@ export const LANDMARK = {
   carpark: 17, // surface car park (EV charging, one day)
   church: 18, // village centrepiece
   datacentre: 19, // arrives uninvited, hungry and impatient
+  airport: 20, // the terminal in the west; planes, one day
 } as const;
 export type Landmark = (typeof LANDMARK)[keyof typeof LANDMARK];
 

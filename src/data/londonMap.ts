@@ -168,6 +168,30 @@ export const NEW_ESTATES: Array<{ x: number; y: number; r: number }> = [
 
 /** Map flags bitmask (CityMap.flags). */
 export const FLAG_SHOPS = 1;
+export const FLAG_RUNWAY = 2;
+
+/** Named places shown by the inspector (central termini, the airport). */
+export const NAMED_PLACES: Array<{ x: number; y: number; name: string }> = [
+  { x: 114, y: 78, name: "King's Cross" },
+  { x: 122, y: 76, name: 'Liverpool Street' },
+  { x: 122, y: 86, name: 'London Bridge' },
+  { x: 64, y: 84, name: 'Heathrow' },
+];
+
+/** Generation already on the system when the game opens — the real-world
+ *  foundations (estuary gas, Lea-side plant, Essex solar/wind), developer
+ *  owned and operational, just waiting for someone to wire them in. The
+ *  owner's Embedded Capacity Register extract can replace this list. */
+export const EXISTING_GENERATION: Array<{
+  gen: 'gasCCGT' | 'gasPeaker' | 'solarFarm' | 'windOnshore';
+  x: number;
+  y: number;
+}> = [
+  { gen: 'gasCCGT', x: 204, y: 70 }, // Coryton/Tilbury analog on the estuary
+  { gen: 'gasPeaker', x: 134, y: 44 }, // Enfield analog up the Lea
+  { gen: 'solarFarm', x: 192, y: 88 }, // Essex field array
+  { gen: 'windOnshore', x: 228, y: 46 }, // turbines above the creek
+];
 
 // --- Builder ---------------------------------------------------------------
 
@@ -375,7 +399,9 @@ export function buildLondonMap(): CityMap {
   // the two skyscraper districts: the Square Mile and the Docklands wharf
   zoneBlob(116, 77, 3.4, ZONE.cbd);
   zoneBlob(107, 95, 2.4, ZONE.cbd); // on the Isle of Dogs loop
-  // conservation quarters: the heath NW, the river bend SW
+  // conservation quarters: Mayfair beside the park, the heath NW, the
+  // river bend SW
+  zoneBlob(107, 77, 2.6, ZONE.posh);
   zoneBlob(103, 63, 4.5, ZONE.posh);
   zoneBlob(82, 100, 4.5, ZONE.posh);
   // industry: the east-river corridors + the western works
@@ -688,6 +714,25 @@ export function buildLondonMap(): CityMap {
       if (terrain[i] === TERRAIN.water) landmark[i] = LANDMARK.towerBridge;
     }
     addRoute('street', [[bx, cy - hw - 2], [bx, cy + hw + 2]]);
+  }
+  // the central bridges: Westminster, Waterloo, Blackfriars, London
+  for (const bx of [86, 92, 98, 114]) {
+    const cy = riverCenterY(bx);
+    const hw = riverHalfWidth(bx);
+    addRoute('street', [[bx, cy - hw - 2], [bx, cy + hw + 2]]);
+  }
+  // Heathrow in the west: a runway cut into the fields + the terminal
+  {
+    for (let x = 58; x <= 70; x++) {
+      for (let y = 86; y <= 87; y++) {
+        if (!inb(x, y) || !isLand(x, y)) continue;
+        const i = idx(x, y);
+        zone[i] = ZONE.none;
+        flags[i] = (flags[i] ?? 0) | FLAG_RUNWAY;
+      }
+    }
+    placeLandmark(64, 84, LANDMARK.airport);
+    addRoute('street', [[72, 84], [78, 84]]); // the airport spur
   }
   // Battersea's four chimneys on the south bank, west of the centre
   placeLandmark(100, riverY(100) + Math.ceil(hwAt(100)) + 1, LANDMARK.powerstation);

@@ -372,6 +372,42 @@ export function semiTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 }
 
 /** Detached villa in a hedged garden — posh districts. */
+/** Georgian stucco terrace — Mayfair/Belgravia: flat white fronts, tall
+ *  sash windows in strict rhythm, parapet roofline, black doors and
+ *  railings. The West End in one tile. */
+export function georgianTile(seed: number, variantIx: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 88811 + variantIx * 31 + 7);
+  const stucco = lighten(COLORS.white, 0.03);
+  const ink = hex('#1c1a22');
+  const v0 = 0.14;
+  const v1 = 0.74;
+  const H = 46;
+  iso.shadow(0.02, v0, 0.98, v1, 0.18, 0.2);
+  iso.box(0.02, v0, 0.98, v1, 0, H, stucco, { topC: darken(stucco, 0.12) });
+  // parapet line + rusticated ground-floor band
+  iso.r.poly([iso.P(0.02, v1, H), iso.P(0.98, v1, H), iso.P(0.98, v1, H - 2.5), iso.P(0.02, v1, H - 2.5)], COLORS.white);
+  iso.r.poly([iso.P(0.02, v1, 13), iso.P(0.98, v1, 13), iso.P(0.98, v1, 12), iso.P(0.02, v1, 12)], darken(stucco, 0.18));
+  // storeys of tall sashes, diminishing upward — the Georgian tell
+  iso.windowsLeft(v1, 0.06, 0.94, 26, 40, 5, glass(rng, 0.35), darken(stucco, 0.25));
+  iso.windowsLeft(v1, 0.06, 0.94, 15, 24, 5, glass(rng, 0.3), darken(stucco, 0.25));
+  // black doors with fanlights, every other bay
+  for (const u of [0.12, 0.5, 0.88]) {
+    iso.r.poly([iso.P(u - 0.035, v1, 11), iso.P(u + 0.035, v1, 11), iso.P(u + 0.035, v1, 0), iso.P(u - 0.035, v1, 0)], ink);
+    iso.r.poly([iso.P(u - 0.02, v1, 11), iso.P(u + 0.02, v1, 11), iso.P(u + 0.02, v1, 9.5), iso.P(u - 0.02, v1, 9.5)], COLORS.glassLit);
+  }
+  // railings along the pavement
+  iso.r.line(iso.P(0.02, v1 + 0.12, 4), iso.P(0.98, v1 + 0.12, 4), 1.4, ink);
+  for (let u = 0.05; u < 0.97; u += 0.06) {
+    iso.r.line(iso.P(u, v1 + 0.12, 0), iso.P(u, v1 + 0.12, 4), 1.1, ink);
+  }
+  // chimney row behind the parapet
+  for (const cu of variantIx === 0 ? [0.2, 0.55, 0.85] : [0.3, 0.7]) {
+    iso.box(cu, 0.3, cu + 0.05, 0.36, H, H + 9, darken(stucco, 0.2));
+  }
+  return iso.build();
+}
+
 export function villaTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 31337 + 3);
