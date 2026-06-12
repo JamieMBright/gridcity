@@ -30,7 +30,7 @@ import type { VoltageLevel } from '../sim/grid/types';
 import { sampleRoute } from '../sim/map/routes';
 import { CUSTOMERS_PER_TILE, type CityMap, type RouteClass, type Zone } from '../sim/map/types';
 import { COV, type BranchView } from '../sim/tick';
-import { buildAtlas } from './sprites/atlas';
+import { getAtlas } from './atlasCache';
 import { CELL_H, CELL_W, FLOOR_H, RES } from './sprites/iso';
 import { WIND_HUBS, windHubOffset } from './sprites/networkSprites';
 import { groundSpriteFor, structureSpriteFor } from './tileChooser';
@@ -249,7 +249,7 @@ export class MapRenderer {
     }
     host.appendChild(this.app.canvas);
 
-    this.buildTextures();
+    await this.buildTextures();
     this.buildRoutePaths(map);
     this.buildWorld(map);
     this.drawRoutes();
@@ -1267,8 +1267,8 @@ export class MapRenderer {
     return { x: (x - y) * HALF_W, y: (x + y) * HALF_H };
   }
 
-  private buildTextures(): void {
-    const atlas = buildAtlas();
+  private async buildTextures(): Promise<void> {
+    const atlas = await getAtlas();
     const canvas = document.createElement('canvas');
     canvas.width = atlas.width;
     canvas.height = atlas.height;

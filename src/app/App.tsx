@@ -33,6 +33,13 @@ function Wordmark() {
         pointerEvents: 'none',
       }}
     >
+      <img
+        src="/logo.svg"
+        alt=""
+        width={26}
+        height={26}
+        style={{ verticalAlign: -6, marginRight: 8, borderRadius: 6 }}
+      />
       <span style={{ color: theme.orange }}>ELECTRI</span>
       <span style={{ color: theme.slate }}>CITY</span>
     </div>

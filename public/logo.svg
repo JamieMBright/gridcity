@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="12" fill="#101630"/>
+  <!-- lattice pylon, line-drawn -->
+  <g stroke="#aab3c4" stroke-width="2.4" stroke-linecap="round" fill="none">
+    <path d="M21 58 L29 15"/>
+    <path d="M43 58 L35 15"/>
+    <path d="M29 15 L32 8 L35 15"/>
+    <path d="M21 58 L40 42 M43 58 L24 42 M24 42 L37 31 M40 42 L27 31"/>
+    <path d="M11 22 L53 22"/>
+    <path d="M16 31 L48 31"/>
+  </g>
+  <g stroke="#f4f1ea" stroke-width="2" stroke-linecap="round">
+    <path d="M13 22 L13 26 M51 22 L51 26 M18 31 L18 35 M46 31 L46 35"/>
+  </g>
+  <!-- the bolt -->
+  <path d="M37 4 L20 32 L30 32 L24 60 L45 26 L34 26 Z"
+        fill="#ff8a1e" stroke="#241c38" stroke-width="2" stroke-linejoin="round"/>
+</svg>

@@ -4,7 +4,7 @@
 // STRUCTURE sprite with a transparent floor — the renderer draws its vector
 // road ribbons between the two.
 
-import { FLAG_SHOPS } from '../data/londonMap';
+import { FLAG_SHOPS, riverCenterY } from '../data/londonMap';
 import { LANDMARK, RC, TERRAIN, ZONE, type CityMap, type Landmark } from '../sim/map/types';
 
 const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {
@@ -54,6 +54,12 @@ function estateOf(x: number, y: number): number {
   return (((x >> 3) * 73856093) ^ ((y >> 3) * 19349663)) >>> 0;
 }
 
+/** Farmland is enclosed in 4x4 parcels; this hash keeps each parcel one
+ *  coherent crop (and decides hedgerows + orchards along its bounds). */
+function parcelOf(x: number, y: number): number {
+  return Math.abs(((x >> 2) * 73856093) ^ ((y >> 2) * 19349663));
+}
+
 /** The flat ground sprite under everything — ALWAYS returns a sprite. */
 export function groundSpriteFor(map: CityMap, x: number, y: number): string {
   const i = y * map.width + x;
@@ -78,12 +84,20 @@ export function groundSpriteFor(map: CityMap, x: number, y: number): string {
     case ZONE.nuclearSite:
       return `ground_field_${v % 2}`;
     default: {
-      // Open land (and the garden zones). In the rural east it's a
-      // patchwork of golden field parcels (coherent 4x4 blocks, not
-      // per-tile noise); in town it's plain green.
-      if (zone === ZONE.none && x > 140) {
-        const parcel = Math.abs(((x >> 2) * 73856093) ^ ((y >> 2) * 19349663));
-        if (parcel % 5 < 3) return `ground_field_${parcel % 2 === 0 ? 0 : 1}`;
+      if (zone === ZONE.none || zone === ZONE.rural) {
+        // estuary flats: marsh where the land runs low beside the wide river
+        if (x > 180 && Math.abs(y - riverCenterY(x)) < 9) {
+          return `ground_marsh_${v % 2}`;
+        }
+        // enclosed countryside: a patchwork of crops, parcel by parcel —
+        // wheat, rapeseed, ploughed earth, pasture, rough meadow
+        const p = parcelOf(x, y);
+        const kind = p % 11;
+        if (kind < 3) return `ground_field_${p % 2}`;
+        if (kind === 3) return 'ground_rape';
+        if (kind === 4) return 'ground_plough';
+        if (kind === 5) return 'ground_park'; // mown pasture
+        // 6..10: rough meadow grass
       }
       return `ground_grass_${v % 4}`;
     }
@@ -156,7 +170,19 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
       return `park_${v % 2}`;
     case ZONE.solarSite:
       return 'solarsite_0';
-    default:
-      return undefined; // open land, nuclearSite reserve, wind sites
+    default: {
+      if (zone !== ZONE.none) return undefined; // nuclearSite reserve, wind sites
+      // open countryside furniture: hedgerows trace the parcel bounds,
+      // the odd parcel is an orchard, the odd corner grows a copse
+      if (x > 180 && Math.abs(y - riverCenterY(x)) < 9) return undefined; // marsh stays open
+      const p = parcelOf(x, y);
+      if (p % 11 === 6 && (x & 3) !== 0 && (y & 3) !== 0) return 'orchard_0';
+      const xe = (x & 3) === 3;
+      const ye = (y & 3) === 3;
+      if (xe && p % 3 === 0) return 'hedgerow_1';
+      if (ye && p % 3 === 1) return 'hedgerow_0';
+      if (!xe && !ye && p % 29 === 7 && v % 3 === 0) return `trees_${v % 3}`;
+      return undefined;
+    }
   }
 }
