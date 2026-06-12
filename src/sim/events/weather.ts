@@ -38,6 +38,13 @@ export function sunFactor(simTimeMin: number, w: WeatherState): number {
   return Math.max(0, arc * (1 - 0.75 * w.cloud));
 }
 
+/** Tidal-stream capacity factor: the estuary runs on a ~12.4 h cycle with
+ *  slack water between flood and ebb — predictable, but never constant. */
+export function tideFactor(simTimeMin: number): number {
+  const cycle = (simTimeMin / (12.4 * 60)) * 2 * Math.PI;
+  return Math.abs(Math.sin(cycle)) ** 1.5;
+}
+
 /** Wind capacity factor right now (0..1); offshore runs a little harder. */
 export function windFactor(w: WeatherState, offshore: boolean): number {
   const f = 0.1 + 0.85 * w.wind;

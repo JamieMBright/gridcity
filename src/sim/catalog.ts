@@ -7,12 +7,15 @@ import type { VoltageLevel } from './grid/types';
 
 export type GenType =
   | 'gasCCGT'
+  | 'gasPeaker'
   | 'nuclear'
   | 'solarFarm'
   | 'windOnshore'
   | 'windOffshore'
+  | 'tidal'
+  | 'biomass'
   | 'battery';
-export type SubType = 'bulk' | 'grid' | 'dist';
+export type SubType = 'bulk' | 'grid' | 'dist' | 'pole' | 'vault';
 export type LineBuild = 'overhead' | 'underground';
 
 export interface GenSpec {
@@ -28,7 +31,11 @@ export interface GenSpec {
   /** gCO2 per kWh. */
   carbonG: number;
   /** Where it may be sited. */
-  siting: 'land' | 'solarSite' | 'windSite' | 'nuclearSite';
+  siting: 'land' | 'solarSite' | 'windSite' | 'nuclearSite' | 'water';
+  /** Planning consultation, game-days before construction starts. */
+  planningDays: number;
+  /** Construction, game-days until the plant is commissioned. */
+  buildDays: number;
   /** Storage capacity, MWh (batteries only). */
   energyMWh?: number;
 }
@@ -43,6 +50,20 @@ export const GENS: Record<GenType, GenSpec> = {
     marginalCostK: 0.085, // £85/MWh
     carbonG: 390,
     siting: 'land',
+    planningDays: 60,
+    buildDays: 150,
+  },
+  gasPeaker: {
+    name: 'Gas peaker (OCGT)',
+    capacityMW: 120,
+    level: 132,
+    capexK: 55_000,
+    opexFrac: 0.02,
+    marginalCostK: 0.14, // expensive fuel, runs at the peaks
+    carbonG: 520,
+    siting: 'land',
+    planningDays: 30,
+    buildDays: 45,
   },
   nuclear: {
     name: 'Nuclear',
@@ -53,6 +74,8 @@ export const GENS: Record<GenType, GenSpec> = {
     marginalCostK: 0.01,
     carbonG: 0,
     siting: 'nuclearSite',
+    planningDays: 365,
+    buildDays: 720,
   },
   solarFarm: {
     name: 'Solar farm',
@@ -63,6 +86,8 @@ export const GENS: Record<GenType, GenSpec> = {
     marginalCostK: 0.045, // PPA strike
     carbonG: 0,
     siting: 'solarSite',
+    planningDays: 14,
+    buildDays: 30,
   },
   windOnshore: {
     name: 'Onshore wind',
@@ -73,6 +98,8 @@ export const GENS: Record<GenType, GenSpec> = {
     marginalCostK: 0.05,
     carbonG: 0,
     siting: 'land',
+    planningDays: 30,
+    buildDays: 45,
   },
   windOffshore: {
     name: 'Offshore wind',
@@ -83,6 +110,32 @@ export const GENS: Record<GenType, GenSpec> = {
     marginalCostK: 0.055,
     carbonG: 0,
     siting: 'windSite',
+    planningDays: 90,
+    buildDays: 180,
+  },
+  tidal: {
+    name: 'Tidal stream',
+    capacityMW: 30,
+    level: 33,
+    capexK: 95_000,
+    opexFrac: 0.04,
+    marginalCostK: 0,
+    carbonG: 0,
+    siting: 'water',
+    planningDays: 60,
+    buildDays: 90,
+  },
+  biomass: {
+    name: 'Biomass CHP',
+    capacityMW: 40,
+    level: 33,
+    capexK: 28_000,
+    opexFrac: 0.03,
+    marginalCostK: 0.095,
+    carbonG: 120,
+    siting: 'land',
+    planningDays: 30,
+    buildDays: 60,
   },
   battery: {
     name: 'Battery storage',
@@ -93,6 +146,8 @@ export const GENS: Record<GenType, GenSpec> = {
     marginalCostK: 0.005,
     carbonG: 0,
     siting: 'land',
+    planningDays: 7,
+    buildDays: 21,
     energyMWh: 400,
   },
 };
@@ -140,7 +195,28 @@ export const SUBS: Record<SubType, SubSpec> = {
     opexFrac: 0.02,
     serviceRadius: 6,
   },
+  pole: {
+    name: 'Pole-mounted transformer (33 kV/LV)',
+    levels: [33],
+    txRatingMW: 2,
+    txX: 0,
+    capexK: 120,
+    opexFrac: 0.025,
+    serviceRadius: 2,
+  },
+  vault: {
+    name: 'Underground substation (33 kV/LV)',
+    levels: [33],
+    txRatingMW: 25,
+    txX: 0,
+    capexK: 2_800,
+    opexFrac: 0.02,
+    serviceRadius: 5,
+  },
 };
+
+/** Pylon/pole spacing along overhead routes, tiles between supports. */
+export const PYLON_SPACING: Record<VoltageLevel, number> = { 400: 3, 132: 3, 33: 2 };
 
 export interface LineSpec {
   ratingMW: number;

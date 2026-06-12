@@ -11,7 +11,7 @@ import { applyCommand } from '../src/sim/commands';
 import { ZONE } from '../src/sim/map/types';
 import { newGame } from '../src/sim/state';
 import { advanceTime, derive, solveTick } from '../src/sim/tick';
-import { makeContext, makeTestMap, mustApply, poweredFixture, setZone } from './helpers';
+import { commissionAll, makeContext, makeTestMap, mustApply, poweredFixture, setZone } from './helpers';
 
 describe('weather and profiles', () => {
   it('solar is zero at night and peaks midday under clear sky', () => {
@@ -79,6 +79,7 @@ describe('dispatch dynamics', () => {
     });
     void solar;
     void dist;
+    commissionAll(state);
 
     const d = derive(state, ctx);
 
@@ -112,6 +113,7 @@ describe('dispatch dynamics', () => {
       type: 'build',
       spec: { kind: 'line', level: 33, build: 'overhead', ax: 5, ay: 5, bx: 10, by: 10 },
     });
+    commissionAll(state);
     const out = solveTick(state, ctx, derive(state, ctx), false);
     // firm connection: ~50 MW farm, <1 MW load → heavy compensated curtailment
     expect(out.dispatch.curtailedFirmMW).toBeGreaterThan(30);
@@ -164,6 +166,7 @@ describe('thermal trips', () => {
       spec: { kind: 'line', level: 33, build: 'overhead', ax: 16, ay: 12, bx: 16, by: 24 },
     });
 
+    commissionAll(state);
     state.speed = 16; // dt = 120 game-min per tick
     state.simTimeMin = 17.5 * 60; // run into the evening peak
     const d = derive(state, ctx);

@@ -51,7 +51,7 @@ test.describe('build palette', () => {
 
   test('overhead/underground toggle switches the line build', async ({ page }) => {
     await boot(page);
-    await clickButton(page, 'underground');
+    await clickButton(page, 'underground', true);
     await expect.poll(() => store<string>(page, '(s) => s.tool.build')).toBe('underground');
     await expect(page.getByRole('button', { name: '132 kV cable' })).toBeVisible();
     await clickButton(page, 'overhead');

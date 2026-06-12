@@ -17,7 +17,7 @@ const STEPS: Step[] = [
     text: 'Welcome, operator. London is dark — every cold blue tile is a neighbourhood waiting for power. Drag to pan, scroll to zoom.',
   },
   {
-    text: 'First, generation. Pick GAS CCGT from the palette and place it on open land away from homes (smog is bad for business).',
+    text: 'First, generation. Pick GAS CCGT (hotkey 1) and place it on open land away from homes — the map shades green where it can go, red where it cannot. Planning and construction take time: a crane marks the site until commissioning.',
     done: (s) => s.assets.some((a) => a.kind === 'gen'),
   },
   {
@@ -29,8 +29,8 @@ const STEPS: Step[] = [
     done: (s) => s.assets.some((a) => a.kind === 'line' && a.level === 132),
   },
   {
-    text: 'Last hop: place a DISTRIBUTION SUBSTATION among homes (watch its service ring), and run a 33 KV LINE to it from the grid substation. Homes glow when they get power.',
-    done: (s) => s.stats.servedCustomers > 0,
+    text: 'Last hop: place a DISTRIBUTION SUBSTATION among homes (watch its service ring), and run a 33 KV LINE to it — wooden poles march along the route. Homes light up the moment your plant finishes construction; run 16× speed to hurry it along.',
+    done: (s) => s.assets.some((a) => a.kind === 'line' && a.level === 33),
   },
   {
     text: "You're live — and the bill panel is now counting. Faults will come: build a FIELD DEPOT so your vans have somewhere to roll from.",

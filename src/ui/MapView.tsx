@@ -4,7 +4,7 @@ import { MapRenderer, type Ghost } from '../render/MapRenderer';
 import { installTestHook } from '../app/testHook';
 import { useAppStore, type Tool } from '../app/store';
 import { sendCommand } from '../app/workerBridge';
-import { assetAtTile, checkBuild, type BuildSpec } from '../sim/commands';
+import { assetAtTile, checkBuild, siteErrorAt, type BuildSpec } from '../sim/commands';
 import { ANNUITY_FACTOR, DEPOT, GENS, LINES, SUBS } from '../sim/catalog';
 import type { PlacedAsset } from '../sim/assets';
 import { assetLevels } from '../sim/assets';
@@ -121,9 +121,36 @@ export function MapView() {
         snapshot.fleet.vans,
         snapshot.fleet.jobs,
         snapshot.genMW,
+        snapshot.simTimeMin,
+        snapshot.weather.wind,
       );
     }
   }, [snapshot]);
+
+  // green/red siting overlay while a build tool is armed
+  useEffect(() => {
+    const r = rendererRef.current;
+    if (!r) return;
+    if (tool.t !== 'gen' && tool.t !== 'sub' && tool.t !== 'depot') {
+      r.setSuitability(undefined);
+      return;
+    }
+    const map = getLondonMap();
+    const spec =
+      tool.t === 'gen'
+        ? ({ kind: 'gen', gen: tool.gen } as const)
+        : tool.t === 'sub'
+          ? ({ kind: 'sub', sub: tool.sub } as const)
+          : ({ kind: 'depot' } as const);
+    const mask = new Uint8Array(map.width * map.height);
+    for (let y = 0; y < map.height; y++) {
+      for (let x = 0; x < map.width; x++) {
+        if (siteErrorAt(map, spec, x, y) === undefined) mask[y * map.width + x] = 1;
+      }
+    }
+    r.setSuitability(mask);
+    return () => r.setSuitability(undefined);
+  }, [tool]);
 
   useEffect(() => {
     rendererRef.current?.setGridView(gridView);
@@ -182,13 +209,14 @@ export function MapView() {
         by: spec.by,
         ok: check.ok,
         level: spec.level,
+        pylons: check.pylons,
       };
     } else {
       const sprite =
         spec.kind === 'gen'
-          ? { gasCCGT: 'gen_gas', nuclear: 'gen_nuclear', solarFarm: 'gen_solar', windOnshore: 'gen_windon', windOffshore: 'gen_windoff', battery: 'gen_battery' }[spec.gen]
+          ? { gasCCGT: 'gen_gas', gasPeaker: 'gen_peaker', nuclear: 'gen_nuclear', solarFarm: 'gen_solar', windOnshore: 'gen_windon', windOffshore: 'gen_windoff', tidal: 'gen_tidal', biomass: 'gen_biomass', battery: 'gen_battery' }[spec.gen]
           : spec.kind === 'sub'
-            ? { bulk: 'sub_bulk', grid: 'sub_grid', dist: 'sub_dist' }[spec.sub]
+            ? { bulk: 'sub_bulk', grid: 'sub_grid', dist: 'sub_dist', pole: 'sub_pole', vault: 'sub_vault' }[spec.sub]
             : 'depot';
       ghost = {
         kind: 'tile',

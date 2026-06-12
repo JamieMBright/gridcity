@@ -103,6 +103,39 @@ export class Raster {
     }
   }
 
+  /** Stroke a straight segment as a width-w quad (crisp ink lines). */
+  line(a: Pt, b: Pt, width: number, color: RGBA): void {
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const len = Math.hypot(dx, dy);
+    if (len < 1e-6) return;
+    const px = (-dy / len) * (width / 2);
+    const py = (dx / len) * (width / 2);
+    this.poly(
+      [
+        [a[0] + px, a[1] + py],
+        [b[0] + px, b[1] + py],
+        [b[0] - px, b[1] - py],
+        [a[0] - px, a[1] - py],
+      ],
+      color,
+    );
+  }
+
+  /** Stroke a connected point chain (closed when `close`). */
+  polyline(pts: Pt[], width: number, color: RGBA, close = false): void {
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      if (a && b) this.line(a, b, width, color);
+    }
+    if (close && pts.length > 2) {
+      const a = pts[pts.length - 1];
+      const b = pts[0];
+      if (a && b) this.line(a, b, width, color);
+    }
+  }
+
   /** Convenience: axis-aligned rectangle. */
   rect(x0: number, y0: number, x1: number, y1: number, color: RGBA, shadeTo?: RGBA): void {
     this.poly(

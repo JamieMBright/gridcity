@@ -23,8 +23,27 @@ export const ZONE = {
   solarSite: 9, // pre-sited solar farm field (generation opportunity)
   windSite: 10, // estuary-mouth wind opportunity
   nuclearSite: 11, // the only nuclear-capable coastal site
+  cbd: 12, // skyscraper districts (the City / Canary analogs)
 } as const;
 export type Zone = (typeof ZONE)[keyof typeof ZONE];
+
+/** Named landmark per tile (0 = none). Landmarks are protected fabric:
+ *  nothing can be built over them and pylons route around them. */
+export const LANDMARK = {
+  none: 0,
+  parliament: 1, // clock tower + debating chamber on the river
+  eye: 2, // the big wheel opposite
+  dome: 3, // the cathedral dome in the City
+  spire: 4, // the glass shard south of the river
+  fortress: 5, // the old castle by the bridge
+  towerBridge: 6, // twin-tower bascule bridge
+  stadium: 7, // the Olympic bowl in the north-east
+  arena: 8, // football grounds
+  mall: 9, // glass-roofed shopping centres
+  zoo: 10, // paddocks and the aviary in the big park
+  powerstation: 11, // the decommissioned four-chimney icon
+} as const;
+export type Landmark = (typeof LANDMARK)[keyof typeof LANDMARK];
 
 /** Customer cluster size per inhabited tile, by zone. */
 export const CUSTOMERS_PER_TILE: Record<Zone, number> = {
@@ -40,7 +59,16 @@ export const CUSTOMERS_PER_TILE: Record<Zone, number> = {
   [ZONE.solarSite]: 0,
   [ZONE.windSite]: 0,
   [ZONE.nuclearSite]: 0,
+  [ZONE.cbd]: 160,
 };
+
+/** Zones whose building stock is big enough to hide an underground
+ *  substation beneath (vault siting rule: large buildings, not houses). */
+export const BIG_BUILDING_ZONES: ReadonlySet<number> = new Set([
+  ZONE.urbanCore,
+  ZONE.cbd,
+  ZONE.industrial,
+]);
 
 export interface CouncilProfile {
   id: number;
@@ -70,6 +98,8 @@ export interface CityMap {
   vegetation: Uint8Array;
   /** Sprite variant seed per tile so streets don't repeat. */
   variant: Uint8Array;
+  /** Landmark id per tile (see LANDMARK; 0 = none). */
+  landmark?: Uint8Array | undefined;
   councils: CouncilProfile[];
 }
 

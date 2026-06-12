@@ -12,6 +12,7 @@ import { StartMenu } from '../ui/StartMenu';
 import { Tutorial } from '../ui/Tutorial';
 import { panelStyle, theme } from '../ui/theme';
 import { playSfx } from '../audio/audio';
+import { HOTKEYS } from './hotkeys';
 import { useAppStore } from './store';
 import { initWorker, setSimSpeed } from './workerBridge';
 
@@ -56,7 +57,9 @@ function StatusBar() {
         <span style={{ color: theme.danger }}>sim error: {workerError}</span>
       )}
       {workerStatus === 'ready' && (
-        <span style={{ color: theme.slate }}>drag to pan · scroll to zoom · G for grid view</span>
+        <span style={{ color: theme.slate }}>
+          drag to pan · scroll to zoom · G grid view · 1–9/QWERT/ZXC build · U under/overhead
+        </span>
       )}
     </div>
   );
@@ -88,19 +91,54 @@ function useKeyboard(): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       const s = useAppStore.getState();
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target && /^(input|textarea|select)$/i.test(target.tagName)) return;
       if (e.key === 'Escape') {
         if (s.tool.t === 'line' && s.tool.fromAssetId !== undefined) {
           s.setTool({ ...s.tool, fromAssetId: undefined });
         } else {
           s.setTool({ t: 'inspect' });
         }
-      } else if (e.key === 'g' || e.key === 'G') {
+        return;
+      }
+      if (s.menuOpen) return;
+      const key = e.key.toLowerCase();
+      if (key === 'g') {
         s.setGridView(!s.gridView);
-      } else if (e.key === 'k' || e.key === 'K') {
+      } else if (key === 'k') {
         s.setKpiOpen(!s.kpiOpen);
+      } else if (key === 'u') {
+        // flip overhead/underground on the armed line tool
+        if (s.tool.t === 'line') {
+          s.setTool({
+            ...s.tool,
+            build: s.tool.build === 'overhead' ? 'underground' : 'overhead',
+            fromAssetId: undefined,
+          });
+        }
       } else if (e.key === ' ') {
         e.preventDefault();
         setSimSpeed(s.snapshot?.speed === 0 ? 1 : 0);
+      } else {
+        const hot = HOTKEYS.find((h) => h.key === key);
+        if (!hot) return;
+        // re-pressing the active tool's key disarms it
+        const t = hot.tool;
+        const active =
+          s.tool.t === t.t &&
+          (t.t !== 'gen' || (s.tool.t === 'gen' && s.tool.gen === t.gen)) &&
+          (t.t !== 'sub' || (s.tool.t === 'sub' && s.tool.sub === t.sub)) &&
+          (t.t !== 'line' || (s.tool.t === 'line' && s.tool.level === t.level));
+        if (active) {
+          s.setTool({ t: 'inspect' });
+        } else if (t.t === 'line') {
+          // keep the player's overhead/underground choice when switching kV
+          const build = s.tool.t === 'line' ? s.tool.build : t.build;
+          s.setTool({ t: 'line', level: t.level, build });
+        } else {
+          s.setTool(t);
+        }
       }
     };
     window.addEventListener('keydown', onKey);

@@ -38,7 +38,7 @@ describe('london map invariants', () => {
       }
       return count;
     };
-    expect(widthAt(186)).toBeGreaterThan(widthAt(50) * 3);
+    expect(widthAt(250)).toBeGreaterThan(widthAt(60) * 3);
   });
 
   it('every zone type is present, including the special sites', () => {
@@ -70,8 +70,8 @@ describe('london map invariants', () => {
   it('has a big-city number of customers', () => {
     let total = 0;
     for (const c of map.customers) total += c;
-    expect(total).toBeGreaterThan(100_000);
-    expect(total).toBeLessThan(600_000);
+    expect(total).toBeGreaterThan(200_000);
+    expect(total).toBeLessThan(900_000);
   });
 
   it('councils have distinct names and valid profiles', () => {

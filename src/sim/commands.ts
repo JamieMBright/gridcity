@@ -15,9 +15,9 @@ import {
 import { CONNECT_DAYS, GEN_OF_KIND } from './events/applications';
 import { MAX_VANS } from './fleet/fleet';
 import type { VoltageLevel } from './grid/types';
-import { priceLine } from './cost';
-import { TERRAIN, ZONE, type CityMap } from './map/types';
-import type { GameState } from './state';
+import { placePylons, priceLine, routeTiles } from './cost';
+import { BIG_BUILDING_ZONES, TERRAIN, ZONE, type CityMap } from './map/types';
+import { pushEvent, type GameState } from './state';
 import type { SimSpeed } from './protocol';
 
 export type Command =
@@ -58,6 +58,8 @@ export interface BuildCheck {
   /** Line endpoints resolved to asset ids (line specs only). */
   endA?: number;
   endB?: number;
+  /** Support tiles along an overhead route (line specs only). */
+  pylons?: number[];
 }
 
 function tileAt(map: CityMap, x: number, y: number): number | undefined {
@@ -76,6 +78,67 @@ export function assetAtTile(
   return undefined;
 }
 
+/** Every tile carrying an overhead-line support (pylon or pole). */
+export function pylonTilesOf(assets: Iterable<PlacedAsset>): Set<number> {
+  const taken = new Set<number>();
+  for (const a of assets) {
+    if (a.kind !== 'line') continue;
+    for (const i of a.pylons ?? []) taken.add(i);
+  }
+  return taken;
+}
+
+/** Static siting rule for a tile build (terrain/zone/landmark only — no
+ *  occupancy). Shared by checkBuild and the green/red suitability overlay.
+ *  Returns undefined when the ground itself is suitable. */
+export function siteErrorAt(
+  map: CityMap,
+  spec: { kind: 'gen'; gen: GenType } | { kind: 'sub'; sub: SubType } | { kind: 'depot' },
+  x: number,
+  y: number,
+): string | undefined {
+  const i = tileAt(map, x, y);
+  if (i === undefined) return 'out of bounds';
+  const t = map.terrain[i];
+  const z = map.zone[i];
+  if (map.landmark !== undefined && (map.landmark[i] ?? 0) !== 0)
+    return 'that is a protected landmark';
+  if (map.road[i] === 1) return 'cannot build on the road';
+
+  if (spec.kind === 'gen') {
+    const siting = GENS[spec.gen].siting;
+    if (siting === 'solarSite') {
+      if (z !== ZONE.solarSite) return 'solar farms need a surveyed solar site';
+      return undefined;
+    }
+    if (siting === 'nuclearSite') {
+      if (z !== ZONE.nuclearSite) return 'nuclear needs the licensed coastal site';
+      return undefined;
+    }
+    if (siting === 'windSite') {
+      if (z !== ZONE.windSite) return 'offshore wind belongs in the estuary wind zone';
+      return undefined;
+    }
+    if (siting === 'water') {
+      if (t !== TERRAIN.water) return 'tidal turbines sit in the water';
+      return undefined;
+    }
+    // land plant
+    if (t === TERRAIN.water) return 'cannot build on water';
+    if (z === ZONE.posh) return 'the conservation area will never allow that';
+    if (z === ZONE.park) return 'not in a royal park';
+    return undefined;
+  }
+
+  if (spec.kind === 'sub' && spec.sub === 'vault') {
+    if (!BIG_BUILDING_ZONES.has(z ?? ZONE.none))
+      return 'underground substations go beneath large buildings, not houses';
+    return undefined;
+  }
+  if (t === TERRAIN.water) return 'cannot build on water';
+  return undefined;
+}
+
 /** Validate and price a build without mutating anything. */
 export function checkBuild(
   map: CityMap,
@@ -85,26 +148,12 @@ export function checkBuild(
   const fail = (error: string): BuildCheck => ({ ok: false, error, capexK: 0, lengthTiles: 0 });
 
   if (spec.kind === 'gen' || spec.kind === 'sub' || spec.kind === 'depot') {
-    const i = tileAt(map, spec.x, spec.y);
-    if (i === undefined) return fail('out of bounds');
-    const t = map.terrain[i];
-    const z = map.zone[i];
-    if (spec.kind === 'gen') {
-      const siting = GENS[spec.gen].siting;
-      if (siting === 'solarSite' && z !== ZONE.solarSite)
-        return fail('solar farms need a surveyed solar site');
-      if (siting === 'nuclearSite' && z !== ZONE.nuclearSite)
-        return fail('nuclear needs the licensed coastal site');
-      if (siting === 'windSite' && z !== ZONE.windSite)
-        return fail('offshore wind belongs in the estuary wind zone');
-      if (siting === 'land') {
-        if (t === TERRAIN.water) return fail('cannot build on water');
-        if (z === ZONE.posh) return fail('the conservation area will never allow that');
-      }
-    } else {
-      if (t === TERRAIN.water) return fail('cannot build on water');
-    }
-    if (assetAtTile(assets, spec.x, spec.y)) return fail('tile already occupied');
+    const siteError = siteErrorAt(map, spec, spec.x, spec.y);
+    if (siteError) return fail(siteError);
+    const assetList = [...assets];
+    if (assetAtTile(assetList, spec.x, spec.y)) return fail('tile already occupied');
+    if (pylonTilesOf(assetList).has(spec.y * map.width + spec.x))
+      return fail('an overhead-line support stands here');
     const capexK =
       spec.kind === 'gen'
         ? GENS[spec.gen].capexK
@@ -115,8 +164,9 @@ export function checkBuild(
   }
 
   // line: both endpoints must be assets carrying this voltage level
-  const endA = assetAtTile(assets, spec.ax, spec.ay);
-  const endB = assetAtTile(assets, spec.bx, spec.by);
+  const assetList = [...assets];
+  const endA = assetAtTile(assetList, spec.ax, spec.ay);
+  const endB = assetAtTile(assetList, spec.bx, spec.by);
   if (!endA || !endB) return fail('lines must run between two assets');
   if (endA.id === endB.id) return fail('a line needs two distinct endpoints');
   if (!assetLevels(endA).includes(spec.level))
@@ -125,12 +175,26 @@ export function checkBuild(
     return fail(`no ${spec.level} kV bay at the second endpoint`);
   const priced = priceLine(map, spec.level, spec.build, spec.ax, spec.ay, spec.bx, spec.by);
   if (!priced.ok) return fail(priced.error ?? 'route blocked');
+  let pylons: number[] = [];
+  if (spec.build === 'overhead') {
+    const taken = pylonTilesOf(assetList);
+    for (const a of assetList) {
+      if (a.kind !== 'line') taken.add(a.y * map.width + a.x);
+    }
+    pylons = placePylons(
+      map,
+      spec.level,
+      routeTiles(spec.ax, spec.ay, spec.bx, spec.by),
+      taken,
+    );
+  }
   return {
     ok: true,
     capexK: priced.capexK,
     lengthTiles: priced.lengthTiles,
     endA: endA.id,
     endB: endB.id,
+    pylons,
   };
 }
 
@@ -146,7 +210,23 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       if (!check.ok) return { ok: false, error: check.error };
       const id = state.nextAssetId++;
       if (spec.kind === 'gen') {
-        state.assets.set(id, { id, kind: 'gen', gen: spec.gen, x: spec.x, y: spec.y });
+        const g = GENS[spec.gen];
+        const leadMin = (g.planningDays + g.buildDays) * 1440;
+        state.assets.set(id, {
+          id,
+          kind: 'gen',
+          gen: spec.gen,
+          x: spec.x,
+          y: spec.y,
+          liveAtMin: state.simTimeMin + leadMin,
+        });
+        pushEvent(
+          state,
+          'info',
+          `${g.name}: planning application in — commissioning in ${g.planningDays + g.buildDays} days`,
+          spec.x,
+          spec.y,
+        );
       } else if (spec.kind === 'sub') {
         state.assets.set(id, { id, kind: 'sub', sub: spec.sub, x: spec.x, y: spec.y });
       } else if (spec.kind === 'depot') {
@@ -161,6 +241,7 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
           b: check.endB ?? -1,
           lengthTiles: check.lengthTiles,
           capexK: check.capexK,
+          pylons: check.pylons ?? [],
         });
       }
       state.assetsVersion++;

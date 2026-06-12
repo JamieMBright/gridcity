@@ -4,15 +4,20 @@
 
 import { getLondonMap } from '../data/londonMap';
 import type { MapRenderer } from '../render/MapRenderer';
+import type { Command } from '../sim/commands';
 import { TERRAIN, ZONE } from '../sim/map/types';
 import { useAppStore } from './store';
+import { sendCommand } from './workerBridge';
 
 export interface EcTestApi {
   tileToScreen(x: number, y: number): { x: number; y: number };
   panTo(x: number, y: number): void;
+  setZoom(scale: number): void;
   getState(): ReturnType<typeof useAppStore.getState>;
   /** First `count` open land tiles (spread out), for siting test builds. */
   openLand(count: number): Array<{ x: number; y: number }>;
+  /** Drive the sim directly (build/demolish/speed …). */
+  sendCommand(cmd: Command): void;
 }
 
 declare global {
@@ -27,7 +32,9 @@ export function installTestHook(renderer: MapRenderer): void {
   window.__ec = {
     tileToScreen: (x, y) => renderer.tileToScreen(x, y),
     panTo: (x, y) => renderer.panTo(x, y),
+    setZoom: (scale) => renderer.setZoom(scale),
     getState: () => useAppStore.getState(),
+    sendCommand: (cmd) => sendCommand(cmd),
     openLand: (count) => {
       const out: Array<{ x: number; y: number }> = [];
       for (let y = 4; y < map.height - 4 && out.length < count; y += 2) {

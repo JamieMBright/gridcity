@@ -69,7 +69,10 @@ export interface BillBreakdown {
   totalYrK: number;
   servedCustomers: number;
   totalCustomers: number;
-  /** Average annual household bill, £/yr (0 when nobody is served yet). */
+  /** Average annual household bill, £/yr. Network costs are socialized
+   *  across every customer in the licence area (connected or not), the
+   *  way a real DUoS charge spreads — so early building doesn't produce
+   *  absurd four-figure bills for the first street on supply. */
   perCustomerYr: number;
 }
 
@@ -91,7 +94,7 @@ export function computeBill(inp: BillInputs): BillBreakdown {
     capexYrK + opexYrK + fleetYrK + vegYrK + inp.energyYrK + inp.flexYrK + constraintYrK;
   const innovationYrK = subtotal * (inp.levyPct / 100);
   const totalYrK = subtotal + innovationYrK;
-  const perCustomerYr = inp.servedCustomers > 0 ? (totalYrK * 1000) / inp.servedCustomers : 0;
+  const perCustomerYr = inp.totalCustomers > 0 ? (totalYrK * 1000) / inp.totalCustomers : 0;
   return {
     capexYrK,
     opexYrK,

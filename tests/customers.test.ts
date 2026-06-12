@@ -10,7 +10,7 @@ import { tileDemand } from '../src/sim/map/demand';
 import { ZONE, type CouncilProfile } from '../src/sim/map/types';
 import { newGame } from '../src/sim/state';
 import { derive, solveTick } from '../src/sim/tick';
-import { makeContext, makeTestMap, poweredFixture, setZone } from './helpers';
+import { makeContext, makeTestMap, poweredFixture, setZone, commissionAll } from './helpers';
 
 const YEAR = 525_600;
 
@@ -104,6 +104,7 @@ describe('applications & flexibility', () => {
       spec: { kind: 'line', level: 33, build: 'overhead', ax: 7, ay: 7, bx: 20, by: 20 },
     });
 
+    commissionAll(state);
     const out = solveTick(state, ctx, derive(state, ctx), false);
     // tiny load, ~100 MW available: flex farm should be fully curtailed,
     // firm farm carries the load and only its leftover is compensated

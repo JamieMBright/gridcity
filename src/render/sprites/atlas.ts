@@ -16,17 +16,41 @@ import {
   warehouseTile,
 } from './buildingSprites';
 import {
+  arenaTile,
+  domeTile,
+  eyeTile,
+  fortressTile,
+  mallTile,
+  parliamentTile,
+  powerstationTile,
+  skyscraperTile,
+  spireTile,
+  stadiumTile,
+  towerBridgeTile,
+  zooTile,
+} from './landmarkSprites';
+import {
   batteryTile,
+  biomassTile,
+  constructionTile,
   depotTile,
+  gasPeakerTile,
   gasPlantTile,
   nuclearTile,
+  pole33Tile,
+  pylon132Tile,
+  pylon400Tile,
   subBulkTile,
   subDistTile,
   subGridTile,
+  subPoleTile,
+  subVaultTile,
+  tidalTile,
   vanTile,
   windTurbineTile,
 } from './networkSprites';
 import {
+  bridgeTile,
   fieldTile,
   grassTile,
   hillTile,
@@ -57,6 +81,7 @@ function buildSpriteCells(): Map<string, Uint8ClampedArray<ArrayBuffer>> {
   m.set('solarsite_0', solarSiteTile(51));
   for (let mask = 0; mask < 16; mask++) m.set(`water_${mask}`, waterTile(61, mask));
   for (let mask = 0; mask < 16; mask++) m.set(`road_${mask}`, roadTile(71, mask));
+  for (let mask = 0; mask < 16; mask++) m.set(`bridge_${mask}`, bridgeTile(75, mask));
   // buildings
   m.set('terrace_0', terraceTile(81, false));
   m.set('terrace_1', terraceTile(82, false));
@@ -76,24 +101,48 @@ function buildSpriteCells(): Map<string, Uint8ClampedArray<ArrayBuffer>> {
   m.set('greenhouse_0', greenhouseTile(161));
   m.set('greenhouse_1', greenhouseTile(162));
   m.set('solarfarm_0', solarFarmTile(171));
+  // skyscraper districts + landmarks
+  for (let i = 0; i < 3; i++) m.set(`sky_${i}`, skyscraperTile(201 + i, i));
+  m.set('lm_parliament', parliamentTile(211));
+  m.set('lm_eye', eyeTile(212));
+  m.set('lm_dome', domeTile(213));
+  m.set('lm_spire', spireTile(214));
+  m.set('lm_fortress', fortressTile(215));
+  m.set('lm_bridge', towerBridgeTile(216));
+  m.set('lm_stadium', stadiumTile(217));
+  m.set('lm_arena', arenaTile(218));
+  m.set('lm_mall', mallTile(219));
+  m.set('lm_zoo_0', zooTile(220, 0));
+  m.set('lm_zoo_1', zooTile(221, 1));
+  m.set('lm_power', powerstationTile(222));
   // network assets (the player's kit)
   m.set('sub_dist', subDistTile(181));
   m.set('sub_grid', subGridTile(182));
   m.set('sub_bulk', subBulkTile(183));
+  m.set('sub_pole', subPoleTile(184));
+  m.set('sub_vault', subVaultTile(185));
   m.set('gen_gas', gasPlantTile(191));
+  m.set('gen_peaker', gasPeakerTile(199));
   m.set('gen_nuclear', nuclearTile(192));
   m.set('gen_windon', windTurbineTile(193, false));
   m.set('gen_windoff', windTurbineTile(194, true));
   m.set('gen_solar', solarFarmTile(195));
+  m.set('gen_tidal', tidalTile(231));
+  m.set('gen_biomass', biomassTile(232));
   m.set('gen_battery', batteryTile(196));
   m.set('depot', depotTile(197));
   m.set('van', vanTile(198));
+  m.set('pylon_400', pylon400Tile(241));
+  m.set('pylon_132', pylon132Tile(242));
+  m.set('pole_33', pole33Tile(243));
+  m.set('construction', constructionTile(244));
   return m;
 }
 
 export function buildAtlas(): SpriteAtlas {
   const cells = buildSpriteCells();
-  const cols = 8;
+  // 16 columns keeps the sheet within 4096px GPU texture limits at RES=2
+  const cols = 16;
   const rows = Math.ceil(cells.size / cols);
   const width = cols * CELL_W;
   const height = rows * CELL_H;
