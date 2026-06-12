@@ -39,6 +39,10 @@ export type Command =
   | { type: 'setSubMva'; assetId: number; mva?: number; auto?: boolean }
   /** Rebuild an overhead line as an underground cable (full UG price). */
   | { type: 'convertLine'; assetId: number }
+  /** Bury only the span of an overhead line bracketing (x,y): the line
+   *  splits at sealing-end towers and the middle leg becomes cable —
+   *  amenity undergrounding through town. */
+  | { type: 'undergroundSection'; lineId: number; x: number; y: number }
   /** Rebuild a substation underground (indoor GIS: weatherproof, ×capex). */
   | { type: 'convertSub'; assetId: number }
   /** Tee into an existing circuit: split it at a junction near (x,y) and
@@ -120,6 +124,54 @@ export function pylonTilesOf(assets: Iterable<PlacedAsset>): Set<number> {
     for (const i of a.pylons ?? []) taken.add(i);
   }
   return taken;
+}
+
+/** The span of an overhead line bracketing a clicked point: endpoints +
+ *  supports divide the route into spans; returns the bracketing support
+ *  coordinates and whether each bracket is a line endpoint. Shared by
+ *  the undergroundSection command and the inspector's price quote. */
+export function spanAt(
+  line: { pylons?: number[] | undefined },
+  endA: { x: number; y: number },
+  endB: { x: number; y: number },
+  mapWidth: number,
+  px: number,
+  py: number,
+):
+  | { ax: number; ay: number; bx: number; by: number; fromEnd: boolean; toEnd: boolean }
+  | undefined {
+  const route = routeTiles(endA.x, endA.y, endB.x, endB.y);
+  const supportIx: number[] = [0];
+  for (const p of line.pylons ?? []) {
+    const sx = p % mapWidth;
+    const sy = Math.floor(p / mapWidth);
+    const ix = route.findIndex(([x, y]) => x === sx && y === sy);
+    if (ix > 0) supportIx.push(ix);
+  }
+  supportIx.push(route.length - 1);
+  supportIx.sort((a, b) => a - b);
+  // nearest route tile to the click
+  let nearest = 0;
+  let bestD = Number.POSITIVE_INFINITY;
+  for (let k = 0; k < route.length; k++) {
+    const [x, y] = route[k] ?? [0, 0];
+    const d = Math.hypot(x - px, y - py);
+    if (d < bestD) {
+      bestD = d;
+      nearest = k;
+    }
+  }
+  for (let s = 0; s + 1 < supportIx.length; s++) {
+    const i0 = supportIx[s];
+    const i1 = supportIx[s + 1];
+    if (i0 === undefined || i1 === undefined) continue;
+    if (nearest >= i0 && nearest <= i1) {
+      const [ax, ay] = route[i0] ?? [0, 0];
+      const [bx, by] = route[i1] ?? [0, 0];
+      return { ax, ay, bx, by, fromEnd: i0 === 0, toEnd: i1 === route.length - 1 };
+    }
+  }
+  return undefined;
 }
 
 /** Any water within `r` tiles (Chebyshev) — the cooling-water test. */
@@ -468,6 +520,70 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
         `${SUBS[asset.sub].name.split(' (')[0]} rebuilt underground (GIS) — weatherproof, at a price`,
         asset.x,
         asset.y,
+      );
+      return { ok: true };
+    }
+
+    case 'undergroundSection': {
+      const line = state.assets.get(cmd.lineId);
+      if (!line || line.kind !== 'line') return { ok: false, error: 'no such line' };
+      if (line.build === 'underground') return { ok: false, error: 'already underground' };
+      const endA = state.assets.get(line.a);
+      const endB = state.assets.get(line.b);
+      if (!endA || endA.kind === 'line' || !endB || endB.kind === 'line') {
+        return { ok: false, error: 'line endpoints missing' };
+      }
+      const span = spanAt(line, endA, endB, map.width, cmd.x, cmd.y);
+      if (!span) return { ok: false, error: 'no span there' };
+      // the whole line in one span: that's just a full conversion
+      if (span.fromEnd && span.toEnd) {
+        return applyCommand(state, map, { type: 'convertLine', assetId: line.id });
+      }
+      // sealing-end towers where the cable surfaces, then three legs —
+      // one command, one undo step
+      state.assets.delete(line.id);
+      state.lineVeg.delete(line.id);
+      const made: number[] = [];
+      const sealingEnd = (x: number, y: number): number => {
+        const id = state.nextAssetId++;
+        state.assets.set(id, { id, kind: 'sub', sub: 'tee', x, y, teeLevel: line.level });
+        made.push(id);
+        return id;
+      };
+      if (!span.fromEnd) sealingEnd(span.ax, span.ay);
+      if (!span.toEnd) sealingEnd(span.bx, span.by);
+      const leg = (
+        ax: number,
+        ay: number,
+        bx: number,
+        by: number,
+        build: LineBuild,
+      ): CommandResult => {
+        const r = applyCommand(state, map, {
+          type: 'build',
+          spec: { kind: 'line', level: line.level, build, ax, ay, bx, by },
+        });
+        if (r.ok && r.assetId !== undefined) made.push(r.assetId);
+        return r;
+      };
+      const results: CommandResult[] = [];
+      if (!span.fromEnd) results.push(leg(endA.x, endA.y, span.ax, span.ay, 'overhead'));
+      results.push(leg(span.ax, span.ay, span.bx, span.by, 'underground'));
+      if (!span.toEnd) results.push(leg(span.bx, span.by, endB.x, endB.y, 'overhead'));
+      const failed = results.find((r) => !r.ok);
+      if (failed) {
+        for (const id of made) state.assets.delete(id);
+        state.assets.set(line.id, line);
+        state.assetsVersion++;
+        return { ok: false, error: failed.error ?? 'section undergrounding failed' };
+      }
+      state.assetsVersion++;
+      pushEvent(
+        state,
+        'info',
+        `amenity undergrounding: the ${line.level} kV line ducks below the rooftops`,
+        Math.round((span.ax + span.bx) / 2),
+        Math.round((span.ay + span.by) / 2),
       );
       return { ok: true };
     }

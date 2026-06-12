@@ -75,6 +75,10 @@ export interface Derived {
   service: ServiceAreas;
   /** line asset id → woodland density along its route, 0..1. */
   routeVeg: Map<number, number>;
+  /** council id → pylon blight: overhead route tiles passing homes,
+   *  weighted by voltage (residents hate a 400 kV crossing; section
+   *  undergrounding through town is the cure). */
+  blight: Map<number, number>;
 }
 
 export function deriveKey(state: GameState): string {
@@ -110,8 +114,12 @@ export interface TickOutputs {
   satisfactionAvg: number;
 }
 
+const BLIGHT_WEIGHT: Record<number, number> = { 400: 3, 132: 2, 33: 1 };
+
 export function derive(state: GameState, ctx: SimContext): Derived {
+  const { map } = ctx;
   const routeVeg = new Map<number, number>();
+  const blight = new Map<number, number>();
   for (const a of state.assets.values()) {
     if (a.kind !== 'line' || a.build !== 'overhead') continue;
     const endA = state.assets.get(a.a);
@@ -120,7 +128,28 @@ export function derive(state: GameState, ctx: SimContext): Derived {
     let sum = 0;
     const tiles = routeTiles(endA.x, endA.y, endB.x, endB.y);
     for (const [x, y] of tiles) {
-      sum += (ctx.map.vegetation[y * ctx.map.width + x] ?? 0) / 255;
+      sum += (map.vegetation[y * map.width + x] ?? 0) / 255;
+      // wires over the garden fence: each route tile beside homes blights
+      // the council whose residents live under it
+      let bestCouncil = -1;
+      let bestCustomers = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) continue;
+          const ni = ny * map.width + nx;
+          const cust = map.customers[ni] ?? 0;
+          const cid = map.council[ni] ?? NO_COUNCIL;
+          if (cust > bestCustomers && cid !== NO_COUNCIL) {
+            bestCustomers = cust;
+            bestCouncil = cid;
+          }
+        }
+      }
+      if (bestCouncil >= 0) {
+        blight.set(bestCouncil, (blight.get(bestCouncil) ?? 0) + (BLIGHT_WEIGHT[a.level] ?? 1));
+      }
     }
     routeVeg.set(a.id, tiles.length > 0 ? sum / tiles.length : 0);
   }
@@ -129,6 +158,7 @@ export function derive(state: GameState, ctx: SimContext): Derived {
     net: deriveNetwork(state.assets.values(), state.tech.dlr ? DLR_RATING_MUL : 1),
     service: assignServiceAreas(ctx.map, state.assets.values(), state.loadSites, state.councils),
     routeVeg,
+    blight,
   };
 }
 
@@ -570,10 +600,15 @@ function stepCouncils(
     }
     if (dtMin > 0) {
       const energized = agg.on + agg.brown;
-      const target =
+      let target =
         energized + agg.off > 0
           ? (85 * agg.on + 45 * agg.brown + 5 * agg.off) / (energized + agg.off)
           : 0;
+      // pylon blight: overhead circuits over the rooftops cap the mood —
+      // amenity undergrounding through town buys it back
+      if (target > 0) {
+        target = Math.max(0, target - Math.min(12, 0.35 * (derived.blight.get(profile.id) ?? 0)));
+      }
       stepSatisfaction(cs, target, dtMin);
       const before = { ev: cs.ev, hp: cs.hp, pv: cs.pv };
       stepAdoption(

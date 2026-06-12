@@ -25,6 +25,18 @@
 
 ## Done (chronological, latest first)
 
+### Section undergrounding prompt
+- [x] Underground a SECTION of an overhead line: click the span in the
+      line inspector ("underground this span", priced + sized) and bury
+      just that part — the line splits at sealing-end towers, the middle
+      leg becomes cable, the ends stay overhead; one undo step (verified
+      before/after on screenshots). A span through town with no
+      supports = the whole line, which falls back to full conversion
+- [x] Pylon blight: overhead route tiles beside homes dent that
+      council's satisfaction (weighted 400>132>33, capped −12); burying
+      the section clears it and hardens reliability there (cables
+      ignore storms/vegetation)
+
 ### Nuclear siting prompt
 - [x] Nuclear placeable beside any cooling water (sea/river within 2
       tiles), not just the licensed estuary zone — suitability overlay

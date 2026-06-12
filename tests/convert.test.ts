@@ -8,6 +8,7 @@ import { priceLine } from '../src/sim/cost';
 import { subMva } from '../src/sim/assets';
 import { assetCapexK } from '../src/sim/regulation/bill';
 import { newGame } from '../src/sim/state';
+import { derive } from '../src/sim/tick';
 import { makeTestMap, mustApply, poweredFixture } from './helpers';
 
 describe('convertLine (underground an overhead line)', () => {
@@ -51,6 +52,72 @@ describe('convertSub (underground GIS rebuild)', () => {
     if (!sub || sub.kind !== 'sub') throw new Error('sub vanished');
     sub.idno = true;
     expect(applyCommand(state, ctx.map, { type: 'convertSub', assetId: ids.dist }).ok).toBe(false);
+  });
+});
+
+describe('section undergrounding', () => {
+  it('buries only the clicked span, surfacing at sealing-end towers', () => {
+    const { state, ctx, ids } = poweredFixture();
+    const line = state.assets.get(ids.line132);
+    if (!line || line.kind !== 'line') throw new Error('no line');
+    expect((line.pylons ?? []).length).toBeGreaterThan(1); // real spans exist
+    const r = applyCommand(state, ctx.map, {
+      type: 'undergroundSection',
+      lineId: ids.line132,
+      x: 10,
+      y: 10, // mid-route: a span between two pylons
+    });
+    expect(r.ok).toBe(true);
+    expect(state.assets.get(ids.line132)).toBeUndefined();
+    const lines = [...state.assets.values()].filter((a) => a.kind === 'line');
+    const buried = lines.filter((l) => l.kind === 'line' && l.build === 'underground');
+    const overhead = lines.filter(
+      (l) => l.kind === 'line' && l.build === 'overhead' && l.level === 132,
+    );
+    expect(buried.length).toBe(1);
+    expect(overhead.length).toBe(2);
+    const seals = [...state.assets.values()].filter(
+      (a) => a.kind === 'sub' && a.sub === 'tee' && a.teeLevel === 132,
+    );
+    expect(seals.length).toBe(2);
+    // the buried leg runs between the two sealing ends
+    const cable = buried[0];
+    if (!cable || cable.kind !== 'line') throw new Error('no cable');
+    expect(seals.map((s) => s.id).sort()).toEqual([cable.a, cable.b].sort());
+  });
+
+  it('a span touching an endpoint needs only one sealing end', () => {
+    const { state, ctx, ids } = poweredFixture();
+    const r = applyCommand(state, ctx.map, {
+      type: 'undergroundSection',
+      lineId: ids.line132,
+      x: 5,
+      y: 5, // right at endpoint A: first span
+    });
+    expect(r.ok).toBe(true);
+    const seals = [...state.assets.values()].filter((a) => a.kind === 'sub' && a.sub === 'tee');
+    expect(seals.length).toBe(1);
+  });
+
+  it('overhead lines past homes blight the council; the buried section clears it', () => {
+    const { state, ctx } = poweredFixture();
+    // route the 33 kV through the suburb's council
+    for (const i of ctx.map.council.keys()) ctx.map.council[i] = 0;
+    ctx.map.councils.push({
+      id: 0,
+      name: 'Test Borough',
+      blurb: '',
+      affluence: 0.5,
+      ambition: 0.5,
+    });
+    const before = derive(state, ctx);
+    expect(before.blight.get(0) ?? 0).toBeGreaterThan(0);
+    for (const a of state.assets.values()) {
+      if (a.kind === 'line') a.build = 'underground';
+    }
+    state.assetsVersion++;
+    const after = derive(state, ctx);
+    expect(after.blight.get(0) ?? 0).toBe(0);
   });
 });
 
