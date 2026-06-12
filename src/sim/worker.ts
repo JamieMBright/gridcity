@@ -19,6 +19,7 @@ import {
   type SkipTarget,
   type WorkerToMain,
 } from './protocol';
+import { networkHealthPct } from './reliability/ageing';
 import { forecastStorms } from './reliability/stormprep';
 import { advanceGoals, GOALS, goalStatus, type GoalView } from './scenario/goals';
 import { securityKey, securityOf } from './security';
@@ -207,6 +208,7 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
       curtailedFlexMWh: state.curtailedFlexMWh,
       freqHz: out.freqHz,
       satisfactionAvg: out.satisfactionAvg,
+      networkHealthPct: networkHealthPct(state),
     },
     weather: weatherView(state),
     bill: out.bill,

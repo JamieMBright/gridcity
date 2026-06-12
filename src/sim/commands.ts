@@ -15,6 +15,7 @@ import {
   type VegPolicy,
 } from './catalog';
 import { CONNECT_DAYS, GEN_OF_KIND } from './events/applications';
+import { applyReplaceAsset, applyScheduleMaintenance } from './reliability/ageing';
 import { applyStormPrep } from './reliability/stormprep';
 import { bumpMood, developerOf, TENDER_OPEN_DAYS, type Tender } from './events/developers';
 import { MAX_VANS } from './fleet/fleet';
@@ -71,6 +72,14 @@ export type Command =
   /** Storm preparation (ROADMAP #9): hire surge contractor crews or run
    *  an emergency vegetation cut. Logic lives in reliability/stormprep. */
   | { type: 'stormPrep'; action: 'surge' | 'vegCut'; lineId?: number; days?: number }
+  /** Replace an aged line/substation like-for-like (ROADMAP #15): resets
+   *  builtAtMin (derived health → 100) at 70% of current capex — the
+   *  easements and civils are already paid for. reliability/ageing.ts. */
+  | { type: 'replaceAsset'; assetId: number }
+  /** Queue a planned-maintenance outage for the next 01:00–05:00 window
+   *  (ROADMAP #16): ~+25 health on completion, 10% of capex, no fleet
+   *  job. Logic lives in reliability/ageing.ts. */
+  | { type: 'scheduleMaintenance'; assetId: number }
   /** Handled by the worker via its snapshot stacks. */
   | { type: 'undo' }
   | { type: 'redo' };
@@ -469,7 +478,15 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       }
       const id = state.nextAssetId++;
       if (spec.kind === 'sub') {
-        state.assets.set(id, { id, kind: 'sub', sub: spec.sub, x: spec.x, y: spec.y });
+        // builtAtMin: new kit is new — derived health starts at 100
+        state.assets.set(id, {
+          id,
+          kind: 'sub',
+          sub: spec.sub,
+          x: spec.x,
+          y: spec.y,
+          builtAtMin: state.simTimeMin,
+        });
         if (spec.autoConnect) autoConnectSub(state, map, id);
       } else if (spec.kind === 'depot') {
         state.assets.set(id, { id, kind: 'depot', x: spec.x, y: spec.y });
@@ -484,6 +501,7 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
           lengthTiles: check.lengthTiles,
           capexK: check.capexK,
           pylons: check.pylons ?? [],
+          builtAtMin: state.simTimeMin,
         });
       }
       state.assetsVersion++;
@@ -543,6 +561,7 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
           x: wp.x,
           y: wp.y,
           teeLevel: cmd.level,
+          builtAtMin: state.simTimeMin,
         });
         made.push(id);
       }
@@ -614,6 +633,7 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
         x: jx,
         y: jy,
         teeLevel: line.level,
+        builtAtMin: state.simTimeMin,
       });
       state.assets.delete(line.id);
       state.lineVeg.delete(line.id);
@@ -678,7 +698,15 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       const made: number[] = [];
       const sealingEnd = (x: number, y: number): number => {
         const id = state.nextAssetId++;
-        state.assets.set(id, { id, kind: 'sub', sub: 'tee', x, y, teeLevel: line.level });
+        state.assets.set(id, {
+          id,
+          kind: 'sub',
+          sub: 'tee',
+          x,
+          y,
+          teeLevel: line.level,
+          builtAtMin: state.simTimeMin,
+        });
         made.push(id);
         return id;
       };
@@ -737,6 +765,12 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
 
     case 'stormPrep':
       return applyStormPrep(state, cmd);
+
+    case 'replaceAsset':
+      return applyReplaceAsset(state, cmd.assetId);
+
+    case 'scheduleMaintenance':
+      return applyScheduleMaintenance(state, cmd.assetId);
 
     case 'undo':
     case 'redo':

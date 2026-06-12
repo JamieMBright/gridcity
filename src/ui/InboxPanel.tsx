@@ -9,7 +9,13 @@ import { useAppStore } from '../app/store';
 import { requestStudy, sendCommand } from '../app/workerBridge';
 import { GENS } from '../sim/catalog';
 import { GEN_OF_KIND } from '../sim/events/applications';
-import { developerOf } from '../sim/events/developers';
+import {
+  developerOf,
+  FIRM_RENEWABLES,
+  type Bid,
+  type Tender,
+} from '../sim/events/developers';
+import { CONSTRAINT_COMP_K } from '../sim/market/dispatch';
 import { fmtMoneyK, panelStyle, theme } from './theme';
 
 const btn = (color: string): React.CSSProperties => ({
@@ -74,6 +80,94 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
     apps.length + tenders.length + pitches.filter((p) => p.status === 'open').length;
   if (count === 0 && overdue.length === 0 && !open) return null;
 
+  // CfD allocation rounds (#14): tenders swept into a round (Tender.roundId,
+  // stamped by the worker's quarterly sweep) group under one "ALLOCATION
+  // ROUND n" banner with a one-click clear; sites designated between rounds
+  // list as plain tenders exactly as before.
+  const cheapestBid = (t: Tender): Bid | undefined =>
+    [...t.bids].sort((a, b) => a.priceMWh - b.priceMWh)[0];
+  const roundIds = [
+    ...new Set(tenders.map((t) => t.roundId).filter((r): r is number => r !== undefined)),
+  ].sort((a, b) => a - b);
+  const soloTenders = tenders.filter((t) => t.roundId === undefined);
+
+  const sectionHeader = (label: string, key?: string): React.ReactElement => (
+    <div
+      key={key}
+      style={{ color: theme.slate, fontSize: 10, letterSpacing: '0.12em', marginTop: 8 }}
+    >
+      {label}
+    </div>
+  );
+
+  const tenderCard = (t: Tender): React.ReactElement => {
+    const g = GENS[t.gen];
+    const closeDays = Math.max(0, (t.closesMin - snapshot.simTimeMin) / 1440);
+    return (
+      <div
+        key={`t${t.id}`}
+        ref={(el) => {
+          if (el) itemRefs.current.set(`t${t.id}`, el);
+          else itemRefs.current.delete(`t${t.id}`);
+        }}
+        style={{ marginTop: 6, ...flashStyle(`t${t.id}`) }}
+      >
+        <div
+          style={{ color: theme.gold, cursor: 'pointer' }}
+          onClick={() => requestPan(t.x, t.y)}
+        >
+          {g.name} site
+        </div>
+        <div style={{ color: theme.slate, fontSize: 11 }}>
+          {t.bids.length === 0
+            ? `awaiting developer bids · closes in ${closeDays.toFixed(0)}d`
+            : `${t.bids.length} bid${t.bids.length > 1 ? 's' : ''} in`}
+        </div>
+        {t.bids.map((b) => (
+          <div
+            key={b.developerId}
+            style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 3 }}
+          >
+            <span style={{ flex: 1, fontSize: 11 }}>
+              {developerOf(b.developerId)?.name ?? 'developer'} · £{b.priceMWh}/MWh
+              {FIRM_RENEWABLES.has(t.gen) && (
+                <span style={{ color: theme.slate }}>
+                  {' '}· curtails at £
+                  {Math.round(
+                    (developerOf(b.developerId)?.curtailPriceK ?? CONSTRAINT_COMP_K) * 1000,
+                  )}
+                  /MWh
+                </span>
+              )}
+            </span>
+            <button
+              style={btn(theme.ok)}
+              title="Award the tender — the developer builds and owns the plant"
+              onClick={() =>
+                sendCommand({
+                  type: 'acceptBid',
+                  tenderId: t.id,
+                  developerId: b.developerId,
+                })
+              }
+            >
+              award
+            </button>
+          </div>
+        ))}
+        <div style={{ marginTop: 3 }}>
+          <button
+            style={btn(theme.slate)}
+            title="Withdraw the tender (bidders will not be pleased)"
+            onClick={() => sendCommand({ type: 'declineTender', tenderId: t.id })}
+          >
+            withdraw
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div
       style={{
@@ -111,71 +205,52 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
           {apps.length + tenders.length + pitches.length + overdue.length === 0 && (
             <div style={{ color: theme.slate, fontSize: 11 }}>nothing waiting</div>
           )}
-          {tenders.length > 0 && (
-            <div
-              style={{ color: theme.slate, fontSize: 10, letterSpacing: '0.12em', marginTop: 8 }}
-            >
-              TENDERS
-            </div>
-          )}
-          {tenders.map((t) => {
-            const g = GENS[t.gen];
-            const closeDays = Math.max(0, (t.closesMin - snapshot.simTimeMin) / 1440);
+          {roundIds.map((r) => {
+            // round members sorted cheapest-first by their best bid
+            const members = tenders
+              .filter((t) => t.roundId === r)
+              .sort(
+                (a, b) =>
+                  (cheapestBid(a)?.priceMWh ?? Infinity) -
+                  (cheapestBid(b)?.priceMWh ?? Infinity),
+              );
+            const awards = members
+              .map((t) => ({ t, bid: cheapestBid(t) }))
+              .filter((x): x is { t: Tender; bid: Bid } => x.bid !== undefined);
+            const avg =
+              awards.length > 0
+                ? Math.round(awards.reduce((s, x) => s + x.bid.priceMWh, 0) / awards.length)
+                : 0;
             return (
-              <div
-                key={`t${t.id}`}
-                ref={(el) => {
-                  if (el) itemRefs.current.set(`t${t.id}`, el);
-                  else itemRefs.current.delete(`t${t.id}`);
-                }}
-                style={{ marginTop: 6, ...flashStyle(`t${t.id}`) }}
-              >
-                <div
-                  style={{ color: theme.gold, cursor: 'pointer' }}
-                  onClick={() => requestPan(t.x, t.y)}
-                >
-                  {g.name} site
-                </div>
-                <div style={{ color: theme.slate, fontSize: 11 }}>
-                  {t.bids.length === 0
-                    ? `awaiting developer bids · closes in ${closeDays.toFixed(0)}d`
-                    : `${t.bids.length} bid${t.bids.length > 1 ? 's' : ''} in`}
-                </div>
-                {t.bids.map((b) => (
-                  <div
-                    key={b.developerId}
-                    style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 3 }}
-                  >
-                    <span style={{ flex: 1, fontSize: 11 }}>
-                      {developerOf(b.developerId)?.name ?? 'developer'} · £{b.priceMWh}/MWh
-                    </span>
+              <div key={`round${r}`}>
+                {sectionHeader(`ALLOCATION ROUND ${r}`)}
+                {awards.length > 0 && (
+                  <div style={{ marginTop: 4 }}>
                     <button
-                      style={btn(theme.ok)}
-                      title="Award the tender — the developer builds and owns the plant"
-                      onClick={() =>
-                        sendCommand({
-                          type: 'acceptBid',
-                          tenderId: t.id,
-                          developerId: b.developerId,
-                        })
-                      }
+                      style={btn(theme.gold)}
+                      title="Award the cheapest bid on every site in this round"
+                      onClick={() => {
+                        // v1: the clear is sequential acceptBid commands, so a
+                        // multi-site round lands as multiple undo steps
+                        for (const { t, bid } of awards) {
+                          sendCommand({
+                            type: 'acceptBid',
+                            tenderId: t.id,
+                            developerId: bid.developerId,
+                          });
+                        }
+                      }}
                     >
-                      award
+                      clear round at £{avg}/MWh avg
                     </button>
                   </div>
-                ))}
-                <div style={{ marginTop: 3 }}>
-                  <button
-                    style={btn(theme.slate)}
-                    title="Withdraw the tender (bidders will not be pleased)"
-                    onClick={() => sendCommand({ type: 'declineTender', tenderId: t.id })}
-                  >
-                    withdraw
-                  </button>
-                </div>
+                )}
+                {members.map(tenderCard)}
               </div>
             );
           })}
+          {soloTenders.length > 0 && sectionHeader('TENDERS', 'tenders-h')}
+          {soloTenders.map(tenderCard)}
           {apps.map((a) => {
             const daysLeft = Math.max(0, (a.decideByMin - snapshot.simTimeMin) / 1440);
             const isGen = GEN_OF_KIND[a.kind] !== undefined;

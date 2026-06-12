@@ -5,6 +5,7 @@
 
 import { lineBranchId, txBranchId, type PlacedAsset } from '../assets';
 import { SUBS } from '../catalog';
+import { assetHealth, healthHazardMul, loadingFracFromHeat } from './ageing';
 import type { Rng } from '../rng';
 
 const MIN_PER_YEAR = 525_600;
@@ -41,7 +42,13 @@ export interface FaultEvent {
   label: string;
 }
 
-/** Roll for new faults this tick. `lineVeg` is per-line overgrowth 0..1. */
+/** Roll for new faults this tick. `lineVeg` is per-line overgrowth 0..1.
+ *  `simTimeMin`/`heat` feed the asset-ageing hazard (reliability/
+ *  ageing.ts): every line/transformer rate is multiplied by
+ *  healthHazardMul of the asset's derived health — 1× while health ≥70,
+ *  rising linearly to 3× at health 10 (clamped there). Defaults keep
+ *  legacy callers/fixtures at health 100 (multiplier 1). The RNG draw
+ *  count per asset is unchanged, so seeded runs stay comparable. */
 export function rollFaults(
   assets: Iterable<PlacedAsset>,
   byId: Map<number, PlacedAsset>,
@@ -50,6 +57,8 @@ export function rollFaults(
   wind: number,
   rng: Rng,
   dtMin: number,
+  simTimeMin = 0,
+  heat?: ReadonlyMap<number, number>,
 ): FaultEvent[] {
   const faults: FaultEvent[] = [];
   const storm = stormFactor(wind);
@@ -61,9 +70,11 @@ export function rollFaults(
       const lenKm = Math.max(1, a.lengthTiles);
       const overhead = a.build === 'overhead';
       const veg = lineVeg.get(a.id) ?? 0;
-      const ratePerYr = overhead
-        ? OH_BASE * lenKm * storm * (1 + 5 * veg)
-        : UG_BASE * lenKm;
+      const condition = healthHazardMul(
+        assetHealth(a, simTimeMin, loadingFracFromHeat(heat, branchId)),
+      );
+      const ratePerYr =
+        (overhead ? OH_BASE * lenKm * storm * (1 + 5 * veg) : UG_BASE * lenKm) * condition;
       if (!rng.chance((ratePerYr * dtMin) / MIN_PER_YEAR)) continue;
       const endA = byId.get(a.a);
       const endB = byId.get(a.b);
@@ -87,7 +98,10 @@ export function rollFaults(
       // an underground GIS rebuild shrugs the weather off entirely.
       const branchId = txBranchId(a.id, 0);
       if (outBranches.has(branchId)) continue;
-      const rate = a.underground ? TX_BASE * 0.5 : TX_BASE * Math.min(storm, 6);
+      const condition = healthHazardMul(
+        assetHealth(a, simTimeMin, loadingFracFromHeat(heat, branchId)),
+      );
+      const rate = (a.underground ? TX_BASE * 0.5 : TX_BASE * Math.min(storm, 6)) * condition;
       if (!rng.chance((rate * dtMin) / MIN_PER_YEAR)) continue;
       faults.push({
         branchId,

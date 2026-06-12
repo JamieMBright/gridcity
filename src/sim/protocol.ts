@@ -122,6 +122,9 @@ export interface SimSnapshot {
     freqHz: number;
     /** Customer-weighted council satisfaction, 0..100. */
     satisfactionAvg: number;
+    /** Average derived condition of the player's lines + substations,
+     *  % (asset ageing, ROADMAP #15 — reliability/ageing.ts). */
+    networkHealthPct: number;
   };
   weather: {
     sun: number;

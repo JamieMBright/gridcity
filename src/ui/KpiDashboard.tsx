@@ -82,6 +82,25 @@ export function KpiDashboard() {
                 </tr>
               );
             })}
+            {/* asset ageing (#15): average derived condition of the
+                player's lines + substations — no RIIO target yet */}
+            <tr style={{ lineHeight: 1.8 }}>
+              <td>network health avg (%)</td>
+              <td
+                style={{
+                  textAlign: 'right',
+                  color:
+                    snapshot.stats.networkHealthPct >= 70
+                      ? theme.ok
+                      : snapshot.stats.networkHealthPct >= 40
+                        ? theme.warn
+                        : theme.danger,
+                }}
+              >
+                {snapshot.stats.networkHealthPct.toFixed(0)}
+              </td>
+              <td style={{ textAlign: 'right', color: theme.slate }}>—</td>
+            </tr>
           </tbody>
         </table>
         {r.lastReport && (
