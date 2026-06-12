@@ -69,8 +69,48 @@
             split → P4 shoreline smoothing → P5 rail identity → P6
             boat wakes → P7 air layer. Implementation = next wave's
             flagship lane.
-      - [ ] Implementation + preview-inspected renders (multiple crops
-            at multiple zooms) before claiming fixed
+      - [x] Implementation P0–P4 (Wave 5 transport lane): P0 preview
+            parity (shared src/render/routeRibbons.ts consumed by BOTH
+            MapRenderer and tools/preview.ts — preview now composites
+            ground → shoreline → ribbons → structures, ending preview
+            blindness to transport); P1 projected ground-plane quad-strip
+            ribbons w/ mitred joins, cartographic casing→fill passes
+            (class ascending; junctions merge for free), width hierarchy
+            (motorway 0.30 t … lane 0.07 t), 5 zoom bands + geometric
+            sub-buckets w/ ±10 % hysteresis, lazy per-band Graphics (≤2
+            cached, LRU destroyed), screen-px width floors (M25 always
+            ≥4 px), verge halo killed, edge-line offset bug fixed
+            (perpendicular in tile space); P2 derived junction discs
+            (165), roundabouts at arterial meets (14, annulus + green
+            island), motorway grade separation (47 overpasses: shadow +
+            lifted deck + parapets, no at-grade motorway junctions); P3
+            bridges as structures (75 derived spans: piers, deck lift,
+            water shadow, parapets split boat→routes→vehicles→bridgeTop
+            so boats pass under and cars ride behind the near railing;
+            Tower Bridge reservation skipped; Southend = wooden pier;
+            vehicle lift = class deck height); P4 shoreline smoothing
+            (marching squares + 2× Chaikin over the water mask, flat
+            water/bank bands + ink waterline + foam, stone embankment
+            through town, marsh on the estuary flats — visual only, no
+            CityMap change, no SAVE_VERSION bump).
+      - [x] VERIFIED (Wave 5 transport lane): tests/routeRibbons.test.ts
+            (18 new) — band thresholds + hysteresis, class declutter per
+            band, width-floor maths on emitted geometry, mitre bound at
+            lattice L-corners, quad winding, junction derivation
+            determinism (≥3 meets; motorway crossings excluded), overpass
+            + span derivation (bridge/pier/Tower-Bridge-plain), parapet
+            layer split, shoreline contour closure/Chaikin counts/band
+            emission. Full vitest 311 green; tsc/eslint/build clean;
+            e2e undo+build+app+controls+mobile green on fresh servers
+            (picking/demolish unaffected — all new layers eventMode
+            'none'). IMAGES INSPECTED: all 7 audit crops re-rendered
+            (preview/after_*.png) + 1:1 close-ups (zoom_*.png) + 5
+            in-game shots (preview/shot-transport-*.png via new
+            SHOTS=1 e2e/transportshots.helper.spec.ts). Emission ≤35 ms/
+            band, derivation 100 ms once, shoreline 44 ms once.
+      - [ ] P5 rail identity (far-zoom cross-ticks, station platforms),
+            P6 boat wakes/dock polish, P7 air layer (AIRPORTS export,
+            arcs, planes + shadows) — next wave; P5–P7 of the doc.
 
 - [ ] **"Do all" campaign (owner, 2026-06-12): implement ROADMAP.md in
       full**, tier by tier in gated waves. SHIPPED: Wave 1+1b (#1
@@ -83,12 +123,16 @@
       windows). WAVE 4 complete pending gate (→ PR #22): TUTORIAL
       CAMPAIGN + rotate prompt + stale-save bug fix, #18 smart
       charging, #24 ToU tariffs, #19 capacitor banks, #23 hydrogen;
-      transport-overhaul design doc shipped alongside. Wave 5 next:
-      TRANSPORT OVERHAUL implementation (flagship) + generation
-      footprints to scale; then LOFI BEAUTY PASS wave (+#41/#42/#44 +
-      mobile-landscape audit); then Tier 2 remainder (#21 heat
-      networks, #22 scenario seeds, owner items #53–#55) and Tiers
-      3–4. Items tick off in ROADMAP.md with PR links as they land.
+      transport-overhaul design doc shipped alongside. WAVE 5 complete
+      pending gate (→ PR #23): TRANSPORT OVERHAUL P0–P4 (ground-plane
+      cased ribbons, zoom declutter, junctions/roundabouts, bridges as
+      structures, smoothed shorelines) + GENERATION FOOTPRINTS (6-tower
+      coal campus, bids-what-fits land caps). Wave 6 next: LOFI BEAUTY
+      PASS (+#41/#42/#44 + mobile-landscape audit, using the installed
+      design skills) + transport P5–P7 (rail identity, boat wakes, air
+      layer); then Tier 2 remainder (#21 heat networks, #22 scenario
+      seeds, owner items #53–#55) and Tiers 3–4. Items tick off in
+      ROADMAP.md with PR links as they land.
 
 - [ ] **Map recognisability pass 2** (owner can't model 1M properties; keep it
       sensible/enjoyable): continue tuning until London "reads" at a glance.
@@ -98,27 +142,77 @@
       generation). Integrate when supplied; Open Infrastructure Map judged
       off-piste for now. (Hand-seeded real-ish plants shipped meanwhile.)
 
-- [ ] **Generation footprints to scale (owner, 2026-06-12): "the new
+- [x] **Generation footprints to scale (owner, 2026-06-12): "the new
       design for the bulk supply points [is] really good but you
       haven't applied that to like the coal power station — it should
       be massive, have like six cooling towers etc. Scale things like
       the wind farms to be proportionate to the capacity… solar: 5 MW
-      might be one tile, 100 MW [many] tiles."**
-  - [ ] Coal station MASSIVE (supersedes the parked 3×2 item): six
-        cooling towers, boiler house + chimney stack, coal yard with
-        conveyors — Drax/Ratcliffe-class campus footprint (~4×3 or
-        bigger), nuclear-campus treatment (per-tile siting, occupancy,
-        pylon blocking, ghost, voltage rings).
-  - [ ] Capacity-proportional footprints for farm-type gen: tender MW
-        drives the awarded plant's tile claim — solar ≈ 1 tile per
-        ~5–10 MW (100 MW = a proper field array), wind farms spread N
-        turbine tiles by MW; designation must check/reserve the area
-        (or bids cap their MW to the open land around the designated
-        tile — developers offer what fits). CCGT/battery moderate
-        scaling; landmark-class plants (nuclear/coal) keep fixed
-        campuses.
-  - [ ] Queued for the next wave (catalog.ts + render/** are owned by
-        a running Wave 4 lane).
+      might be one tile, 100 MW [many] tiles."** BUILT (Wave 5
+      footprints lane — see the lane ledger entry below).
+  - [x] Coal station MASSIVE: 4×3 Drax/Ratcliffe-class campus — SIX
+        hyperboloid cooling towers in two staggered ranks (steam
+        wisps baked, live smog rides output as before), tall boiler
+        house + 124-unit chimney, long glazed turbine hall, coal yard
+        with twin spoil cones + enclosed conveyor gallery on trestles,
+        rail siding with loaded hopper wagons + buffer stop. Full
+        nuclear-campus treatment via the existing footprint plumbing
+        (per-tile siting, occupancy, pylon blocking, ghost fp, line
+        endpoints, demolish cascade) — catalog footprint [3,2]→[4,3]
+        is the only siting change; sprite preview inspected; atlas
+        4096×3883, under the mobile ceiling.
+  - [x] Capacity-proportional footprints for farm-type gen: the
+        mechanic is DEVELOPERS BID WHAT FITS. Designation flood-fills
+        the contiguous open land around the tile (BFS, Chebyshev
+        radius ≤9, static map features only) → Tender.fitMW; every
+        bid offers min(catalog ask, fitMW) (Bid.mw, shown on the bid
+        card as "N MW — what fits this site" when reduced); the award
+        stamps GenAsset.mw and the claimed tile set is DERIVED from
+        anchor+MW (farms.ts farmClaimTiles — prefix-stable BFS blob;
+        never serialized, no SAVE_VERSION bump; old saves hydrate to
+        1-tile plants byte-for-byte). Densities: solar 10 MW/tile
+        (5 MW = one tile, 100 MW = ten-tile field), onshore wind
+        5 MW/turbine-tile spread on the anchor-parity checkerboard
+        (spacing gaps stay open farmland), offshore 20 MW/tile over
+        the estuary wind zone. Claims get occupancy + pylon blocking
+        + demolish-cascade through footprintTiles; the award caps MW
+        to the free claim prefix if the site tightened since bidding;
+        dispatch/balance/sparkline/InfoPanel read the awarded MW;
+        town infill skips claimed tiles. Renderer draws one sprite
+        per claimed tile (solar panel rows tile into field arrays;
+        wind gets a turbine pair + live rotors per claimed tile —
+        turbine floors made transparent so the machines stand in the
+        crops, not on pasted lawns).
+  - [~] CCGT/battery kept 1×1 (deliberate): both are seeded on the
+        london map at sites validated as single tiles — a footprint
+        bump would silently claim un-validated neighbour tiles under
+        existing saves and seeded plants. Nuclear (3×2) / coal (4×3)
+        keep fixed campuses as designed. Customer-application plant
+        (respondApplication) also stays 1-tile/catalog-MW — only the
+        tender market scales; revisit if the owner wants apps scaled.
+  - [x] VERIFIED (Wave 5 footprints lane): tests/footprints.test.ts
+        (14 new) — coal campus 4×3 claims/blocks/cascades exactly like
+        nuclear's (12-tile footprint, sub-on-campus refused, overhead
+        route across it places no supports on it, demolish takes the
+        connected 400 kV circuit), available-land MW cap (3-tile islet
+        → 30 MW bids; town-locked anchor → 10 MW; open farmland → the
+        full 50 MW ask; designation stamps Tender.fitMW and trickle
+        bids carry Bid.mw), award claims the right tile count (5 MW
+        solar = 1 tile, 100 MW = 10; awarded asset occupies its whole
+        field; award caps to the free prefix when a sub landed on the
+        claim mid-tender), wind spacing parity + radius cap, claim
+        derivation determinism + prefix stability, awarded MW save
+        round-trip re-deriving identical tiles, and old-save (no
+        mw/fitMW) hydration to single-tile plants with bids still
+        flowing. Full `npx vitest run` 293/293; `npx tsc -b`, `npx
+        eslint src tests e2e tools`, `npm run build` all clean (run
+        alongside the transport lane's in-tree work). Seeded london
+        plants (CCGT/peaker/solar/wind) keep 1×1 footprints — e2e
+        baseline asset counts untouched. Sprite previews rendered and
+        INSPECTED: preview/sprite_gen_coal.png (six towers, conveyor,
+        rail siding all read), preview/footprints_insitu*.png (10-tile
+        100 MW solar field + 20-turbine-tile wind farm + coal campus
+        composited on the real Essex countryside with the renderer's
+        placement math). Atlas 4096×3883 ≤ 4096.
 
 - [ ] Car parks gain EV charging load (flagged "in future" by owner).
 

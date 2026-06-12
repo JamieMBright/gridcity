@@ -45,6 +45,12 @@ export interface GenAsset {
   developer?: number | undefined;
   /** The awarded PPA strike, £/MWh — what customers pay this plant. */
   ppaMWh?: number | undefined;
+  /** Awarded capacity, MW (farm-type plant only): developers bid what
+   *  the open land around the site fits, and the claimed tile set is
+   *  DERIVED from anchor + this figure (src/sim/farms.ts) — additive,
+   *  rides PlacedAsset serialization. Absent (old saves, fixed plant)
+   *  = the catalog capacity on a single-tile/fixed footprint. */
+  mw?: number | undefined;
   /** Constraint-market curtailment price, £k/MWh (#17): compensation per
    *  curtailed MWh on a firm connection, inherited from the developer's
    *  curtailPriceK personality. Absent (legacy saves, customer plant)

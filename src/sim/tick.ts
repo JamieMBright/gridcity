@@ -65,7 +65,7 @@ import {
   type PeriodActuals,
 } from './regulation/riio';
 import { Rng } from './rng';
-import { assetAtTile } from './commands';
+import { assetAtTile, footprintTiles } from './commands';
 import { assignServiceAreas, computeSubLoads, type ServiceAreas } from './service';
 import { CUSTOMERS_PER_TILE, NO_COUNCIL, RC, TERRAIN, ZONE } from './map/types';
 import { buildDemandField } from './map/demand';
@@ -860,6 +860,13 @@ function stepCouncils(
  *  and mirrored to the main thread via the snapshot. */
 function growTown(state: GameState, ctx: SimContext, derived: Derived, rng: Rng): void {
   const { map } = ctx;
+  // farms keep their fields: capacity-scaled plant claims its tiles by
+  // derivation (footprintTiles), so infill must not build between the
+  // panel rows / turbines (the claim would self-heal, but why force it)
+  const claimed = new Set<number>();
+  for (const a of state.assets.values()) {
+    for (const i of footprintTiles(map, a)) claimed.add(i);
+  }
   const candidates = new Set<number>();
   for (const tile of derived.service.subOfTile.keys()) {
     const x = tile % map.width;
@@ -879,6 +886,7 @@ function growTown(state: GameState, ctx: SimContext, derived: Derived, rng: Rng)
       if (map.terrain[i] !== TERRAIN.land) continue;
       if ((map.road[i] ?? 0) >= RC.arterial) continue;
       if ((map.landmark?.[i] ?? 0) !== 0) continue;
+      if (claimed.has(i)) continue;
       candidates.add(i);
     }
   }

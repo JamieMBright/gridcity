@@ -304,7 +304,7 @@ transport), eyeball them against the "after" intent, run
 `npx vitest run`, `npx tsc -b`, `npx eslint src tests e2e tools`, and the
 full local Playwright suite before merging (fresh server).
 
-- **P0 — Make transport previewable** *(unblocks everything; no visual
+- ✅ **P0 — Make transport previewable** *(DONE, Wave 5 transport lane)* *(unblocks everything; no visual
   change in game).* Extract geometry+style emission into
   `src/render/routeRibbons.ts` with a renderer-agnostic `poly` sink;
   `MapRenderer.drawRoutes()` and `tools/preview.ts` both consume it (the
@@ -312,7 +312,7 @@ full local Playwright suite before merging (fresh server).
   `tests/render/routeRibbons.test.ts` — geometry counts per class,
   identical output for renderer/preview sinks. Verify: §9 crops now show
   ribbons; game pixel-identical (style table unchanged in this phase).
-- **P1 — Projected ribbons, hierarchy, casing, zoom bands** *(the core
+- ✅ **P1 — Projected ribbons, hierarchy, casing, zoom bands** *(DONE)* *(the core
   fix; biggest visible win).* Tile-space quad-strip tessellation with
   mitred joins; class-ascending casing→fill passes; §4 style table +
   band selection with hysteresis + lazy per-band Graphics in
@@ -322,20 +322,20 @@ full local Playwright suite before merging (fresh server).
   suite green (no selector changes); add a screenshot step at far zoom in
   `e2e/shots.helper.spec.ts` flow if cheap. Verify crops: wide_far must
   show the M25 ring + radials cleanly with streets gone.
-- **P2 — Junction nodes, roundabouts, grade separation.** Derived junction
+- ✅ **P2 — Junction nodes, roundabouts, grade separation.** *(DONE — derivation auto-derives roundabouts from arterial×arterial crossings instead of a hand-named table; spacing ≥8 t, cap 14.)* Derived junction
   discs; roundabout const table (Circular × radial meets); motorway
   mini-overpasses. Unit tests: junction derivation on a fixture map
   (counts, no junctions on open-country sweeps). Verify: central +
   m25_heathrow crops — junctions merge, no casing crosses, roundabouts
   read at Z2.
-- **P3 — Bridges as structures + piers.** Span detection, decks, piers,
+- ✅ **P3 — Bridges as structures + piers.** *(DONE)* Span detection, decks, piers,
   parapets, shadows; layer split (`boatLayer`/`roadVehicleLayer`/
   `bridgeTopG`); vehicle lift = deck height; Southend pier styling; skip
   Tower Bridge reservation. Unit tests: span detection (Dartford, Thames
   bridges, pier). e2e: vehicles still animate (existing smoke), picking
   unaffected (new layers non-interactive — assert demolish flow e2e still
   green). Verify: estuary_dartford + central crops.
-- **P4 — Shoreline smoothing.** `src/render/shoreline.ts` (marching
+- ✅ **P4 — Shoreline smoothing.** *(DONE)* `src/render/shoreline.ts` (marching
   squares + Chaikin + band emission, shared with preview via the P0 sink).
   Unit tests: contour closure on fixture masks, Chaikin point counts,
   embankment-style selection. Verify: estuary_southend_far +
@@ -393,3 +393,24 @@ once P0 lands; coordinates below).
 | `preview/audit_estuary_southend_far.png` | 198 38 252 92 / 8 | Sawtooth coastline; Southend pier invisible; rail = faint thread. |
 | `preview/audit_streets_close.png` | 110 64 128 82 / 2 | Close zoom: rounded noodle joins, no kerbs/junction geometry, ribbons float over ground rather than lying in it. |
 | `preview/audit_wide_far.png` | 80 50 180 120 / 16 | Phone-zoom equivalent: roads essentially invisible; no M25 ring, no rail, blobby river. Success = this crop alone telling the whole transport story. |
+
+### After P0–P4 (Wave 5 transport lane, 2026-06-12) — re-rendered verdicts
+
+Same coordinates, written as `preview/after_*.png`; close-up checks as
+`preview/zoom_*.png`; in-game frames `preview/shot-transport-*.png`
+(`SHOTS=1 npx playwright test e2e/transportshots.helper.spec.ts`).
+
+| Crop | Verdict (after) |
+|---|---|
+| `after_central` (Z2) | Streets read as a connected cased grid; junctions merge; arterial dashes; Thames smooth with banked edges + bridges. |
+| `after_central_far` (Z1) | Streets fade to faint fills under arterials; network legible, no per-pixel noise; river bold and smooth. |
+| `after_m25_heathrow` (Z2) | M25 cased with cream edge lines, clearly wider/lighter than lanes; upper-Thames staircase gone. |
+| `after_estuary_dartford` (Z2) | Coast smooth (sand/marsh banks + foam); QEII crossing is a real deck with piers + water shadow; rail bridge reads. |
+| `after_estuary_southend_far` (Z1) | Sawtooth coastline gone; Southend pier renders as a wooden pier on piles. |
+| `after_streets_close` (Z3) | Ribbons lie IN the ground plane (foreshortened like floor diamonds), crisp casing, junction merges, no verge mush. |
+| `after_wide_far` (Z0) | Streets decluttered away; lightened M25 ring + arterial threads + dark rail carry the story; river network is the anchor. M25 holds its 4 px floor. |
+
+Residuals for P5–P7: rail still street-like at far zoom (no cross-ticks),
+no boat wakes, no air layer. A couple of authored staircase lanes (e.g.
+north of Dartford) now read crisply enough to merit a waypoint re-lay in
+a later map pass (would touch map data ⇒ separate PR).

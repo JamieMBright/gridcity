@@ -149,6 +149,11 @@ export interface Bid {
   priceMWh: number;
   /** Days added to (or shaved off) the catalog planning+build lead. */
   leadDaysDelta: number;
+  /** Offered capacity, MW — what fits the open land around the site
+   *  (Tender.fitMW), at most the catalog ask. Additive: absent on old
+   *  saves' bids / fixed-footprint plant = the catalog capacity on a
+   *  single tile, exactly the old behaviour. */
+  mw?: number | undefined;
 }
 
 export interface Tender {
@@ -169,6 +174,16 @@ export interface Tender {
    *  The inbox derives its "ALLOCATION ROUND n" grouping from this, so
    *  the protocol carries no extra round plumbing. */
   roundId?: number | undefined;
+  /** Farm techs only: the MW the open land around the site fits (capped
+   *  at the catalog ask), surveyed at designation while the map is in
+   *  hand — every bid offers at most this. Additive: absent (old saves,
+   *  fixed plant) = bids carry no MW and award the catalog plant. */
+  fitMW?: number | undefined;
+}
+
+/** The MW a developer offers on a tender: what the land fits. */
+function bidMWFor(t: Tender): number | undefined {
+  return t.fitMW === undefined ? undefined : Math.min(GENS[t.gen].capacityMW, t.fitMW);
 }
 
 /** Adjusted lead time for a bid, game-days. */
@@ -236,7 +251,11 @@ function openAllocationRound(state: GameState, rng: Rng): void {
     for (const dev of DEVELOPERS) {
       if ((dev.appetite[t.gen] ?? 0) <= 0) continue;
       if (t.bids.some((b) => b.developerId === dev.id)) continue;
-      t.bids.push(sealedRoundBid(rng, dev, t.gen, state.devMood.get(dev.id) ?? START_MOOD));
+      const mw = bidMWFor(t); // capped by what the land fits
+      t.bids.push({
+        ...sealedRoundBid(rng, dev, t.gen, state.devMood.get(dev.id) ?? START_MOOD),
+        ...(mw !== undefined ? { mw } : {}),
+      });
       sealed++;
     }
   }
@@ -357,12 +376,18 @@ export function stepTenders(state: GameState, rng: Rng, dtMin: number): void {
         if (appetite <= 0) continue;
         if (t.bids.some((b) => b.developerId === dev.id)) continue;
         if (!rng.chance((appetite * dtMin) / (BID_MEAN_DAYS * 1440))) continue;
-        const bid = rollBid(rng, dev.id, t.gen, 1); // classic trickle bid, unshaded
+        const mw = bidMWFor(t); // capped by what the land fits
+        const bid: Bid = {
+          ...rollBid(rng, dev.id, t.gen, 1), // classic trickle bid, unshaded
+          ...(mw !== undefined ? { mw } : {}),
+        };
         t.bids.push(bid);
         pushEvent(
           state,
           'warn',
-          `${dev.name} bids on the ${spec.name} tender — £${bid.priceMWh}/MWh`,
+          `${dev.name} bids on the ${spec.name} tender — ${
+            bid.mw !== undefined ? `${bid.mw} MW at ` : ''
+          }£${bid.priceMWh}/MWh`,
           t.x,
           t.y,
         );

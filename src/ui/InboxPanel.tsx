@@ -129,7 +129,16 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
             style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 3 }}
           >
             <span style={{ flex: 1, fontSize: 11 }}>
-              {developerOf(b.developerId)?.name ?? 'developer'} · £{b.priceMWh}/MWh
+              {developerOf(b.developerId)?.name ?? 'developer'}
+              {b.mw !== undefined && (
+                <span>
+                  {' '}· {b.mw} MW
+                  {b.mw < g.capacityMW && (
+                    <span style={{ color: theme.slate }}> — what fits this site</span>
+                  )}
+                </span>
+              )}{' '}
+              · £{b.priceMWh}/MWh
               {FIRM_RENEWABLES.has(t.gen) && (
                 <span style={{ color: theme.slate }}>
                   {' '}· curtails at £

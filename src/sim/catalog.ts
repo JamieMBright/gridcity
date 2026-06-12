@@ -83,7 +83,10 @@ export const GENS: Record<GenType, GenSpec> = {
     siting: 'land',
     planningDays: 120,
     buildDays: 360,
-    footprint: [3, 2],
+    // a Drax/Ratcliffe-class campus: SIX cooling towers, boiler house +
+    // chimney, the long turbine hall, coal yard with conveyors and a
+    // rail siding — bigger even than the nuclear campus
+    footprint: [4, 3],
   },
   nuclear: {
     name: 'Nuclear',
@@ -209,6 +212,23 @@ export const GENS: Record<GenType, GenSpec> = {
 
 /** Round-trip efficiency applied on battery charge. */
 export const BATTERY_EFFICIENCY = 0.9;
+
+/** Capacity-proportional farm footprints (src/sim/farms.ts): developers
+ *  bid what fits the open land around a designated tile and the award
+ *  claims tiles in proportion — MW per claimed tile by technology. A
+ *  tile is ~1 km²; densities are deliberately game-chunky:
+ *  - solar 10 MW/tile (a 5 MW award stays one tile; 100 MW is a proper
+ *    ten-tile field array);
+ *  - onshore wind 5 MW per turbine tile, spread on alternating tiles so
+ *    the machines keep their spacing (the gaps stay open farmland);
+ *  - offshore 20 MW per turbine tile (bigger machines, denser arrays)
+ *    spread over the estuary wind zone.
+ *  Landmark-class thermal plant (coal/nuclear) keeps fixed campuses. */
+export const FARM_MW_PER_TILE: Partial<Record<GenType, number>> = {
+  solarFarm: 10,
+  windOnshore: 5,
+  windOffshore: 20,
+};
 
 export interface SubSpec {
   name: string;
