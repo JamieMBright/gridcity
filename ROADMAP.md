@@ -714,3 +714,146 @@ tampered log rejected.
 
 *Maintenance note: when an item ships, move its summary into TASKS.md's
 Done section and strike it here with a link to the PR.*
+
+---
+
+## Owner additions (2026-06-12 evening) — items 51–55
+
+### 51. The Night the Grid Vanished (story opening) — Tier 1
+**What/Why.** "It's unusual to start a grid from scratch" — the owner is
+right that the premise needs fiction. A framed opening converts the
+blank map from an oddity into a mystery and gives year one a mandate:
+*All grid infrastructure was wiped out overnight. A mighty strange
+occurrence. Rebuild it as fast as you can.* It also creates the perfect
+home for the goal ladder and the first RIIO targets.
+**Design.** New game opens with a short letterboxed sequence (3–4 beats,
+skippable): the dark map at night → news ticker fragments ("…no fault
+recorded… every tower simply gone…") → an Ofgem letter on screen: "We
+have approved £X of allowed revenue for your first year. We expect CML
+below Y by the time year 2 begins. The lights are your problem now."
+X and Y become VISIBLE commitments: a year-1 allowance tracker on the
+bill panel (spend over it and the regulator grumbles + composite dings)
+and the CML target wired as the first period's headline KPI. Mystery
+beats drip through the ambient news across the campaign (sightings,
+inquiries, a select committee) — flavour now, sequel hook later.
+**Build.** `scenario/story.ts`: beat list + a letter component (reuses
+the report-card panel styling); seeded into newGame; allowance =
+soft-budget state (capexYrK YTD vs allowance, event + RIIO composite
+nudge on breach — no hard fail, per the no-bankruptcy doctrine);
+`initialTargets()` already exists — the letter just NAMES the numbers.
+Ticker fragments ride `maybeAmbientNews` with a story flag. Goal ladder
+(item 6) gets re-skinned as the "Rebuild Directive" checklist.
+**Verify.** e2e: opening shows once, skip works, allowance tracker
+renders; unit: breach event fires when YTD capex exceeds allowance;
+ledger of story beats deterministic.
+
+### 52. Bill drill-down (tap a layer deeper) — Tier 1
+**What/Why.** "Why are constraints costing £50m a year?" The bill is
+the score, but every line is a black box. One more layer — which
+assets, which counterparties, which hours — turns each cost into a
+lead the player can act on.
+**Design.** Every line on the bill panel becomes tappable, opening a
+breakdown card: **constraints** → per-generator constraint payments
+(name, MWh curtailed, £, why: which corridor bound), sorted by £;
+**network (DUoS)** → top assets by annuitized capex + the build that
+added them; **operations** → per-asset-class O&M; **fleet/tree
+cutting** → vans, policies, storm surges; **generation (PPA)** → per
+plant: strike, delivered MWh, top-up £; **wholesale energy** → price
+duration strip (avg/peak price, costliest hour); **innovation/
+penalties** → itemised. Each row has a jump-to (pan/pin the asset, or
+open Balance for the scope). Time window: this year, rolling.
+**Build.** The sim mostly knows these already at the point of accrual
+(dispatch knows which unit was curtailed and paid; bill.ts sums per
+asset before discarding detail). Add per-category itemised
+accumulators with EMA/yearly windows in state (compact: top-N rings,
+not full ledgers): `state.billDetail: { constraints: Map<assetId,
+{mwh, k}>, ppa: Map<assetId, {mwh, topupK}>, … }` updated where
+`constraintKPerHour`/`ppaTopupKPerHour`/capex sums are produced.
+Snapshot on demand (`billDetail` request like balance). UI: BillPanel
+rows become buttons; detail card lists + jump-to via requestPan/
+setSelected.
+**Verify.** Unit: itemised sums reconcile with the line totals (±ε);
+curtailment attribution matches recordCurtailed order. e2e: tap
+constraints → rows render, jump-to pans.
+
+### 53. The network business: directorates — Tier 2
+**What/Why.** A real DNO is an organisation, not a cursor: Connections,
+Asset Management, Field Operations, Control Room, Regulation, Safety,
+Finance. Representing the business gives every existing system a face,
+a budget and a lever — and sets up items 54/55.
+**Design.** A "Company" panel: each directorate is a card with a head
+(generated name/portrait flavour), a staffing slider (FTEs → bill via
+an opex line), a competence stat that grows with use, and the systems
+it owns: **Connections** (study speed/quality, application SLAs — more
+staff = faster offers, happier developers), **Asset Management**
+(planner quality, maintenance windows, asset-health decay rate),
+**Field Ops** (van efficiency, storm response multipliers), **Control
+Room** (auto-reclose speed, curtailment finesse → fewer constraint £),
+**Regulation** (RIIO submissions: small composite bonus, penalty
+softening), **Safety** (item 55's incident rates). Understaffing
+degrades the relevant mechanics gently; overstaffing wastes bill.
+Directors occasionally surface choices ("Connections wants a portal:
+£2m, +20% study speed").
+**Build.** `src/sim/company.ts`: directorate state {ftes, competence},
+serialize additive; cost into the bill's opex line; effect hooks =
+multipliers consumed where each mechanic lives (study delay, planner
+option count, van speed, reclose time, constraint price, composite).
+Start neutral (multiplier 1.0 at default staffing) so saves and
+balance hold. UI panel like Balance; events for director pitches reuse
+the innovation-pitch machinery.
+**Verify.** Unit: each multiplier path (e.g. Field Ops staffing halves
+travel time at max, never below floor); bill line reconciles; defaults
+are behaviour-neutral vs today.
+
+### 54. Get sued: litigation — Tier 2
+**What/Why.** "Let's get sued." Consequence with a paper trail:
+prolonged outages, breached connection offers, blighted property, a
+storm mishandled — in the real world these end in claims. Litigation
+turns reliability failures into narrative and a second-order cost.
+**Design.** Claims spawn from causes with evidence the player
+recognises: >24h CML event in a council (group action), overdue firm
+connection beyond damages cap (developer suit), pylon blight beside
+conservation areas (judicial review delaying a corridor: that line
+can't be built/uprated for N days), an H&S incident (item 55 —
+HSE/criminal flavour, biggest). Each claim arrives as an inbox item
+with options: settle (£, fast, small satisfaction hit), defend (legal
+directorate roll — competence-weighted; win = costs only, lose =
+multiple of settling), remediate (fix the cause for a discount).
+Outcomes feed the news ticker and the RIIO composite.
+**Build.** `src/sim/events/litigation.ts`: claim generator keyed off
+existing trackers (reliability per council, overdue applications,
+blight map, incident log), seeded rolls; inbox section + commands
+(settle/defend/remediate); costs to a new bill line ("claims &
+settlements"); Regulation/Legal competence from item 53 as the defence
+modifier (works standalone with a constant before 53 lands).
+**Verify.** Unit: a staged 24h blackout produces a claim; settle/
+defend/lose paths price correctly and are undo-safe; no claims under
+clean operation (seeded).
+
+### 55. H&S incidents — Tier 2
+**What/Why.** "H&S incidents to minimise" — the most serious metric a
+real utility runs on. Live wires, storm work at height, the public near
+damaged kit: safety performance belongs next to CML, and it gives storm
+haste a cost.
+**Design.** Incident hazard accrues from exposure: crew jobs (more
+during storms, more when surge contractors are in — unfamiliar crews),
+live overhead faults waiting near homes (public risk while a span is
+down in a populated tile), aged kit (item 15 synergy). Incidents range
+near-miss → lost-time injury → serious (HSE investigation: a multi-day
+work-rate penalty + likely litigation via item 54). A Safety KPI
+(incidents per 100k field-hours) joins the dashboard with a RIIO-style
+target; levers: a Safety directorate stand-down action after a near
+miss (pause field work 12h, resets a hidden fatigue meter), slower
+"safe working" storm mode (longer repairs, fewer incidents), training
+spend. Tone: serious but abstract — counters and consequences, never
+gore (consistent with the no-death doctrine).
+**Build.** `src/sim/reliability/safety.ts`: exposure-hours accumulator
+from fleet jobs (stepFleet already walks jobs), public-risk term from
+outage tiles × customers, seeded incident rolls scaled by safety
+competence (item 53) and the chosen work mode; state additive; events
++ inbox follow-ups for serious ones; KPI plumbing beside CI/CML;
+litigation hook. Bill: training/stand-down costs to opex.
+**Verify.** Unit: storm + surge crews raise incident probability
+(seeded statistical), stand-down resets fatigue, safe-mode lengthens
+repairs but cuts incidents; KPI math; serious incident emits a claim
+when 54 is present.

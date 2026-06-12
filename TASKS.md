@@ -99,6 +99,14 @@
 
 ## Done (chronological, latest first)
 
+### Roadmap additions prompt (bill drill-down, directorates, story, suits/H&S)
+- [x] Added to ROADMAP.md as items 51–55 with full design/build/verify
+      detail: bill line drill-down ("why are constraints £50m?"), the
+      network business with directorates, the "Night the Grid Vanished"
+      story opening (Ofgem year-1 allowance + year-2 CML target),
+      litigation, and H&S incidents — queued into the "do all" campaign
+      (story + drill-down pulled forward to Tier 1)
+
 ### "Suggest 50 improvements ranked by impact" prompt
 - [x] Delivered in chat (2026-06-12); owner picks become new entries here
 - [x] "Expand on all points in rich detail and add to the plan" →
