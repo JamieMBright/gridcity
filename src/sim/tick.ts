@@ -5,8 +5,8 @@
 // get power or don't, CI/CML and satisfaction accrue, and every cost
 // rolls into the bill.
 
-import { busId, deriveNetwork, lineBranchId, txBranchId } from './assets';
-import { LINES, SUBS, VEG_POLICY } from './catalog';
+import { busId, deriveNetwork, lineBranchId, subMva, txBranchId } from './assets';
+import { LINES, SUB_UPGRADE_AT, SUBS, VEG_POLICY } from './catalog';
 import { COV } from './coverage';
 import { routeTiles } from './cost';
 import { solveDcPowerFlow } from './grid/dcpf';
@@ -19,6 +19,7 @@ import {
   LATE_PENALTY_K_PER_DAY,
   maybeSpawnApplication,
 } from './events/applications';
+import { bumpAllMoods, dingCurtailedDevelopers, stepTenders } from './events/developers';
 import {
   DLR_RATING_MUL,
   DRONE_VEG_COST_MUL,
@@ -46,7 +47,8 @@ import {
 import { Rng } from './rng';
 import { assetAtTile } from './commands';
 import { assignServiceAreas, computeSubLoads, type ServiceAreas } from './service';
-import { NO_COUNCIL } from './map/types';
+import { CUSTOMERS_PER_TILE, NO_COUNCIL, RC, TERRAIN, ZONE } from './map/types';
+import { buildDemandField } from './map/demand';
 import { pushEvent, type GameState, type SimContext } from './state';
 import { GENS } from './catalog';
 import { MINUTES_PER_TICK } from './protocol';
@@ -75,7 +77,10 @@ export interface Derived {
 }
 
 export function deriveKey(state: GameState): string {
-  return `${state.assetsVersion}:${state.sitesVersion}:${state.tech.dlr ? 1 : 0}`;
+  // the fortnightly epoch re-runs service assignment so DER growth
+  // (EVs, heat pumps) slowly squeezes catchments between asset changes
+  const epoch = Math.floor(state.simTimeMin / 20_160);
+  return `${state.assetsVersion}:${state.sitesVersion}:${state.tech.dlr ? 1 : 0}:${epoch}`;
 }
 
 export interface BranchView {
@@ -121,7 +126,7 @@ export function derive(state: GameState, ctx: SimContext): Derived {
   return {
     version: deriveKey(state),
     net: deriveNetwork(state.assets.values(), state.tech.dlr ? DLR_RATING_MUL : 1),
-    service: assignServiceAreas(ctx.map, state.assets.values(), state.loadSites),
+    service: assignServiceAreas(ctx.map, state.assets.values(), state.loadSites, state.councils),
     routeVeg,
   };
 }
@@ -303,6 +308,9 @@ export function solveTick(
       state.pitches.push(pitch);
       pushEvent(state, 'warn', `innovation pitch: ${pitch.title}`);
     }
+    // developer market: bids accrue on open tenders, deadlines pass
+    stepTenders(state, rng, dtMin);
+
     for (const p of state.pitches) {
       if (p.status === 'open' && state.simTimeMin > p.decideByMin) {
         p.status = 'expired';
@@ -332,6 +340,30 @@ export function solveTick(
         pushEvent(state, 'info', `${GENS[a.gen].name} commissioned — first power`, a.x, a.y);
       }
     }
+
+    // auto-reinforcement: a substation running hot against its fitted
+    // transformer steps up to the next MVA size (capex lands on bills)
+    let reinforced = false;
+    for (const a of state.assets.values()) {
+      if (a.kind !== 'sub' || a.idno || a.mvaAuto === false) continue;
+      const steps = SUBS[a.sub].mvaSteps;
+      if (!steps) continue;
+      const mva = subMva(a);
+      const peak = derived.service.peakOfSub.get(a.id) ?? 0;
+      const next = steps.find((s) => s > mva);
+      if (next !== undefined && peak > SUB_UPGRADE_AT * mva) {
+        a.mva = next;
+        reinforced = true;
+        pushEvent(
+          state,
+          'warn',
+          `reinforcement: ${SUBS[a.sub].name.split(' (')[0]} uprated to ${next} MVA`,
+          a.x,
+          a.y,
+        );
+      }
+    }
+    if (reinforced) state.assetsVersion++;
   }
 
   applyOutages(derived.net, state);
@@ -410,6 +442,11 @@ export function solveTick(
       overdue++;
     }
   }
+  // the market watches how you treat connections: every overdue one
+  // drains all developer moods at −10 per 30 game-days
+  if (dtMin > 0 && overdue > 0) {
+    bumpAllMoods(state, (-10 * overdue * dtMin) / (30 * 1440));
+  }
 
   const bill = computeBill({
     assets: state.assets.values(),
@@ -427,6 +464,16 @@ export function solveTick(
 
   if (dtMin > 0) {
     state.innovationFundK += (bill.innovationYrK * dtMin) / MIN_PER_YEAR;
+
+    // month boundary: curtailment grievances + town growth
+    const MONTH_MIN = 43_200;
+    if (
+      Math.floor(state.simTimeMin / MONTH_MIN) >
+      Math.floor((state.simTimeMin - dtMin) / MONTH_MIN)
+    ) {
+      dingCurtailedDevelopers(state, bill.genYrK);
+      growTown(state, ctx, derived, rng);
+    }
 
     // regulatory period bookkeeping + report card at period end
     const p = state.period;
@@ -558,6 +605,10 @@ function stepCouncils(
       if (live) {
         a.status = 'connected';
         pushEvent(state, 'info', `${a.name} is connected and live`, a.x, a.y);
+        // an on-time connection cheers the whole developer market
+        if (a.connectByMin === undefined || state.simTimeMin <= a.connectByMin) {
+          bumpAllMoods(state, 5);
+        }
       } else if (a.connectByMin !== undefined && state.simTimeMin > a.connectByMin) {
         if (!a.overdueNotified) {
           a.overdueNotified = true;
@@ -568,6 +619,60 @@ function stepCouncils(
   }
 
   return satDen > 0 ? satNum / satDen : 0;
+}
+
+/** Monthly town growth: open or rural tiles next to streets that are
+ *  actually served fill in with new semis. Mutations land on the worker's
+ *  map copy, are recorded append-only in state.growth (replayed on load)
+ *  and mirrored to the main thread via the snapshot. */
+function growTown(state: GameState, ctx: SimContext, derived: Derived, rng: Rng): void {
+  const { map } = ctx;
+  const candidates = new Set<number>();
+  for (const tile of derived.service.subOfTile.keys()) {
+    const x = tile % map.width;
+    const y = Math.floor(tile / map.width);
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) continue;
+      const i = ny * map.width + nx;
+      const z = map.zone[i];
+      if (z !== ZONE.none && z !== ZONE.rural) continue;
+      if (map.terrain[i] !== TERRAIN.land) continue;
+      if ((map.road[i] ?? 0) >= RC.arterial) continue;
+      if ((map.landmark?.[i] ?? 0) !== 0) continue;
+      candidates.add(i);
+    }
+  }
+  if (candidates.size === 0) return;
+  const pool = [...candidates].sort((a, b) => a - b);
+  const events = Math.min(pool.length, 1 + rng.int(3)); // up to 3 a month
+  let grown = 0;
+  for (let k = 0; k < events; k++) {
+    const i = pool.splice(rng.int(pool.length), 1)[0];
+    if (i === undefined) break;
+    const customers = CUSTOMERS_PER_TILE[ZONE.suburb];
+    map.zone[i] = ZONE.suburb;
+    map.customers[i] = customers;
+    state.growth.push({ i, zone: ZONE.suburb, customers });
+    grown++;
+    pushEvent(
+      state,
+      'info',
+      `new homes: ${customers} semis go up beside the wires`,
+      i % map.width,
+      Math.floor(i / map.width),
+    );
+  }
+  if (grown > 0) {
+    ctx.demand = buildDemandField(map);
+    state.sitesVersion++; // service areas re-derive over the new fabric
+  }
 }
 
 /** Running KPI actuals for the current regulatory period. */

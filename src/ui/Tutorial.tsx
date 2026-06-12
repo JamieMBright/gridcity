@@ -17,8 +17,8 @@ const STEPS: Step[] = [
     text: 'Welcome, operator. London is dark — every cold blue tile is a neighbourhood waiting for power. Drag to pan, scroll to zoom.',
   },
   {
-    text: 'First, generation. Pick GAS CCGT (hotkey 1) and place it on open land away from homes — the map shades green where it can go, red where it cannot. Planning and construction take time: a crane marks the site until commissioning.',
-    done: (s) => s.assets.some((a) => a.kind === 'gen'),
+    text: 'First, generation — but you are a network operator, not a power company. Pick GAS CCGT (hotkey 1) and designate a site on open land away from homes — the map shades green where it can go, red where it cannot. That opens a tender: developers bid in your INBOX, and awarding a bid starts their build (a crane marks the site until commissioning).',
+    done: (s) => s.assets.some((a) => a.kind === 'gen') || s.inbox.tenders.length > 0,
   },
   {
     text: 'Now a GRID SUBSTATION (132/33 kV) near the area you want to serve.',
@@ -67,7 +67,7 @@ export function Tutorial() {
         top: 56,
         left: '50%',
         transform: 'translateX(-50%)',
-        width: 420,
+        width: 'min(420px, 92vw)',
         padding: '10px 14px',
         border: `1px solid ${theme.orange}`,
         zIndex: 5,

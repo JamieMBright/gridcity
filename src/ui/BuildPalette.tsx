@@ -101,11 +101,12 @@ const GEN_ORDER: GenType[] = [
   'biomass',
   'nuclear',
   'battery',
+  'coal',
 ];
 const SUB_ORDER: SubType[] = ['bulk', 'grid', 'dist', 'pole', 'vault'];
 const LEVELS: VoltageLevel[] = [400, 132, 33];
 
-export function BuildPalette() {
+export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
   const tool = useAppStore((s) => s.tool);
   const setTool = useAppStore((s) => s.setTool);
   const ghost = useAppStore((s) => s.ghostInfo);
@@ -123,6 +124,7 @@ export function BuildPalette() {
         // stay clear of the fleet panel + status bar below
         maxHeight: 'calc(100vh - 330px)',
         overflowY: 'auto',
+        ...frame,
       }}
     >
       <Section title="Generation">

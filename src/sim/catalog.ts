@@ -8,6 +8,7 @@ import type { VoltageLevel } from './grid/types';
 export type GenType =
   | 'gasCCGT'
   | 'gasPeaker'
+  | 'coal'
   | 'nuclear'
   | 'solarFarm'
   | 'windOnshore'
@@ -36,6 +37,9 @@ export interface GenSpec {
   planningDays: number;
   /** Construction, game-days until the plant is commissioned. */
   buildDays: number;
+  /** Tile footprint [w, h]; omitted = a single tile. Big thermal plant
+   *  spreads out — cooling towers and all sorts. */
+  footprint?: [number, number];
   /** Storage capacity, MWh (batteries only). */
   energyMWh?: number;
 }
@@ -65,6 +69,19 @@ export const GENS: Record<GenType, GenSpec> = {
     planningDays: 30,
     buildDays: 45,
   },
+  coal: {
+    name: 'Coal station',
+    capacityMW: 1500,
+    level: 400,
+    capexK: 1_600_000,
+    opexFrac: 0.03,
+    marginalCostK: 0.06,
+    carbonG: 820,
+    siting: 'land',
+    planningDays: 120,
+    buildDays: 360,
+    footprint: [3, 2],
+  },
   nuclear: {
     name: 'Nuclear',
     capacityMW: 3200,
@@ -76,6 +93,7 @@ export const GENS: Record<GenType, GenSpec> = {
     siting: 'nuclearSite',
     planningDays: 365,
     buildDays: 720,
+    footprint: [2, 2],
   },
   solarFarm: {
     name: 'Solar farm',
@@ -85,7 +103,7 @@ export const GENS: Record<GenType, GenSpec> = {
     opexFrac: 0.015,
     marginalCostK: 0.045, // PPA strike
     carbonG: 0,
-    siting: 'solarSite',
+    siting: 'land', // any open land — pre-surveyed sites build faster
     planningDays: 14,
     buildDays: 30,
   },
@@ -165,8 +183,13 @@ export interface SubSpec {
   txX: number;
   capexK: number;
   opexFrac: number;
-  /** Distribution subs serve customer tiles within this radius. */
+  /** Distribution subs serve customer tiles within this radius (at the
+   *  default txRatingMW; the radius scales with the fitted MVA). */
   serviceRadius?: number;
+  /** Fixed transformer sizes this sub can be fitted with, MVA. The sub
+   *  auto-upgrades through them as catchment demand grows; the player
+   *  can also step them by hand. */
+  mvaSteps?: number[];
 }
 
 export const SUBS: Record<SubType, SubSpec> = {
@@ -194,6 +217,7 @@ export const SUBS: Record<SubType, SubSpec> = {
     capexK: 1_200,
     opexFrac: 0.02,
     serviceRadius: 6,
+    mvaSteps: [5, 10, 20, 40],
   },
   pole: {
     name: 'Pole-mounted transformer (33 kV/LV)',
@@ -203,6 +227,7 @@ export const SUBS: Record<SubType, SubSpec> = {
     capexK: 120,
     opexFrac: 0.025,
     serviceRadius: 2,
+    mvaSteps: [1, 2],
   },
   vault: {
     name: 'Underground substation (33 kV/LV)',
@@ -212,8 +237,26 @@ export const SUBS: Record<SubType, SubSpec> = {
     capexK: 2_800,
     opexFrac: 0.02,
     serviceRadius: 5,
+    mvaSteps: [10, 25, 50],
   },
 };
+
+/** Capex of a radius-sub fitted with a given transformer, £k — the base
+ *  price buys the default size; bigger iron costs pro-rata on top. */
+export function subCapexK(sub: SubType, mva: number): number {
+  const spec = SUBS[sub];
+  return Math.round(spec.capexK * (0.4 + 0.6 * (mva / spec.txRatingMW)));
+}
+
+/** Service radius for a fitted MVA: more iron reaches marginally further. */
+export function subRadius(sub: SubType, mva: number): number {
+  const spec = SUBS[sub];
+  if (spec.serviceRadius === undefined) return 0;
+  return spec.serviceRadius * Math.sqrt(mva / spec.txRatingMW);
+}
+
+/** A substation auto-upgrades when sustained load passes this loading. */
+export const SUB_UPGRADE_AT = 0.9;
 
 /** Pylon/pole spacing along overhead routes, tiles between supports. */
 export const PYLON_SPACING: Record<VoltageLevel, number> = { 400: 3, 132: 3, 33: 2 };

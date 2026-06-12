@@ -20,6 +20,7 @@ export const HOTKEYS: Hotkey[] = [
   { key: '7', tool: { t: 'gen', gen: 'biomass' } },
   { key: '8', tool: { t: 'gen', gen: 'nuclear' } },
   { key: '9', tool: { t: 'gen', gen: 'battery' } },
+  { key: '0', tool: { t: 'gen', gen: 'coal' } },
   // substations
   { key: 'q', tool: { t: 'sub', sub: 'bulk' } },
   { key: 'w', tool: { t: 'sub', sub: 'grid' } },

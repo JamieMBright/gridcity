@@ -1,57 +1,107 @@
-// World/terrain tiles in the clean low-poly style. Connectivity-dependent
-// families (water shores, roads) are baked as 16 variants indexed by a
-// NESW bitmask. Edge mapping in iso: N neighbour shares the v=0 edge,
-// E shares u=1, S shares v=1, W shares u=0.
+// World/terrain tiles in the clean low-poly style. The ground pass is a
+// family of FLAT tiles (no structures — roads are vector ribbons drawn by
+// the renderer between ground and structures); the structure pass holds
+// hills, trees and park furniture with transparent floors. Water shores
+// are baked as 16 variants indexed by a NESW landmask. Edge mapping in
+// iso: N neighbour shares the v=0 edge, E shares u=1, S shares v=1, W
+// shares u=0.
 
 import { Rng } from '../../sim/rng';
-import { INK, INK_W, Iso, lit, P, RES, shaded, top } from './iso';
+import { INK, INK_W, Iso, lit, P, shaded, top } from './iso';
 import { COLORS } from './palette';
 import { alpha, darken, lighten } from './raster';
 
-function grassBase(iso: Iso): void {
-  iso.floor(lighten(COLORS.grass, 0.06), COLORS.grassDark);
-}
+// --- Flat ground tiles (the ground pass) ------------------------------------
 
-export function grassTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+/** Plain meadow ground: soft facets, occasional flower dots. */
+export function groundGrassTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 9176 + 5);
-  grassBase(iso);
-  // occasional soft meadow facet for variety
-  if (rng.chance(0.6)) {
-    const u = rng.range(0.2, 0.7);
-    const v = rng.range(0.2, 0.7);
-    iso.quad(u, v, u + 0.25, v + 0.25, 0, alpha(lighten(COLORS.grass, 0.12), 0.5));
+  iso.floor(lighten(COLORS.grass, 0.06), COLORS.grassDark);
+  // soft meadow facets for variety
+  const facets = 1 + rng.int(3);
+  for (let i = 0; i < facets; i++) {
+    const u = rng.range(0.1, 0.65);
+    const v = rng.range(0.1, 0.65);
+    const s = rng.range(0.16, 0.3);
+    const c = rng.chance(0.5)
+      ? alpha(lighten(COLORS.grass, 0.12), 0.5)
+      : alpha(darken(COLORS.grassDark, 0.08), 0.4);
+    iso.quad(u, v, u + s, v + s, 0, c);
   }
-  if (rng.chance(0.4)) {
-    iso.ball(rng.range(0.25, 0.75), rng.range(0.25, 0.75), 0.07, 14, COLORS.treeLime);
+  // occasional flower dots
+  if (rng.chance(0.45)) {
+    const n = 2 + rng.int(4);
+    for (let i = 0; i < n; i++) {
+      const u = rng.range(0.15, 0.85);
+      const v = rng.range(0.15, 0.85);
+      const c = rng.chance(0.5) ? COLORS.glassSunset : rng.chance(0.5) ? COLORS.glassHot : COLORS.white;
+      iso.quad(u, v, u + 0.025, v + 0.025, 0, alpha(c, 0.85));
+    }
   }
   return iso.build();
 }
 
-export function fieldTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+/** Urban pavement ground: faint paving-slab lines. */
+export function groundPaveTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 5897 + 3);
+  iso.floor(COLORS.pavement, darken(COLORS.pavement, 0.08));
+  const slab = alpha(INK, 0.1);
+  const off = rng.chance(0.5) ? 0.125 : 0;
+  for (let t = 0.25 + off; t < 0.99; t += 0.25) {
+    iso.r.line(P(t, 0.02, 0), P(t, 0.98, 0), INK_W * 0.55, slab);
+    iso.r.line(P(0.02, t, 0), P(0.98, t, 0), INK_W * 0.55, slab);
+  }
+  // the odd repaired/stained slab
+  if (rng.chance(0.5)) {
+    const u = 0.25 * (1 + rng.int(3));
+    const v = 0.25 * (1 + rng.int(3));
+    iso.quad(u - 0.24, v - 0.24, u - 0.01, v - 0.01, 0, alpha(darken(COLORS.pavement, 0.1), 0.5));
+  }
+  return iso.build();
+}
+
+/** Golden crop-field ground: rows along the u axis, no structures. */
+export function groundFieldTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 7333 + 3);
   iso.floor(COLORS.field, COLORS.fieldDark);
-  // crop rows along the u axis
-  for (let v = 0.12; v < 0.95; v += 0.18) {
+  const off = rng.range(0, 0.06);
+  for (let v = 0.1 + off; v < 0.95; v += 0.18) {
     iso.quad(0.04, v, 0.96, v + 0.05, 0, alpha(darken(COLORS.fieldDark, 0.12), 0.55));
   }
-  if (rng.chance(0.25)) iso.ball(0.85, 0.15, 0.06, 12, COLORS.treeDeep);
   return iso.build();
 }
 
-export function hillTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+/** Moorland ground under the hills. */
+export function groundMoorTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 5210 + 7);
   iso.floor(lighten(COLORS.moor, 0.05), darken(COLORS.moor, 0.12));
-  // faceted plateau rise
-  const h = 12 + rng.int(6);
-  iso.r.poly([P(0.15, 0.85, h), P(0.85, 0.85, h), P(1, 1, 0), P(0, 1, 0)], shaded(COLORS.moor, 0.16));
-  iso.r.poly([P(0.85, 0.15, h), P(0.85, 0.85, h), P(1, 1, 0), P(1, 0, 0)], lit(COLORS.moor, 0.06));
-  iso.quad(0.15, 0.15, 0.85, 0.85, h, top(COLORS.moor, 0.16));
-  if (rng.chance(0.5)) iso.cone(0.5, 0.4, 0.09, 24, COLORS.treeDeep, h);
+  // heather patches
+  for (let i = 0; i < 2; i++) {
+    const u = rng.range(0.1, 0.7);
+    const v = rng.range(0.1, 0.7);
+    iso.quad(u, v, u + rng.range(0.12, 0.25), v + rng.range(0.12, 0.25), 0, alpha(darken(COLORS.moor, 0.1), 0.45));
+  }
   return iso.build();
 }
+
+/** Brighter mown park grass. */
+export function groundParkTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 3344 + 11);
+  iso.floor(lighten(COLORS.grass, 0.16), lighten(COLORS.grassDark, 0.1));
+  // mowing stripes
+  const stripe = alpha(lighten(COLORS.grass, 0.26), 0.5);
+  for (let t = 0.14 + (rng.chance(0.5) ? 0.07 : 0); t < 0.95; t += 0.28) {
+    iso.quad(0.02, t, 0.98, t + 0.14, 0, stripe);
+  }
+  return iso.build();
+}
+
+// --- Water (ground pass, keeps its own surface) -----------------------------
 
 export function waterTile(seed: number, landMask: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
@@ -74,131 +124,34 @@ export function waterTile(seed: number, landMask: number): Uint8ClampedArray<Arr
   return iso.build();
 }
 
-export function roadTile(seed: number, mask: number): Uint8ClampedArray<ArrayBuffer> {
+// --- Structures (transparent floors, drawn over the ground + roads) ---------
+
+/** Moorland plateau (no base floor — ground_moor shows beneath). */
+export function hillTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
-  iso.floor(COLORS.pavement, darken(COLORS.pavement, 0.08));
-  const n = (mask & 1) !== 0;
-  const e = (mask & 2) !== 0;
-  const s = (mask & 4) !== 0;
-  const w = (mask & 8) !== 0;
-  const a = 0.3; // road half-band start
-  const b = 0.7; // road half-band end
-  const R = COLORS.road;
-  const Rd = COLORS.roadDark;
-  // arms from each connected edge to the centre block
-  if (n) iso.quad(a, 0, b, 0.5, 0, R, Rd);
-  if (s) iso.quad(a, 0.5, b, 1, 0, R, Rd);
-  if (w) iso.quad(0, a, 0.5, b, 0, R, Rd);
-  if (e) iso.quad(0.5, a, 1, b, 0, R, Rd);
-  iso.quad(a, a, b, b, 0, R, Rd);
-  // crisp kerb lines along each arm
-  const kerb = alpha(INK, 0.4);
-  if (n) {
-    iso.r.line(P(a, 0, 0), P(a, a, 0), INK_W * 0.7, kerb);
-    iso.r.line(P(b, 0, 0), P(b, a, 0), INK_W * 0.7, kerb);
-  }
-  if (s) {
-    iso.r.line(P(a, b, 0), P(a, 1, 0), INK_W * 0.7, kerb);
-    iso.r.line(P(b, b, 0), P(b, 1, 0), INK_W * 0.7, kerb);
-  }
-  if (w) {
-    iso.r.line(P(0, a, 0), P(a, a, 0), INK_W * 0.7, kerb);
-    iso.r.line(P(0, b, 0), P(a, b, 0), INK_W * 0.7, kerb);
-  }
-  if (e) {
-    iso.r.line(P(b, a, 0), P(1, a, 0), INK_W * 0.7, kerb);
-    iso.r.line(P(b, b, 0), P(1, b, 0), INK_W * 0.7, kerb);
-  }
-  const connections = (n ? 1 : 0) + (e ? 1 : 0) + (s ? 1 : 0) + (w ? 1 : 0);
-  if (connections >= 3) {
-    // crosswalk stripes on each arm
-    const stripe = alpha(COLORS.marking, 0.85);
-    for (const [dir, on] of [
-      ['n', n],
-      ['s', s],
-      ['w', w],
-      ['e', e],
-    ] as const) {
-      if (!on) continue;
-      for (let t = 0; t < 5; t++) {
-        const c0 = a + 0.04 + t * 0.08;
-        if (dir === 'n') iso.quad(c0, 0.16, c0 + 0.045, 0.26, 0, stripe);
-        if (dir === 's') iso.quad(c0, 0.74, c0 + 0.045, 0.84, 0, stripe);
-        if (dir === 'w') iso.quad(0.16, c0, 0.26, c0 + 0.045, 0, stripe);
-        if (dir === 'e') iso.quad(0.74, c0, 0.84, c0 + 0.045, 0, stripe);
-      }
-    }
-  } else {
-    // centre dashes on straight stretches
-    const dash = alpha(COLORS.marking, 0.7);
-    if (n && s && !e && !w) {
-      for (let t = 0.06; t < 0.95; t += 0.25) iso.quad(0.485, t, 0.515, t + 0.12, 0, dash);
-    }
-    if (e && w && !n && !s) {
-      for (let t = 0.06; t < 0.95; t += 0.25) iso.quad(t, 0.485, t + 0.12, 0.515, 0, dash);
-    }
-  }
-  void seed;
+  const rng = new Rng(seed * 5210 + 7);
+  // faceted plateau rise straight off the tile edges
+  const h = 12 + rng.int(6);
+  iso.r.poly([P(0.15, 0.85, h), P(0.85, 0.85, h), P(1, 1, 0), P(0, 1, 0)], shaded(COLORS.moor, 0.16));
+  iso.r.poly([P(0.85, 0.15, h), P(0.85, 0.85, h), P(1, 1, 0), P(1, 0, 0)], lit(COLORS.moor, 0.06));
+  iso.r.poly([P(0.15, 0.15, h), P(0.85, 0.15, h), P(1, 0, 0), P(0, 0, 0)], top(COLORS.moor, 0.08));
+  iso.r.poly([P(0.15, 0.15, h), P(0.15, 0.85, h), P(0, 1, 0), P(0, 0, 0)], top(COLORS.moor, 0.02));
+  iso.quad(0.15, 0.15, 0.85, 0.85, h, top(COLORS.moor, 0.16));
+  // ink rim around the plateau top + the two visible foot lines
+  iso.r.polyline(
+    [P(0.15, 0.15, h), P(0.85, 0.15, h), P(0.85, 0.85, h), P(0.15, 0.85, h)],
+    INK_W * 0.8,
+    alpha(INK, 0.55),
+    true,
+  );
+  if (seed % 2 === 0) iso.cone(0.5, 0.4, 0.09, 24, COLORS.treeDeep, h);
   return iso.build();
 }
 
-/** Road deck over water: stone piers, parapets, the road riding above the
- *  river. Arms follow the same NESW mask as plain roads. */
-export function bridgeTile(seed: number, mask: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso();
-  void seed;
-  iso.floor(COLORS.water, COLORS.waterDeep);
-  const n = (mask & 1) !== 0;
-  const e = (mask & 2) !== 0;
-  const s = (mask & 4) !== 0;
-  const w = (mask & 8) !== 0;
-  const a = 0.32;
-  const b = 0.68;
-  const z = 5;
-  const deck = COLORS.road;
-  const deckD = COLORS.roadDark;
-  const stone = COLORS.concrete;
-  // piers down into the water
-  for (const [u, v] of [
-    [0.42, 0.42],
-    [0.62, 0.62],
-  ] as const) {
-    iso.box(u - 0.04, v - 0.04, u + 0.04, v + 0.04, -3, z - 1, stone, { ink: false });
-  }
-  // deck arms + centre, lifted above the river
-  if (n) iso.quad(a, 0, b, 0.5, z, deck, deckD);
-  if (s) iso.quad(a, 0.5, b, 1, z, deck, deckD);
-  if (w) iso.quad(0, a, 0.5, b, z, deck, deckD);
-  if (e) iso.quad(0.5, a, 1, b, z, deck, deckD);
-  iso.quad(a, a, b, b, z, deck, deckD);
-  // parapets along the deck edges (the long sides of each arm)
-  const par = lighten(stone, 0.08);
-  const rail = (p0: ReturnType<typeof P>, p1: ReturnType<typeof P>): void => {
-    iso.r.line(p0, p1, 1.6 * RES, par);
-    iso.r.line([p0[0], p0[1] - 1.2 * RES], [p1[0], p1[1] - 1.2 * RES], 0.8 * RES, INK);
-  };
-  if (n || s) {
-    rail(P(a, n ? 0 : a, z + 2), P(a, s ? 1 : b, z + 2));
-    rail(P(b, n ? 0 : a, z + 2), P(b, s ? 1 : b, z + 2));
-  }
-  if (e || w) {
-    rail(P(w ? 0 : a, a, z + 2), P(e ? 1 : b, a, z + 2));
-    rail(P(w ? 0 : a, b, z + 2), P(e ? 1 : b, b, z + 2));
-  }
-  // centre dashes
-  const dash = alpha(COLORS.marking, 0.7);
-  if (n && s && !e && !w) {
-    for (let t = 0.08; t < 0.92; t += 0.25) iso.quad(0.485, t, 0.515, t + 0.12, z, dash);
-  } else if (e && w && !n && !s) {
-    for (let t = 0.08; t < 0.92; t += 0.25) iso.quad(t, 0.485, t + 0.12, 0.515, z, dash);
-  }
-  return iso.build();
-}
-
+/** Tree clumps on a transparent floor (ground pass supplies the grass). */
 export function treesTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 4421 + 9);
-  grassBase(iso);
   const spots: Array<[number, number]> = [
     [0.3, 0.3],
     [0.68, 0.45],
@@ -218,10 +171,11 @@ export function treesTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
+/** Park furniture: gravel path, flowerbed and trees on a transparent
+ *  floor — ground_park supplies the bright lawn beneath. */
 export function parkTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 3344 + 11);
-  grassBase(iso);
   // diagonal gravel path
   iso.quad(0, 0.42, 1, 0.58, 0, alpha(COLORS.pavement, 0.9), alpha(darken(COLORS.pavement, 0.08), 0.9));
   // flowerbed
@@ -237,10 +191,10 @@ export function parkTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
+/** Pre-sited solar field markers (transparent floor — ground_field shows). */
 export function solarSiteTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 2210 + 13);
-  iso.floor(COLORS.field, COLORS.fieldDark);
   for (let i = 0; i < 4; i++) {
     const u = rng.range(0.15, 0.8);
     const v = rng.range(0.15, 0.8);

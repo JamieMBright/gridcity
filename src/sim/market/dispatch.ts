@@ -8,7 +8,7 @@
 // (constraint payments → bill); flexible curtailment is just logged.
 
 import { BATTERY_EFFICIENCY, GENS, SUBS } from '../catalog';
-import { busId, type PlacedAsset } from '../assets';
+import { busId, subMva, type PlacedAsset } from '../assets';
 import { findIslands } from '../grid/topology';
 import type { Injection, Network } from '../grid/types';
 import {
@@ -194,7 +194,7 @@ export function runDispatch(
       const bus = busId(a.id, 33);
       const gi = islandOf.get(bus);
       if (gi === undefined) continue;
-      const rating = SUBS[a.sub].txRatingMW;
+      const rating = subMva(a);
       let shavedMW = 0;
       let effective = loadNowMW;
       if (inp.tech.flexMarket && loadNowMW > rating) {

@@ -16,20 +16,22 @@ function padFloor(iso: Iso): void {
   iso.floor(PAD, darken(PAD, 0.1));
 }
 
-/** Perimeter security fence: slim posts + a light rail, with a gap gate. */
+/** Perimeter security fence: slim posts + a light rail, with a gap gate.
+ *  Spans the Iso's whole footprint (multi-tile pads included). */
 function fence(iso: Iso, inset: number, h: number): void {
   const a = inset;
-  const b = 1 - inset;
+  const bU = iso.wTiles - inset;
+  const bV = iso.hTiles - inset;
   const post = (u: number, v: number): void => {
-    iso.r.poly([P(u, v, h), P(u + 0.012, v, h), P(u + 0.012, v, 0), P(u, v, 0)], COLORS.steel);
+    iso.r.poly([iso.P(u, v, h), iso.P(u + 0.012, v, h), iso.P(u + 0.012, v, 0), iso.P(u, v, 0)], COLORS.steel);
   };
-  for (let t = 0; t <= 1.001; t += 0.2) {
-    post(a + (b - a) * t, b); // front-left edge
-    post(b, a + (b - a) * t); // front-right edge
-  }
+  const postsU = 5 * iso.wTiles;
+  const postsV = 5 * iso.hTiles;
+  for (let i = 0; i <= postsU; i++) post(a + ((bU - a) * i) / postsU, bV); // front-left edge
+  for (let i = 0; i <= postsV; i++) post(bU, a + ((bV - a) * i) / postsV); // front-right edge
   // rails along the two visible edges
-  iso.r.poly([P(a, b, h), P(b, b, h), P(b, b, h - 1.5), P(a, b, h - 1.5)], alpha(COLORS.steel, 0.85));
-  iso.r.poly([P(b, a, h), P(b, b, h), P(b, b, h - 1.5), P(b, a, h - 1.5)], alpha(COLORS.steel, 0.85));
+  iso.r.poly([iso.P(a, bV, h), iso.P(bU, bV, h), iso.P(bU, bV, h - 1.5), iso.P(a, bV, h - 1.5)], alpha(COLORS.steel, 0.85));
+  iso.r.poly([iso.P(bU, a, h), iso.P(bU, bV, h), iso.P(bU, bV, h - 1.5), iso.P(bU, a, h - 1.5)], alpha(COLORS.steel, 0.85));
 }
 
 /** A transformer unit: navy tank, cooling fins, white bushings. */
@@ -550,5 +552,145 @@ export function windTurbineTile(seed: number, offshore: boolean): Uint8ClampedAr
   };
 
   for (const spec of WIND_HUBS[offshore ? 'offshore' : 'onshore']) turbine(spec);
+  return iso.build();
+}
+
+/** Coal station on a 3x2 footprint: full concrete pad, long turbine hall +
+ *  boiler house, conveyor ramp up from the coal heap, slim chimney and two
+ *  big hyperboloid cooling towers breathing a wisp of steam. */
+export function coalPlantTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 2);
+  const rng = new Rng(seed * 90121 + 23);
+  iso.floor(PAD, darken(PAD, 0.1));
+  fence(iso, 0.04, 12);
+
+  // long navy turbine hall with a gable along its length
+  iso.shadow(0.15, 0.55, 1.7, 1.35, 0.18, 0.22);
+  iso.box(0.15, 0.55, 1.7, 1.35, 0, 36, NAVY);
+  iso.gable(0.15, 0.55, 1.7, 1.35, 36, 12, 'u', NAVY_DEEP, NAVY);
+  iso.r.poly([iso.P(0.15, 1.35, 9), iso.P(1.7, 1.35, 9), iso.P(1.7, 1.35, 6), iso.P(0.15, 1.35, 6)], COLORS.white);
+  iso.windowsLeft(1.35, 0.22, 1.6, 13, 27, 8, rng.chance(0.8) ? COLORS.glassLit : COLORS.glassHot, COLORS.white);
+
+  // boiler house, taller and squarer, with the brand chevron
+  iso.shadow(1.7, 0.5, 2.32, 1.4, 0.16, 0.2);
+  iso.box(1.7, 0.5, 2.32, 1.4, 0, 58, lighten(NAVY, 0.05));
+  iso.windowsLeft(1.4, 1.78, 2.24, 40, 50, 3, COLORS.glassDark, COLORS.white);
+  iso.r.poly(
+    [iso.P(2.32, 0.62, 50), iso.P(2.32, 0.84, 50), iso.P(2.32, 0.84, 26), iso.P(2.32, 0.62, 26)],
+    COLORS.orange,
+  );
+
+  // slim chimney with a white collar
+  iso.box(2.42, 0.62, 2.52, 0.72, 0, 112, lighten(NAVY, 0.12));
+  iso.r.poly(
+    [iso.P(2.415, 0.72, 100), iso.P(2.525, 0.72, 100), iso.P(2.525, 0.72, 92), iso.P(2.415, 0.72, 92)],
+    COLORS.white,
+  );
+  iso.quad(2.415, 0.615, 2.525, 0.725, 112, COLORS.steelDark);
+
+  // dark coal heap, faceted like a low spoil cone
+  {
+    const apex = iso.P(0.48, 1.62, 15);
+    const L = iso.P(0.1, 1.84, 0);
+    const B = iso.P(0.6, 1.94, 0);
+    const Rt = iso.P(0.9, 1.52, 0);
+    const T = iso.P(0.36, 1.4, 0);
+    iso.shadow(0.16, 1.45, 0.85, 1.85, 0.12, 0.2);
+    iso.r.poly([apex, L, B], hex('#2c2836'));
+    iso.r.poly([apex, B, Rt], hex('#3c3648'));
+    iso.r.poly([apex, Rt, T], hex('#332e3f'));
+    iso.r.polyline([L, apex, Rt], INK_W * 0.8, alpha(INK, 0.7));
+  }
+  // enclosed conveyor gallery climbing from the heap into the boiler house
+  {
+    const a0 = iso.P(0.5, 1.6, 12);
+    const a1 = iso.P(1.84, 1.1, 56);
+    const wTop = 5 * RES;
+    const wBot = 2 * RES;
+    // support trestles first, so the gallery sits over them
+    for (const t of [0.28, 0.55, 0.8]) {
+      const x = a0[0] + (a1[0] - a0[0]) * t;
+      const yTop = a0[1] + (a1[1] - a0[1]) * t + wBot;
+      const [, yG] = iso.P(0.5 + (1.84 - 0.5) * t, 1.6 + (1.1 - 1.6) * t, 0);
+      iso.r.line([x, yTop], [x, yG], INK_W * 0.8, COLORS.steelDark);
+      iso.r.line([x - 2.5 * RES, yG + 1 * RES], [x + 2.5 * RES, yG + 1 * RES], INK_W * 0.7, COLORS.steelDark);
+    }
+    iso.r.poly(
+      [[a0[0], a0[1] - wTop], [a1[0], a1[1] - wTop], [a1[0], a1[1] + wBot], [a0[0], a0[1] + wBot]],
+      COLORS.steelDark,
+    );
+    iso.r.poly(
+      [[a0[0], a0[1] - wTop], [a1[0], a1[1] - wTop], [a1[0], a1[1] - wTop + 2 * RES], [a0[0], a0[1] - wTop + 2 * RES]],
+      COLORS.steel,
+    );
+    iso.r.line([a0[0], a0[1] - wTop], [a1[0], a1[1] - wTop], INK_W * 0.8, INK);
+    iso.r.line([a0[0], a0[1] + wBot], [a1[0], a1[1] + wBot], INK_W * 0.8, INK);
+  }
+
+  // two big hyperboloid cooling towers + steam wisps
+  const coolingTower = (u: number, v: number, hgt: number, rad: number): void => {
+    const [cx, cyB] = iso.P(u, v, 0);
+    const H = hgt * RES;
+    const prof = (t: number): number => {
+      const tw = 0.76;
+      const rb = 1;
+      const rw = 0.56;
+      const rt = 0.64;
+      const s =
+        t <= tw
+          ? rw + (rb - rw) * Math.pow((tw - t) / tw, 1.6)
+          : rw + (rt - rw) * Math.pow((t - tw) / (1 - tw), 1.4);
+      return s * rad * (CELL_W / 2);
+    };
+    iso.shadow(u - rad * 0.8, v - rad * 0.2, u + rad * 0.8, v + rad * 0.6, 0.22, 0.22);
+    const N = 16;
+    const left: Pt[] = [];
+    const right: Pt[] = [];
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      const r = prof(t);
+      const y = cyB - t * H;
+      left.push([cx - r, y]);
+      right.push([cx + r, y]);
+    }
+    // shell: shaded body + a lit band on the sunset side
+    iso.r.poly([...left, ...right.slice().reverse()], shaded(COLORS.concrete, 0.08));
+    const litBand: Pt[] = [];
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      litBand.push([cx + prof(t) * 0.35, cyB - t * H]);
+    }
+    iso.r.poly([...litBand, ...right.slice().reverse()], lit(COLORS.concrete, 0.1));
+    // throat opening: ellipse rim, dark inside
+    {
+      const rT = prof(1);
+      const pts: Pt[] = [];
+      for (let i = 0; i <= 18; i++) {
+        const a = (i / 18) * Math.PI * 2;
+        pts.push([cx + Math.cos(a) * rT, cyB - H + Math.sin(a) * rT * 0.32]);
+      }
+      iso.r.poly(pts, shaded(COLORS.concrete, 0.35));
+      iso.r.polyline(pts, INK_W * 0.8, INK, true);
+    }
+    // ink silhouette + base line
+    iso.r.polyline(left, INK_W, INK);
+    iso.r.polyline(right, INK_W, INK);
+    iso.r.line([cx - prof(0), cyB], [cx + prof(0), cyB], INK_W * 0.8, alpha(INK, 0.7));
+    // subtle steam wisp drifting up-left
+    for (let k = 0; k < 3; k++) {
+      const wx = cx - k * 6 * RES + rng.range(-2, 2) * RES;
+      const wy = cyB - H - (6 + k * 9) * RES;
+      const wr = (7 - k * 1.4) * RES;
+      const pts: Pt[] = [];
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        pts.push([wx + Math.cos(a) * wr, wy + Math.sin(a) * wr * 0.7]);
+      }
+      iso.r.poly(pts, alpha(COLORS.white, 0.16 - k * 0.035));
+    }
+  };
+  coolingTower(2.18, 1.52, 84, 0.34);
+  coolingTower(2.78, 1.06, 84, 0.34);
+
   return iso.build();
 }

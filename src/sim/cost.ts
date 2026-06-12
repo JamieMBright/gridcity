@@ -4,7 +4,7 @@
 
 import { LINES, PYLON_SPACING, type LineBuild } from './catalog';
 import type { VoltageLevel } from './grid/types';
-import { TERRAIN, ZONE, type CityMap } from './map/types';
+import { RC, TERRAIN, ZONE, type CityMap } from './map/types';
 
 export interface RouteCheck {
   ok: boolean;
@@ -57,13 +57,15 @@ export function routeTiles(ax: number, ay: number, bx: number, by: number): Arra
 }
 
 /** True if a tile can carry an overhead-line support. Pylons stand on open
- *  ground: not water, not a road, not a building plot, not already taken. */
+ *  ground: not water, not heavy transport (A-roads/motorway/rail), not a
+ *  building plot, not already taken. Quiet streets are fine — poles line
+ *  them in real life. */
 export function pylonSiteOk(map: CityMap, x: number, y: number, taken: Set<number>): boolean {
   if (x < 0 || x >= map.width || y < 0 || y >= map.height) return false;
   const i = y * map.width + x;
   return (
     map.terrain[i] !== TERRAIN.water &&
-    map.road[i] !== 1 &&
+    (map.road[i] ?? 0) < RC.arterial &&
     (map.customers[i] ?? 0) === 0 &&
     (map.landmark === undefined || map.landmark[i] === 0) &&
     !taken.has(i)

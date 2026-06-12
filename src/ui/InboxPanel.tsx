@@ -1,12 +1,15 @@
-// Connection applications and innovation pitches. Applications can be
-// offered a firm connection (full access, compensation when constrained)
-// or a flexible one (curtailable, no comp — cheaper for everyone); pitches
+// Connection applications, generation tenders and innovation pitches.
+// Applications can be offered a firm connection (full access, compensation
+// when constrained) or a flexible one (curtailable, no comp — cheaper for
+// everyone); tenders collect developer bids the player awards; pitches
 // draw on the innovation fund the levy fills.
 
 import { useState } from 'react';
 import { useAppStore } from '../app/store';
 import { sendCommand } from '../app/workerBridge';
+import { GENS } from '../sim/catalog';
 import { GEN_OF_KIND } from '../sim/events/applications';
+import { bidLeadDays, developerOf } from '../sim/events/developers';
 import { fmtMoneyK, panelStyle, theme } from './theme';
 
 const btn = (color: string): React.CSSProperties => ({
@@ -20,7 +23,7 @@ const btn = (color: string): React.CSSProperties => ({
   cursor: 'pointer',
 });
 
-export function InboxPanel() {
+export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   const snapshot = useAppStore((s) => s.snapshot);
   const requestPan = useAppStore((s) => s.requestPan);
   const [open, setOpen] = useState(true);
@@ -34,7 +37,9 @@ export function InboxPanel() {
       snapshot.simTimeMin > a.connectByMin,
   );
   const pitches = snapshot.inbox.pitches.filter((p) => p.status === 'open' || p.status === 'funded');
-  const count = apps.length + pitches.filter((p) => p.status === 'open').length;
+  const tenders = snapshot.inbox.tenders.filter((t) => t.status === 'open');
+  const count =
+    apps.length + tenders.length + pitches.filter((p) => p.status === 'open').length;
   if (count === 0 && overdue.length === 0 && !open) return null;
 
   return (
@@ -50,6 +55,7 @@ export function InboxPanel() {
         padding: '8px 12px',
         fontSize: 12,
         lineHeight: 1.5,
+        ...frame,
       }}
     >
       <div
@@ -70,9 +76,68 @@ export function InboxPanel() {
       </div>
       {open && (
         <>
-          {apps.length + pitches.length + overdue.length === 0 && (
+          {apps.length + tenders.length + pitches.length + overdue.length === 0 && (
             <div style={{ color: theme.slate, fontSize: 11 }}>nothing waiting</div>
           )}
+          {tenders.length > 0 && (
+            <div
+              style={{ color: theme.slate, fontSize: 10, letterSpacing: '0.12em', marginTop: 8 }}
+            >
+              TENDERS
+            </div>
+          )}
+          {tenders.map((t) => {
+            const g = GENS[t.gen];
+            const closeDays = Math.max(0, (t.closesMin - snapshot.simTimeMin) / 1440);
+            return (
+              <div key={`t${t.id}`} style={{ marginTop: 6 }}>
+                <div
+                  style={{ color: theme.gold, cursor: 'pointer' }}
+                  onClick={() => requestPan(t.x, t.y)}
+                >
+                  {g.name} site
+                </div>
+                <div style={{ color: theme.slate, fontSize: 11 }}>
+                  {t.bids.length === 0
+                    ? `awaiting developer bids · closes in ${closeDays.toFixed(0)}d`
+                    : `${t.bids.length} bid${t.bids.length > 1 ? 's' : ''} in`}
+                </div>
+                {t.bids.map((b) => (
+                  <div
+                    key={b.developerId}
+                    style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 3 }}
+                  >
+                    <span style={{ flex: 1, fontSize: 11 }}>
+                      {developerOf(b.developerId)?.name ?? 'developer'} · £{b.priceMWh}/MWh ·{' '}
+                      {bidLeadDays(t.gen, b)}d
+                    </span>
+                    <button
+                      style={btn(theme.ok)}
+                      title="Award the tender — the developer builds and owns the plant"
+                      onClick={() =>
+                        sendCommand({
+                          type: 'acceptBid',
+                          tenderId: t.id,
+                          developerId: b.developerId,
+                        })
+                      }
+                    >
+                      award
+                    </button>
+                  </div>
+                ))}
+                <div style={{ marginTop: 3 }}>
+                  <button
+                    style={btn(theme.slate)}
+                    title="Withdraw the tender (bidders will not be pleased)"
+                    onClick={() => sendCommand({ type: 'declineTender', tenderId: t.id })}
+                  >
+                    withdraw
+                  </button>
+                </div>
+              </div>
+            );
+          })}
           {apps.map((a) => {
             const daysLeft = Math.max(0, (a.decideByMin - snapshot.simTimeMin) / 1440);
             const isGen = GEN_OF_KIND[a.kind] !== undefined;

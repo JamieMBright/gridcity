@@ -10,7 +10,14 @@ import { tileDemand } from '../src/sim/map/demand';
 import { ZONE, type CouncilProfile } from '../src/sim/map/types';
 import { newGame } from '../src/sim/state';
 import { derive, solveTick } from '../src/sim/tick';
-import { makeContext, makeTestMap, poweredFixture, setZone, commissionAll } from './helpers';
+import {
+  commissionAll,
+  directBuildGen,
+  makeContext,
+  makeTestMap,
+  poweredFixture,
+  setZone,
+} from './helpers';
 
 const YEAR = 525_600;
 
@@ -79,7 +86,7 @@ describe('applications & flexibility', () => {
     state.weather.cloud = 0;
     state.simTimeMin = 13 * 60;
     // firm farm (player-built) + flexible farm (customer)
-    applyCommand(state, map, { type: 'build', spec: { kind: 'gen', gen: 'solarFarm', x: 5, y: 5 } });
+    directBuildGen(state, map, 'solarFarm', 5, 5);
     state.applications.push({
       id: 99,
       kind: 'solarFarm',

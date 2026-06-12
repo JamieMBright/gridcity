@@ -1,30 +1,35 @@
 // Building tiles in the clean low-poly style: colour-blocked walls, white
 // frames and floor bands, gable/hip roofs, faceted garden trees, soft cast
 // shadows, and warm windows that glow against the dusk. Variants rotate
-// wall/roof colours so streets feel hand-placed, never tiled.
+// wall/roof colours so streets feel hand-placed, never tiled. Floors are
+// TRANSPARENT — the ground pass supplies grass/pavement beneath, with the
+// road ribbons drawn between the two passes.
 
 import { Rng } from '../../sim/rng';
-import { Iso, lit, P, shaded, top } from './iso';
+import { INK, INK_W, Iso, lit, P, shaded, top } from './iso';
 import { COLORS, roofColor, wallColor } from './palette';
-import { alpha, darken, lighten, type RGBA } from './raster';
+import { alpha, darken, hex, lighten, type RGBA } from './raster';
 
 function glass(rng: Rng, litP: number): RGBA {
   return rng.chance(litP) ? (rng.chance(0.4) ? COLORS.glassHot : COLORS.glassLit) : COLORS.glassDark;
 }
 
-function grassFloor(iso: Iso): void {
-  iso.floor(lighten(COLORS.grass, 0.06), COLORS.grassDark);
-}
-
-function pavedFloor(iso: Iso): void {
-  iso.floor(COLORS.pavement, darken(COLORS.pavement, 0.08));
-}
+// Victorian fabric: brick reds/browns, render and pebbledash, slate roofs.
+const BRICK_RED = hex('#a64b37');
+const BRICK_BROWN = hex('#8a5240');
+const BRICK_ORANGE = hex('#b5664a');
+const RENDER_CREAM = hex('#ddd2bc');
+const PEBBLEDASH = hex('#c2b89f');
+const SLATE = hex('#6e6884');
+const SLATE_DARK = hex('#575d78');
+const TILE_RED = hex('#8f4438');
+const POT_CLAY = hex('#9c5a3a');
+const BUFF_BRICK = hex('#c8a878');
 
 /** Row of three attached townhouses (urban terraces / high street). */
 export function terraceTile(seed: number, shops: boolean): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 7919 + 13);
-  pavedFloor(iso);
   const v0 = 0.12;
   const v1 = 0.78;
   const H = 40;
@@ -69,11 +74,275 @@ export function terraceTile(seed: number, shops: boolean): Uint8ClampedArray<Arr
   return iso.build();
 }
 
+/** Victorian terrace row: bay windows, slate roof, chimney pots in rows.
+ *  Wall treatments and frames vary per variant; variant 3 has dormer loft
+ *  conversions and variant 1 carries retrofit rooftop solar. */
+export function victerraceTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 8839 + variant * 101 + 21);
+  const v0 = 0.14;
+  const v1 = 0.76;
+  const vm = (v0 + v1) / 2;
+  const H = 38;
+  const rise = 15;
+  const roof = ([SLATE, SLATE_DARK, TILE_RED, SLATE] as RGBA[])[variant % 4] ?? SLATE;
+  const frame = variant % 2 === 0 ? COLORS.white : hex('#ece2cc');
+  const wallSets: RGBA[][] = [
+    [BRICK_RED, BRICK_RED, BRICK_BROWN],
+    [BRICK_BROWN, BRICK_ORANGE, BRICK_BROWN],
+    [RENDER_CREAM, BRICK_RED, PEBBLEDASH],
+    [BRICK_RED, BRICK_BROWN, BRICK_RED],
+  ];
+  const walls = wallSets[variant % 4] ?? wallSets[0]!;
+  iso.shadow(0, v0, 1, v1, 0.2, 0.22);
+  // z on the near roof slope at a given v (between ridge vm and eave v1)
+  const slopeZ = (v: number): number => H + rise * ((v1 - v) / (v1 - vm));
+  for (let i = 0; i < 3; i++) {
+    const u0 = i / 3;
+    const u1 = (i + 1) / 3;
+    const wall = walls[i] ?? BRICK_RED;
+    iso.box(u0, v0, u1, v1, 0, H, wall);
+    // upper sash windows
+    iso.windowsLeft(v1, u0 + 0.05, u1 - 0.05, 25, 34, 2, glass(rng, 0.4), frame);
+    // two-storey bay window with its own little cap
+    const b0 = u0 + 0.035;
+    const b1 = u0 + 0.165;
+    iso.box(b0, v1 - 0.001, b1, v1 + 0.05, 0, 18, lighten(wall, 0.1));
+    iso.windowsLeft(v1 + 0.05, b0 + 0.012, b1 - 0.012, 4, 14, 1, glass(rng, 0.5), frame);
+    iso.quad(b0 - 0.012, v1 - 0.001, b1 + 0.012, v1 + 0.062, 18, frame);
+    iso.edge(P(b0 - 0.012, v1 + 0.062, 18), P(b1 + 0.012, v1 + 0.062, 18), INK_W * 0.8);
+    // front door beside the bay, with a stone lintel
+    iso.r.poly(
+      [P(u1 - 0.12, v1, 13), P(u1 - 0.045, v1, 13), P(u1 - 0.045, v1, 0), P(u1 - 0.12, v1, 0)],
+      darken(([hex('#3f6048'), hex('#5d3a52'), hex('#46518f'), hex('#7a3328')] as RGBA[])[(variant + i) % 4] ?? INK, 0.05),
+    );
+    iso.r.poly(
+      [P(u1 - 0.13, v1, 15), P(u1 - 0.035, v1, 15), P(u1 - 0.035, v1, 13), P(u1 - 0.13, v1, 13)],
+      frame,
+    );
+  }
+  // gable-end windows on the right wall
+  iso.windowsRight(1, v0 + 0.1, v1 - 0.1, 23, 33, 2, glass(rng, 0.3), frame);
+  // slate roof + party-wall chimney stacks with clay pot rows
+  iso.gable(0, v0, 1, v1, H, rise, 'u', roof, walls[2] ?? BRICK_RED);
+  for (const cu of [0.05, 0.345, 0.655, 0.95]) {
+    iso.box(cu - 0.028, vm - 0.05, cu + 0.028, vm + 0.05, H + 11, H + 22, darken(walls[0] ?? BRICK_RED, 0.08));
+    for (const dv of [-0.028, 0.022]) {
+      iso.box(cu - 0.011, vm + dv, cu + 0.011, vm + dv + 0.024, H + 22, H + 27, POT_CLAY, { ink: false });
+    }
+  }
+  if (variant === 3) {
+    // dormer loft conversions on the near slope
+    for (const du of [0.135, 0.468, 0.8]) {
+      const dv0 = vm + 0.1;
+      const z0 = slopeZ(dv0 + 0.1);
+      iso.box(du, dv0, du + 0.09, dv0 + 0.1, z0, z0 + 9, lighten(walls[0] ?? BRICK_RED, 0.12));
+      iso.windowsLeft(dv0 + 0.1, du + 0.012, du + 0.078, z0 + 2, z0 + 7, 1, glass(rng, 0.5), frame);
+      iso.quad(du - 0.008, dv0 - 0.008, du + 0.098, dv0 + 0.108, z0 + 9, shaded(roof, 0.05));
+    }
+  }
+  if (variant === 1) {
+    // retrofit solar on the middle house's near slope
+    const pv0 = vm + 0.08;
+    const pv1 = v1 - 0.06;
+    iso.r.poly(
+      [P(0.37, pv0, slopeZ(pv0) + 1), P(0.63, pv0, slopeZ(pv0) + 1), P(0.63, pv1, slopeZ(pv1) + 1), P(0.37, pv1, slopeZ(pv1) + 1)],
+      COLORS.panel,
+    );
+    iso.r.line(P(0.37, pv0, slopeZ(pv0) + 1.5), P(0.63, pv0, slopeZ(pv0) + 1.5), INK_W * 0.7, COLORS.panelGlint);
+  }
+  return iso.build();
+}
+
+/** Victorian high-street parade: shops below (awnings, big glazing, a
+ *  hanging sign), flats above, parapet roof. */
+export function vicshopTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 6661 + variant * 71 + 17);
+  const v0 = 0.14;
+  const v1 = 0.76;
+  const H = 42;
+  const walls: RGBA[] =
+    variant === 0 ? [BRICK_RED, RENDER_CREAM, BRICK_BROWN] : [BRICK_BROWN, BRICK_ORANGE, RENDER_CREAM];
+  const awnings: RGBA[] =
+    variant === 0
+      ? [COLORS.orange, hex('#3f8f8a'), hex('#d6566e')]
+      : [hex('#46518f'), COLORS.orange, hex('#5d7a45')];
+  const frame = COLORS.white;
+  iso.shadow(0, v0, 1, v1, 0.2, 0.22);
+  for (let i = 0; i < 3; i++) {
+    const u0 = i / 3;
+    const u1 = (i + 1) / 3;
+    const wall = walls[i] ?? BRICK_RED;
+    iso.box(u0, v0, u1, v1, 0, H, wall);
+    // big shopfront glazing + stallriser
+    iso.r.poly(
+      [P(u0 + 0.03, v1, 16), P(u1 - 0.03, v1, 16), P(u1 - 0.03, v1, 3), P(u0 + 0.03, v1, 3)],
+      glass(rng, 0.75),
+    );
+    iso.r.poly(
+      [P(u0 + 0.03, v1, 3), P(u1 - 0.03, v1, 3), P(u1 - 0.03, v1, 0), P(u0 + 0.03, v1, 0)],
+      darken(wall, 0.3),
+    );
+    // fascia sign band + striped awning
+    const awn = awnings[i] ?? COLORS.orange;
+    iso.r.poly([P(u0 + 0.02, v1, 24), P(u1 - 0.02, v1, 24), P(u1 - 0.02, v1, 19), P(u0 + 0.02, v1, 19)], frame);
+    iso.r.poly(
+      [P(u0 + 0.03, v1, 19), P(u1 - 0.03, v1, 19), P(u1 - 0.04, v1 + 0.085, 14), P(u0 + 0.04, v1 + 0.085, 14)],
+      awn,
+    );
+    for (let t = 0; t < 4; t++) {
+      const a0 = u0 + 0.055 + t * 0.072;
+      iso.r.poly(
+        [P(a0, v1, 19), P(a0 + 0.03, v1, 19), P(a0 + 0.02, v1 + 0.085, 14), P(a0 - 0.01, v1 + 0.085, 14)],
+        alpha(COLORS.white, 0.85),
+      );
+    }
+    iso.edge(P(u0 + 0.04, v1 + 0.085, 14), P(u1 - 0.04, v1 + 0.085, 14), INK_W * 0.8);
+    // flat-above sash windows
+    iso.windowsLeft(v1, u0 + 0.05, u1 - 0.05, 28, 37, 2, glass(rng, 0.45), frame);
+  }
+  // hanging sign on a bracket at the middle shop
+  iso.r.line(P(0.36, v1, 30), P(0.36, v1 + 0.05, 30), INK_W * 0.8, INK);
+  iso.r.poly(
+    [P(0.36, v1 + 0.05, 30), P(0.36, v1 + 0.05, 24), P(0.36, v1 + 0.012, 24), P(0.36, v1 + 0.012, 30)],
+    variant === 0 ? hex('#46518f') : hex('#7a3328'),
+  );
+  // gable-end windows + parapet roof with chimneys at the back
+  iso.windowsRight(1, v0 + 0.1, v1 - 0.1, 26, 36, 2, glass(rng, 0.3), frame);
+  iso.box(0, v0, 1, v1, H, H + 4, walls[0] ?? BRICK_RED, { topC: shaded(SLATE, 0.05) });
+  iso.r.poly([P(0, v1, H + 5.5), P(1, v1, H + 5.5), P(1, v1, H + 4), P(0, v1, H + 4)], frame);
+  for (const cu of [0.2, 0.52, 0.84]) {
+    iso.box(cu, v0 + 0.08, cu + 0.05, v0 + 0.17, H + 4, H + 18, darken(walls[0] ?? BRICK_RED, 0.1));
+    iso.box(cu + 0.008, v0 + 0.095, cu + 0.026, v0 + 0.115, H + 18, H + 22, POT_CLAY, { ink: false });
+  }
+  return iso.build();
+}
+
+/** Post-war council slab block: 4–5 storeys of deck-access balconies with
+ *  pastel infill panels and a stair tower. */
+export function councilflatTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 5443 + variant * 37 + 29);
+  const u0 = 0.08;
+  const u1 = 0.84;
+  const v0 = 0.26;
+  const v1 = 0.62;
+  const storeys = variant === 0 ? 4 : 5;
+  const fh = 13;
+  const H = storeys * fh + 4;
+  const body = variant === 0 ? hex('#c9c2b2') : hex('#bdb8ad');
+  const pastels: RGBA[] =
+    variant === 0
+      ? [hex('#e8b9a8'), hex('#a8c8d8'), hex('#d8c8a0')]
+      : [hex('#b9d0b4'), hex('#d8b4c0'), hex('#c0c4dd')];
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.24);
+  iso.box(u0, v0, u1, v1, 0, H, body);
+  for (let s = 0; s < storeys; s++) {
+    const z = 4 + s * fh;
+    // deck-access balcony slab protruding from the street face
+    iso.r.poly(
+      [P(u0, v1 + 0.035, z + 1.6), P(u1, v1 + 0.035, z + 1.6), P(u1, v1, z + 1.6), P(u0, v1, z + 1.6)],
+      lit(body, 0.12),
+    );
+    iso.r.poly(
+      [P(u0, v1 + 0.035, z + 1.6), P(u1, v1 + 0.035, z + 1.6), P(u1, v1 + 0.035, z - 0.4), P(u0, v1 + 0.035, z - 0.4)],
+      shaded(body, 0.12),
+    );
+    // balcony rail
+    iso.r.line(P(u0, v1 + 0.035, z + 5), P(u1, v1 + 0.035, z + 5), INK_W * 0.7, alpha(COLORS.white, 0.9));
+    iso.edge(P(u0, v1 + 0.035, z + 1.6), P(u1, v1 + 0.035, z + 1.6), INK_W * 0.7, alpha(INK, 0.6));
+    // pastel infill panels + doors/windows along the deck
+    for (let k = 0; k < 5; k++) {
+      const a = u0 + 0.03 + k * 0.145;
+      iso.r.poly(
+        [P(a, v1, z + fh - 2.5), P(a + 0.06, v1, z + fh - 2.5), P(a + 0.06, v1, z + 2), P(a, v1, z + 2)],
+        pastels[(k + s) % 3] ?? body,
+      );
+      iso.r.poly(
+        [P(a + 0.07, v1, z + fh - 3.5), P(a + 0.115, v1, z + fh - 3.5), P(a + 0.115, v1, z + 2), P(a + 0.07, v1, z + 2)],
+        glass(rng, 0.4),
+      );
+    }
+    // gable-end windows
+    iso.windowsRight(u1, v0 + 0.05, v1 - 0.05, z + 3, z + fh - 2.5, 2, glass(rng, 0.3), COLORS.white);
+  }
+  // stair tower at the left end, slightly proud and taller
+  iso.box(u0 - 0.035, v0 + 0.04, u0 + 0.07, v1 - 0.04, 0, H + 7, shaded(body, 0.06));
+  iso.windowsLeft(v1 - 0.04, u0 - 0.02, u0 + 0.055, 6, H - 4, 1, alpha(COLORS.glassSky, 0.85), COLORS.white);
+  // flat roof: parapet + plant box + TV aerials
+  iso.box(u0, v0, u1, v1, H, H + 3, body, { ink: false, topC: shaded(body, 0.18) });
+  iso.box(0.6, 0.36, 0.72, 0.5, H + 3, H + 10, COLORS.concrete);
+  for (const au of [0.2, 0.42]) {
+    iso.r.line(P(au, 0.44, H + 3), P(au, 0.44, H + 14), INK_W * 0.6, alpha(INK, 0.7));
+    iso.r.line(P(au - 0.025, 0.44, H + 12), P(au + 0.025, 0.44, H + 12), INK_W * 0.6, alpha(INK, 0.7));
+  }
+  return iso.build();
+}
+
+/** Boxy new-build estate home: integral garage, tight paved drive, small
+ *  windows. Variants 1–2 carry rooftop solar from day one. */
+export function newbuildTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 4129 + variant * 53 + 31);
+  const wall = ([BUFF_BRICK, BRICK_RED, hex('#bf9a6a')] as RGBA[])[variant % 3] ?? BUFF_BRICK;
+  const roof = variant === 0 ? hex('#6a6276') : hex('#5c5468');
+  const u0 = 0.14;
+  const u1 = 0.58;
+  const v0 = 0.2;
+  const v1 = 0.62;
+  const H = 24;
+  iso.shadow(u0, v0, u1 + 0.22, v1, 0.16, 0.2);
+  // house body + concrete-tile gable roof
+  iso.box(u0, v0, u1, v1, 0, H, wall);
+  iso.gable(u0 - 0.012, v0 - 0.012, u1 + 0.012, v1 + 0.012, H, 11, 'u', roof, wall);
+  // small uPVC windows
+  iso.windowsLeft(v1, u0 + 0.04, u1 - 0.05, 15, 21, 2, glass(rng, 0.45), COLORS.white);
+  iso.windowsLeft(v1, u0 + 0.04, u0 + 0.16, 5, 11, 1, glass(rng, 0.4), COLORS.white);
+  // front door with a little canopy
+  iso.r.poly([P(u1 - 0.14, v1, 11), P(u1 - 0.06, v1, 11), P(u1 - 0.06, v1, 0), P(u1 - 0.14, v1, 0)], darken(wall, 0.4));
+  iso.r.poly(
+    [P(u1 - 0.16, v1, 13), P(u1 - 0.04, v1, 13), P(u1 - 0.05, v1 + 0.035, 11), P(u1 - 0.15, v1 + 0.035, 11)],
+    COLORS.white,
+  );
+  // integral garage wing with a white roller door
+  const g0 = u1;
+  const g1 = u1 + 0.2;
+  iso.box(g0, v0 + 0.1, g1, v1, 0, 13, wall, { topC: top(roof, 0.1) });
+  iso.r.poly(
+    [P(g0 + 0.025, v1, 10), P(g1 - 0.025, v1, 10), P(g1 - 0.025, v1, 0), P(g0 + 0.025, v1, 0)],
+    lighten(COLORS.white, 0.02),
+  );
+  for (let z = 2; z < 10; z += 2.4) {
+    iso.r.line(P(g0 + 0.03, v1, z), P(g1 - 0.03, v1, z), INK_W * 0.5, alpha(INK, 0.35));
+  }
+  // tight paved drive to the plot edge + slab path to the door
+  iso.quad(g0 + 0.01, v1 + 0.005, g1 + 0.01, 0.98, 0, alpha(COLORS.pavement, 0.92), alpha(darken(COLORS.pavement, 0.08), 0.92));
+  iso.quad(u1 - 0.14, v1 + 0.005, u1 - 0.06, 0.86, 0, alpha(COLORS.pavement, 0.85));
+  if (variant >= 1) {
+    // rooftop solar on the near slope, fitted at build time
+    const vm = (v0 + v1) / 2;
+    const rise = 11;
+    const sz = (v: number): number => H + rise * ((v1 - v) / (v1 - vm));
+    const pv0 = vm + 0.05;
+    const pv1 = v1 - 0.045;
+    const pu0 = variant === 1 ? u0 + 0.05 : u0 + 0.03;
+    const pu1 = variant === 1 ? u1 - 0.12 : u1 - 0.05;
+    iso.r.poly(
+      [P(pu0, pv0, sz(pv0) + 1), P(pu1, pv0, sz(pv0) + 1), P(pu1, pv1, sz(pv1) + 1), P(pu0, pv1, sz(pv1) + 1)],
+      COLORS.panel,
+    );
+    iso.r.line(P(pu0, pv0, sz(pv0) + 1.5), P(pu1, pv0, sz(pv0) + 1.5), INK_W * 0.7, COLORS.panelGlint);
+  }
+  // a sapling in the handkerchief garden
+  if (rng.chance(0.6)) iso.ball(0.12, 0.82, 0.055, 13, COLORS.treeLime);
+  return iso.build();
+}
+
 /** Two suburban semis with gardens and hedges. */
 export function semiTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 104729 + 7);
-  grassFloor(iso);
   for (const [u0, u1] of [
     [0.06, 0.45],
     [0.55, 0.94],
@@ -106,7 +375,6 @@ export function semiTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 export function villaTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 31337 + 3);
-  grassFloor(iso);
   // perimeter hedge
   for (const [a, b, c, d] of [
     [0.02, 0.02, 0.98, 0.06],
@@ -139,7 +407,6 @@ export function villaTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 export function towerTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 49157 + 11);
-  pavedFloor(iso);
   const wall = wallColor(seed + 4);
   const u0 = 0.18;
   const v0 = 0.18;
@@ -167,7 +434,6 @@ export function towerTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 export function officeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 65537 + 5);
-  pavedFloor(iso);
   const u0 = 0.16;
   const v0 = 0.16;
   const u1 = 0.84;
@@ -200,7 +466,6 @@ export function officeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 export function cottageTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 24593 + 9);
-  grassFloor(iso);
   const wall = COLORS.walls[5] ?? COLORS.white;
   const v0 = 0.26;
   const v1 = 0.64;
@@ -223,7 +488,6 @@ export function cottageTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 export function warehouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 50221 + 15);
-  pavedFloor(iso);
   const body = COLORS.steel;
   iso.shadow(0.06, 0.1, 0.94, 0.7, 0.2, 0.2);
   iso.box(0.06, 0.1, 0.94, 0.7, 0, 30, body, { topC: lighten(COLORS.white, 0.02) });
@@ -247,7 +511,6 @@ export function warehouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 export function factoryTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 60013 + 17);
-  pavedFloor(iso);
   const wall = COLORS.walls[6] ?? COLORS.orange;
   iso.shadow(0.08, 0.12, 0.92, 0.68, 0.2, 0.22);
   iso.box(0.08, 0.12, 0.92, 0.68, 0, 32, wall);
@@ -272,7 +535,6 @@ export function factoryTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 export function greenhouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 70001 + 19);
-  grassFloor(iso);
   for (const [v0, v1] of [
     [0.06, 0.3],
     [0.38, 0.62],
@@ -298,10 +560,9 @@ export function greenhouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
-/** Built-out solar farm: tilted panel rows on golden grass. */
+/** Built-out solar farm: tilted panel rows over the field beneath. */
 export function solarFarmTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
-  iso.floor(COLORS.field, COLORS.fieldDark);
   for (let v = 0.1; v < 0.9; v += 0.2) {
     iso.shadow(0.08, v, 0.92, v + 0.1, 0.05, 0.12);
     // tilted panel: back edge raised

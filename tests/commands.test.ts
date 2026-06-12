@@ -16,20 +16,26 @@ describe('build validation', () => {
     expect(r.ok).toBe(false);
   });
 
-  it('rejects solar farms off surveyed sites and accepts them on one', () => {
+  it('accepts solar farms on open land but never on water or in parks', () => {
     const map = makeTestMap(10, 10);
     const state = newGame();
-    const off = applyCommand(state, map, {
+    const open = applyCommand(state, map, {
       type: 'build',
       spec: { kind: 'gen', gen: 'solarFarm', x: 2, y: 2 },
     });
-    expect(off.ok).toBe(false);
-    setZone(map, 3, 3, ZONE.solarSite);
-    const on = applyCommand(state, map, {
+    expect(open.ok).toBe(true);
+    map.terrain[5 * 10 + 5] = TERRAIN.water;
+    const wet = applyCommand(state, map, {
       type: 'build',
-      spec: { kind: 'gen', gen: 'solarFarm', x: 3, y: 3 },
+      spec: { kind: 'gen', gen: 'solarFarm', x: 5, y: 5 },
     });
-    expect(on.ok).toBe(true);
+    expect(wet.ok).toBe(false);
+    setZone(map, 7, 7, ZONE.park);
+    const park = applyCommand(state, map, {
+      type: 'build',
+      spec: { kind: 'gen', gen: 'solarFarm', x: 7, y: 7 },
+    });
+    expect(park.ok).toBe(false);
   });
 
   it('rejects overhead lines through conservation areas but allows underground', () => {

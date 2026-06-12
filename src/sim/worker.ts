@@ -4,6 +4,8 @@
 // crashing the tab.
 
 import { applyCommand } from './commands';
+import { GENS } from './catalog';
+import { underConstruction } from './market/dispatch';
 import { kpiRates } from './regulation/kpis';
 import {
   TICKS_PER_SECOND,
@@ -11,7 +13,17 @@ import {
   type SimSnapshot,
   type WorkerToMain,
 } from './protocol';
-import { deserialize, isSaveData, newContext, newGame, serialize, type GameState } from './state';
+import {
+  applyGrowth,
+  deserialize,
+  isSaveData,
+  newContext,
+  newGame,
+  seedScenario,
+  serialize,
+  type GameState,
+} from './state';
+import { buildDemandField } from './map/demand';
 import {
   advanceTime,
   currentPeriodActuals,
@@ -25,7 +37,7 @@ import {
 const AUTOSAVE_TICKS = 120; // every 30 real seconds
 
 let state: GameState = newGame();
-const ctx = newContext();
+let ctx = newContext();
 let derived: Derived | undefined;
 let running = false;
 
@@ -38,6 +50,33 @@ function ensureDerived(): Derived {
     derived = derive(state, ctx);
   }
   return derived;
+}
+
+/** Map markers (angry bubbles) for the renderer, stable-ordered. */
+function buildSites(s: GameState): SimSnapshot['sites'] {
+  const sites: SimSnapshot['sites'] = [];
+  for (const a of s.applications) {
+    if (a.status === 'open') {
+      sites.push({ x: a.x, y: a.y, icon: 'application', label: a.name });
+    } else if (a.status === 'firm' || a.status === 'flex') {
+      if (a.connectByMin !== undefined && s.simTimeMin > a.connectByMin) {
+        sites.push({ x: a.x, y: a.y, icon: 'overdue', label: a.name });
+      } else if (a.assetId === undefined) {
+        // accepted load site waiting on wires
+        sites.push({ x: a.x, y: a.y, icon: 'building', label: a.name });
+      }
+    }
+  }
+  for (const t of s.tenders) {
+    if (t.status !== 'open') continue;
+    sites.push({ x: t.x, y: t.y, icon: 'tender', label: `${GENS[t.gen].name} tender` });
+  }
+  for (const a of s.assets.values()) {
+    if (a.kind === 'gen' && a.developer !== undefined && underConstruction(a, s.simTimeMin)) {
+      sites.push({ x: a.x, y: a.y, icon: 'building', label: GENS[a.gen].name });
+    }
+  }
+  return sites;
 }
 
 function makeSnapshot(accumulate: boolean): SimSnapshot {
@@ -90,8 +129,11 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
       worstVegPct: Math.max(0, ...[...state.lineVeg.values()]) * 100,
     },
     events: state.events,
+    sites: buildSites(state),
+    growth: state.growth.map((g) => ({ ...g })),
     inbox: {
       applications: state.applications.map((a) => ({ ...a })),
+      tenders: state.tenders.map((t) => ({ ...t, bids: t.bids.map((b) => ({ ...b })) })),
       pitches: state.pitches.map((p) => ({ ...p })),
       tech: { ...state.tech },
       innovationFundK: state.innovationFundK,
@@ -126,6 +168,11 @@ function start(save: unknown): void {
   if (isSaveData(save)) {
     try {
       state = deserialize(save);
+      // town growth mutated the saved game's map: replay it onto a
+      // fresh copy so demand and service areas match the save
+      ctx = newContext();
+      applyGrowth(ctx.map, state.growth);
+      ctx.demand = buildDemandField(ctx.map);
       derived = undefined;
     } catch {
       state = newGame(); // corrupt save: start fresh rather than die
@@ -149,6 +196,8 @@ self.onmessage = (e: MessageEvent<MainToWorker>) => {
         break;
       case 'newGame':
         state = newGame();
+        ctx = newContext(); // shed any previous run's growth mutations
+        seedScenario(state, ctx);
         derived = undefined;
         post({ type: 'snapshot', snapshot: makeSnapshot(false) });
         post({ type: 'saveData', data: serialize(state) });

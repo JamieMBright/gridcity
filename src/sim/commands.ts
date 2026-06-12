@@ -13,10 +13,17 @@ import {
   type VegPolicy,
 } from './catalog';
 import { CONNECT_DAYS, GEN_OF_KIND } from './events/applications';
+import {
+  bidLeadDays,
+  bumpMood,
+  developerOf,
+  TENDER_OPEN_DAYS,
+  type Tender,
+} from './events/developers';
 import { MAX_VANS } from './fleet/fleet';
 import type { VoltageLevel } from './grid/types';
 import { placePylons, priceLine, routeTiles } from './cost';
-import { BIG_BUILDING_ZONES, TERRAIN, ZONE, type CityMap } from './map/types';
+import { BIG_BUILDING_ZONES, RC, TERRAIN, ZONE, type CityMap } from './map/types';
 import { pushEvent, type GameState } from './state';
 import type { SimSpeed } from './protocol';
 
@@ -27,8 +34,15 @@ export type Command =
   | { type: 'setFleet'; vans: number }
   | { type: 'setVegPolicy'; policy: VegPolicy }
   | { type: 'respondApplication'; appId: number; response: 'firm' | 'flex' | 'decline' }
+  /** Award a generation tender to one of its bidders. */
+  | { type: 'acceptBid'; tenderId: number; developerId: number }
+  /** Withdraw a tender (every bidder takes it badly). */
+  | { type: 'declineTender'; tenderId: number }
   | { type: 'fundPitch'; pitchId: number }
-  | { type: 'setLevy'; pct: number };
+  | { type: 'setLevy'; pct: number }
+  /** Refit a substation transformer (manual sizing switches auto off),
+   *  or hand sizing back to auto-reinforcement. */
+  | { type: 'setSubMva'; assetId: number; mva?: number; auto?: boolean };
 
 export type BuildSpec =
   | { kind: 'gen'; gen: GenType; x: number; y: number }
@@ -73,9 +87,22 @@ export function assetAtTile(
   y: number,
 ): PlacedAsset | undefined {
   for (const a of assets) {
-    if (a.kind !== 'line' && a.x === x && a.y === y) return a;
+    if (a.kind === 'line') continue;
+    const [fw, fh] = a.kind === 'gen' ? (GENS[a.gen].footprint ?? [1, 1]) : [1, 1];
+    if (x >= a.x && x < a.x + fw && y >= a.y && y < a.y + fh) return a;
   }
   return undefined;
+}
+
+/** Every tile a multi-tile asset's footprint covers. */
+export function footprintTiles(map: CityMap, a: PlacedAsset): number[] {
+  if (a.kind === 'line') return [];
+  const [fw, fh] = a.kind === 'gen' ? (GENS[a.gen].footprint ?? [1, 1]) : [1, 1];
+  const out: number[] = [];
+  for (let dy = 0; dy < fh; dy++) {
+    for (let dx = 0; dx < fw; dx++) out.push((a.y + dy) * map.width + a.x + dx);
+  }
+  return out;
 }
 
 /** Every tile carrying an overhead-line support (pylon or pole). */
@@ -103,7 +130,11 @@ export function siteErrorAt(
   const z = map.zone[i];
   if (map.landmark !== undefined && (map.landmark[i] ?? 0) !== 0)
     return 'that is a protected landmark';
-  if (map.road[i] === 1) return 'cannot build on the road';
+  if ((map.road[i] ?? 0) >= RC.arterial) {
+    return (map.road[i] ?? 0) === RC.rail
+      ? 'cannot build on the railway'
+      : 'cannot build on the carriageway';
+  }
 
   if (spec.kind === 'gen') {
     const siting = GENS[spec.gen].siting;
@@ -148,12 +179,18 @@ export function checkBuild(
   const fail = (error: string): BuildCheck => ({ ok: false, error, capexK: 0, lengthTiles: 0 });
 
   if (spec.kind === 'gen' || spec.kind === 'sub' || spec.kind === 'depot') {
-    const siteError = siteErrorAt(map, spec, spec.x, spec.y);
-    if (siteError) return fail(siteError);
+    const [fw, fh] = spec.kind === 'gen' ? (GENS[spec.gen].footprint ?? [1, 1]) : [1, 1];
     const assetList = [...assets];
-    if (assetAtTile(assetList, spec.x, spec.y)) return fail('tile already occupied');
-    if (pylonTilesOf(assetList).has(spec.y * map.width + spec.x))
-      return fail('an overhead-line support stands here');
+    const pylonTiles = pylonTilesOf(assetList);
+    for (let dy = 0; dy < fh; dy++) {
+      for (let dx = 0; dx < fw; dx++) {
+        const siteError = siteErrorAt(map, spec, spec.x + dx, spec.y + dy);
+        if (siteError) return fail(siteError);
+        if (assetAtTile(assetList, spec.x + dx, spec.y + dy)) return fail('tile already occupied');
+        if (pylonTiles.has((spec.y + dy) * map.width + spec.x + dx))
+          return fail('an overhead-line support stands here');
+      }
+    }
     const capexK =
       spec.kind === 'gen'
         ? GENS[spec.gen].capexK
@@ -179,7 +216,7 @@ export function checkBuild(
   if (spec.build === 'overhead') {
     const taken = pylonTilesOf(assetList);
     for (const a of assetList) {
-      if (a.kind !== 'line') taken.add(a.y * map.width + a.x);
+      for (const i of footprintTiles(map, a)) taken.add(i);
     }
     pylons = placePylons(
       map,
@@ -208,26 +245,32 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       const spec = cmd.spec;
       const check = checkBuild(map, state.assets.values(), spec);
       if (!check.ok) return { ok: false, error: check.error };
-      const id = state.nextAssetId++;
       if (spec.kind === 'gen') {
+        // the operator doesn't build power stations: designating a site
+        // opens a tender that developers bid on (accepted via acceptBid)
         const g = GENS[spec.gen];
-        const leadMin = (g.planningDays + g.buildDays) * 1440;
-        state.assets.set(id, {
-          id,
-          kind: 'gen',
+        const tender: Tender = {
+          id: state.nextAppId++,
           gen: spec.gen,
           x: spec.x,
           y: spec.y,
-          liveAtMin: state.simTimeMin + leadMin,
-        });
+          openedMin: state.simTimeMin,
+          closesMin: state.simTimeMin + TENDER_OPEN_DAYS * 1440,
+          bids: [],
+          status: 'open',
+        };
+        state.tenders.push(tender);
         pushEvent(
           state,
           'info',
-          `${g.name}: planning application in — commissioning in ${g.planningDays + g.buildDays} days`,
+          `site designated for ${g.name} — inviting developer bids`,
           spec.x,
           spec.y,
         );
-      } else if (spec.kind === 'sub') {
+        return { ok: true };
+      }
+      const id = state.nextAssetId++;
+      if (spec.kind === 'sub') {
         state.assets.set(id, { id, kind: 'sub', sub: spec.sub, x: spec.x, y: spec.y });
       } else if (spec.kind === 'depot') {
         state.assets.set(id, { id, kind: 'depot', x: spec.x, y: spec.y });
@@ -248,11 +291,101 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       return { ok: true, assetId: id };
     }
 
+    case 'setSubMva': {
+      const asset = state.assets.get(cmd.assetId);
+      if (!asset || asset.kind !== 'sub') return { ok: false, error: 'no such substation' };
+      if (asset.idno) return { ok: false, error: "that's the iDNO's transformer, not yours" };
+      const steps = SUBS[asset.sub].mvaSteps;
+      if (!steps) return { ok: false, error: 'that substation has a fixed transformer' };
+      if (cmd.mva !== undefined) {
+        if (!steps.includes(cmd.mva)) {
+          return { ok: false, error: `transformers come in ${steps.join('/')} MVA` };
+        }
+        asset.mva = cmd.mva;
+        asset.mvaAuto = false;
+      }
+      if (cmd.auto !== undefined) asset.mvaAuto = cmd.auto;
+      state.assetsVersion++;
+      return { ok: true };
+    }
+
+    case 'acceptBid': {
+      const tender = state.tenders.find((t) => t.id === cmd.tenderId);
+      if (!tender) return { ok: false, error: 'no such tender' };
+      if (tender.status !== 'open') return { ok: false, error: 'tender already settled' };
+      const bid = tender.bids.find((b) => b.developerId === cmd.developerId);
+      if (!bid) return { ok: false, error: 'no bid from that developer' };
+      const g = GENS[tender.gen];
+      // re-validate at award time: the site may have been built over
+      const check = checkBuild(map, state.assets.values(), {
+        kind: 'gen',
+        gen: tender.gen,
+        x: tender.x,
+        y: tender.y,
+      });
+      if (!check.ok) {
+        pushEvent(
+          state,
+          'bad',
+          `award failed: the ${g.name} site is blocked — ${check.error}`,
+          tender.x,
+          tender.y,
+        );
+        return { ok: false, error: check.error };
+      }
+      const leadDays = bidLeadDays(tender.gen, bid);
+      const id = state.nextAssetId++;
+      state.assets.set(id, {
+        id,
+        kind: 'gen',
+        gen: tender.gen,
+        x: tender.x,
+        y: tender.y,
+        developer: bid.developerId,
+        liveAtMin: state.simTimeMin + leadDays * 1440,
+      });
+      tender.status = 'awarded';
+      for (const b of tender.bids) {
+        bumpMood(state, b.developerId, b.developerId === bid.developerId ? 6 : -8);
+      }
+      pushEvent(
+        state,
+        'info',
+        `${g.name} awarded to ${developerOf(bid.developerId)?.name ?? 'a developer'} — commissioning in ${leadDays} days`,
+        tender.x,
+        tender.y,
+      );
+      state.assetsVersion++;
+      return { ok: true, assetId: id };
+    }
+
+    case 'declineTender': {
+      const tender = state.tenders.find((t) => t.id === cmd.tenderId);
+      if (!tender) return { ok: false, error: 'no such tender' };
+      if (tender.status !== 'open') return { ok: false, error: 'tender already settled' };
+      tender.status = 'lapsed';
+      for (const b of tender.bids) bumpMood(state, b.developerId, -12);
+      pushEvent(
+        state,
+        'info',
+        `tender withdrawn for the ${GENS[tender.gen].name} site`,
+        tender.x,
+        tender.y,
+      );
+      return { ok: true };
+    }
+
     case 'demolish': {
       const asset = state.assets.get(cmd.assetId);
       if (!asset) return { ok: false, error: 'no such asset' };
+      if (asset.kind === 'gen' && asset.developer !== undefined) {
+        return { ok: false, error: 'the developer owns the plant — you only own the wires' };
+      }
       if (asset.kind === 'gen' && asset.customer) {
         return { ok: false, error: "that's customer-owned plant — you only own the wires" };
+      }
+      if (asset.kind === 'sub' && asset.idno) {
+        return { ok: false, error: "the iDNO owns that substation — you just connect to it" };
       }
       state.assets.delete(cmd.assetId);
       if (asset.kind !== 'line' && asset.kind !== 'depot') {

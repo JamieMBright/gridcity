@@ -11,7 +11,15 @@ import { applyCommand } from '../src/sim/commands';
 import { ZONE } from '../src/sim/map/types';
 import { newGame } from '../src/sim/state';
 import { advanceTime, derive, solveTick } from '../src/sim/tick';
-import { commissionAll, makeContext, makeTestMap, mustApply, poweredFixture, setZone } from './helpers';
+import {
+  commissionAll,
+  directBuildGen,
+  makeContext,
+  makeTestMap,
+  mustApply,
+  poweredFixture,
+  setZone,
+} from './helpers';
 
 describe('weather and profiles', () => {
   it('solar is zero at night and peaks midday under clear sky', () => {
@@ -57,14 +65,8 @@ describe('dispatch dynamics', () => {
     const ctx = makeContext(map);
     const state = newGame();
     state.weather.cloud = 0; // clear day
-    const solar = mustApply(state, map, {
-      type: 'build',
-      spec: { kind: 'gen', gen: 'solarFarm', x: 5, y: 5 },
-    });
-    const batt = mustApply(state, map, {
-      type: 'build',
-      spec: { kind: 'gen', gen: 'battery', x: 8, y: 8 },
-    });
+    const solar = directBuildGen(state, map, 'solarFarm', 5, 5);
+    const batt = directBuildGen(state, map, 'battery', 8, 8);
     const dist = mustApply(state, map, {
       type: 'build',
       spec: { kind: 'sub', sub: 'dist', x: 20, y: 20 },
@@ -107,7 +109,7 @@ describe('dispatch dynamics', () => {
     const state = newGame();
     state.weather.cloud = 0;
     state.simTimeMin = 13 * 60;
-    mustApply(state, map, { type: 'build', spec: { kind: 'gen', gen: 'solarFarm', x: 5, y: 5 } });
+    directBuildGen(state, map, 'solarFarm', 5, 5);
     mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'dist', x: 10, y: 10 } });
     mustApply(state, map, {
       type: 'build',
@@ -144,7 +146,7 @@ describe('thermal trips', () => {
     }
     const ctx = makeContext(map);
     const state = newGame();
-    mustApply(state, map, { type: 'build', spec: { kind: 'gen', gen: 'gasCCGT', x: 2, y: 12 } });
+    directBuildGen(state, map, 'gasCCGT', 2, 12);
     mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'grid', x: 7, y: 12 } });
     mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'dist', x: 16, y: 12 } });
     mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'dist', x: 28, y: 12 } });

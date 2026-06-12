@@ -2,7 +2,7 @@ import { useAppStore } from '../app/store';
 import { sendCommand } from '../app/workerBridge';
 import { fmtMoneyK, panelStyle, theme } from './theme';
 
-export function BillPanel() {
+export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   const snapshot = useAppStore((s) => s.snapshot);
   if (!snapshot) return null;
   const b = snapshot.bill;
@@ -18,6 +18,7 @@ export function BillPanel() {
         width: 230,
         padding: '10px 14px',
         lineHeight: 1.55,
+        ...frame,
       }}
     >
       <div style={{ color: theme.slate, fontSize: 10, letterSpacing: '0.12em' }}>
@@ -28,10 +29,11 @@ export function BillPanel() {
         <span style={{ fontSize: 12, fontWeight: 400, color: theme.slate }}> /home/yr</span>
       </div>
       <div style={{ fontSize: 11, marginTop: 6 }}>
-        <Row label="network capex" value={`${fmtMoneyK(b.capexYrK)}/yr`} />
+        <Row label="network (DUoS)" value={`${fmtMoneyK(b.capexYrK)}/yr`} />
         <Row label="operations" value={`${fmtMoneyK(b.opexYrK)}/yr`} />
         <Row label="field fleet" value={`${fmtMoneyK(b.fleetYrK)}/yr`} />
         {b.vegYrK > 0 && <Row label="tree cutting" value={`${fmtMoneyK(b.vegYrK)}/yr`} />}
+        {b.genYrK > 0 && <Row label="generation (PPA)" value={`${fmtMoneyK(b.genYrK)}/yr`} />}
         <Row label="wholesale energy" value={`${fmtMoneyK(b.energyYrK)}/yr`} />
         {b.flexYrK > 0.5 && <Row label="flexibility" value={`${fmtMoneyK(b.flexYrK)}/yr`} />}
         {b.constraintYrK > 0.5 && (

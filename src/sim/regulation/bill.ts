@@ -1,7 +1,10 @@
-// The bill is the budget. Capital is unlimited, but every pound of capex
-// (annuitized over asset life), opex, fleet, vegetation management and
-// wholesale energy cost is recovered from connected customers — the
-// always-visible number the player is implicitly minimizing against
+// The bill is the budget. Capital is unlimited, but every pound is
+// recovered from customers — through two distinct doors, the way the
+// real industry works: network assets (wires, substations, depots,
+// fleet, trees) are DNO spend recovered as DUoS/TUoS charges, while
+// generation is private expenditure recovered through the energy line
+// (its annuitized capex rides on the £/MWh like a PPA strike). The
+// total is the always-visible number the player is minimizing against
 // reliability.
 
 import {
@@ -9,18 +12,19 @@ import {
   DEPOT,
   GENS,
   LINES,
+  subCapexK,
   SUBS,
   VAN_OPEX_K_YR,
   VEG_POLICY,
   type VegPolicy,
 } from '../catalog';
-import type { PlacedAsset } from '../assets';
+import { subMva, type PlacedAsset } from '../assets';
 
 export function assetCapexK(a: PlacedAsset): number {
   if (a.kind === 'line') return a.capexK;
   if (a.kind === 'gen') return GENS[a.gen].capexK;
   if (a.kind === 'depot') return DEPOT.capexK;
-  return SUBS[a.sub].capexK;
+  return subCapexK(a.sub, subMva(a));
 }
 
 export function assetOpexFrac(a: PlacedAsset): number {
@@ -50,10 +54,14 @@ export interface BillInputs {
 }
 
 export interface BillBreakdown {
-  /** Annuitized network capex, £k/yr (customer-owned plant excluded). */
+  /** Annuitized NETWORK capex (DUoS/TUoS), £k/yr — wires, substations,
+   *  depots. Generation is not DNO spend and never appears here. */
   capexYrK: number;
-  /** Fixed O&M, £k/yr. */
+  /** Fixed network O&M, £k/yr. */
   opexYrK: number;
+  /** Generation capex+O&M recovered through the energy line (PPA-style),
+   *  £k/yr. Customer-owned and iDNO plant excluded. */
+  genYrK: number;
   /** Field fleet (crewed vans), £k/yr. */
   fleetYrK: number;
   /** Vegetation management programme, £k/yr. */
@@ -79,9 +87,16 @@ export interface BillBreakdown {
 export function computeBill(inp: BillInputs): BillBreakdown {
   let capexYrK = 0;
   let opexYrK = 0;
+  let genYrK = 0;
   let overheadKm = 0;
   for (const a of inp.assets) {
-    if (a.kind === 'gen' && a.customer) continue; // they pay for their own kit
+    if (a.kind === 'gen') {
+      if (a.customer) continue; // they pay for their own kit
+      const capex = assetCapexK(a);
+      genYrK += capex * (ANNUITY_FACTOR + assetOpexFrac(a));
+      continue;
+    }
+    if (a.kind === 'sub' && a.idno) continue; // the iDNO's iron, not yours
     const capex = assetCapexK(a);
     capexYrK += capex * ANNUITY_FACTOR;
     opexYrK += capex * assetOpexFrac(a);
@@ -91,13 +106,14 @@ export function computeBill(inp: BillInputs): BillBreakdown {
   const vegYrK = (VEG_POLICY[inp.vegPolicy]?.costPerKmYrK ?? 0) * overheadKm * inp.vegCostMul;
   const constraintYrK = inp.constraintYrK + inp.penaltyYrK;
   const subtotal =
-    capexYrK + opexYrK + fleetYrK + vegYrK + inp.energyYrK + inp.flexYrK + constraintYrK;
+    capexYrK + opexYrK + fleetYrK + vegYrK + genYrK + inp.energyYrK + inp.flexYrK + constraintYrK;
   const innovationYrK = subtotal * (inp.levyPct / 100);
   const totalYrK = subtotal + innovationYrK;
   const perCustomerYr = inp.totalCustomers > 0 ? (totalYrK * 1000) / inp.totalCustomers : 0;
   return {
     capexYrK,
     opexYrK,
+    genYrK,
     fleetYrK,
     vegYrK,
     energyYrK: inp.energyYrK,

@@ -1,13 +1,16 @@
 // Renders PNG previews of the sprite atlas and a composited city crop so
 // the art can be reviewed without booting the game:
-//   npx tsx tools/preview.ts [x0 y0 x1 y1]   → preview/{atlas,city}.png
-// Uses the exact same atlas + tile chooser as the renderer.
+//   npx tsx tools/preview.ts [x0 y0 x1 y1 [scale]]  → preview/{atlas,city}.png
+//   npx tsx tools/preview.ts sprite <name...>       → preview/sprite_<name>.png
+// Composites the ground pass then the structure pass (road ribbons are the
+// renderer's job, so streets show as bare ground here). Uses the exact same
+// atlas + tile chooser as the renderer.
 
 import { deflateSync } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { buildAtlas } from '../src/render/sprites/atlas';
+import { buildAtlas, type SpriteAtlas } from '../src/render/sprites/atlas';
 import { CELL_H, CELL_W, FLOOR_H } from '../src/render/sprites/iso';
-import { spriteNameFor } from '../src/render/tileChooser';
+import { groundSpriteFor, structureSpriteFor } from '../src/render/tileChooser';
 import { buildLondonMap } from '../src/data/londonMap';
 
 function crc32(buf: Uint8Array): number {
@@ -76,16 +79,71 @@ function downscale(
   return { img: out, w: W, h: H };
 }
 
-function main(): void {
-  const [x0 = 38, y0 = 56, x1 = 100, y1 = 102, scale = 4] = process.argv.slice(2).map(Number);
-  mkdirSync('preview', { recursive: true });
+/** Alpha-blend one atlas frame onto the canvas at (px, py). */
+function blit(
+  atlas: SpriteAtlas,
+  name: string,
+  img: Uint8ClampedArray,
+  W: number,
+  H: number,
+  px: number,
+  py: number,
+): void {
+  const frame = atlas.frames.get(name);
+  if (!frame) return;
+  for (let yy = 0; yy < frame.h; yy++) {
+    for (let xx = 0; xx < frame.w; xx++) {
+      const so = ((frame.y + yy) * atlas.width + frame.x + xx) * 4;
+      const sa = (atlas.pixels[so + 3] ?? 0) / 255;
+      if (sa <= 0) continue;
+      const dx = px + xx;
+      const dy = py + yy;
+      if (dx < 0 || dx >= W || dy < 0 || dy >= H) continue;
+      const o = (dy * W + dx) * 4;
+      for (let c = 0; c < 3; c++) {
+        img[o + c] = (atlas.pixels[so + c] ?? 0) * sa + (img[o + c] ?? 0) * (1 - sa);
+      }
+      img[o + 3] = 255;
+    }
+  }
+}
 
+function dumpSprites(atlas: SpriteAtlas, names: string[]): void {
+  for (const name of names) {
+    const f = atlas.frames.get(name);
+    if (!f) {
+      console.error(`no such sprite: ${name}`);
+      continue;
+    }
+    const img = new Uint8ClampedArray(f.w * f.h * 4);
+    // dusk backdrop so transparent floors read clearly
+    for (let i = 0; i < f.w * f.h; i++) {
+      img[i * 4] = 27;
+      img[i * 4 + 1] = 20;
+      img[i * 4 + 2] = 48;
+      img[i * 4 + 3] = 255;
+    }
+    blit(atlas, name, img, f.w, f.h, 0, 0);
+    writeFileSync(`preview/sprite_${name}.png`, encodePng(f.w, f.h, img));
+    console.log(`preview/sprite_${name}.png  ${f.w}x${f.h}`);
+  }
+}
+
+function main(): void {
+  mkdirSync('preview', { recursive: true });
   const atlas = buildAtlas();
+
+  if (process.argv[2] === 'sprite') {
+    dumpSprites(atlas, process.argv.slice(3));
+    return;
+  }
+
+  const [x0 = 38, y0 = 56, x1 = 100, y1 = 102, scale = 4] = process.argv.slice(2).map(Number);
   const at = downscale(atlas.pixels, atlas.width, atlas.height, 2);
   writeFileSync('preview/atlas.png', encodePng(at.w, at.h, at.img));
   console.log(`preview/atlas.png  ${at.w}x${at.h}, ${atlas.frames.size} sprites`);
 
-  // composite a city crop in painter order
+  // composite a city crop: ground pass, then structures in painter order
   const map = buildLondonMap();
   const HW = CELL_W / 2;
   const HH = FLOOR_H / 2;
@@ -102,28 +160,18 @@ function main(): void {
     img[i * 4 + 3] = 255;
   }
   const originX = rows * HW;
-  for (let k = 0; k <= cols + rows - 2; k++) {
-    for (let cx = Math.max(0, k - rows + 1); cx <= Math.min(cols - 1, k); cx++) {
-      const cy = k - cx;
-      const name = spriteNameFor(map, x0 + cx, y0 + cy);
-      const frame = atlas.frames.get(name);
-      if (!frame) continue;
-      const px = originX + (cx - cy) * HW - HW;
-      const py = (cx + cy) * HH;
-      for (let yy = 0; yy < CELL_H; yy++) {
-        for (let xx = 0; xx < CELL_W; xx++) {
-          const so = ((frame.y + yy) * atlas.width + frame.x + xx) * 4;
-          const sa = (atlas.pixels[so + 3] ?? 0) / 255;
-          if (sa <= 0) continue;
-          const dx = px + xx;
-          const dy = py + yy;
-          if (dx < 0 || dx >= W || dy < 0 || dy >= H) continue;
-          const o = (dy * W + dx) * 4;
-          for (let c = 0; c < 3; c++) {
-            img[o + c] = (atlas.pixels[so + c] ?? 0) * sa + (img[o + c] ?? 0) * (1 - sa);
-          }
-          img[o + 3] = 255;
-        }
+  for (const pass of ['ground', 'structure'] as const) {
+    for (let k = 0; k <= cols + rows - 2; k++) {
+      for (let cx = Math.max(0, k - rows + 1); cx <= Math.min(cols - 1, k); cx++) {
+        const cy = k - cx;
+        const name =
+          pass === 'ground'
+            ? groundSpriteFor(map, x0 + cx, y0 + cy)
+            : structureSpriteFor(map, x0 + cx, y0 + cy);
+        if (!name) continue;
+        const px = originX + (cx - cy) * HW - HW;
+        const py = (cx + cy) * HH;
+        blit(atlas, name, img, W, H, px, py);
       }
     }
   }

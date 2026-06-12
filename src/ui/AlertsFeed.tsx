@@ -10,7 +10,7 @@ function fmtT(tMin: number): string {
   return `d${day} ${h}:${m}`;
 }
 
-export function AlertsFeed() {
+export function AlertsFeed({ frame }: { frame?: React.CSSProperties } = {}) {
   const snapshot = useAppStore((s) => s.snapshot);
   const requestPan = useAppStore((s) => s.requestPan);
   if (!snapshot || snapshot.events.length === 0) return null;
@@ -29,6 +29,7 @@ export function AlertsFeed() {
         lineHeight: 1.5,
         maxHeight: 120,
         overflowY: 'auto',
+        ...frame,
       }}
     >
       {recent.map((e) => (

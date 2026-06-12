@@ -6,12 +6,13 @@ import type { PlacedAsset } from './assets';
 import type { VegPolicy } from './catalog';
 import type { Command } from './commands';
 import type { Application } from './events/applications';
+import type { Tender } from './events/developers';
 import type { Pitch, TechState } from './events/innovation';
 import type { CouncilState } from './customers/adoption';
 import type { BillBreakdown } from './regulation/bill';
 import type { KpiRates } from './regulation/kpis';
 import type { PeriodActuals, PeriodTargets, ReportCard } from './regulation/riio';
-import type { GameEvent, SaveData } from './state';
+import type { GameEvent, GrowthRecord, SaveData } from './state';
 import type { BranchView } from './tick';
 
 export type SimSpeed = 0 | 1 | 4 | 16;
@@ -67,8 +68,19 @@ export interface SimSnapshot {
   kpis: KpiRates & { worstVegPct: number };
   /** Recent event log (ring buffer; dedupe by seq). */
   events: GameEvent[];
+  /** Map markers the renderer draws bubbles for (stable-ordered). */
+  sites: Array<{
+    x: number;
+    y: number;
+    icon: 'application' | 'tender' | 'overdue' | 'building';
+    label: string;
+  }>;
+  /** Cumulative town-growth mutations so the main thread can mirror
+   *  them onto its own map copy (append-only). */
+  growth: GrowthRecord[];
   inbox: {
     applications: Application[];
+    tenders: Tender[];
     pitches: Pitch[];
     tech: TechState;
     innovationFundK: number;
