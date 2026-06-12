@@ -5,11 +5,12 @@ import { describe, expect, it } from 'vitest';
 import { LINE_UPRATE_MUL, SUB_UG_MUL, subCapexK, SUBS } from '../src/sim/catalog';
 import { applyCommand } from '../src/sim/commands';
 import { priceLine } from '../src/sim/cost';
+import { ZONE } from '../src/sim/map/types';
 import { deriveNetwork, lineBranchId, subMva } from '../src/sim/assets';
 import { assetCapexK } from '../src/sim/regulation/bill';
-import { newGame } from '../src/sim/state';
-import { derive } from '../src/sim/tick';
-import { makeTestMap, mustApply, poweredFixture } from './helpers';
+import { deserialize, newGame, serialize } from '../src/sim/state';
+import { advanceTime, derive, solveTick } from '../src/sim/tick';
+import { commissionAll, directBuildGen, makeContext, makeTestMap, mustApply, poweredFixture, setZone } from './helpers';
 
 describe('convertLine (underground an overhead line)', () => {
   it('rebuilds the line as a cable at the full underground price', () => {
@@ -231,5 +232,67 @@ describe('auto-connect placement setting', () => {
     });
     expect([...state.assets.values()].some((a) => a.kind === 'line')).toBe(false);
     expect(state.events.some((e) => e.msg.includes('auto-connect'))).toBe(true);
+  });
+});
+
+describe('undo snapshots are true copies (the GIS-undo bug)', () => {
+  it('an in-place mutation after serialize does not leak into the snapshot', () => {
+    const { state, ctx, ids } = poweredFixture();
+    const before = serialize(state);
+    mustApply(state, ctx.map, { type: 'convertSub', assetId: ids.grid });
+    mustApply(state, ctx.map, { type: 'uprateLine', assetId: ids.line132 });
+    const restored = deserialize(before);
+    const sub = restored.assets.get(ids.grid);
+    expect(sub?.kind === 'sub' ? sub.underground : 'gone').toBeUndefined();
+    const line = restored.assets.get(ids.line132);
+    expect(line?.kind === 'line' ? line.uprated : 'gone').toBeUndefined();
+    // the live state still carries both mutations
+    const liveSub = state.assets.get(ids.grid);
+    expect(liveSub?.kind === 'sub' && liveSub.underground).toBe(true);
+  });
+
+  it('undoing section undergrounding restores a working network', () => {
+    const { state, ctx, ids } = poweredFixture();
+    const before = serialize(state);
+    mustApply(state, ctx.map, {
+      type: 'undergroundSection',
+      lineId: ids.line132,
+      x: 10,
+      y: 10,
+    });
+    const restored = deserialize(before);
+    expect(restored.assets.get(ids.line132)).toBeDefined();
+    expect(
+      [...restored.assets.values()].some((a) => a.kind === 'sub' && a.sub === 'tee'),
+    ).toBe(false);
+    const out = solveTick(restored, ctx, derive(restored, ctx), false);
+    expect(out.servedCustomers).toBe(360); // circuits reconnected exactly
+  });
+});
+
+describe('losing supply comes with an explanation', () => {
+  it('a solar-only island going dark at night says the sun set', () => {
+    const map = makeTestMap(30, 30);
+    for (let y = 19; y <= 21; y++) {
+      for (let x = 19; x <= 21; x++) setZone(map, x, y, ZONE.suburb);
+    }
+    setZone(map, 5, 5, ZONE.solarSite);
+    const ctx = makeContext(map);
+    const state = newGame();
+    directBuildGen(state, map, 'solarFarm', 5, 5);
+    mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'dist', x: 18, y: 18 } });
+    mustApply(state, map, {
+      type: 'build',
+      spec: { kind: 'line', level: 33, build: 'overhead', ax: 5, ay: 5, bx: 18, by: 18 },
+    });
+    commissionAll(state);
+    state.weather.cloud = 0;
+    state.simTimeMin = 12 * 60; // noon: baseline live
+    advanceTime(state);
+    solveTick(state, ctx, derive(state, ctx), true);
+    state.simTimeMin = 23 * 60; // night falls
+    advanceTime(state);
+    solveTick(state, ctx, derive(state, ctx), true);
+    expect(state.events.some((e) => e.msg.includes('sun has set'))).toBe(true);
   });
 });

@@ -381,7 +381,12 @@ export function MapView() {
         ok: check.ok,
         sprite,
         radius: spec.kind === 'sub' ? SUBS[spec.sub].serviceRadius : undefined,
-        fp: spec.kind === 'gen' ? GENS[spec.gen].footprint : undefined,
+        fp:
+          spec.kind === 'gen'
+            ? GENS[spec.gen].footprint
+            : spec.kind === 'sub'
+              ? SUBS[spec.sub].footprint
+              : undefined,
       };
     }
     r.setGhost(ghost);

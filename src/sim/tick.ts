@@ -10,9 +10,10 @@ import { LINE_UPRATE_MUL, LINES, SUB_UPGRADE_AT, SUBS, TX_PAIR, VEG_POLICY } fro
 import { COV } from './coverage';
 import { routeTiles } from './cost';
 import { solveDcPowerFlow } from './grid/dcpf';
+import { findIslands } from './grid/topology';
 import type { Network, PowerFlowResult } from './grid/types';
 import { V_BROWNOUT, V_COLLAPSE } from './grid/voltage';
-import { runDispatch, type DispatchResult } from './market/dispatch';
+import { runDispatch, underConstruction, type DispatchResult } from './market/dispatch';
 import { stepWeather, sunFactor, windFactor } from './events/weather';
 import {
   GEN_OF_KIND,
@@ -198,6 +199,67 @@ function runPowerFlow(
     slackPreference: dispatch.slackPreference,
   });
   return { dispatch, pf };
+}
+
+/** Sites that drop off supply get an explanation, not a mystery: on
+ *  every live→dark transition of a service substation, diagnose its
+ *  island and say WHY (sun set on a solar-only island, wind died, kit
+ *  tripped upstream, plant still under construction…). */
+function explainSupplyLosses(state: GameState, derived: Derived, pf: PowerFlowResult): void {
+  const first = state.subLive.size === 0; // first tick after load: baseline silently
+  let islands: ReturnType<typeof findIslands> | undefined;
+  for (const a of state.assets.values()) {
+    if (a.kind !== 'sub' || SUBS[a.sub].serviceRadius === undefined) continue;
+    const live = (pf.voltage.get(busId(a.id, 33)) ?? 0) > 0;
+    const was = state.subLive.get(a.id);
+    state.subLive.set(a.id, live);
+    if (first || was !== true || live) continue;
+
+    islands ??= findIslands(derived.net);
+    const gi = islands.islandOf.get(busId(a.id, 33)) ?? -1;
+    let reason = 'no generation reaches it — look for tripped lines or transformers upstream';
+    if (gi >= 0) {
+      let any = false;
+      let best = 0;
+      let solar = false;
+      let wind = false;
+      let building = false;
+      for (const g of state.assets.values()) {
+        if (g.kind !== 'gen') continue;
+        if ((islands.islandOf.get(busId(g.id, GENS[g.gen].level)) ?? -2) !== gi) continue;
+        any = true;
+        if (underConstruction(g, state.simTimeMin)) {
+          building = true;
+          continue;
+        }
+        if (g.gen === 'solarFarm') solar = true;
+        if (g.gen === 'windOnshore' || g.gen === 'windOffshore') wind = true;
+        const avail =
+          g.gen === 'solarFarm'
+            ? sunFactor(state.simTimeMin, state.weather)
+            : g.gen === 'windOnshore' || g.gen === 'windOffshore'
+              ? windFactor(state.weather, g.gen === 'windOffshore')
+              : g.gen === 'battery'
+                ? (state.soc.get(g.id) ?? 0) > 1
+                  ? 1
+                  : 0
+                : 1;
+        best = Math.max(best, avail);
+      }
+      if (any && best < 0.05) {
+        reason = solar
+          ? 'the sun has set on its only supply — solar makes nothing at night; add a battery or firm backup'
+          : wind
+            ? 'the wind has died on its only supply — pair it with storage or firm plant'
+            : building
+              ? 'its plant is still under construction'
+              : 'its generation is unavailable right now';
+      } else if (any) {
+        reason = 'supply shortfall — its circuit cannot carry the load right now';
+      }
+    }
+    pushEvent(state, 'warn', `${SUBS[a.sub].name.split(' (')[0]} dark — ${reason}`, a.x, a.y);
+  }
 }
 
 function assetLabel(state: GameState, assetId: number): string {
@@ -451,6 +513,7 @@ export function solveTick(
   const coverage = buildCoverage(state, derived, dispatch, pf, ctx);
   if (dtMin > 0) {
     updateReliability(state.reliability, state.offTiles, coverage, ctx.map, dtMin);
+    explainSupplyLosses(state, derived, pf);
   }
 
   let servedCustomers = 0;

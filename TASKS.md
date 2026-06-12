@@ -25,6 +25,46 @@
 
 ## Done (chronological, latest first)
 
+### Undo-after-GIS bug prompt
+- [x] Undo after "rebuild underground (GIS)" (and any in-place mutation:
+      uprate, MVA resize, conversions) did nothing or half-reverted —
+      undo snapshots shared object references with live state, so later
+      mutations leaked back into the stack. serialize() now deep-clones
+      (structuredClone); regression tests prove a pre-command snapshot
+      stays pristine and an undone section-undergrounding re-energizes
+      the exact original network
+
+### Multi-tile assets prompt (nuclear + GSPs)
+- [x] Nuclear eats its campus: 3×2 footprint (reactor hall, turbine
+      hall, switchyard), siting enforced per tile with cooling water
+      within 3 — only proper shoreline blocks qualify
+- [x] Bulk supply points (GSPs) take a 2×2 plot; substation footprints
+      plumbed through siting, occupancy, pylon blocking, line endpoints,
+      ghost preview, and plot-sized voltage rings
+- [ ] Sprites to match (Hinkley-style reactor hall, gantried switchyard
+      per ref image) — queued behind the in-flight landmark-art agent
+      to avoid atlas clashes; interim art centres on the plot
+
+### Blackout explanations prompt (PV at night)
+- [x] Every time a site loses power, an explanation event fires: on
+      live→dark transitions each service sub diagnoses its island —
+      "the sun has set on its only supply — solar makes nothing at
+      night; add a battery or firm backup", wind died, kit tripped
+      upstream, plant still under construction, supply shortfall
+      (unit-tested with a solar-only island at nightfall)
+
+### Landmarks-to-scale + road tessellation prompt
+- [ ] Landmarks TO SCALE and recognisable (owner supplied reference art):
+      Parliament + Big Ben across multiple tiles, a great London Eye
+      wheel, a taller glassy Shard, Tower Bridge that LOOKS like Tower
+      Bridge (twin gothic towers + bascule spans over the river); St
+      Paul's dome + Gherkin where feasible — bespoke multi-tile sprites,
+      verified on render previews
+- [ ] Roads "waaay worse than before": city streets re-laid on the TILE-
+      EDGE lattice so they tessellate — running between blocks, along
+      house fronts — instead of free splines wandering through buildings
+      and water; motorways/rail keep sweeping curves outside towns
+
 ### UI/UX critique flurry (map realism + inspection + faults)
 Map (recognisability pass 2 — owner provided London satellite/maps refs):
 - [x] Thames redrawn on the real reaches (45 control points): Staines/

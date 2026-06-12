@@ -96,6 +96,13 @@ function tileAt(map: CityMap, x: number, y: number): number | undefined {
   return y * map.width + x;
 }
 
+/** Tile footprint of a placed asset (lines have none). */
+export function assetFootprint(a: PlacedAsset): [number, number] {
+  if (a.kind === 'gen') return GENS[a.gen].footprint ?? [1, 1];
+  if (a.kind === 'sub') return SUBS[a.sub].footprint ?? [1, 1];
+  return [1, 1];
+}
+
 export function assetAtTile(
   assets: Iterable<PlacedAsset>,
   x: number,
@@ -103,7 +110,7 @@ export function assetAtTile(
 ): PlacedAsset | undefined {
   for (const a of assets) {
     if (a.kind === 'line') continue;
-    const [fw, fh] = a.kind === 'gen' ? (GENS[a.gen].footprint ?? [1, 1]) : [1, 1];
+    const [fw, fh] = assetFootprint(a);
     if (x >= a.x && x < a.x + fw && y >= a.y && y < a.y + fh) return a;
   }
   return undefined;
@@ -112,7 +119,7 @@ export function assetAtTile(
 /** Every tile a multi-tile asset's footprint covers. */
 export function footprintTiles(map: CityMap, a: PlacedAsset): number[] {
   if (a.kind === 'line') return [];
-  const [fw, fh] = a.kind === 'gen' ? (GENS[a.gen].footprint ?? [1, 1]) : [1, 1];
+  const [fw, fh] = assetFootprint(a);
   const out: number[] = [];
   for (let dy = 0; dy < fh; dy++) {
     for (let dx = 0; dx < fw; dx++) out.push((a.y + dy) * map.width + a.x + dx);
@@ -226,7 +233,7 @@ export function siteErrorAt(
       if (t === TERRAIN.water) return 'nuclear sits on dry land beside its cooling water';
       if (z === ZONE.posh) return 'the conservation area will never allow that';
       if (z === ZONE.park) return 'not in a royal park';
-      if (!nearWater(map, x, y, 2)) {
+      if (!nearWater(map, x, y, 3)) {
         return 'nuclear needs cooling water — site it beside the sea or a river';
       }
       return undefined;
@@ -267,7 +274,12 @@ export function checkBuild(
     return fail('tee junctions are made by teeing the line tool into a circuit');
   }
   if (spec.kind === 'gen' || spec.kind === 'sub' || spec.kind === 'depot') {
-    const [fw, fh] = spec.kind === 'gen' ? (GENS[spec.gen].footprint ?? [1, 1]) : [1, 1];
+    const [fw, fh] =
+      spec.kind === 'gen'
+        ? (GENS[spec.gen].footprint ?? [1, 1])
+        : spec.kind === 'sub'
+          ? (SUBS[spec.sub].footprint ?? [1, 1])
+          : [1, 1];
     const assetList = [...assets];
     const pylonTiles = pylonTilesOf(assetList);
     for (let dy = 0; dy < fh; dy++) {

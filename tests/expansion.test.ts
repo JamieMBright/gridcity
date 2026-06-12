@@ -124,6 +124,17 @@ describe('new substation kinds', () => {
     expect(r.error).toMatch(/houses/);
   });
 
+  it('a bulk supply point eats its 2x2 plot', () => {
+    const map = makeTestMap(20, 20);
+    const state = newGame();
+    const id = mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'bulk', x: 5, y: 5 } });
+    const sub = state.assets.get(id);
+    // the far corner of the plot is this asset, and nothing builds on it
+    expect(sub && checkBuild(map, state.assets.values(), { kind: 'sub', sub: 'dist', x: 6, y: 6 }).ok).toBe(false);
+    const again = applyCommand(state, map, { type: 'build', spec: { kind: 'sub', sub: 'dist', x: 8, y: 5 } });
+    expect(again.ok).toBe(true);
+  });
+
   it('a pole transformer serves a tight radius', () => {
     expect(SUBS.pole.serviceRadius).toBeLessThan(SUBS.dist.serviceRadius ?? 99);
     expect(SUBS.pole.txRatingMW).toBeLessThan(SUBS.dist.txRatingMW);
@@ -155,10 +166,9 @@ describe('new generation', () => {
     const inland = applyCommand(state, map, { type: 'build', spec: { kind: 'gen', gen: 'nuclear', x: 15, y: 15 } });
     expect(inland.ok).toBe(false);
     expect(inland.error).toMatch(/cooling water/);
-    setZone(map, 20, 20, ZONE.nuclearSite);
-    setZone(map, 21, 20, ZONE.nuclearSite);
-    setZone(map, 20, 21, ZONE.nuclearSite);
-    setZone(map, 21, 21, ZONE.nuclearSite);
+    for (let y = 20; y <= 21; y++) {
+      for (let x = 20; x <= 22; x++) setZone(map, x, y, ZONE.nuclearSite); // 3x2 campus
+    }
     const licensed = applyCommand(state, map, { type: 'build', spec: { kind: 'gen', gen: 'nuclear', x: 20, y: 20 } });
     expect(licensed.ok).toBe(true);
   });
