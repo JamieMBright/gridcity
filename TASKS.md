@@ -12,6 +12,18 @@
 
 ## Open
 
+- [x] **Install design/game-art skills from public repos (this prompt;
+      tooling, no app code)**: vendored 8 Apache-2.0 skills into
+      `.claude/skills/` for future art/UI/design sessions — from
+      anthropics/skills: `frontend-design`, `canvas-design` (bundled
+      OFL fonts kept so it works offline), `algorithmic-art`; from
+      omer-metin/skills-for-antigravity: `game-design-core`,
+      `game-ui-design`, `color-theory`, `environment-art`,
+      `pixel-art-sprites` (pixel idioms don't apply to our ink-contour
+      vector style, but its silhouette/readability-at-size doctrine
+      does). LICENSE.txt included per skill. New skills register with
+      the Skill tool from the next session onward.
+
 - [x] **ROADMAP #11 Interconnector + #12 Battery policy (this prompt;
       dispatch/market lane)**:
   - [x] #11: GenType `'interconnector'` in catalog (1000 MW, 400 kV,
