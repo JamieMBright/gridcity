@@ -25,6 +25,19 @@
 
 ## Done (chronological, latest first)
 
+### Connection study prompt (firm vs flexible is a blind choice)
+- [x] Every open application gets a one-click ⚖ CONNECTION STUDY in the
+      inbox: the worker clones the live state (never touches it —
+      unit-proven), wires generation via an appropriate-kV line to the
+      nearest bay (named, km, £ quoted) or joins load to its catchment,
+      re-runs dispatch + power flow at stress (solar at clear noon, wind
+      on a blowy day, load at the calm winter-evening peak), and reports
+      every piece of kit ≥90% loaded (before→after %), incl. the
+      implicit catchment transformer for big loads — with a verdict:
+      clean → "FIRM is safe"; gen overloads → "take FLEXIBLE or
+      reinforce first (firm + curtailment = constraint payments)"; load
+      overloads → "reinforce before energizing"
+
 ### Undo-after-GIS bug prompt
 - [x] Undo after "rebuild underground (GIS)" (and any in-place mutation:
       uprate, MVA resize, conversions) did nothing or half-reverted —
@@ -60,10 +73,29 @@
       Bridge (twin gothic towers + bascule spans over the river); St
       Paul's dome + Gherkin where feasible — bespoke multi-tile sprites,
       verified on render previews
-- [ ] Roads "waaay worse than before": city streets re-laid on the TILE-
+- [x] …their TILE RESERVATIONS are in (map side): Parliament claims a
+      3-long × 2-deep river-front precinct stepping along the bank at
+      the Westminster bend (embankment + SW rail re-routed behind it),
+      St Paul's a 2×2 close, Battersea a 2×2 block — landmark raster +
+      building exclusion, unit-tested tile counts; Eye/Shard/Tower
+      Bridge/stations stay single-anchor; nothing moved (the sprites
+      themselves are the concurrent art package above)
+- [x] Roads "waaay worse than before": city streets re-laid on the TILE-
       EDGE lattice so they tessellate — running between blocks, along
       house fronts — instead of free splines wandering through buildings
-      and water; motorways/rail keep sweeping curves outside towns
+      and water; motorways/rail keep sweeping curves outside towns.
+      Streets are straight integer-lattice runs (rows every 4, columns
+      every 5 → 4×3 blocks; wander() deleted); arterials + lanes snap to
+      the lattice through any built fabric (axis-aligned runs, ~1-tile
+      rounded corners) and sweep only in open country; embankments are
+      stepped lattice paths a fixed setback off each bank; the Circular
+      re-laid with its two river crossings perpendicular (x=96, x=143);
+      Thames discipline unit-tested against the designated bridge set
+      (incl. the new square-on Staines town bridge at x=30); the M3 no
+      longer starts in the river; bridges/Heathrow spur/pier now stamp
+      the gameplay raster too. Verified on previews: preview/roads_
+      {westminster,central_tight,croydon,basildon,watford_m25,
+      ne_radials,dartford_m25}.png
 
 ### UI/UX critique flurry (map realism + inspection + faults)
 Map (recognisability pass 2 — owner provided London satellite/maps refs):

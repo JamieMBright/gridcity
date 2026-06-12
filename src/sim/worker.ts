@@ -24,6 +24,7 @@ import {
   type GameState,
   type SaveData,
 } from './state';
+import { connectionStudy } from './study';
 import { buildDemandField } from './map/demand';
 import {
   advanceTime,
@@ -260,6 +261,11 @@ self.onmessage = (e: MessageEvent<MainToWorker>) => {
         post({ type: 'snapshot', snapshot: makeSnapshot(false) });
         post({ type: 'saveData', data: serialize(state) });
         break;
+      case 'study': {
+        const app = state.applications.find((x) => x.id === msg.appId);
+        if (app) post({ type: 'study', study: connectionStudy(state, ctx, app) });
+        break;
+      }
       case 'watch':
         watchedAsset = msg.assetId;
         // answer immediately so the sparkline appears even while paused

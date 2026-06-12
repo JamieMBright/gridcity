@@ -294,21 +294,21 @@ export function seedScenario(state: GameState, ctx: SimContext): void {
 
 // --- save / load -----------------------------------------------------------
 
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 /** Guard for untrusted save payloads; lives beside SAVE_VERSION so the two
  *  can never drift apart again (a stale guard silently discarded saves). */
 export function isSaveData(d: unknown): d is SaveData {
   if (typeof d !== 'object' || d === null) return false;
   const v = (d as { v?: unknown }).v;
-  // v8: map recognisability pass 2 re-laid the Thames, towns and
-  // landmarks - v7 saves' assets would sit on the wrong geography
-  // (substations in the river). v7 itself broke the id scheme of v6.
-  return typeof v === 'number' && v >= 8 && v <= SAVE_VERSION;
+  // v9: streets re-laid on the tile-edge lattice + landmark precincts
+  // claimed new tiles - v8 saves' assets can sit on what is now road or
+  // protected fabric. (v8 moved the whole geography; v7 the id scheme.)
+  return typeof v === 'number' && v >= 9 && v <= SAVE_VERSION;
 }
 
 export interface SaveData {
-  v: 8;
+  v: 9;
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;

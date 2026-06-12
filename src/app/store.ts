@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { GenType, LineBuild, SubType } from '../sim/catalog';
 import type { VoltageLevel } from '../sim/grid/types';
 import type { SimSnapshot } from '../sim/protocol';
+import type { ConnectionStudy } from '../sim/study';
 import type { TileHover } from '../render/MapRenderer';
 
 export type WorkerStatus = 'connecting' | 'ready' | 'error';
@@ -47,6 +48,8 @@ interface AppState {
   panTarget: { x: number; y: number; seq: number } | undefined;
   /** A contract pin was clicked: snap the inbox to its message. */
   inboxFocus: { x: number; y: number; seq: number } | undefined;
+  /** Connection studies by application id (worker-computed). */
+  studies: Record<number, ConnectionStudy>;
   menuOpen: boolean;
   /** Current tutorial step index, or undefined when not in the tutorial. */
   tutorialStep: number | undefined;
@@ -66,6 +69,7 @@ interface AppState {
   setToast: (msg: string | undefined) => void;
   requestPan: (x: number, y: number) => void;
   requestInboxFocus: (x: number, y: number) => void;
+  setStudy: (study: ConnectionStudy) => void;
   setMenuOpen: (open: boolean) => void;
   setTutorialStep: (step: number | undefined) => void;
   setKpiOpen: (open: boolean) => void;
@@ -93,6 +97,7 @@ export const useAppStore = create<AppState>((set) => ({
   toast: undefined,
   panTarget: undefined,
   inboxFocus: undefined,
+  studies: {},
   menuOpen: true,
   tutorialStep: undefined,
   kpiOpen: false,
@@ -128,6 +133,7 @@ export const useAppStore = create<AppState>((set) => ({
     set((s) => ({ panTarget: { x, y, seq: (s.panTarget?.seq ?? 0) + 1 } })),
   requestInboxFocus: (x, y) =>
     set((s) => ({ inboxFocus: { x, y, seq: (s.inboxFocus?.seq ?? 0) + 1 } })),
+  setStudy: (study) => set((s) => ({ studies: { ...s.studies, [study.appId]: study } })),
   setMenuOpen: (menuOpen) => set({ menuOpen }),
   setTutorialStep: (tutorialStep) => set({ tutorialStep }),
   setKpiOpen: (kpiOpen) => set({ kpiOpen }),

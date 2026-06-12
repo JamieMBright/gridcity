@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../app/store';
-import { sendCommand } from '../app/workerBridge';
+import { requestStudy, sendCommand } from '../app/workerBridge';
 import { GENS } from '../sim/catalog';
 import { GEN_OF_KIND } from '../sim/events/applications';
 import { developerOf } from '../sim/events/developers';
@@ -27,6 +27,7 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   const snapshot = useAppStore((s) => s.snapshot);
   const requestPan = useAppStore((s) => s.requestPan);
   const inboxFocus = useAppStore((s) => s.inboxFocus);
+  const studies = useAppStore((s) => s.studies);
   const [open, setOpen] = useState(true);
   // a clicked map pin snaps the inbox to its message: open, scroll, flash
   const [flashKey, setFlashKey] = useState<string | undefined>(undefined);
@@ -178,6 +179,7 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
           {apps.map((a) => {
             const daysLeft = Math.max(0, (a.decideByMin - snapshot.simTimeMin) / 1440);
             const isGen = GEN_OF_KIND[a.kind] !== undefined;
+            const study = studies[a.id];
             return (
               <div
                 key={a.id}
@@ -197,7 +199,38 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
                   {a.mw} MW {isGen ? 'generation' : 'new demand'} · decide in{' '}
                   {daysLeft.toFixed(0)}d
                 </div>
+                {study && (
+                  <div style={{ fontSize: 11, marginTop: 3, lineHeight: 1.45 }}>
+                    {study.ok && study.bayName !== undefined && (
+                      <div style={{ color: theme.slate }}>
+                        study: {study.level} kV line to {study.bayName} ({study.distKm} km,{' '}
+                        {fmtMoneyK(study.lineCapexK ?? 0)})
+                      </div>
+                    )}
+                    {study.impacts.map((imp, i) => (
+                      <div key={i} style={{ color: theme.danger }}>
+                        ⚠ {imp.label}: {imp.beforePct}% → {imp.afterPct}%
+                      </div>
+                    ))}
+                    <div
+                      style={{
+                        color: study.ok && study.impacts.length === 0 ? theme.ok : theme.orangeSoft,
+                      }}
+                    >
+                      {study.recommendation}
+                    </div>
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
+                  {!study && (
+                    <button
+                      style={btn(theme.orangeSoft)}
+                      title="Simulate this connection: wire it to the nearest bay and check what overloads at stress"
+                      onClick={() => requestStudy(a.id)}
+                    >
+                      ⚖ study
+                    </button>
+                  )}
                   <button
                     style={btn(theme.ok)}
                     title="Full access; you compensate them if constrained off"
