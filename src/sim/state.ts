@@ -290,20 +290,21 @@ export function seedScenario(state: GameState, ctx: SimContext): void {
 
 // --- save / load -----------------------------------------------------------
 
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 /** Guard for untrusted save payloads; lives beside SAVE_VERSION so the two
  *  can never drift apart again (a stale guard silently discarded saves). */
 export function isSaveData(d: unknown): d is SaveData {
   if (typeof d !== 'object' || d === null) return false;
   const v = (d as { v?: unknown }).v;
-  // v7 changed the bus/branch id scheme (multi-winding substations);
-  // older saves key outages/heat by ids that no longer exist.
-  return typeof v === 'number' && v >= 7 && v <= SAVE_VERSION;
+  // v8: map recognisability pass 2 re-laid the Thames, towns and
+  // landmarks - v7 saves' assets would sit on the wrong geography
+  // (substations in the river). v7 itself broke the id scheme of v6.
+  return typeof v === 'number' && v >= 8 && v <= SAVE_VERSION;
 }
 
 export interface SaveData {
-  v: 7;
+  v: 8;
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;

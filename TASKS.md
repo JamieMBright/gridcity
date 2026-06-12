@@ -27,25 +27,36 @@
 
 ### UI/UX critique flurry (map realism + inspection + faults)
 Map (recognisability pass 2 — owner provided London satellite/maps refs):
-- [ ] Thames redrawn to the real shape (Richmond/Kingston meanders,
-      central bends, Isle of Dogs + Greenwich loops, Erith/Purfleet
-      reaches, widening estuary past Tilbury) — "the river is the wrong
-      shape" ×2
-- [ ] M25 no longer intersects Heathrow (it passes west of it); ring and
-      radials follow the real layout
-- [ ] Satellite towns: realistic hubs — real names/positions, varied
-      sizes (big Watford/Croydon-class down to villages), not a ring of
-      identical evenly-spaced blobs
-- [ ] Terrain diversity: kill the uniform 4×4 same-texture checkerboard —
-      varied field sizes/shapes/textures, heath/meadow/wood patches,
-      hills, reservoirs (Staines/Lea chains), parks
-- [ ] Interesting infrastructure in the empty bits: reservoirs, gravel
-      pits, golf courses, sewage works, quarries, farms with yards
-- [ ] Roads to nowhere fixed: radials/locals end at towns or the map
-      edge, not in a field
-- [ ] Landmarks made visible/prominent (player reports "there's no
-      landmarks")
-- [ ] Cars no longer travel at light speed (vehicle speeds ~⅓)
+- [x] Thames redrawn on the real reaches (45 control points): Staines/
+      Walton meanders, Richmond/Kew swing, central bends, deep Isle of
+      Dogs U (Canary Wharf CBD moved INTO the loop where it belongs),
+      Greenwich peninsula, Erith/Purfleet double bend, Dartford narrows,
+      NE-fanning estuary; tributaries as real valleys (Colne/Lea/Wey/
+      Mole/Darent/Roding) — previews inspected against the satellite ref
+- [x] M25 hand-laid 29-point ring passing WEST of Heathrow (verified: 0
+      heavy-road tiles on the airfield); M4/M3 added so the airport sits
+      between them; two runways + terminal + A4 spur
+- [x] Satellite towns: 18 named towns + 15 villages at true relative
+      positions, multi-lobe organic footprints, sized large (Watford,
+      Slough, Basildon, shore-strip Southend) down to villages
+- [x] Terrain diversity: variable-pitch (3–9 tile) jittered hedgerow
+      enclosures with per-field tints, heaths (Epsom Downs, Langdon
+      Hills…), varied woodland, 60 farmsteads — checkerboard read gone
+- [~] Crop choice within an enclosure still follows the renderer's 8×8
+      hash (tileChooser untouched this pass); the lattice + tints break
+      the repetition — revisit if the owner still sees grids
+- [x] Infrastructure in the empty bits: Staines/Wraysbury + QE2 + Lea
+      reservoirs, Colne gravel pits, Grays chalk pits + Tilbury docks,
+      8 golf courses, Beckton/Crossness/Mogden sewage works, market
+      gardens
+- [x] Roads to nowhere fixed (audited programmatically: every radial/
+      lane ends at a town, joins a road, or exits the edge)
+- [x] Landmarks relocated to the corrected river (Parliament/Eye at the
+      Westminster bend, Tower Bridge, Greenwich Park in the loop) and
+      NAMED_PLACES updated
+- [x] Cars no longer travel at light speed (vehicle speeds ~⅓)
+- [x] SAVE_VERSION 7→8: v7 saves' assets would sit on the wrong
+      geography (substations in the river)
 UX:
 - [x] Line interaction works on the WIRE as drawn: picking tests the
       click at several conductor elevations (pylon height + sag shift

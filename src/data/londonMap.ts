@@ -1,16 +1,20 @@
 // The ElectriCity main map: LONDON, drawn from its real geography. The
-// Thames follows its true shape — the Richmond meanders, the Westminster
-// bend, the deep Isle of Dogs loop, then the widening estuary. The city
-// itself is no painted rectangle: an organic density field falls away
-// from the centre, ribboning outward along the real radial roads (A1,
-// A10, A12, A13, A2, A23, A3, A4, A40, the A41) inside the North/South
-// Circular ring and the M25 — so housing hangs off the road network the
-// way the real city does, and countryside opens on every side for
-// generation. Beyond the green belt, satellite towns (Watford, St
-// Albans, Harlow, Brentwood, Southend, Sevenoaks, Guildford, Slough…)
-// grow from seeds with high streets, industry and civic kit. All shapes
-// are deterministic; a seeded RNG adds organic jitter, identically
-// every run.
+// Thames follows its true shape — the Staines/Walton meanders, the big
+// Richmond/Kingston S-bends, Hammersmith and Battersea, the Westminster
+// bend, the deep Isle of Dogs loop and the Greenwich peninsula, the
+// Erith–Purfleet double bend, the Dartford narrows, then the widening
+// estuary past Tilbury to the sea. The city itself is no painted
+// rectangle: an organic density field falls away from the centre,
+// ribboning outward along the real radial roads (A1, A10, A12, A13, A2,
+// A23, A3, A4, A40, the A41) inside the North/South Circular ring and
+// the M25 — which swings WEST of Heathrow, as it really does. Beyond the
+// green belt, real satellite towns at their true relative positions in
+// honestly varied sizes: big Watford, Slough, Basildon and shore-hugging
+// Southend down to villages like Cobham, Chigwell and Ongar. The
+// countryside is enclosed farmland: variable-size hedged fields (3–9
+// tiles a side), heaths, woods, reservoir chains, gravel pits, golf
+// courses and scattered farmsteads. All shapes are deterministic; a
+// seeded RNG adds organic jitter, identically every run.
 
 import {
   CUSTOMERS_PER_TILE,
@@ -36,36 +40,61 @@ export const LONDON_H = 160;
 const CENTRE = { x: 118, y: 80 };
 
 // --- The Thames: its actual shape -------------------------------------------
-// Control points west→east: Runnymede in, the Richmond/Kew meanders, up
-// through Putney to the Westminster bend, the City reach, then the deep
-// southward loop around the Isle of Dogs, Greenwich, and out through the
-// widening estuary.
+// Control points west→east, each one a real reach: in from the Windsor
+// meadows, the Staines and Walton meanders, the Kingston dip and the hard
+// swing north through Richmond and Kew, the Hammersmith/Putney wiggles,
+// Battersea reach, the Westminster bend turning north-east, the City
+// reach, then the deep southward loop around the Isle of Dogs, the
+// Greenwich peninsula poking back north, Woolwich and Barking reaches,
+// the Erith–Purfleet double bend, the narrows under the Dartford
+// crossing, and the long widening estuary past Tilbury and Canvey.
 
 const RIVER_PTS: Array<[number, number]> = [
-  [0, 126],
-  [16, 122],
-  [30, 118],
-  [42, 110],
-  [50, 112],
-  [58, 106],
-  [66, 104],
-  [72, 97],
-  [80, 94],
-  [86, 90],   // Westminster bend
-  [92, 87],
-  [98, 88],   // the City reach
-  [103, 93],
-  [107, 99],  // around the Isle of Dogs
-  [111, 95],
-  [116, 88],  // Greenwich back north
-  [124, 85],
-  [134, 83],
-  [148, 81],
-  [164, 79],
-  [184, 78],
-  [208, 79],
-  [232, 82],
-  [255, 84],
+  [0, 92], // Windsor reach in
+  [8, 96], // Datchet
+  [14, 92], // Horton
+  [22, 98], // Wraysbury
+  [30, 103], // Staines
+  [38, 100], // Laleham
+  [44, 106], // Chertsey
+  [52, 110], // Walton
+  [60, 106], // Sunbury
+  [66, 111], // Hampton
+  [72, 113], // Kingston, the southmost dip
+  [77, 104], // Teddington, swinging hard north
+  [80, 97], // Richmond
+  [84, 94], // Kew
+  [88, 98], // the Chiswick/Barnes loop
+  [92, 94], // Hammersmith bend
+  [96, 99], // Putney/Fulham
+  [100, 95], // Battersea reach
+  [104, 97], // Chelsea/Vauxhall
+  [108, 92], // Westminster bend, turning north
+  [112, 87], // Waterloo
+  [116, 86], // the City reach
+  [120, 86], // Tower Bridge
+  [124, 89], // Wapping
+  [127, 87], // Limehouse
+  [130, 92], // down the west side of the Isle of Dogs
+  [133, 96], // the loop bottom — Greenwich on the south bank
+  [136, 96],
+  [139, 89], // up the east side
+  [142, 84], // the Greenwich peninsula tip (the dome's tent)
+  [146, 88], // Blackwall
+  [152, 88], // Woolwich reach
+  [158, 92], // Gallions
+  [164, 97], // Barking / Halfway reach
+  [168, 99], // Erith rands
+  [172, 94], // Purfleet — the double bend
+  [176, 98], // Greenhithe
+  [180, 96], // the Dartford narrows (the crossing)
+  [186, 99], // Gravesend reach
+  [194, 97], // Tilbury
+  [204, 93],
+  [214, 88], // Lower Hope, turning north-east
+  [228, 83], // Canvey
+  [242, 79],
+  [255, 76], // the open sea
 ];
 
 /** River centreline lookup, sampled once from the control spline. */
@@ -88,13 +117,16 @@ export function riverCenterY(x: number): number {
   return RIVER_Y[xi] ?? 80;
 }
 
-/** River half-width: a narrow upper river, broadening through town, then
- *  fanning out into the estuary east of Gravesend. */
+/** River half-width: a narrow upper river, broadening through town and the
+ *  Barking reach, pinching back at the Dartford narrows, then fanning out
+ *  into the estuary past Tilbury. */
 export function riverHalfWidth(x: number): number {
-  if (x < 60) return 1.1;
-  if (x < 170) return 1.1 + 0.9 * ((x - 60) / 110);
-  const t = (x - 170) / (LONDON_W - 170);
-  return 2 + 13 * t * t;
+  if (x < 76) return 1.0;
+  if (x < 150) return 1.1 + 1.1 * ((x - 76) / 74); // through town
+  if (x < 166) return 2.2 + 0.6 * ((x - 150) / 16); // Barking reach
+  if (x < 180) return 2.8 - 0.8 * ((x - 166) / 14); // narrowing to Dartford
+  const t = (x - 180) / (LONDON_W - 180);
+  return 2 + 14.5 * t * t; // the estuary fans open
 }
 
 // --- Councils --------------------------------------------------------------
@@ -110,53 +142,72 @@ const COUNCIL_SEEDS: CouncilSeed[] = [
   { id: 2, x: 82, y: 104, name: 'Riverdene', affluence: 0.85, ambition: 0.7, blurb: 'Riverside villas. Early adopters of anything shiny.' },
   { id: 3, x: 124, y: 64, name: 'Camford', affluence: 0.6, ambition: 0.8, blurb: 'Young, dense, impatient for EV charging on every street.' },
   { id: 4, x: 112, y: 96, name: 'Southwark Vale', affluence: 0.5, ambition: 0.6, blurb: 'Markets and terraces south of the river.' },
-  { id: 5, x: 136, y: 84, name: 'Old Docks', affluence: 0.4, ambition: 0.7, blurb: 'Regenerating fast. Tower cranes on every block.' },
+  { id: 5, x: 136, y: 88, name: 'Old Docks', affluence: 0.4, ambition: 0.7, blurb: 'Regenerating fast. Tower cranes on every block.' },
   { id: 6, x: 134, y: 70, name: 'Walford Marsh', affluence: 0.3, ambition: 0.35, blurb: 'Proud, practical, suspicious of consultants.' },
   { id: 7, x: 116, y: 116, name: 'Penge Hollow', affluence: 0.45, ambition: 0.4, blurb: 'Quiet suburbs that would rather not be disturbed.' },
   { id: 8, x: 94, y: 74, name: 'Westgate', affluence: 0.7, ambition: 0.6, blurb: 'Stucco terraces and embassy lawns.' },
   { id: 9, x: 72, y: 50, name: 'Watfordshire', affluence: 0.6, ambition: 0.5, blurb: 'Commuter belt with opinions about train times.' },
   { id: 10, x: 160, y: 40, name: 'Harlow Reach', affluence: 0.5, ambition: 0.65, blurb: 'New town, newer ambitions.' },
-  { id: 11, x: 196, y: 52, name: 'Greenmarsh', affluence: 0.5, ambition: 0.75, blurb: 'Glasshouse capital. Wants cheap power and lots of it.' },
-  { id: 12, x: 190, y: 110, name: 'Witherly', affluence: 0.45, ambition: 0.25, blurb: 'Deep countryside. Electrification can wait for the cricket.' },
-  { id: 13, x: 232, y: 64, name: 'Estuary Point', affluence: 0.35, ambition: 0.6, blurb: 'Salt wind and big skies. Home of the nuclear question.' },
-  { id: 14, x: 234, y: 96, name: 'Southend Ness', affluence: 0.4, ambition: 0.45, blurb: 'End of the line. Cockles, caravans and a long pier.' },
+  { id: 11, x: 196, y: 48, name: 'Greenmarsh', affluence: 0.5, ambition: 0.75, blurb: 'Glasshouse capital. Wants cheap power and lots of it.' },
+  { id: 12, x: 190, y: 116, name: 'Witherly', affluence: 0.45, ambition: 0.25, blurb: 'Deep countryside. Electrification can wait for the cricket.' },
+  { id: 13, x: 212, y: 60, name: 'Estuary Point', affluence: 0.35, ambition: 0.6, blurb: 'Salt wind and big skies. Home of the nuclear question.' },
+  { id: 14, x: 238, y: 64, name: 'Southend Ness', affluence: 0.4, ambition: 0.45, blurb: 'End of the line. Cockles, caravans and a long pier.' },
 ];
 
 // --- Town seeds --------------------------------------------------------------
-// Satellite towns beyond the green belt, on every side of the city.
+// Real satellite towns at their true relative positions, in honestly
+// varied sizes — big commuter towns, market towns, and villages scattered
+// between. Estuary towns hug the shore; valley towns string along their
+// rivers (`dir` is the growth axis).
 
 export interface TownSeed {
   x: number;
   y: number;
-  /** Urban-core radius; suburbs reach ~2.2x this. */
+  /** Urban-core radius; suburbs reach ~2x this, lobes further. */
   r: number;
   kind: 'town' | 'village';
+  name: string;
+  /** Preferred growth axis (valley/shore towns); omit for roundish towns. */
+  dir?: [number, number];
 }
 
 export const TOWNS: TownSeed[] = [
-  { x: 64, y: 42, r: 3, kind: 'town' }, // Watford
-  { x: 98, y: 22, r: 3, kind: 'town' }, // St Albans
-  { x: 162, y: 26, r: 3, kind: 'town' }, // Harlow
-  { x: 184, y: 52, r: 3, kind: 'town' }, // Brentwood
-  { x: 208, y: 40, r: 3, kind: 'town' }, // Chelmsford
-  { x: 236, y: 92, r: 3, kind: 'town' }, // Southend
-  { x: 162, y: 136, r: 3, kind: 'town' }, // Sevenoaks
-  { x: 52, y: 132, r: 3, kind: 'town' }, // Guildford
-  { x: 34, y: 70, r: 3, kind: 'town' }, // Slough
-  { x: 160, y: 102, r: 2, kind: 'town' }, // Dartford
-  { x: 36, y: 28, r: 2, kind: 'village' },
-  { x: 78, y: 16, r: 2, kind: 'village' },
-  { x: 130, y: 14, r: 2, kind: 'village' },
-  { x: 188, y: 22, r: 2, kind: 'village' },
-  { x: 232, y: 30, r: 2, kind: 'village' },
-  { x: 200, y: 66, r: 2, kind: 'village' },
-  { x: 222, y: 110, r: 2, kind: 'village' },
-  { x: 196, y: 128, r: 2, kind: 'village' },
-  { x: 132, y: 146, r: 2, kind: 'village' },
-  { x: 92, y: 142, r: 2, kind: 'village' },
-  { x: 24, y: 104, r: 2, kind: 'village' },
-  { x: 18, y: 46, r: 2, kind: 'village' },
-  { x: 246, y: 56, r: 2, kind: 'village' },
+  // the big ones
+  { x: 64, y: 42, r: 4, kind: 'town', name: 'Watford', dir: [0.3, 1] }, // strung down the Colne valley
+  { x: 34, y: 70, r: 3.5, kind: 'town', name: 'Slough', dir: [1, 0] }, // ribboned along the A4
+  { x: 40, y: 122, r: 3, kind: 'town', name: 'Woking', dir: [1, 0.2] },
+  { x: 120, y: 114, r: 4, kind: 'town', name: 'Croydon' }, // the conurbation's southern edge
+  { x: 158, y: 64, r: 3.5, kind: 'town', name: 'Romford' }, // its eastern edge
+  { x: 198, y: 58, r: 3.5, kind: 'town', name: 'Basildon', dir: [1, 0] },
+  { x: 236, y: 64, r: 4, kind: 'town', name: 'Southend', dir: [1, -0.25] }, // hugs the estuary shore
+  // market towns
+  { x: 98, y: 22, r: 3, kind: 'town', name: 'St Albans' },
+  { x: 162, y: 24, r: 3, kind: 'town', name: 'Harlow' },
+  { x: 208, y: 32, r: 3, kind: 'town', name: 'Chelmsford' },
+  { x: 182, y: 50, r: 2.5, kind: 'town', name: 'Brentwood' },
+  { x: 174, y: 102, r: 2.5, kind: 'town', name: 'Dartford', dir: [0.3, 1] }, // up the Darent valley
+  { x: 188, y: 104, r: 2.5, kind: 'town', name: 'Gravesend', dir: [1, 0] }, // along the south shore
+  { x: 90, y: 128, r: 2.5, kind: 'town', name: 'Epsom' },
+  { x: 36, y: 108, r: 2.5, kind: 'town', name: 'Staines', dir: [1, 0.3] }, // on the river
+  { x: 162, y: 138, r: 2.5, kind: 'town', name: 'Sevenoaks' },
+  { x: 48, y: 142, r: 2.5, kind: 'town', name: 'Guildford', dir: [1, 0] }, // under the Hog's Back
+  { x: 178, y: 90, r: 2, kind: 'town', name: 'Grays', dir: [1, 0] }, // among the chalk pits
+  // villages scattered between
+  { x: 22, y: 36, r: 2, kind: 'village', name: 'Amersham' },
+  { x: 18, y: 86, r: 2, kind: 'village', name: 'Windsor' },
+  { x: 48, y: 114, r: 1.5, kind: 'village', name: 'Chertsey' },
+  { x: 60, y: 128, r: 1.5, kind: 'village', name: 'Cobham' },
+  { x: 88, y: 144, r: 2, kind: 'village', name: 'Dorking' },
+  { x: 132, y: 146, r: 1.5, kind: 'village', name: 'Oxted' },
+  { x: 142, y: 62, r: 1.5, kind: 'village', name: 'Chigwell' },
+  { x: 174, y: 36, r: 1.5, kind: 'village', name: 'Ongar' },
+  { x: 194, y: 44, r: 2, kind: 'village', name: 'Billericay' },
+  { x: 222, y: 50, r: 2, kind: 'village', name: 'Rayleigh' },
+  { x: 234, y: 22, r: 2, kind: 'village', name: 'Maldon' },
+  { x: 136, y: 12, r: 2, kind: 'village', name: 'Ware' },
+  { x: 112, y: 14, r: 1.5, kind: 'village', name: 'Hatfield' },
+  { x: 182, y: 92, r: 1.5, kind: 'village', name: 'Tilbury' }, // docks on the marsh
+  { x: 206, y: 110, r: 1.5, kind: 'village', name: 'Hoo' },
 ];
 
 /** New-build estates: iDNO transformer in, every roof solar'd, waiting. */
@@ -174,8 +225,8 @@ export const FLAG_RUNWAY = 2;
 export const NAMED_PLACES: Array<{ x: number; y: number; name: string }> = [
   { x: 114, y: 78, name: "King's Cross" },
   { x: 122, y: 76, name: 'Liverpool Street' },
-  { x: 122, y: 86, name: 'London Bridge' },
-  { x: 64, y: 84, name: 'Heathrow' },
+  { x: 122, y: 90, name: 'London Bridge' },
+  { x: 65, y: 87, name: 'Heathrow' },
 ];
 
 /** Generation already on the system when the game opens — the real-world
@@ -188,7 +239,7 @@ export const EXISTING_GENERATION: Array<{
   y: number;
 }> = [
   { gen: 'gasCCGT', x: 204, y: 70 }, // Coryton/Tilbury analog on the estuary
-  { gen: 'gasPeaker', x: 134, y: 44 }, // Enfield analog up the Lea
+  { gen: 'gasPeaker', x: 128, y: 40 }, // Enfield analog up the Lea
   { gen: 'solarFarm', x: 192, y: 88 }, // Essex field array
   { gen: 'windOnshore', x: 228, y: 46 }, // turbines above the creek
 ];
@@ -247,17 +298,26 @@ export function buildLondonMap(): CityMap {
     }
   };
 
-  const forestBlob = (cx: number, cy: number, r: number): void => {
+  const terrainBlob = (cx: number, cy: number, r: number, t: Terrain): void => {
     for (let y = Math.floor(cy - r - 1); y <= cy + r + 1; y++) {
       for (let x = Math.floor(cx - r - 1); x <= cx + r + 1; x++) {
         if (!isLand(x, y)) continue;
         const d = Math.hypot(x - cx, y - cy);
-        if (d <= r - 1 || (d <= r + 1 && rng.chance(0.5))) terrain[idx(x, y)] = TERRAIN.trees;
+        if (d <= r - 1 || (d <= r + 1 && rng.chance(0.5))) terrain[idx(x, y)] = t;
+      }
+    }
+  };
+  const forestBlob = (cx: number, cy: number, r: number): void => terrainBlob(cx, cy, r, TERRAIN.trees);
+  const lakeBlob = (cx: number, cy: number, r: number): void => {
+    for (let y = Math.floor(cy - r - 1); y <= cy + r + 1; y++) {
+      for (let x = Math.floor(cx - r - 1); x <= cx + r + 1; x++) {
+        const d = Math.hypot(x - cx, y - cy);
+        if (d <= r || (d <= r + 0.8 && rng.chance(0.4))) setTerrain(x, y, TERRAIN.water);
       }
     }
   };
 
-  // 1) The Thames + the Essex creek
+  // 1) The Thames + the Essex creek (the Crouch)
   for (let x = 0; x < w; x++) {
     const cy = riverCenterY(x);
     const hw = riverHalfWidth(x);
@@ -273,12 +333,16 @@ export function buildLondonMap(): CityMap {
     if (rng.chance(0.3)) setTerrain(x, cy + 2, TERRAIN.water);
   }
 
-  // 1b) Tributaries: the Lea down from the north, the Wey/Mole up from
-  // the Surrey hills, the Colne in the west — thin winding water
+  // 1b) Tributaries, each a real valley: the Colne past Watford to Staines,
+  // the Lea down the reservoir chain, the Wey through Woking, the Mole
+  // under the Downs, the Darent through Dartford, the Roding past Romford.
   const TRIBUTARIES: Array<Array<[number, number]>> = [
-    [[134, 14], [132, 30], [134, 46], [130, 62], [127, 74], [125, riverCenterY(125) - 1]], // Lea
-    [[98, 154], [102, 136], [100, 120], [102, 106], [101, riverCenterY(101) + 2]], // Wey/Mole
-    [[52, 18], [48, 38], [44, 60], [42, 84], [42, riverCenterY(42) - 1]], // Colne
+    [[56, 10], [58, 24], [56, 38], [52, 52], [48, 66], [46, 80], [44, 92], [42, 103]], // Colne
+    [[136, 10], [134, 24], [136, 38], [133, 50], [130, 62], [128, 74], [126, 86]], // Lea
+    [[46, 156], [44, 144], [42, 132], [40, 122], [44, 114], [48, 109]], // Wey
+    [[98, 156], [94, 144], [90, 132], [82, 124], [72, 118], [68, 112]], // Mole
+    [[166, 142], [168, 128], [170, 114], [172, 104], [173, 97]], // Darent
+    [[172, 28], [168, 42], [163, 56], [159, 70], [156, 82], [155, 88]], // Roding
   ];
   for (const trib of TRIBUTARIES) {
     for (const [sx, sy] of sampleRoute({ kind: 'lane', pts: trib }, 0.4)) {
@@ -288,21 +352,18 @@ export function buildLondonMap(): CityMap {
       if (rng.chance(0.35)) setTerrain(tx + 1, ty, TERRAIN.water);
     }
   }
-  // reservoir chains: along the Lea valley and out west by the Colne
+  // 1c) Standing water: the Staines/Wraysbury reservoir group right beside
+  // Heathrow, the Lea Valley chain, gravel pits down the Colne, the
+  // flooded chalk pits behind Grays, and the Kent and Essex reservoirs.
   for (const [cx, cy, r] of [
-    [136, 38, 2.2],
-    [135, 46, 2.6],
-    [138, 54, 2],
-    [38, 92, 2.8],
-    [44, 88, 2],
-    [206, 116, 2.2],
+    [46, 92, 3], [52, 96, 2.6], [44, 98, 2.2], [60, 118, 2.4], // Staines group + the QE2
+    [44, 76, 1.2], [42, 82, 1.4], [46, 86, 1], // Colne gravel pits
+    [136, 34, 1.8], [137, 42, 2.2], [134, 52, 2.4], [131, 62, 2], [129, 70, 1.8], // the Lea chain
+    [174, 86, 1.4], [171, 90, 1.1], // Grays chalk pits
+    [206, 116, 2.2], // the Kent reservoir
+    [200, 44, 1.8], // Hanningfield, Essex
   ] as const) {
-    for (let y = Math.floor(cy - r - 1); y <= cy + r + 1; y++) {
-      for (let x = Math.floor(cx - r - 1); x <= cx + r + 1; x++) {
-        const d = Math.hypot(x - cx, y - cy);
-        if (d <= r || (d <= r + 0.8 && rng.chance(0.4))) setTerrain(x, y, TERRAIN.water);
-      }
-    }
+    lakeBlob(cx, cy, r);
   }
 
   // 2) Hills: the Chiltern edge NW, the North Downs along the south
@@ -315,32 +376,50 @@ export function buildLondonMap(): CityMap {
       }
     }
   }
+  // named heights: the Downs spurs, the Chiltern knolls, Langdon Hills
+  for (const [cx, cy, r] of [
+    [96, 138, 3.5], // Epsom Downs
+    [60, 136, 3], // the Hog's Back
+    [118, 140, 3], [146, 134, 2.5], // the Downs above Oxted
+    [24, 26, 4], [12, 48, 3], [38, 14, 3], // Chiltern fringe
+    [192, 68, 2], // Langdon Hills above Basildon
+    [218, 40, 2], // Danbury ridge
+  ] as const) {
+    terrainBlob(cx, cy, r, TERRAIN.hill);
+  }
 
-  // 3) Forests: Epping NE of the city, woods scattered through the belt
+  // 3) Forests: Epping NE of the city, real woods through the belt in
+  // honestly varied sizes
   forestBlob(148, 50, 8); // Epping
   forestBlob(156, 38, 6);
-  forestBlob(40, 32, 6);
-  forestBlob(46, 118, 7);
-  forestBlob(182, 128, 7);
+  forestBlob(40, 32, 6); // Chiltern beechwoods
+  forestBlob(46, 126, 4); // Chobham heathwoods
+  forestBlob(182, 128, 7); // the Kent Weald edge
   forestBlob(216, 122, 5);
-  forestBlob(76, 130, 5);
-  forestBlob(24, 84, 5);
+  forestBlob(76, 132, 5); // Ranmore
+  forestBlob(24, 84, 5); // Windsor Great Park
+  forestBlob(108, 28, 3);
+  forestBlob(228, 116, 4);
+  forestBlob(12, 112, 4);
+  forestBlob(166, 116, 3);
+  forestBlob(86, 30, 2);
 
   // 4) The radial skeleton (real bearings) — defined BEFORE the density
   // field so housing can ribbon along it the way real London does.
   const RADIALS: Array<{ pts: Array<[number, number]>; amp: number }> = [
-    { pts: [[118, 70], [112, 46], [104, 32], [98, 22], [92, 4]], amp: 1.4 }, // A1 north
-    { pts: [[121, 70], [130, 44], [136, 28], [140, 8]], amp: 1.4 }, // A10
-    { pts: [[124, 73], [142, 56], [162, 26]], amp: 1.6 }, // A12 → Harlow
-    { pts: [[128, 76], [152, 60], [184, 52], [208, 40], [244, 30]], amp: 1.8 }, // A12/A130 → Brentwood, Chelmsford
-    { pts: [[128, 82], [150, 76], [176, 72], [206, 72], [240, 74]], amp: 1.4 }, // A13 along the estuary
-    { pts: [[122, 88], [142, 98], [160, 102], [192, 118], [226, 134]], amp: 1.6 }, // A2 → Dartford, Kent
-    { pts: [[116, 90], [112, 112], [106, 130], [100, 156]], amp: 1.4 }, // A23 south
-    { pts: [[112, 88], [94, 106], [72, 122], [52, 132], [38, 148]], amp: 1.6 }, // A3 → Guildford
-    { pts: [[108, 82], [84, 84], [58, 78], [34, 70], [8, 66]], amp: 1.4 }, // A4 → Slough
-    { pts: [[110, 76], [88, 64], [62, 52], [36, 44]], amp: 1.5 }, // A40 west-northwest
-    { pts: [[112, 72], [98, 56], [78, 46], [64, 42], [44, 24]], amp: 1.5 }, // A41/M1 → Watford
-    { pts: [[120, 86], [134, 96], [148, 108], [162, 136]], amp: 1.6 }, // A21 → Sevenoaks
+    { pts: [[118, 70], [112, 46], [104, 32], [98, 22], [92, 0]], amp: 1.4 }, // A1 north
+    { pts: [[121, 70], [130, 44], [134, 28], [136, 12], [136, 0]], amp: 1.4 }, // A10 past Ware
+    { pts: [[124, 73], [142, 56], [154, 40], [162, 24]], amp: 1.6 }, // A12/M11 → Harlow
+    { pts: [[128, 76], [152, 60], [182, 50], [208, 34], [240, 24], [255, 20]], amp: 1.8 }, // A12 → Brentwood, Chelmsford, out east
+    { pts: [[130, 78], [158, 64], [178, 60], [198, 58], [222, 56], [236, 62]], amp: 1.4 }, // A127 → Romford, Basildon, Southend
+    { pts: [[128, 82], [148, 80], [166, 84], [182, 86], [196, 82], [212, 74], [228, 68], [238, 64]], amp: 1.4 }, // A13 along the estuary
+    { pts: [[122, 88], [140, 96], [158, 102], [174, 104], [188, 106], [206, 112], [226, 124], [240, 130], [255, 136]], amp: 1.5 }, // A2 → Dartford, Gravesend, Kent
+    { pts: [[116, 90], [114, 112], [110, 130], [106, 146], [104, 159]], amp: 1.4 }, // A23 south
+    { pts: [[112, 88], [94, 106], [74, 120], [60, 128], [50, 140], [44, 152], [42, 159]], amp: 1.6 }, // A3 → Cobham, Guildford
+    { pts: [[108, 82], [88, 82], [70, 78], [52, 74], [34, 70], [16, 66], [0, 64]], amp: 1.4 }, // A4 → Slough, out west
+    { pts: [[110, 76], [88, 64], [62, 52], [40, 42], [22, 36], [8, 28], [0, 26]], amp: 1.5 }, // A40 west-northwest
+    { pts: [[112, 72], [98, 56], [78, 46], [64, 42], [50, 30], [40, 16], [36, 0]], amp: 1.5 }, // A41 → Watford, out north-west
+    { pts: [[120, 86], [134, 98], [148, 112], [156, 124], [162, 138], [166, 150], [168, 159]], amp: 1.6 }, // A21 → Sevenoaks, out south
   ];
 
   // 5) The city: an organic density field around the centre, boosted
@@ -396,66 +475,156 @@ export function buildLondonMap(): CityMap {
     }
   }
 
-  // the two skyscraper districts: the Square Mile and the Docklands wharf
+  // the two skyscraper districts: the Square Mile, and the wharf towers
+  // on the Isle of Dogs inside the river's deep loop
   zoneBlob(116, 77, 3.4, ZONE.cbd);
-  zoneBlob(107, 95, 2.4, ZONE.cbd); // on the Isle of Dogs loop
+  zoneBlob(134, 89, 2.2, ZONE.cbd); // Canary, on the tongue inside the loop
   // conservation quarters: Mayfair beside the park, the heath NW, the
-  // river bend SW
+  // river bend at Richmond/Kew
   zoneBlob(107, 77, 2.6, ZONE.posh);
   zoneBlob(103, 63, 4.5, ZONE.posh);
-  zoneBlob(82, 100, 4.5, ZONE.posh);
+  zoneBlob(84, 102, 4.5, ZONE.posh);
   // industry: the east-river corridors + the western works
-  zoneRect(134, 74, 152, 80, ZONE.industrial, 2);
-  zoneRect(138, 86, 154, 92, ZONE.industrial, 2);
-  zoneBlob(94, 70, 3, ZONE.industrial);
-  zoneRect(186, 62, 198, 70, ZONE.industrial, 2);
+  zoneRect(134, 74, 152, 80, ZONE.industrial, 2); // Lea mouth / Stratford
+  zoneRect(158, 84, 170, 88, ZONE.industrial, 2); // Dagenham, north bank
+  zoneRect(146, 94, 158, 98, ZONE.industrial, 2); // Charlton/Woolwich, south bank
+  zoneBlob(94, 70, 3, ZONE.industrial); // Park Royal
+  zoneRect(176, 86, 182, 90, ZONE.industrial, 1); // Grays riverside works
+  zoneRect(180, 90, 186, 93, ZONE.industrial, 1); // Tilbury docks
 
-  // 5b) Copses: small woods scattered through the open countryside so the
-  // belt reads as enclosed English farmland, not a snooker table
-  for (let attempt = 0; attempt < 90; attempt++) {
-    const cx = 4 + rng.int(w - 8);
-    const cy = 6 + rng.int(h - 12);
-    if (zone[idx(cx, cy)] !== ZONE.none) continue;
-    if (!isLand(cx, cy)) continue;
-    forestBlob(cx, cy, 1 + rng.int(2));
-  }
-
-  // 6) Satellite towns and villages beyond the belt
-  for (const t of TOWNS) {
-    if (t.kind === 'town') {
-      zoneBlob(t.x, t.y, t.r * 2.2, ZONE.suburb);
-      zoneBlob(t.x, t.y, t.r, ZONE.urban);
+  // 6) Satellite towns and villages beyond the belt: organic footprints —
+  // a core, suburb lobes strung along the town's growth axis, industry on
+  // the edge. Estuary towns hug the shore; valley towns follow rivers.
+  const townBlob = (t: TownSeed): void => {
+    const [dx, dy] = t.dir ?? [0, 0];
+    const len = Math.hypot(dx, dy);
+    const ux = len > 0 ? dx / len : 0;
+    const uy = len > 0 ? dy / len : 0;
+    zoneBlob(t.x, t.y, t.r * 1.9, ZONE.suburb);
+    const lobes = t.r >= 3.5 ? 4 : t.r >= 2.5 ? 3 : 2;
+    for (let k = 0; k < lobes; k++) {
+      let ox: number;
+      let oy: number;
+      if (len > 0) {
+        const s = (k % 2 === 0 ? 1 : -1) * rng.range(0.8, 2) * t.r;
+        ox = ux * s + rng.range(-1.5, 1.5);
+        oy = uy * s + rng.range(-1.5, 1.5);
+      } else {
+        const a = rng.range(0, Math.PI * 2);
+        const d = t.r * rng.range(1, 2);
+        ox = Math.cos(a) * d;
+        oy = Math.sin(a) * d;
+      }
+      zoneBlob(t.x + ox, t.y + oy, t.r * rng.range(0.7, 1.3), ZONE.suburb);
+    }
+    zoneBlob(t.x, t.y, t.r, ZONE.urban);
+    if (t.r >= 3.5) {
+      zoneBlob(t.x + ux * t.r + rng.range(-2, 2), t.y + uy * t.r + rng.range(-2, 2), t.r * 0.55, ZONE.urban);
+    }
+    const ind = t.r >= 3.5 ? 2 : 1;
+    for (let k = 0; k < ind; k++) {
       const a = rng.range(0, Math.PI * 2);
-      zoneBlob(t.x + Math.cos(a) * t.r * 2.4, t.y + Math.sin(a) * t.r * 2.4, 2, ZONE.industrial);
-    } else {
-      zoneBlob(t.x, t.y, t.r, ZONE.rural);
+      zoneBlob(t.x + Math.cos(a) * t.r * 2.3, t.y + Math.sin(a) * t.r * 2.3, 1.6 + t.r * 0.2, ZONE.industrial);
+    }
+  };
+  for (const t of TOWNS) {
+    if (t.kind === 'town') townBlob(t);
+    else zoneBlob(t.x, t.y, t.r, ZONE.rural);
+  }
+  // Southend spreads in a strip along its shore (and gets the long pier)
+  for (let x = 222; x <= 248; x++) {
+    const shore = Math.floor(riverCenterY(x) - riverHalfWidth(x));
+    for (let y = shore - 4; y <= shore - 1; y++) {
+      if (!isLand(x, y)) continue;
+      if (y === shore - 4 && rng.chance(0.5)) continue;
+      zone[idx(x, y)] = zone[idx(x, y)] === ZONE.urban ? ZONE.urban : ZONE.suburb;
     }
   }
   for (const e of NEW_ESTATES) zoneBlob(e.x, e.y, e.r, ZONE.newEstate);
 
-  // glasshouses (the Lea Valley NNE + Essex), pre-sited generation
+  // Heathrow's airfield in the west: two parallel runways cut into the
+  // fields, the ground cleared before the streets are laid — inside the
+  // M25 (which passes to its west), south of the M4, north of the M3
+  const inAirfield = (x: number, y: number): boolean => x >= 54 && x <= 76 && y >= 83 && y <= 91;
+  {
+    for (let x = 54; x <= 76; x++) {
+      for (let y = 83; y <= 91; y++) {
+        if (!inb(x, y) || !isLand(x, y)) continue;
+        zone[idx(x, y)] = ZONE.none;
+      }
+    }
+    for (let x = 56; x <= 72; x++) {
+      for (const y of [84, 85]) {
+        if (!inb(x, y) || !isLand(x, y)) continue;
+        flags[idx(x, y)] = (flags[idx(x, y)] ?? 0) | FLAG_RUNWAY;
+      }
+    }
+    for (let x = 58; x <= 74; x++) {
+      for (const y of [89, 90]) {
+        if (!inb(x, y) || !isLand(x, y)) continue;
+        flags[idx(x, y)] = (flags[idx(x, y)] ?? 0) | FLAG_RUNWAY;
+      }
+    }
+  }
+
+  // glasshouses (the Lea Valley NNE, Essex, and the Kent fringe market
+  // gardens), pre-sited generation
   zoneRect(132, 30, 142, 40, ZONE.greenhouse, 1);
   zoneRect(204, 46, 216, 54, ZONE.greenhouse, 1);
-  zoneRect(38, 96, 48, 102, ZONE.solarSite);
+  zoneRect(146, 118, 154, 124, ZONE.greenhouse, 1); // Kent fringe
+  zoneRect(22, 52, 32, 58, ZONE.solarSite);
   zoneRect(72, 26, 82, 31, ZONE.solarSite);
   zoneRect(190, 86, 200, 92, ZONE.solarSite);
   zoneRect(214, 104, 224, 110, ZONE.solarSite);
   zoneRect(58, 142, 68, 148, ZONE.solarSite);
   zoneRect(172, 116, 180, 121, ZONE.solarSite);
-  zoneRect(226, 58, 240, 66, ZONE.nuclearSite);
-  for (let y = 64; y <= 104; y++) {
+  zoneRect(208, 64, 220, 71, ZONE.nuclearSite); // the marshy north shore
+  for (let y = 56; y <= 110; y++) {
     for (let x = 244; x < w; x++) {
       if (isWater(x, y)) zone[idx(x, y)] = ZONE.windSite;
     }
   }
-  // royal parks + the great commons
+  // royal parks + the great commons, and Greenwich park on its hill
+  // inside the loop's south bank
   zoneRect(108, 73, 115, 78, ZONE.park); // Hyde
   zoneRect(112, 64, 118, 69, ZONE.park); // Regent's
   zoneRect(99, 56, 107, 61, ZONE.park); // the heath
   zoneRect(78, 108, 88, 116, ZONE.park); // Richmond park
   zoneRect(124, 71, 130, 75, ZONE.park); // Victoria park
-  zoneRect(110, 99, 116, 103, ZONE.park); // Greenwich park
-  zoneRect(126, 108, 132, 113, ZONE.park);
+  zoneRect(130, 100, 137, 104, ZONE.park); // Greenwich park
+  zoneRect(126, 108, 132, 113, ZONE.park); // Dulwich
+  // golf courses fringing the suburbs and towns
+  for (const [cx, cy, r] of [
+    [70, 58, 2], [44, 64, 1.8], [100, 34, 1.8], [148, 70, 2],
+    [126, 126, 2], [170, 110, 1.8], [52, 118, 1.8], [228, 56, 1.8],
+  ] as const) {
+    zoneBlob(cx, cy, r, ZONE.park);
+  }
+
+  // 6b) Copses + scattered farmsteads: the belt reads as worked, enclosed
+  // English farmland, not a snooker table
+  for (let attempt = 0; attempt < 110; attempt++) {
+    const cx = 4 + rng.int(w - 8);
+    const cy = 6 + rng.int(h - 12);
+    if (zone[idx(cx, cy)] !== ZONE.none) continue;
+    if (!isLand(cx, cy) || inAirfield(cx, cy)) continue;
+    forestBlob(cx, cy, 1 + rng.int(3));
+  }
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const cx = 6 + rng.int(w - 12);
+    const cy = 8 + rng.int(h - 16);
+    if (zone[idx(cx, cy)] !== ZONE.none || !isLand(cx, cy) || inAirfield(cx, cy)) continue;
+    if (cx > 180 && Math.abs(cy - riverCenterY(cx)) < 10) continue; // not on the marsh
+    zoneBlob(cx, cy, 0.9, ZONE.rural); // a farmstead and its yard
+  }
+  // heather and rough grazing in patches through the belt
+  for (let attempt = 0; attempt < 14; attempt++) {
+    const cx = 8 + rng.int(w - 16);
+    const cy = 10 + rng.int(h - 20);
+    if (zone[idx(cx, cy)] !== ZONE.none || !isLand(cx, cy) || inAirfield(cx, cy)) continue;
+    if (cx > 180 && Math.abs(cy - riverCenterY(cx)) < 10) continue;
+    terrainBlob(cx, cy, 1.5 + rng.range(0, 1.5), TERRAIN.hill);
+  }
 
   // 7) Councils: nearest-seed Voronoi over land
   for (let y = 0; y < h; y++) {
@@ -507,20 +676,44 @@ export function buildLondonMap(): CityMap {
     routes.push({ kind, pts: amp > 0 ? wander(pts, amp) : pts });
   };
 
-  // the M25, ringing the whole city
-  {
-    const pts: Array<[number, number]> = [];
-    for (let i = 0; i < 28; i++) {
-      const a = (i / 28) * Math.PI * 2;
-      pts.push([
-        CENTRE.x + Math.cos(a) * 55 + rng.range(-1.5, 1.5),
-        CENTRE.y + Math.sin(a) * 47 + rng.range(-1.5, 1.5),
-      ]);
-    }
-    const first = pts[0];
-    if (first) pts.push([first[0], first[1]]);
-    addRoute('motorway', pts);
-  }
+  // the M25, ringing the whole city — hand-laid on its real line: it
+  // passes WEST of Heathrow (the airport sits inside the ring between the
+  // M4 and the M3) and crosses the river at the Dartford narrows
+  addRoute('motorway', [
+    [118, 28], // South Mimms
+    [100, 30],
+    [84, 32], // Kings Langley
+    [68, 34], // skirting north-west of Watford
+    [58, 40], // Chorleywood
+    [52, 50],
+    [48, 62], // the M40 junction
+    [48, 76], // the M4 junction — west of Heathrow
+    [50, 90], // still west of the airport
+    [52, 102], // Staines, crossing the river
+    [56, 112], // the M3 junction
+    [62, 122], // Chertsey
+    [70, 130], // Wisley (the A3)
+    [84, 136], // Leatherhead
+    [100, 140], // Reigate
+    [118, 142], // Godstone
+    [134, 140],
+    [146, 132], // the Kent corner, north of Sevenoaks
+    [154, 120],
+    [160, 110], // Swanley
+    [166, 102],
+    [170, 96], // the Dartford crossing, over the narrows
+    [172, 86], // Thurrock
+    [172, 74],
+    [170, 62],
+    [166, 50], // the Brentwood corner
+    [158, 42], // the M11 junction
+    [146, 36], // skirting Epping forest
+    [134, 32], // Enfield
+    [118, 28],
+  ]);
+  // the M4 west past Slough and the M3 south-west — Heathrow sits between
+  addRoute('motorway', [[100, 78], [80, 76], [60, 72], [40, 68], [20, 64], [0, 62]]);
+  addRoute('motorway', [[102, 96], [82, 104], [62, 112], [44, 116], [24, 122], [0, 126]]);
   // the North + South Circulars: the inner ring road
   {
     const pts: Array<[number, number]> = [];
@@ -537,32 +730,57 @@ export function buildLondonMap(): CityMap {
   {
     const north: Array<[number, number]> = [];
     const south: Array<[number, number]> = [];
-    for (let x = 64; x <= 240; x += 7) {
+    for (let x = 86; x <= 170; x += 6) {
       const cy = riverCenterY(x);
       const hw = riverHalfWidth(x);
       north.push([x, cy - hw - 2.5 + rng.range(-0.5, 0.5)]);
-      if (x < 176) south.push([x, cy + hw + 2.5 + rng.range(-0.5, 0.5)]);
+      if (x <= 160) south.push([x, cy + hw + 2.5 + rng.range(-0.5, 0.5)]);
     }
     addRoute('arterial', north);
     addRoute('arterial', south);
   }
   // the radials themselves
   for (const r of RADIALS) addRoute('arterial', r.pts, r.amp);
-  // country lanes chaining the villages
-  addRoute('lane', [[36, 28], [18, 46], [24, 104], [52, 132]], 2);
-  addRoute('lane', [[78, 16], [98, 22], [130, 14], [188, 22], [232, 30]], 2);
-  addRoute('lane', [[200, 66], [222, 110], [196, 128], [162, 136]], 2);
-  addRoute('lane', [[92, 142], [132, 146], [162, 136]], 1.8);
-  addRoute('lane', [[208, 40], [246, 56], [236, 92]], 2);
-  addRoute('lane', [[160, 102], [196, 128]], 1.8);
+  // country lanes chaining the villages — every lane ends at a town, a
+  // village, another road or the map edge; none dies in a field
+  addRoute('lane', [[22, 36], [18, 60], [18, 86]], 2); // Amersham → Windsor
+  addRoute('lane', [[18, 86], [26, 78], [34, 70]], 1.8); // Windsor → Slough
+  addRoute('lane', [[18, 86], [28, 100], [36, 108]], 1.8); // Windsor → Staines
+  addRoute('lane', [[36, 108], [48, 114], [60, 128], [76, 128], [90, 128]], 2); // Staines → Chertsey → Cobham → Epsom
+  addRoute('lane', [[48, 114], [40, 122]], 1.5); // Chertsey → Woking
+  addRoute('lane', [[60, 128], [48, 142]], 1.8); // Cobham → Guildford
+  addRoute('lane', [[48, 142], [68, 146], [88, 144]], 2); // Guildford → Dorking, under the Downs
+  addRoute('lane', [[88, 144], [90, 128]], 1.5); // Dorking → Epsom
+  addRoute('lane', [[90, 128], [106, 122], [120, 114]], 1.8); // Epsom → Croydon
+  addRoute('lane', [[120, 114], [126, 130], [132, 146]], 1.8); // Croydon → Oxted
+  addRoute('lane', [[132, 146], [148, 144], [162, 138]], 1.8); // Oxted → Sevenoaks
+  addRoute('lane', [[188, 106], [206, 110]], 1.5); // Gravesend → Hoo
+  addRoute('lane', [[206, 110], [216, 118], [225, 124]], 1.8); // Hoo → the A2
+  addRoute('lane', [[22, 36], [40, 40], [64, 42]], 2); // Amersham → Watford
+  addRoute('lane', [[64, 42], [80, 34], [98, 22]], 1.8); // Watford → St Albans
+  addRoute('lane', [[98, 22], [112, 14], [136, 12]], 1.8); // St Albans → Hatfield → Ware
+  addRoute('lane', [[136, 12], [148, 16], [162, 24]], 1.8); // Ware → Harlow
+  addRoute('lane', [[162, 24], [174, 36], [182, 50]], 1.8); // Harlow → Ongar → Brentwood
+  addRoute('lane', [[182, 50], [194, 44], [208, 32]], 1.8); // Brentwood → Billericay → Chelmsford
+  addRoute('lane', [[208, 32], [222, 26], [234, 22]], 1.8); // Chelmsford → Maldon
+  addRoute('lane', [[234, 22], [228, 38], [222, 50]], 1.8); // Maldon → Rayleigh
+  addRoute('lane', [[198, 58], [210, 54], [222, 50]], 1.5); // Basildon → Rayleigh
+  addRoute('lane', [[222, 50], [230, 56], [236, 62]], 1.5); // Rayleigh → Southend
+  addRoute('lane', [[182, 92], [178, 90], [177, 85]], 1); // Tilbury → Grays → the A13
+  addRoute('lane', [[142, 62], [150, 64], [158, 64]], 1.5); // Chigwell → Romford
 
-  // railways: four lines out of the central termini
+  // railways out of the central termini, every line ending at a town or
+  // the map edge
   const RAILS: Array<Array<[number, number]>> = [
-    [[114, 78], [98, 58], [78, 46], [64, 42], [42, 26]], // NW → Watford
-    [[122, 76], [142, 56], [162, 26]], // NE → Harlow
-    [[124, 80], [152, 62], [184, 52], [208, 40], [246, 34]], // E → Chelmsford
-    [[122, 86], [144, 96], [160, 102], [200, 92], [236, 92]], // estuary → Southend
-    [[114, 86], [108, 112], [122, 126], [162, 136]], // S → Sevenoaks
+    [[114, 78], [98, 58], [78, 46], [64, 42], [48, 28], [40, 14], [38, 0]], // NW main line through Watford
+    [[122, 76], [134, 54], [148, 38], [162, 24]], // Lea valley → Harlow
+    [[124, 80], [146, 70], [158, 64], [182, 52], [208, 32], [228, 20], [248, 10], [255, 7]], // Great Eastern → Romford, Chelmsford, out NE
+    [[124, 82], [148, 80], [166, 84], [178, 88], [192, 86], [210, 76], [224, 68], [236, 64]], // LTS along the estuary → Southend
+    [[122, 86], [142, 96], [160, 100], [174, 103], [188, 105], [206, 112], [222, 124], [236, 138], [246, 152], [250, 159]], // North Kent → Dartford, Gravesend, out SE
+    [[114, 86], [118, 102], [120, 116], [114, 132], [108, 148], [106, 159]], // Brighton line through Croydon
+    [[122, 88], [136, 102], [150, 118], [162, 138]], // SE → Sevenoaks
+    [[110, 86], [88, 98], [66, 108], [48, 114], [40, 122]], // SW → Staines side, Woking
+    [[112, 78], [88, 80], [62, 76], [34, 70], [14, 68], [0, 67]], // Great Western → Slough
   ];
   for (const line of RAILS) addRoute('rail', line, 1.2);
 
@@ -649,7 +867,51 @@ export function buildLondonMap(): CityMap {
     }
   }
 
-  // 8c) High streets: shops flank the arterials through inhabited fabric
+  // 8c) Enclosure: hedgerow lines divide the open countryside into fields
+  // of honestly varied size — 3..9 tiles a pitch, lines that wander a
+  // tile either way, whole stretches missing where fields were merged.
+  // (Laid after the roads so no hedge grows through a carriageway.)
+  const fieldCols: number[] = [];
+  const fieldRows: number[] = [];
+  {
+    for (let x = 2 + rng.int(5); x < w; x += 3 + rng.int(7)) fieldCols.push(x);
+    for (let y = 2 + rng.int(5); y < h; y += 3 + rng.int(7)) fieldRows.push(y);
+    const hash2 = (a: number, b: number): number =>
+      (Math.imul(a + 0x9e37, 2654435761) ^ Math.imul(b + 0x79b9, 97002721)) >>> 0;
+    const open = (x: number, y: number): boolean =>
+      inb(x, y) &&
+      terrain[idx(x, y)] === TERRAIN.land &&
+      zone[idx(x, y)] === ZONE.none &&
+      (road[idx(x, y)] ?? 0) === 0 &&
+      !inAirfield(x, y) &&
+      !(x > 180 && Math.abs(y - riverCenterY(x)) < 9); // the marsh stays open
+    fieldCols.forEach((bx, k) => {
+      for (let y = 0; y < h; y++) {
+        if (hash2(k, y >> 3) % 10 < 3) continue; // merged fields leave gaps
+        const off = (hash2(k * 7 + 1, y >> 2) % 3) - 1; // the line wanders
+        const x = bx + off;
+        if (open(x, y) && rng.chance(0.62)) terrain[idx(x, y)] = TERRAIN.trees;
+      }
+    });
+    fieldRows.forEach((by, k) => {
+      for (let x = 0; x < w; x++) {
+        if (hash2(k + 101, x >> 3) % 10 < 3) continue;
+        const off = (hash2(k * 13 + 5, x >> 2) % 3) - 1;
+        const y = by + off;
+        if (open(x, y) && rng.chance(0.62)) terrain[idx(x, y)] = TERRAIN.trees;
+      }
+    });
+  }
+  /** Index of the enclosure a tile sits in (for coherent per-field tint). */
+  const fieldCellOf = (x: number, y: number): number => {
+    let cx = 0;
+    while (cx < fieldCols.length && (fieldCols[cx] ?? w) <= x) cx++;
+    let cy = 0;
+    while (cy < fieldRows.length && (fieldRows[cy] ?? h) <= y) cy++;
+    return (Math.imul(cx * 31 + 7, 2654435761) ^ Math.imul(cy * 17 + 3, 97002721)) >>> 0;
+  };
+
+  // 8d) High streets: shops flank the arterials through inhabited fabric
   for (let y = 1; y < h - 1; y++) {
     for (let x = 1; x < w - 1; x++) {
       const i = idx(x, y);
@@ -697,12 +959,13 @@ export function buildLondonMap(): CityMap {
 
   const riverY = (x: number): number => Math.round(riverCenterY(x));
   const hwAt = (x: number): number => riverHalfWidth(x);
-  // Westminster: parliament on the north bank, the wheel across the water
-  placeLandmark(86, riverY(86) - Math.ceil(hwAt(86)) - 1, LANDMARK.parliament);
-  placeLandmark(87, riverY(87) + Math.ceil(hwAt(87)) + 1, LANDMARK.eye);
+  // Westminster: parliament on the north bank at the bend, the wheel
+  // across the water
+  placeLandmark(107, riverY(107) - Math.ceil(hwAt(107)) - 1, LANDMARK.parliament);
+  placeLandmark(108, riverY(108) + Math.ceil(hwAt(108)) + 1, LANDMARK.eye);
   // the City: the dome; the shard on the south bank; the fortress + bridge
-  placeLandmark(113, 78, LANDMARK.dome);
-  placeLandmark(116, riverY(116) + Math.ceil(hwAt(116)) + 1, LANDMARK.spire);
+  placeLandmark(114, 80, LANDMARK.dome);
+  placeLandmark(118, riverY(118) + Math.ceil(hwAt(118)) + 1, LANDMARK.spire);
   {
     const bx = 120;
     placeLandmark(bx - 1, riverY(bx - 1) - Math.ceil(hwAt(bx - 1)) - 1, LANDMARK.fortress);
@@ -715,28 +978,20 @@ export function buildLondonMap(): CityMap {
     }
     addRoute('street', [[bx, cy - hw - 2], [bx, cy + hw + 2]]);
   }
-  // the central bridges: Westminster, Waterloo, Blackfriars, London
-  for (const bx of [86, 92, 98, 114]) {
+  // the bridges: Kingston, Richmond, Hammersmith and Putney upstream;
+  // Westminster, Waterloo, Blackfriars and London bridge through town
+  for (const bx of [74, 80, 88, 96, 102, 106, 110, 114, 117]) {
     const cy = riverCenterY(bx);
     const hw = riverHalfWidth(bx);
     addRoute('street', [[bx, cy - hw - 2], [bx, cy + hw + 2]]);
   }
-  // Heathrow in the west: a runway cut into the fields + the terminal
-  {
-    for (let x = 58; x <= 70; x++) {
-      for (let y = 86; y <= 87; y++) {
-        if (!inb(x, y) || !isLand(x, y)) continue;
-        const i = idx(x, y);
-        zone[i] = ZONE.none;
-        flags[i] = (flags[i] ?? 0) | FLAG_RUNWAY;
-      }
-    }
-    placeLandmark(64, 84, LANDMARK.airport);
-    addRoute('street', [[72, 84], [78, 84]]); // the airport spur
-  }
+  // Heathrow's terminal between its two runways, with the spur road in
+  // from the A4
+  placeLandmark(65, 87, LANDMARK.airport);
+  addRoute('street', [[70, 78], [68, 83], [66, 86]]);
   // Battersea's four chimneys on the south bank, west of the centre
   placeLandmark(100, riverY(100) + Math.ceil(hwAt(100)) + 1, LANDMARK.powerstation);
-  placeLandmark(132, 68, LANDMARK.stadium); // the Olympic bowl, Stratford
+  placeLandmark(132, 68, LANDMARK.stadium); // the Olympic bowl on the Lea
   placeLandmark(118, 58, LANDMARK.arena); // north London ground
   placeLandmark(106, 110, LANDMARK.arena); // south London ground
   placeLandmark(98, 74, LANDMARK.mall); // the western Westfield
@@ -746,12 +1001,16 @@ export function buildLondonMap(): CityMap {
   // central termini
   placeLandmark(114, 78, LANDMARK.station);
   placeLandmark(122, 76, LANDMARK.station);
-  placeLandmark(122, 86, LANDMARK.station);
+  placeLandmark(122, 90, LANDMARK.station); // London Bridge, south bank
   // schools + the city hall through the boroughs
-  for (const [sx, sy] of [[102, 70], [128, 64], [108, 94], [126, 92], [138, 80], [96, 86], [116, 108]] as const) {
+  for (const [sx, sy] of [[102, 70], [128, 64], [106, 102], [126, 94], [138, 78], [96, 88], [116, 108]] as const) {
     placeLandmark(sx, sy, LANDMARK.school);
   }
-  placeLandmark(121, 90, LANDMARK.townhall);
+  placeLandmark(121, 92, LANDMARK.townhall);
+  // the sewage works that serve the city, on the riverbanks east and west
+  placeLandmark(152, 82, LANDMARK.sewage); // Beckton analog
+  placeLandmark(162, 100, LANDMARK.sewage); // Crossness analog
+  placeLandmark(78, 95, LANDMARK.sewage); // Mogden analog
 
   // every town seed gets its civic kit
   const railSamples: Array<[number, number]> = [];
@@ -783,8 +1042,16 @@ export function buildLondonMap(): CityMap {
       if (rng.chance(0.3)) placeLandmark(t.x + 2, t.y + 2, LANDMARK.watertower);
     }
   }
+  // Southend's pier: the longest in the world, a street into the sea
+  {
+    const px = 238;
+    const shore = Math.ceil(riverCenterY(px) - riverHalfWidth(px));
+    addRoute('street', [[px, shore - 1], [px, shore + 5]]);
+  }
 
-  // 10) Customers, vegetation, sprite variants
+  // 10) Customers, vegetation, sprite variants. Open countryside takes a
+  // coherent per-field tint (one enclosure, one sward) so the patchwork
+  // reads as real fields of varied size rather than per-tile noise.
   const LANDMARK_CUSTOMERS: Partial<Record<Landmark, number>> = {
     [LANDMARK.mall]: 40,
     [LANDMARK.stadium]: 12,
@@ -801,18 +1068,27 @@ export function buildLondonMap(): CityMap {
     [LANDMARK.church]: 2,
     [LANDMARK.datacentre]: 2,
   };
-  for (let i = 0; i < n; i++) {
-    const z = zone[i] as Zone;
-    const lm = landmark[i] as Landmark;
-    if (lm !== LANDMARK.none) customers[i] = LANDMARK_CUSTOMERS[lm] ?? 0;
-    else if ((road[i] ?? 0) >= RC.arterial) customers[i] = 0;
-    else customers[i] = CUSTOMERS_PER_TILE[z];
-    const t = terrain[i];
-    if (t === TERRAIN.trees) vegetation[i] = 200 + rng.int(56);
-    else if (z === ZONE.rural || z === ZONE.none) vegetation[i] = t === TERRAIN.land ? 90 + rng.int(70) : 30;
-    else if (z === ZONE.suburb || z === ZONE.posh || z === ZONE.park) vegetation[i] = 60 + rng.int(60);
-    else vegetation[i] = 10 + rng.int(30);
-    variant[i] = rng.int(256);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = idx(x, y);
+      const z = zone[i] as Zone;
+      const lm = landmark[i] as Landmark;
+      if (lm !== LANDMARK.none) customers[i] = LANDMARK_CUSTOMERS[lm] ?? 0;
+      else if ((road[i] ?? 0) >= RC.arterial) customers[i] = 0;
+      else customers[i] = CUSTOMERS_PER_TILE[z];
+      const t = terrain[i];
+      if (t === TERRAIN.trees) vegetation[i] = 200 + rng.int(56);
+      else if (z === ZONE.rural || z === ZONE.none)
+        vegetation[i] = t === TERRAIN.land ? 90 + rng.int(70) : 30;
+      else if (z === ZONE.suburb || z === ZONE.posh || z === ZONE.park) vegetation[i] = 60 + rng.int(60);
+      else vegetation[i] = 10 + rng.int(30);
+      if (z === ZONE.none && t === TERRAIN.land && !(x > 180 && Math.abs(y - riverCenterY(x)) < 9)) {
+        const cell = fieldCellOf(x, y);
+        variant[i] = rng.chance(0.15) ? rng.int(256) : cell % 256;
+      } else {
+        variant[i] = rng.int(256);
+      }
+    }
   }
 
   return {
