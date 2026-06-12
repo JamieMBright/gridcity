@@ -1,6 +1,8 @@
 import { useAppStore } from '../app/store';
 import { getLondonMap } from '../data/londonMap';
-import { GENS, SUBS } from '../sim/catalog';
+import { sendCommand } from '../app/workerBridge';
+import { GENS, subCapexK, subRadius, SUBS, type SubType } from '../sim/catalog';
+import { subMva } from '../sim/assets';
 import { assetAtTile } from '../sim/commands';
 import { NO_COUNCIL, TERRAIN, ZONE, type Terrain, type Zone } from '../sim/map/types';
 import { COV } from '../sim/tick';
@@ -155,8 +157,11 @@ function AssetInfo({ assetId }: { assetId: number }) {
     } else if (tx) {
       rows.push(['transformer', `${Math.abs(tx.flowMW).toFixed(1)} / ${tx.ratingMW} MW`]);
     }
-    if (spec.serviceRadius !== undefined) rows.push(['service radius', `${spec.serviceRadius} km`]);
-    rows.push(['capex', fmtMoneyK(spec.capexK)]);
+    const mva = subMva(asset);
+    if (spec.serviceRadius !== undefined) {
+      rows.push(['service radius', `${subRadius(asset.sub, mva).toFixed(1)} km`]);
+    }
+    rows.push(['capex', fmtMoneyK(subCapexK(asset.sub, mva))]);
   }
   for (const [, level, v] of volts) {
     rows.push([`${level} kV bus`, v > 0 ? `${v.toFixed(3)} pu` : 'de-energized']);
@@ -165,7 +170,10 @@ function AssetInfo({ assetId }: { assetId: number }) {
   const name = asset.kind === 'gen' ? GENS[asset.gen].name : SUBS[asset.sub].name;
   return (
     <div style={{ marginTop: 8, paddingTop: 6, borderTop: `1px solid ${theme.navyLight}` }}>
-      <div style={{ color: theme.orangeSoft, fontWeight: 700 }}>{name}</div>
+      <div style={{ color: theme.orangeSoft, fontWeight: 700 }}>
+        {name}
+        {asset.kind === 'sub' && asset.idno ? ' · iDNO' : ''}
+      </div>
       <div style={{ fontSize: 11 }}>
         {rows.map(([k, v]) => (
           <div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -174,6 +182,90 @@ function AssetInfo({ assetId }: { assetId: number }) {
           </div>
         ))}
       </div>
+      {asset.kind === 'sub' && !asset.idno && SUBS[asset.sub].mvaSteps && (
+        <MvaControls assetId={asset.id} sub={asset.sub} mva={subMva(asset)} auto={asset.mvaAuto !== false} />
+      )}
+    </div>
+  );
+}
+
+/** Transformer sizing: step through the fixed MVA sizes, or hand it back
+ *  to auto-reinforcement. Sits inside the (pointer-transparent) info
+ *  panel, so the controls re-enable pointer events for themselves. */
+function MvaControls({
+  assetId,
+  sub,
+  mva,
+  auto,
+}: {
+  assetId: number;
+  sub: SubType;
+  mva: number;
+  auto: boolean;
+}) {
+  const steps = SUBS[sub].mvaSteps ?? [];
+  const ix = steps.indexOf(mva);
+  const btn: React.CSSProperties = {
+    width: 20,
+    height: 18,
+    padding: 0,
+    borderRadius: 4,
+    border: `1px solid ${theme.navyLight}`,
+    background: 'transparent',
+    color: theme.offWhite,
+    fontFamily: theme.font,
+    fontSize: 11,
+    cursor: 'pointer',
+  };
+  return (
+    <div
+      style={{
+        pointerEvents: 'auto',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 4,
+        fontSize: 11,
+      }}
+    >
+      <span style={{ color: theme.slate }}>transformer</span>
+      <button
+        aria-label="smaller transformer"
+        style={btn}
+        disabled={ix <= 0}
+        onClick={() => {
+          const next = steps[ix - 1];
+          if (next !== undefined) sendCommand({ type: 'setSubMva', assetId, mva: next });
+        }}
+      >
+        −
+      </button>
+      <span style={{ color: theme.gold }}>{mva} MVA</span>
+      <button
+        aria-label="bigger transformer"
+        style={btn}
+        disabled={ix < 0 || ix >= steps.length - 1}
+        onClick={() => {
+          const next = steps[ix + 1];
+          if (next !== undefined) sendCommand({ type: 'setSubMva', assetId, mva: next });
+        }}
+      >
+        +
+      </button>
+      <button
+        aria-label="auto reinforcement"
+        style={{
+          ...btn,
+          width: 'auto',
+          padding: '0 6px',
+          color: auto ? theme.navy : theme.slate,
+          background: auto ? theme.orange : 'transparent',
+          border: `1px solid ${auto ? theme.orange : theme.navyLight}`,
+        }}
+        onClick={() => sendCommand({ type: 'setSubMva', assetId, auto: !auto })}
+      >
+        auto
+      </button>
     </div>
   );
 }

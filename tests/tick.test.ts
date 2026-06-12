@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyCommand } from '../src/sim/commands';
 import { domesticProfile } from '../src/sim/events/weather';
+import { GENS } from '../src/sim/catalog';
 import { COV, derive, solveTick } from '../src/sim/tick';
 import { poweredFixture } from './helpers';
 
@@ -67,6 +68,7 @@ describe('end-to-end tick: power flows from plant to homes', () => {
     expect(b.totalYrK).toBeCloseTo(
       b.capexYrK +
         b.opexYrK +
+        b.genYrK +
         b.fleetYrK +
         b.vegYrK +
         b.energyYrK +
@@ -79,5 +81,8 @@ describe('end-to-end tick: power flows from plant to homes', () => {
     expect(b.perCustomerYr).toBeCloseTo((b.totalYrK * 1000) / 360, 9);
     expect(b.capexYrK).toBeGreaterThan(0);
     expect(b.opexYrK).toBeGreaterThan(0);
+    // generation is private spend on the energy line, never DUoS capex
+    expect(b.genYrK).toBeGreaterThan(0);
+    expect(b.capexYrK).toBeLessThan(GENS.gasCCGT.capexK * 0.05);
   });
 });

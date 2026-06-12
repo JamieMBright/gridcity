@@ -5,8 +5,8 @@
 // get power or don't, CI/CML and satisfaction accrue, and every cost
 // rolls into the bill.
 
-import { busId, deriveNetwork, lineBranchId, txBranchId } from './assets';
-import { LINES, SUBS, VEG_POLICY } from './catalog';
+import { busId, deriveNetwork, lineBranchId, subMva, txBranchId } from './assets';
+import { LINES, SUB_UPGRADE_AT, SUBS, VEG_POLICY } from './catalog';
 import { COV } from './coverage';
 import { routeTiles } from './cost';
 import { solveDcPowerFlow } from './grid/dcpf';
@@ -75,7 +75,10 @@ export interface Derived {
 }
 
 export function deriveKey(state: GameState): string {
-  return `${state.assetsVersion}:${state.sitesVersion}:${state.tech.dlr ? 1 : 0}`;
+  // the fortnightly epoch re-runs service assignment so DER growth
+  // (EVs, heat pumps) slowly squeezes catchments between asset changes
+  const epoch = Math.floor(state.simTimeMin / 20_160);
+  return `${state.assetsVersion}:${state.sitesVersion}:${state.tech.dlr ? 1 : 0}:${epoch}`;
 }
 
 export interface BranchView {
@@ -121,7 +124,7 @@ export function derive(state: GameState, ctx: SimContext): Derived {
   return {
     version: deriveKey(state),
     net: deriveNetwork(state.assets.values(), state.tech.dlr ? DLR_RATING_MUL : 1),
-    service: assignServiceAreas(ctx.map, state.assets.values(), state.loadSites),
+    service: assignServiceAreas(ctx.map, state.assets.values(), state.loadSites, state.councils),
     routeVeg,
   };
 }
@@ -332,6 +335,30 @@ export function solveTick(
         pushEvent(state, 'info', `${GENS[a.gen].name} commissioned — first power`, a.x, a.y);
       }
     }
+
+    // auto-reinforcement: a substation running hot against its fitted
+    // transformer steps up to the next MVA size (capex lands on bills)
+    let reinforced = false;
+    for (const a of state.assets.values()) {
+      if (a.kind !== 'sub' || a.idno || a.mvaAuto === false) continue;
+      const steps = SUBS[a.sub].mvaSteps;
+      if (!steps) continue;
+      const mva = subMva(a);
+      const peak = derived.service.peakOfSub.get(a.id) ?? 0;
+      const next = steps.find((s) => s > mva);
+      if (next !== undefined && peak > SUB_UPGRADE_AT * mva) {
+        a.mva = next;
+        reinforced = true;
+        pushEvent(
+          state,
+          'warn',
+          `reinforcement: ${SUBS[a.sub].name.split(' (')[0]} uprated to ${next} MVA`,
+          a.x,
+          a.y,
+        );
+      }
+    }
+    if (reinforced) state.assetsVersion++;
   }
 
   applyOutages(derived.net, state);

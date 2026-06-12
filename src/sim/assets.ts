@@ -36,6 +36,20 @@ export interface SubAsset {
   sub: SubType;
   x: number;
   y: number;
+  /** Fitted transformer size, MVA (radius subs only; defaults to the
+   *  spec's txRatingMW). Catchment reach and capacity scale with it. */
+  mva?: number | undefined;
+  /** Auto-reinforce through the MVA steps as demand grows (default on;
+   *  manual resizing switches it off). */
+  mvaAuto?: boolean | undefined;
+  /** Owned by an independent DNO (new-build estates): can't be
+   *  demolished or resized, and its capex never lands on your bill. */
+  idno?: boolean | undefined;
+}
+
+/** Effective fitted MVA of a substation. */
+export function subMva(a: SubAsset): number {
+  return a.mva ?? SUBS[a.sub].txRatingMW;
 }
 
 export interface LineAsset {

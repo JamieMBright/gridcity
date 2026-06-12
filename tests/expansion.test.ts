@@ -7,6 +7,7 @@ import { GENS, PYLON_SPACING, SUBS } from '../src/sim/catalog';
 import { applyCommand, checkBuild } from '../src/sim/commands';
 import { placePylons, pylonSiteOk, routeTiles } from '../src/sim/cost';
 import { underConstruction } from '../src/sim/market/dispatch';
+import { assignServiceAreas } from '../src/sim/service';
 import { TERRAIN, ZONE } from '../src/sim/map/types';
 import { newGame } from '../src/sim/state';
 import { derive, solveTick } from '../src/sim/tick';
@@ -163,6 +164,93 @@ describe('planning + construction', () => {
     const lit = solveTick(state, ctx, derive(state, ctx), false);
     expect(lit.dispatch.genMW.get(gas) ?? 0).toBeGreaterThan(0);
     expect(lit.servedCustomers).toBeGreaterThan(0);
+  });
+});
+
+describe('substation MVA + load-based catchments', () => {
+  it('a small transformer only signs up the load it can carry', () => {
+    const map = makeTestMap(30, 30);
+    // a big block of suburb: ~25 tiles × 40 customers × 1.4 kW = 1.4 MW
+    for (let y = 13; y <= 17; y++) {
+      for (let x = 13; x <= 17; x++) setZone(map, x, y, ZONE.suburb);
+    }
+    const state = newGame();
+    const id = mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'pole', x: 15, y: 15 } });
+    const a = state.assets.get(id);
+    if (a?.kind === 'sub') a.mva = 1; // 1 MVA pole can
+    const svc = assignServiceAreas(map, state.assets.values(), []);
+    const assigned = svc.tilesOfSub.get(id)?.length ?? 0;
+    expect(assigned).toBeGreaterThan(0);
+    expect(assigned).toBeLessThan(25); // capacity, not geography, decides
+    expect(svc.peakOfSub.get(id) ?? 0).toBeLessThanOrEqual(1 + 0.06); // one tile may overshoot
+  });
+
+  it('a bigger transformer reaches further and serves more', () => {
+    const map = makeTestMap(40, 40);
+    for (let y = 12; y <= 28; y++) {
+      for (let x = 12; x <= 28; x++) setZone(map, x, y, ZONE.suburb);
+    }
+    const state = newGame();
+    const id = mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'dist', x: 20, y: 20 } });
+    const a = state.assets.get(id);
+    if (a?.kind !== 'sub') throw new Error('not a sub');
+    a.mva = 5;
+    const small = assignServiceAreas(map, state.assets.values(), []).customersOfSub.get(id) ?? 0;
+    a.mva = 40;
+    const big = assignServiceAreas(map, state.assets.values(), []).customersOfSub.get(id) ?? 0;
+    expect(big).toBeGreaterThan(small);
+  });
+
+  it('manual resize steps through fixed sizes and disables auto', () => {
+    const map = makeTestMap(20, 20);
+    const state = newGame();
+    const id = mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'dist', x: 5, y: 5 } });
+    const bad = applyCommand(state, map, { type: 'setSubMva', assetId: id, mva: 7 });
+    expect(bad.ok).toBe(false);
+    const ok = applyCommand(state, map, { type: 'setSubMva', assetId: id, mva: 40 });
+    expect(ok.ok).toBe(true);
+    const a = state.assets.get(id);
+    expect(a?.kind === 'sub' && a.mva === 40 && a.mvaAuto === false).toBe(true);
+  });
+
+  it('auto-reinforcement uprates a hot transformer and reports it', () => {
+    const map = makeTestMap(30, 30);
+    // dense urban core: 120 customers/tile → a 5 MVA can runs hot fast
+    for (let y = 12; y <= 20; y++) {
+      for (let x = 12; x <= 20; x++) setZone(map, x, y, ZONE.urbanCore);
+    }
+    const ctx = makeContext(map);
+    const state = newGame();
+    mustApply(state, map, { type: 'build', spec: { kind: 'gen', gen: 'gasCCGT', x: 3, y: 3 } });
+    mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'grid', x: 8, y: 8 } });
+    const dist = mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'dist', x: 16, y: 16 } });
+    mustApply(state, map, {
+      type: 'build',
+      spec: { kind: 'line', level: 132, build: 'overhead', ax: 3, ay: 3, bx: 8, by: 8 },
+    });
+    mustApply(state, map, {
+      type: 'build',
+      spec: { kind: 'line', level: 33, build: 'overhead', ax: 8, ay: 8, bx: 16, by: 16 },
+    });
+    commissionAll(state);
+    const a = state.assets.get(dist);
+    if (a?.kind !== 'sub') throw new Error('not a sub');
+    a.mva = 5; // undersized for the block: it signs up ~5 MW and runs hot
+    state.speed = 1;
+    state.tick = 1;
+    solveTick(state, ctx, derive(state, ctx), true);
+    expect(a.mva).toBe(10); // stepped up one size
+    expect(state.events.some((e) => e.msg.includes('reinforcement'))).toBe(true);
+  });
+
+  it("iDNO substations can't be demolished or resized", () => {
+    const map = makeTestMap(20, 20);
+    const state = newGame();
+    const id = mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'dist', x: 5, y: 5 } });
+    const a = state.assets.get(id);
+    if (a?.kind === 'sub') a.idno = true;
+    expect(applyCommand(state, map, { type: 'demolish', assetId: id }).ok).toBe(false);
+    expect(applyCommand(state, map, { type: 'setSubMva', assetId: id, mva: 40 }).ok).toBe(false);
   });
 });
 

@@ -28,7 +28,10 @@ export type Command =
   | { type: 'setVegPolicy'; policy: VegPolicy }
   | { type: 'respondApplication'; appId: number; response: 'firm' | 'flex' | 'decline' }
   | { type: 'fundPitch'; pitchId: number }
-  | { type: 'setLevy'; pct: number };
+  | { type: 'setLevy'; pct: number }
+  /** Refit a substation transformer (manual sizing switches auto off),
+   *  or hand sizing back to auto-reinforcement. */
+  | { type: 'setSubMva'; assetId: number; mva?: number; auto?: boolean };
 
 export type BuildSpec =
   | { kind: 'gen'; gen: GenType; x: number; y: number }
@@ -248,11 +251,32 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       return { ok: true, assetId: id };
     }
 
+    case 'setSubMva': {
+      const asset = state.assets.get(cmd.assetId);
+      if (!asset || asset.kind !== 'sub') return { ok: false, error: 'no such substation' };
+      if (asset.idno) return { ok: false, error: "that's the iDNO's transformer, not yours" };
+      const steps = SUBS[asset.sub].mvaSteps;
+      if (!steps) return { ok: false, error: 'that substation has a fixed transformer' };
+      if (cmd.mva !== undefined) {
+        if (!steps.includes(cmd.mva)) {
+          return { ok: false, error: `transformers come in ${steps.join('/')} MVA` };
+        }
+        asset.mva = cmd.mva;
+        asset.mvaAuto = false;
+      }
+      if (cmd.auto !== undefined) asset.mvaAuto = cmd.auto;
+      state.assetsVersion++;
+      return { ok: true };
+    }
+
     case 'demolish': {
       const asset = state.assets.get(cmd.assetId);
       if (!asset) return { ok: false, error: 'no such asset' };
       if (asset.kind === 'gen' && asset.customer) {
         return { ok: false, error: "that's customer-owned plant — you only own the wires" };
+      }
+      if (asset.kind === 'sub' && asset.idno) {
+        return { ok: false, error: "the iDNO owns that substation — you just connect to it" };
       }
       state.assets.delete(cmd.assetId);
       if (asset.kind !== 'line' && asset.kind !== 'depot') {

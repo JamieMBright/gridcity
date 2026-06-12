@@ -165,8 +165,13 @@ export interface SubSpec {
   txX: number;
   capexK: number;
   opexFrac: number;
-  /** Distribution subs serve customer tiles within this radius. */
+  /** Distribution subs serve customer tiles within this radius (at the
+   *  default txRatingMW; the radius scales with the fitted MVA). */
   serviceRadius?: number;
+  /** Fixed transformer sizes this sub can be fitted with, MVA. The sub
+   *  auto-upgrades through them as catchment demand grows; the player
+   *  can also step them by hand. */
+  mvaSteps?: number[];
 }
 
 export const SUBS: Record<SubType, SubSpec> = {
@@ -194,6 +199,7 @@ export const SUBS: Record<SubType, SubSpec> = {
     capexK: 1_200,
     opexFrac: 0.02,
     serviceRadius: 6,
+    mvaSteps: [5, 10, 20, 40],
   },
   pole: {
     name: 'Pole-mounted transformer (33 kV/LV)',
@@ -203,6 +209,7 @@ export const SUBS: Record<SubType, SubSpec> = {
     capexK: 120,
     opexFrac: 0.025,
     serviceRadius: 2,
+    mvaSteps: [1, 2],
   },
   vault: {
     name: 'Underground substation (33 kV/LV)',
@@ -212,8 +219,26 @@ export const SUBS: Record<SubType, SubSpec> = {
     capexK: 2_800,
     opexFrac: 0.02,
     serviceRadius: 5,
+    mvaSteps: [10, 25, 50],
   },
 };
+
+/** Capex of a radius-sub fitted with a given transformer, £k — the base
+ *  price buys the default size; bigger iron costs pro-rata on top. */
+export function subCapexK(sub: SubType, mva: number): number {
+  const spec = SUBS[sub];
+  return Math.round(spec.capexK * (0.4 + 0.6 * (mva / spec.txRatingMW)));
+}
+
+/** Service radius for a fitted MVA: more iron reaches marginally further. */
+export function subRadius(sub: SubType, mva: number): number {
+  const spec = SUBS[sub];
+  if (spec.serviceRadius === undefined) return 0;
+  return spec.serviceRadius * Math.sqrt(mva / spec.txRatingMW);
+}
+
+/** A substation auto-upgrades when sustained load passes this loading. */
+export const SUB_UPGRADE_AT = 0.9;
 
 /** Pylon/pole spacing along overhead routes, tiles between supports. */
 export const PYLON_SPACING: Record<VoltageLevel, number> = { 400: 3, 132: 3, 33: 2 };
