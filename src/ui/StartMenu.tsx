@@ -51,7 +51,8 @@ export function StartMenu() {
       }}
     >
       <div style={{ ...panelStyle, padding: '36px 48px', textAlign: 'center' }}>
-        <div style={{ fontSize: 44, fontWeight: 800, letterSpacing: '0.04em' }}>
+        <img src="/logo.svg" alt="ElectriCity" width={84} height={84} style={{ borderRadius: 18 }} />
+        <div style={{ fontSize: 44, fontWeight: 800, letterSpacing: '0.04em', marginTop: 10 }}>
           <span style={{ color: theme.orange }}>ELECTRI</span>
           <span style={{ color: theme.gold }}>⚡</span>
           <span style={{ color: theme.slate }}>CITY</span>
