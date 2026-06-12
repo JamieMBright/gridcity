@@ -6,7 +6,7 @@
 // withdrawing tenders, connecting late or curtailing their plant. When
 // a conglomerate's mood breaks, the regulator hears about it.
 
-import { GENS, type GenType } from '../catalog';
+import { GENS, type GenType, strikeMWh } from '../catalog';
 import type { Rng } from '../rng';
 import { pushEvent, type GameState } from '../state';
 
@@ -123,7 +123,7 @@ const BID_MEAN_DAYS = 3;
 
 export interface Bid {
   developerId: number;
-  /** Offered PPA strike, £/MWh (catalog marginal cost ±15%). */
+  /** Offered PPA strike, £/MWh (tech LCOE ±15%). */
   priceMWh: number;
   /** Days added to (or shaved off) the catalog planning+build lead. */
   leadDaysDelta: number;
@@ -185,7 +185,7 @@ export function stepTenders(state: GameState, rng: Rng, dtMin: number): void {
         const leadDays = spec.planningDays + spec.buildDays;
         const bid: Bid = {
           developerId: dev.id,
-          priceMWh: Math.round(spec.marginalCostK * 1000 * rng.range(0.85, 1.15)),
+          priceMWh: Math.max(1, Math.round(strikeMWh(t.gen) * rng.range(0.85, 1.15))),
           leadDaysDelta: Math.round(leadDays * rng.range(-0.2, 0.25)),
         };
         t.bids.push(bid);

@@ -91,6 +91,49 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+/** Setting: a freshly placed substation runs its own circuits to the
+ *  nearest compatible bays (overhead where possible, cable where not). */
+function AutoConnectToggle() {
+  const on = useAppStore((s) => s.autoConnect);
+  const setAutoConnect = useAppStore((s) => s.setAutoConnect);
+  return (
+    <button
+      onClick={() => setAutoConnect(!on)}
+      title="Placing a substation automatically connects it to the nearest compatible bays"
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        width: '100%',
+        padding: '4px 9px',
+        background: 'transparent',
+        color: on ? theme.gold : theme.slate,
+        border: 'none',
+        borderRadius: 5,
+        fontFamily: theme.font,
+        fontSize: 11,
+        cursor: 'pointer',
+        textAlign: 'left',
+      }}
+    >
+      <span>auto-connect on placement</span>
+      <span
+        style={{
+          flex: 'none',
+          width: 26,
+          textAlign: 'center',
+          fontSize: 9,
+          lineHeight: '14px',
+          borderRadius: 7,
+          border: `1px solid ${on ? theme.gold : theme.navyLight}`,
+        }}
+      >
+        {on ? 'ON' : 'OFF'}
+      </span>
+    </button>
+  );
+}
+
 const GEN_ORDER: GenType[] = [
   'gasCCGT',
   'gasPeaker',
@@ -146,6 +189,7 @@ export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
             cost={fmtMoneyK(SUBS[s].capexK)}
           />
         ))}
+        <AutoConnectToggle />
       </Section>
       <Section title="Lines & cables">
         <div style={{ display: 'flex', gap: 4, margin: '0 9px 6px' }}>
@@ -224,6 +268,9 @@ export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
           <div style={{ marginTop: 2 }}>
             voltage steps up/down INSIDE substations — land a 33 kV line on a BSP and the
             transformers carry it to the supergrid
+          </div>
+          <div style={{ marginTop: 2 }}>
+            mid-route, click an existing same-kV circuit to TEE into it
           </div>
         </div>
       )}

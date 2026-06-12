@@ -123,7 +123,16 @@ export interface GrowthPatch {
 export interface TileHover {
   x: number;
   y: number;
+  /** Unrounded tile coords of the pointer — for picking things that run
+   *  BETWEEN tiles, like line spans. */
+  fx?: number | undefined;
+  fy?: number | undefined;
 }
+
+/** Map highlight for the pinned inspector card. */
+export type Selection =
+  | { kind: 'tile'; x: number; y: number }
+  | { kind: 'line'; ax: number; ay: number; bx: number; by: number };
 
 export type Ghost =
   | {
@@ -196,6 +205,7 @@ export class MapRenderer {
   private coverageG = new Graphics();
   private suitability: Sprite | undefined;
   private smogG = new Graphics();
+  private subRingsG = new Graphics();
   private assetLayer = new Container();
   private linesG = new Graphics();
   private flowG = new Graphics();
@@ -205,6 +215,7 @@ export class MapRenderer {
   private siteLayer = new Container();
   private levelG = new Graphics();
   private levelHighlight: VoltageLevel | undefined;
+  private selG = new Graphics();
   private lastAssets: PlacedAsset[] = [];
   private vanSprites = new Map<number, Sprite>();
   private ghostG = new Graphics();
@@ -270,11 +281,13 @@ export class MapRenderer {
     this.world.addChild(this.city);
     this.world.addChild(this.coverageG);
     this.world.addChild(this.smogG);
+    this.world.addChild(this.subRingsG);
     this.world.addChild(this.assetLayer);
     this.world.addChild(this.linesG);
     this.world.addChild(this.flowG);
     this.world.addChild(this.pulseG);
     this.world.addChild(this.levelG);
+    this.world.addChild(this.selG);
     this.world.addChild(this.jobsG);
     this.world.addChild(this.fleetLayer);
     this.world.addChild(this.siteLayer);
@@ -316,6 +329,26 @@ export class MapRenderer {
       this.levelG.stroke({ color: LEVEL_COLOR[level], width: 2.6 * RES, alpha: 0.95 });
       this.diamond(this.levelG, a.x, a.y, 1.45);
       this.levelG.stroke({ color: LEVEL_COLOR[level], width: 1.2 * RES, alpha: 0.4 });
+    }
+  }
+
+  /** Highlight the inspected asset or line span on the map, or clear. */
+  setSelection(sel: Selection | undefined): void {
+    this.selG.clear();
+    if (!sel) return;
+    if (sel.kind === 'tile') {
+      this.diamond(this.selG, sel.x, sel.y, 1.25);
+      this.selG.stroke({ color: 0xf4f1ea, width: 3 * RES, alpha: 0.95 });
+      this.diamond(this.selG, sel.x, sel.y, 1.55);
+      this.selG.stroke({ color: 0xffb066, width: 1.4 * RES, alpha: 0.6 });
+    } else {
+      const a = this.tileCentre(sel.ax, sel.ay);
+      const b = this.tileCentre(sel.bx, sel.by);
+      this.selG.moveTo(a.x, a.y - 8 * RES).lineTo(b.x, b.y - 8 * RES);
+      this.selG.stroke({ color: 0xf4f1ea, width: 2.2 * RES, alpha: 0.75 });
+      this.diamond(this.selG, sel.ax, sel.ay, 0.8);
+      this.diamond(this.selG, sel.bx, sel.by, 0.8);
+      this.selG.stroke({ color: 0xffb066, width: 2.2 * RES, alpha: 0.9 });
     }
   }
 
@@ -381,8 +414,21 @@ export class MapRenderer {
 
     this.lastAssets = assets;
     if (this.levelHighlight !== undefined) this.drawLevelHighlight();
+    // conversions keep the asset id but change its look: bake the bits
+    // that pick a sprite (construction, line build, GIS) into the signature
     const sig = assets
-      .map((a) => `${a.id}:${a.kind}:${a.kind === 'gen' && (a.liveAtMin ?? 0) > simTimeMin ? 'c' : ''}`)
+      .map(
+        (a) =>
+          `${a.id}:${a.kind}:${
+            a.kind === 'gen' && (a.liveAtMin ?? 0) > simTimeMin
+              ? 'c'
+              : a.kind === 'line'
+                ? a.build
+                : a.kind === 'sub' && a.underground
+                  ? 'u'
+                  : ''
+          }`,
+      )
       .join(',');
     if (sig !== this.assetSignature) {
       this.assetSignature = sig;
@@ -1064,6 +1110,7 @@ export class MapRenderer {
   private rebuildAssetSprites(assets: PlacedAsset[], simTimeMin: number): void {
     this.assetLayer.removeChildren().forEach((c) => c.destroy());
     this.rotors = [];
+    this.drawSubRings(assets);
     const map = this.map;
     for (const a of assets) {
       if (a.kind === 'line') {
@@ -1086,7 +1133,11 @@ export class MapRenderer {
         : a.kind === 'gen'
           ? GEN_SPRITE[a.gen]
           : a.kind === 'sub'
-            ? SUB_SPRITE[a.sub]
+            ? a.sub === 'tee'
+              ? PYLON_SPRITE[a.teeLevel ?? 132] // a tee tower on the route
+              : a.underground
+                ? 'sub_vault' // a GIS rebuild shows only its access vault
+                : SUB_SPRITE[a.sub]
             : 'depot';
       const tex = name ? this.textures.get(name) : undefined;
       if (!tex) continue;
@@ -1123,6 +1174,24 @@ export class MapRenderer {
     }
   }
 
+  /** Every substation wears its bay colours at all times — nested rings
+   *  (400 blue outside, 33 orange inside) matching the line colours, so
+   *  what-connects-where reads at a glance. */
+  private drawSubRings(assets: PlacedAsset[]): void {
+    this.subRingsG.clear();
+    for (const a of assets) {
+      if (a.kind !== 'sub') continue;
+      const levels = assetLevels(a);
+      for (let i = 0; i < levels.length; i++) {
+        const level = levels[i];
+        if (level === undefined) continue;
+        // highest voltage outermost; every ring clears the sprite plinth
+        this.diamond(this.subRingsG, a.x, a.y, 1.12 + (levels.length - 1 - i) * 0.22);
+        this.subRingsG.stroke({ color: LEVEL_COLOR[level], width: 1.8 * RES, alpha: 0.75 });
+      }
+    }
+  }
+
   private drawLines(
     assets: PlacedAsset[],
     branches: BranchView[],
@@ -1146,9 +1215,16 @@ export class MapRenderer {
       const width = LEVEL_WIDTH[a.level];
 
       if (a.build === 'underground') {
+        // buried cables read as a dashed trench trace in the level colour
         const pa = this.tileCentre(endA.x, endA.y);
         const pb = this.tileCentre(endB.x, endB.y);
-        this.strokeSpan([pa, pb], width, color, 0.5, tripped);
+        const span = Math.hypot(pb.x - pa.x, pb.y - pa.y);
+        const n = Math.max(2, Math.round(span / (10 * RES)) * 2);
+        const pts: Array<{ x: number; y: number }> = [];
+        for (let k = 0; k <= n; k++) {
+          pts.push({ x: pa.x + ((pb.x - pa.x) * k) / n, y: pa.y + ((pb.y - pa.y) * k) / n });
+        }
+        this.strokeSpan(pts, width, color, 0.85, true);
         this.pushAnim([pa, pb], view, color, tripped);
         continue;
       }
@@ -1321,7 +1397,9 @@ export class MapRenderer {
     const t = wy / HALF_H;
     const tx = Math.round((u + t) / 2);
     const ty = Math.round((t - u) / 2);
-    if (tx >= 0 && tx < map.width && ty >= 0 && ty < map.height) return { x: tx, y: ty };
+    if (tx >= 0 && tx < map.width && ty >= 0 && ty < map.height) {
+      return { x: tx, y: ty, fx: (u + t) / 2, fy: (t - u) / 2 };
+    }
     return undefined;
   }
 

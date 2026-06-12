@@ -27,6 +27,8 @@ export interface GenAsset {
   customer?: boolean | undefined;
   /** Built and owned by a market developer (awarded tender bid). */
   developer?: number | undefined;
+  /** The awarded PPA strike, £/MWh — what customers pay this plant. */
+  ppaMWh?: number | undefined;
   /** Game-minute the plant is commissioned (planning + construction).
    *  Until then it exists on the network but generates nothing. */
   liveAtMin?: number | undefined;
@@ -47,6 +49,10 @@ export interface SubAsset {
   /** Owned by an independent DNO (new-build estates): can't be
    *  demolished or resized, and its capex never lands on your bill. */
   idno?: boolean | undefined;
+  /** Rebuilt underground (indoor GIS): weatherproof, premium capex. */
+  underground?: boolean | undefined;
+  /** Tee junctions only: the voltage of the circuit that was tee'd. */
+  teeLevel?: VoltageLevel | undefined;
 }
 
 /** Effective fitted MVA of a substation. */
@@ -95,7 +101,10 @@ export function assetOfId(id: number): number {
 /** Voltage levels present on an asset (gen terminal / sub buses). */
 export function assetLevels(asset: PlacedAsset): VoltageLevel[] {
   if (asset.kind === 'gen') return [GENS[asset.gen].level];
-  if (asset.kind === 'sub') return SUBS[asset.sub].levels;
+  if (asset.kind === 'sub') {
+    if (asset.sub === 'tee') return asset.teeLevel !== undefined ? [asset.teeLevel] : [];
+    return SUBS[asset.sub].levels;
+  }
   return [];
 }
 
@@ -112,13 +121,14 @@ export function deriveNetwork(assets: Iterable<PlacedAsset>, lineRatingMul = 1):
       buses.push({ id: busId(a.id, GENS[a.gen].level), x: a.x, y: a.y, level: GENS[a.gen].level });
     } else if (a.kind === 'sub') {
       const spec = SUBS[a.sub];
-      for (const level of spec.levels) {
+      const levels = assetLevels(a); // tee junctions carry the line's level
+      for (const level of levels) {
         buses.push({ id: busId(a.id, level), x: a.x, y: a.y, level });
       }
       // chain a transformer per voltage step (BSPs carry 400/132 + 132/33)
-      for (let k = 0; k + 1 < spec.levels.length; k++) {
-        const hi = spec.levels[k];
-        const lo = spec.levels[k + 1];
+      for (let k = 0; k + 1 < levels.length; k++) {
+        const hi = levels[k];
+        const lo = levels[k + 1];
         if (hi === undefined || lo === undefined) continue;
         const pair = TX_PAIR[`${hi}/${lo}`] ?? { ratingMW: spec.txRatingMW, x: spec.txX };
         branches.push({

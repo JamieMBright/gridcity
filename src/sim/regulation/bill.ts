@@ -12,6 +12,8 @@ import {
   DEPOT,
   GENS,
   LINES,
+  strikeMWh,
+  SUB_UG_MUL,
   subCapexK,
   SUBS,
   VAN_OPEX_K_YR,
@@ -24,7 +26,7 @@ export function assetCapexK(a: PlacedAsset): number {
   if (a.kind === 'line') return a.capexK;
   if (a.kind === 'gen') return GENS[a.gen].capexK;
   if (a.kind === 'depot') return DEPOT.capexK;
-  return subCapexK(a.sub, subMva(a));
+  return subCapexK(a.sub, subMva(a)) * (a.underground ? SUB_UG_MUL : 1);
 }
 
 export function assetOpexFrac(a: PlacedAsset): number {
@@ -93,7 +95,13 @@ export function computeBill(inp: BillInputs): BillBreakdown {
     if (a.kind === 'gen') {
       if (a.customer) continue; // they pay for their own kit
       const capex = assetCapexK(a);
-      genYrK += capex * (ANNUITY_FACTOR + assetOpexFrac(a));
+      let yrK = capex * (ANNUITY_FACTOR + assetOpexFrac(a));
+      // an awarded PPA bills at its strike: a keen bid is a real saving
+      if (a.ppaMWh !== undefined) {
+        const base = strikeMWh(a.gen);
+        if (base > 0) yrK *= a.ppaMWh / base;
+      }
+      genYrK += yrK;
       continue;
     }
     if (a.kind === 'sub' && a.idno) continue; // the iDNO's iron, not yours

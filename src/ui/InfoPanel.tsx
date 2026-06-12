@@ -1,9 +1,10 @@
-import { useAppStore } from '../app/store';
+import { linePeaks, useAppStore } from '../app/store';
 import { getLondonMap, NAMED_PLACES } from '../data/londonMap';
 import { sendCommand } from '../app/workerBridge';
-import { GENS, subCapexK, subRadius, SUBS, type SubType } from '../sim/catalog';
-import { assetLevels, subMva } from '../sim/assets';
+import { GENS, LINES, SUB_UG_MUL, subCapexK, subRadius, SUBS, type SubType } from '../sim/catalog';
+import { assetLevels, subMva, type PlacedAsset } from '../sim/assets';
 import { assetAtTile } from '../sim/commands';
+import { priceLine } from '../sim/cost';
 import { NO_COUNCIL, TERRAIN, ZONE, type Terrain, type Zone } from '../sim/map/types';
 import { COV } from '../sim/tick';
 import { fmtMoneyK, panelStyle, theme } from './theme';
@@ -49,6 +50,46 @@ const COV_BADGE: Record<number, { label: string; color: string }> = {
 export function InfoPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   const hovered = useAppStore((s) => s.hoveredTile);
   const snapshot = useAppStore((s) => s.snapshot);
+  const selectedAsset = useAppStore((s) => s.selectedAsset);
+  const selectedLine = useAppStore((s) => s.selectedLine);
+  const setSelected = useAppStore((s) => s.setSelected);
+
+  // an inspect CLICK pins the card: it stays up (and clickable) while
+  // the player works the controls, instead of vanishing with the hover
+  const pinnedFrame: React.CSSProperties = {
+    ...panelStyle,
+    position: 'absolute',
+    top: 28,
+    right: 12,
+    width: 240,
+    padding: '10px 14px',
+    pointerEvents: 'auto',
+    lineHeight: 1.5,
+    ...frame,
+  };
+  if (snapshot && selectedLine !== undefined) {
+    const line = snapshot.assets.find((a) => a.id === selectedLine);
+    if (line && line.kind === 'line') {
+      return (
+        <div style={pinnedFrame}>
+          <CloseX onClick={() => setSelected({})} />
+          <LineInfo assetId={selectedLine} />
+        </div>
+      );
+    }
+  }
+  if (snapshot && selectedAsset !== undefined) {
+    const asset = snapshot.assets.find((a) => a.id === selectedAsset);
+    if (asset && asset.kind !== 'line') {
+      return (
+        <div style={pinnedFrame}>
+          <CloseX onClick={() => setSelected({})} />
+          <AssetInfo assetId={selectedAsset} />
+        </div>
+      );
+    }
+  }
+
   if (!hovered) return null;
 
   const map = getLondonMap();
@@ -124,6 +165,128 @@ function CouncilStats({ councilId }: { councilId: number }) {
   );
 }
 
+function CloseX({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      aria-label="close"
+      onClick={onClick}
+      style={{
+        position: 'absolute',
+        top: 4,
+        right: 6,
+        width: 20,
+        height: 20,
+        padding: 0,
+        border: 'none',
+        background: 'transparent',
+        color: theme.slate,
+        fontFamily: theme.font,
+        fontSize: 14,
+        cursor: 'pointer',
+      }}
+    >
+      ×
+    </button>
+  );
+}
+
+function assetName(a: PlacedAsset): string {
+  if (a.kind === 'gen') return GENS[a.gen].name;
+  if (a.kind === 'sub') return SUBS[a.sub].name.split(' (')[0] ?? SUBS[a.sub].name;
+  if (a.kind === 'depot') return 'Field depot';
+  return `${a.level} kV line`;
+}
+
+const ACTION_BTN: React.CSSProperties = {
+  padding: '4px 8px',
+  borderRadius: 5,
+  border: `1px solid ${theme.navyLight}`,
+  background: 'transparent',
+  color: theme.offWhite,
+  fontFamily: theme.font,
+  fontSize: 11,
+  cursor: 'pointer',
+  textAlign: 'left',
+};
+
+/** Pinned card for a clicked line span: what it is, how hard it works,
+ *  what's left in it — and the underground-rebuild quote. */
+function LineInfo({ assetId }: { assetId: number }) {
+  const snapshot = useAppStore((s) => s.snapshot);
+  const setSelected = useAppStore((s) => s.setSelected);
+  if (!snapshot) return null;
+  const line = snapshot.assets.find((a) => a.id === assetId);
+  if (!line || line.kind !== 'line') return null;
+  const endA = snapshot.assets.find((a) => a.id === line.a);
+  const endB = snapshot.assets.find((a) => a.id === line.b);
+  const b = snapshot.branches.find((br) => br.assetId === assetId && br.kind === 'line');
+  const flow = b ? Math.abs(b.flowMW) : 0;
+  const rating = b?.ratingMW ?? LINES[line.level].ratingMW;
+  const peak = linePeaks.get(assetId) ?? 0;
+
+  const rows: Array<[string, string]> = [
+    ['voltage', `${line.level} kV`],
+    ['build', line.build === 'underground' ? 'underground cable' : 'overhead line'],
+    ['route', `${line.lengthTiles} km`],
+    ['capex', fmtMoneyK(line.capexK)],
+  ];
+  if (endA) rows.push(['from', assetName(endA)]);
+  if (endB) rows.push(['to', assetName(endB)]);
+  if (b && b.outMin !== undefined) {
+    rows.push([
+      'status',
+      b.outMin < 0 ? 'TRIPPED · awaiting crew' : `TRIPPED · ${(b.outMin / 60).toFixed(1)}h to repair`,
+    ]);
+  } else {
+    rows.push(['loading', `${flow.toFixed(1)} / ${rating.toFixed(0)} MW (${((flow / rating) * 100).toFixed(0)}%)`]);
+    rows.push(['headroom', `${Math.max(0, rating - flow).toFixed(1)} MW`]);
+  }
+  if (peak > 0) rows.push(['peak seen', `${(peak * 100).toFixed(0)}% of rating`]);
+
+  let ugQuote: { ok: boolean; capexK: number } | undefined;
+  if (line.build === 'overhead' && endA && endA.kind !== 'line' && endB && endB.kind !== 'line') {
+    const q = priceLine(getLondonMap(), line.level, 'underground', endA.x, endA.y, endB.x, endB.y);
+    ugQuote = { ok: q.ok, capexK: q.capexK };
+  }
+
+  return (
+    <div>
+      <div style={{ color: theme.orangeSoft, fontWeight: 700 }}>
+        {line.level} kV circuit
+        {b && b.outMin !== undefined && <span style={{ color: theme.danger }}> · TRIPPED</span>}
+      </div>
+      <div style={{ fontSize: 11 }}>
+        {rows.map(([k, v]) => (
+          <div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: theme.slate }}>{k}</span>
+            <span style={v.startsWith('TRIPPED') ? { color: theme.danger } : undefined}>{v}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
+        {line.build === 'overhead' && (
+          <button
+            style={{ ...ACTION_BTN, opacity: ugQuote?.ok ? 1 : 0.5 }}
+            disabled={!ugQuote?.ok}
+            onClick={() => sendCommand({ type: 'convertLine', assetId })}
+          >
+            ⤓ underground this line · {fmtMoneyK(ugQuote?.capexK ?? 0)}
+          </button>
+        )}
+        <button
+          style={{ ...ACTION_BTN, color: theme.danger, borderColor: theme.danger }}
+          onClick={() => {
+            sendCommand({ type: 'demolish', assetId });
+            setSelected({});
+          }}
+        >
+          ✕ demolish line
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AssetInfo({ assetId }: { assetId: number }) {
   const snapshot = useAppStore((s) => s.snapshot);
   if (!snapshot) return null;
@@ -158,7 +321,8 @@ function AssetInfo({ assetId }: { assetId: number }) {
       rows.push(['stored', `${soc.toFixed(0)} / ${spec.energyMWh ?? 0} MWh`]);
     } else {
       rows.push(['output', `${mw.toFixed(1)} / ${spec.capacityMW} MW`]);
-      rows.push(['marginal cost', `£${(spec.marginalCostK * 1000).toFixed(0)}/MWh`]);
+      if (asset.ppaMWh !== undefined) rows.push(['PPA strike', `£${asset.ppaMWh}/MWh`]);
+      else rows.push(['marginal cost', `£${(spec.marginalCostK * 1000).toFixed(0)}/MWh`]);
     }
   } else {
     const spec = SUBS[asset.sub];
@@ -172,11 +336,17 @@ function AssetInfo({ assetId }: { assetId: number }) {
     if (spec.serviceRadius !== undefined) {
       rows.push(['service radius', `${subRadius(asset.sub, mva).toFixed(1)} km`]);
     }
-    rows.push(['capex', fmtMoneyK(subCapexK(asset.sub, mva))]);
+    if (asset.sub !== 'tee') {
+      rows.push(['build', asset.underground ? 'underground (GIS)' : 'outdoor (AIS)']);
+    }
+    rows.push(['capex', fmtMoneyK(subCapexK(asset.sub, mva) * (asset.underground ? SUB_UG_MUL : 1))]);
   }
   for (const [, level, v] of volts) {
     rows.push([`${level} kV bus`, v > 0 ? `${v.toFixed(3)} pu` : 'de-energized']);
   }
+  // every bus dark + nothing tripped here = the problem is UPSTREAM
+  const tripped = snapshot.branches.some((b) => b.assetId === assetId && b.outMin !== undefined);
+  const dead = volts.length > 0 && volts.every(([, , v]) => v <= 0);
 
   const name = asset.kind === 'gen' ? GENS[asset.gen].name : SUBS[asset.sub].name;
   return (
@@ -185,6 +355,11 @@ function AssetInfo({ assetId }: { assetId: number }) {
         {name}
         {asset.kind === 'sub' && asset.idno ? ' · iDNO' : ''}
       </div>
+      {dead && (
+        <div style={{ fontSize: 11, color: theme.danger, fontWeight: 700 }}>
+          DE-ENERGIZED — {tripped ? 'kit here has tripped; a crew is needed' : 'no live path to a generator: trace the circuit upstream for a tripped or missing link'}
+        </div>
+      )}
       <div style={{ fontSize: 11 }}>
         {rows.map(([k, v]) => (
           <div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -195,6 +370,17 @@ function AssetInfo({ assetId }: { assetId: number }) {
       </div>
       {asset.kind === 'sub' && !asset.idno && SUBS[asset.sub].mvaSteps && (
         <MvaControls assetId={asset.id} sub={asset.sub} mva={subMva(asset)} auto={asset.mvaAuto !== false} />
+      )}
+      {asset.kind === 'sub' && !asset.idno && !asset.underground && asset.sub !== 'tee' && (
+        <div style={{ pointerEvents: 'auto', marginTop: 6 }}>
+          <button
+            style={{ ...ACTION_BTN, width: '100%' }}
+            onClick={() => sendCommand({ type: 'convertSub', assetId })}
+          >
+            ⤓ rebuild underground (GIS) · +
+            {fmtMoneyK(subCapexK(asset.sub, subMva(asset)) * (SUB_UG_MUL - 1))}
+          </button>
+        </div>
       )}
     </div>
   );
