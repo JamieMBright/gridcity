@@ -15,6 +15,7 @@ import {
   type VegPolicy,
 } from './catalog';
 import { CONNECT_DAYS, GEN_OF_KIND } from './events/applications';
+import { applyStormPrep } from './reliability/stormprep';
 import { bumpMood, developerOf, TENDER_OPEN_DAYS, type Tender } from './events/developers';
 import { MAX_VANS } from './fleet/fleet';
 import type { VoltageLevel } from './grid/types';
@@ -64,6 +65,9 @@ export type Command =
       toX: number;
       toY: number;
     }
+  /** Storm preparation (ROADMAP #9): hire surge contractor crews or run
+   *  an emergency vegetation cut. Logic lives in reliability/stormprep. */
+  | { type: 'stormPrep'; action: 'surge' | 'vegCut'; lineId?: number; days?: number }
   /** Handled by the worker via its snapshot stacks. */
   | { type: 'undo' }
   | { type: 'redo' };
@@ -690,6 +694,9 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       );
       return { ok: true };
     }
+
+    case 'stormPrep':
+      return applyStormPrep(state, cmd);
 
     case 'undo':
     case 'redo':

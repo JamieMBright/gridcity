@@ -12,31 +12,79 @@
 
 ## Open
 
-- [ ] **ROADMAP #3 Reinforcement planner + #25 Ring-main assist (this
+- [x] **ROADMAP #8 N-1 security + #9 storm prep — SIM SIDE (this prompt;
+      UI/renderer land separately)**:
+  - [x] `src/sim/security.ts` (new): `securityOf(state)` → per service
+        sub `{ secure, bindingLabel? }` via graph bridges (Tarjan,
+        O(V+E)) + per-bridge gen-reachability; memoized on
+        assetsVersion+outages signature; <50ms @ ~300 buses
+        (unit-asserted on a 150-sub double-fed ladder, every branch a
+        bridge). Topological v1 per the roadmap; under-construction
+        plant counts as a source (planning view, keeps the cache
+        time-free).
+  - [x] `src/sim/reliability/stormprep.ts` (new): `forecastStorms`
+        (deterministic named storms off `weather.nextRegime ===
+        'windy-wet'` arriving in winter — the regime pre-roll IS the
+        2–6-day lead time), `applySurgeCrews` (temporary contractor
+        vans, `surgeUntilMin`/`surgeVans` state, 3× van rate pro-rata),
+        `emergencyVegCut` (one-off £k, lineVeg ×0.5), rolling
+        `stormPrepYrK` bill rate (1-game-year decay so the rate
+        integrates back to the £k spent).
+  - [x] state.ts: additive optional `surgeUntilMin`/`surgeVans`/
+        `stormPrepYrK` (+ SaveData round-trip, no SAVE_VERSION bump —
+        old saves hydrate clean, unit-proven).
+  - [x] commands.ts: single `stormPrep` command delegating to stormprep
+        (7-line diff); tick.ts: the surge-van one-liner on syncVans +
+        the bill one-liner (stormPrepYrK rides penaltyYrK → the
+        constraint/damages line; bill.ts untouched); protocol/worker:
+        `security?` (sent only when changed; tracking key reset on
+        restore/newGame) + `stormForecast?` on SimSnapshot.
+  - [x] tests (14, all green; full unit suite 168/168 incl. them): radial sub
+        insecure with "Grid substation transformer" named, loop flips
+        secure, parallel-circuit-but-shared-feeder still insecure,
+        N-0-dark sub insecure without a label, memoization;
+        deterministic staged-regime forecast (winter yes / summer no /
+        calm-cold no, name stable as eta counts down), surge raises the
+        van roster then expires, vegCut halves lineVeg, prep cost on
+        bill.constraintYrK + decays + frozen on paused re-solves, save
+        round-trip. tsc + eslint clean. UI/renderer + e2e land with the
+        wave gate.
+
+- [x] **ROADMAP #3 Reinforcement planner + #25 Ring-main assist (this
       prompt)**: `src/sim/planner.ts` — `planReinforcement(state, ctx,
       scopeId)` builds 2–4 costed candidate bundles (bigger TXs / second
       circuit / re-conductor / battery tender) off the balance engine's
       shortfall, each scored on a serialize/deserialize clone (residual
       shortfall + capex + £/home/yr via DOMESTIC_NETWORK_SHARE) with
       ready-to-send commands; `proposeLoop(state, ctx, subId)` finds the
-      cheapest radial-closing line topologically (findIslands, priceLine).
-      Protocol `plan`/`proposeLoop` → `plan` response; worker cases;
-      BalancePanel "plan works" → option cards → approve (multi-command =
-      multiple undo steps, v1); store `plan`+`setPlan` (additive);
-      workerBridge requestPlan/proposeLoop. tests/planner.test.ts:
-      planner ≥2 options, best residual < shortfall, live state
-      untouched; proposeLoop survives original-feeder removal.
+      cheapest radial-closing line topologically (findIslands with each
+      supply-path branch removed; gen buses as topological sources;
+      priceLine + checkBuild validation). Protocol `plan`/`proposeLoop`
+      → `plan` response; worker cases mirror 'study'/'balance';
+      BalancePanel "plan works" on shortfall rows → option cards
+      (label, capex, £/home/yr, shortfall X→Y MW) → approve
+      (multi-command = multiple undo steps, v1, commented); store
+      `plan`+`setPlan` (additive); workerBridge requestPlan/proposeLoop.
+      VERIFIED: tests/planner.test.ts (5 tests) — 4 options on the
+      staged 132-loss shortfall, best residual (battery tender) <
+      shortfall, every option's commands apply cleanly, live state
+      byte-identical after planning; proposeLoop's ring survives
+      original-feeder removal (topological islands check) and an
+      already-looped sub gets no proposal. Full unit suite 168/168
+      green; tsc + eslint clean for these files.
+      [~] ghost previews on option hover deferred (multi-ghost renderer
+      API is another lane's file); approve executes directly.
 
 - [ ] **"Do all" campaign (owner, 2026-06-12): implement ROADMAP.md in
-      full**, tier by tier in gated waves (each wave: full local suite →
-      PR → auto-merge). Wave 1 IN FLIGHT: #1 waypoints (main lane —
-      CODE-COMPLETE: buildPath compound command through tee junction
-      towers, click-to-bend + multi-leg ghost + Esc unwind + palette
-      hint, 2 unit tests incl. whole-rollback; visual/e2e at the wave
-      gate), #5+#20 seasons/weather regimes (agent A), #6+#7 goals+
-      time-skip (agent B). Then 1b: #2 heatmap, #10 forecast overlay,
-      #4 labels+search, #3 planner, #8 N-1, #9 storm prep. Tier 2–4
-      follow. Items tick off in ROADMAP.md with PR links as they land.
+      full**, tier by tier in gated waves. WAVES 1+1b COMPLETE pending
+      gate: #1 waypoints, #5+#20 seasons/regimes, #6+#7 goals+time-skip,
+      #2 headroom heatmap (corridors + catchments), #4 labels+search,
+      #3 planner + #25 ring-main assist, #8 N-1 view (rings + card row),
+      #9 storm prep (banner + surge crews + veg cut). Tutorial e2e
+      collision fixed (skip button aria-label). DEFERRED to Wave 2: #10
+      demand-growth forecast overlay (needs projected-council plumbing).
+      Wave 2 next: Tier-1 remainder + Tier 2 lanes. Items tick off in
+      ROADMAP.md with PR links as they land.
 
 - [ ] **Map recognisability pass 2** (owner can't model 1M properties; keep it
       sensible/enjoyable): continue tuning until London "reads" at a glance.

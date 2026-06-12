@@ -3,6 +3,7 @@
 // thread. Any uncaught error pauses the sim and surfaces instead of
 // crashing the tab.
 
+import { subMva } from './assets';
 import { applyCommand } from './commands';
 import { GENS } from './catalog';
 import { underConstruction } from './market/dispatch';
@@ -18,7 +19,9 @@ import {
   type SkipTarget,
   type WorkerToMain,
 } from './protocol';
+import { forecastStorms } from './reliability/stormprep';
 import { advanceGoals, GOALS, goalStatus, type GoalView } from './scenario/goals';
+import { securityKey, securityOf } from './security';
 import {
   applyGrowth,
   deserialize,
@@ -31,6 +34,7 @@ import {
   type SaveData,
 } from './state';
 import { computeBalance } from './balance';
+import { planReinforcement, proposeLoop } from './planner';
 import { connectionStudy } from './study';
 import { buildDemandField } from './map/demand';
 import {
@@ -61,6 +65,7 @@ function restore(data: SaveData): void {
   applyGrowth(ctx.map, state.growth);
   ctx.demand = buildDemandField(ctx.map);
   derived = undefined;
+  postedSecurityKey = undefined; // deserialize resets assetsVersion: re-post
 }
 
 function post(msg: WorkerToMain): void {
@@ -134,6 +139,17 @@ function sampleHistory(out: ReturnType<typeof solveTick>): void {
 }
 
 let watchedAsset: number | undefined;
+
+// N-1 security rides the snapshot only when its inputs (assets/outages)
+// changed; the heavy lifting is memoized inside securityOf anyway.
+let postedSecurityKey: string | undefined;
+
+function securityForSnapshot(): Array<[number, boolean]> | undefined {
+  const key = securityKey(state);
+  if (key === postedSecurityKey) return undefined;
+  postedSecurityKey = key;
+  return [...securityOf(state).entries()].map(([id, e]): [number, boolean] => [id, e.secure]);
+}
 
 // --- goal ladder -------------------------------------------------------------
 
@@ -231,6 +247,12 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
       levyPct: state.levyPct,
     },
     councils: [...state.councils.entries()].map(([k, c]) => [k, { ...c }]),
+    security: securityForSnapshot(),
+    catchments: [...d.service.peakOfSub.entries()].map(([id, peak]) => {
+      const a = state.assets.get(id);
+      return [id, peak, a && a.kind === 'sub' ? subMva(a) : 0] as [number, number, number];
+    }),
+    stormForecast: forecastStorms(state),
     goal: goalStatus(state.goalIndex ?? 0, view),
     riio: {
       index: state.period.index,
@@ -335,11 +357,19 @@ self.onmessage = (e: MessageEvent<MainToWorker>) => {
         history.clear();
         lastHistMin = -1;
         studyRan = false;
+        postedSecurityKey = undefined;
         post({ type: 'snapshot', snapshot: makeSnapshot(false) });
         post({ type: 'saveData', data: serialize(state) });
         break;
       case 'balance':
         post({ type: 'balance', report: computeBalance(state, ctx, msg.season ?? 'today') });
+        break;
+      case 'plan':
+        // planner works on clones only — the live state never moves
+        post({ type: 'plan', plan: planReinforcement(state, ctx, msg.scopeId) });
+        break;
+      case 'proposeLoop':
+        post({ type: 'plan', plan: proposeLoop(state, ctx, msg.subId) });
         break;
       case 'study': {
         const app = state.applications.find((x) => x.id === msg.appId);

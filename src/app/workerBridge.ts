@@ -84,6 +84,9 @@ export function initWorker(): void {
       case 'balance':
         s.setBalance(msg.report);
         break;
+      case 'plan':
+        s.setPlan(msg.plan);
+        break;
       case 'fatal':
         s.setWorkerStatus('error', msg.message);
         break;
@@ -126,6 +129,18 @@ export function skipGoalLadder(): void {
 /** Ask the worker to cut a fresh grid-balance report. */
 export function requestBalance(): void {
   send({ type: 'balance' });
+}
+
+/** Ask the worker for costed reinforcement options for a balance scope
+ *  (council id, or -1 for the whole licence area). */
+export function requestPlan(scopeId: number): void {
+  send({ type: 'plan', scopeId });
+}
+
+/** Ring-main assist: ask the worker for the cheapest loop closing a
+ *  service sub's radial (answered as a one-option plan). */
+export function proposeLoop(subId: number): void {
+  send({ type: 'proposeLoop', subId });
 }
 
 /** Wipe progress and start over (the worker posts a fresh save). */

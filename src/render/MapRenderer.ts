@@ -228,6 +228,10 @@ export class MapRenderer {
   private levelHighlight: VoltageLevel | undefined;
   /** 'headroom' re-colours every corridor by spare capacity. */
   private overlayMode: 'none' | 'headroom' = 'none';
+  private n1Mode = false;
+  private catchmentG = new Graphics();
+  private catchments: Array<[number, number, number]> = [];
+  private security = new Map<number, boolean>();
   private selG = new Graphics();
   private councilG = new Graphics();
   private lastAssets: PlacedAsset[] = [];
@@ -305,6 +309,7 @@ export class MapRenderer {
     this.world.addChild(this.city);
     this.world.addChild(this.coverageG);
     this.world.addChild(this.smogG);
+    this.world.addChild(this.catchmentG);
     this.world.addChild(this.subRingsG);
     this.world.addChild(this.assetLayer);
     this.world.addChild(this.linesG);
@@ -375,6 +380,52 @@ export class MapRenderer {
   /** Headroom heatmap: corridors gradient green→amber→red by loading. */
   setOverlay(mode: 'none' | 'headroom'): void {
     this.overlayMode = mode;
+    this.drawCatchments();
+  }
+
+  /** N-1 security rings: green = survives any single failure. */
+  setN1(on: boolean): void {
+    this.n1Mode = on;
+    this.drawCatchments();
+  }
+
+  /** Latest catchment loadings + security verdicts from the snapshot. */
+  setCatchmentData(
+    catchments: Array<[number, number, number]> | undefined,
+    security: Array<[number, boolean]> | undefined,
+  ): void {
+    if (catchments) this.catchments = catchments;
+    if (security) this.security = new Map(security);
+    if (this.overlayMode !== 'none' || this.n1Mode) this.drawCatchments();
+  }
+
+  private drawCatchments(): void {
+    this.catchmentG.clear();
+    if (this.overlayMode === 'none' && !this.n1Mode) return;
+    const byId = new Map(this.lastAssets.map((a) => [a.id, a]));
+    for (const [id, peak, mva] of this.catchments) {
+      const a = byId.get(id);
+      if (!a || a.kind !== 'sub') continue;
+      const spec = SUBS[a.sub];
+      if (spec.serviceRadius === undefined) continue;
+      const r = spec.serviceRadius * Math.sqrt(Math.max(mva, 1) / spec.txRatingMW);
+      if (this.overlayMode === 'headroom' && mva > 0) {
+        const t = Math.max(0, Math.min(1, peak / mva));
+        const lerp = (a0: number, b0: number): number => Math.round(a0 + (b0 - a0) * t);
+        const color = (lerp(0x7b, 0xe0) << 16) | (lerp(0xc4, 0x69) << 8) | lerp(0x7f, 0x7a);
+        this.tileCircle(this.catchmentG, a.x, a.y, r);
+        this.catchmentG.fill({ color, alpha: 0.16 });
+        this.tileCircle(this.catchmentG, a.x, a.y, r);
+        this.catchmentG.stroke({ color, width: 2 * RES, alpha: 0.8 });
+      }
+      if (this.n1Mode) {
+        const secure = this.security.get(id);
+        if (secure === undefined) continue;
+        const color = secure ? 0x7bc47f : 0xe0697a;
+        this.tileCircle(this.catchmentG, a.x, a.y, r * 0.92);
+        this.catchmentG.stroke({ color, width: 3 * RES, alpha: 0.9 });
+      }
+    }
   }
 
   setGridView(on: boolean): void {

@@ -94,6 +94,55 @@ function NewsTicker() {
   );
 }
 
+/** Storm warning strip: the regime forecast gives days of notice — hire
+ *  surge crews while there's still time. */
+function StormBanner() {
+  const snapshot = useAppStore((s) => s.snapshot);
+  const storm = snapshot?.stormForecast?.[0];
+  if (!snapshot || !storm) return null;
+  const days = Math.max(0, (storm.etaMin - snapshot.simTimeMin) / 1440);
+  const surging = (snapshot.fleet.vans.length ?? 0) > snapshot.fleet.fleetSize;
+  return (
+    <div
+      style={{
+        ...panelStyle,
+        position: 'absolute',
+        top: 64,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '5px 12px',
+        border: '1px solid rgba(224,105,122,0.6)',
+        fontSize: 12,
+      }}
+    >
+      <span style={{ color: theme.danger }}>
+        ⛈ Storm {storm.name} in {days.toFixed(1)}d · severity {(storm.severity * 100).toFixed(0)}%
+      </span>
+      {!surging && (
+        <button
+          onClick={() => sendCommand({ type: 'stormPrep', action: 'surge', days: 4 })}
+          style={{
+            padding: '2px 8px',
+            borderRadius: 5,
+            border: `1px solid ${theme.orange}`,
+            background: 'transparent',
+            color: theme.orange,
+            fontFamily: theme.font,
+            fontSize: 11,
+            cursor: 'pointer',
+          }}
+        >
+          hire surge crews (4d)
+        </button>
+      )}
+      {surging && <span style={{ color: theme.ok, fontSize: 11 }}>surge crews on standby ✓</span>}
+    </div>
+  );
+}
+
 function MarketTicker() {
   const snapshot = useAppStore((s) => s.snapshot);
   if (!snapshot) return null;
@@ -163,7 +212,7 @@ function SkipButtons({ compact }: { compact: boolean }) {
       </button>
       {!compact && (
         <button
-          aria-label="skip to next event"
+          aria-label="fast-forward to the coming event"
           title="Fast-forward until something happens (max 7 game-days)."
           style={btn}
           disabled={skipping}
@@ -292,6 +341,29 @@ function HeadroomButton() {
   );
 }
 
+function N1Button() {
+  const on = useAppStore((s) => s.n1);
+  const setN1 = useAppStore((s) => s.setN1);
+  return (
+    <button
+      onClick={() => setN1(!on)}
+      title="N-1 security: green catchments survive any single failure (N)"
+      style={{
+        padding: '3px 8px',
+        borderRadius: 5,
+        border: `1px solid ${on ? theme.orange : theme.navyLight}`,
+        background: on ? theme.orange : 'transparent',
+        color: on ? theme.navy : theme.slate,
+        fontFamily: theme.font,
+        fontSize: 12,
+        cursor: 'pointer',
+      }}
+    >
+      ⛨
+    </button>
+  );
+}
+
 function RiioButton() {
   const kpiOpen = useAppStore((s) => s.kpiOpen);
   const setKpiOpen = useAppStore((s) => s.setKpiOpen);
@@ -351,6 +423,7 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
     <>
     <NewsTicker />
     <MarketTicker />
+    <StormBanner />
     <div
       style={{
         ...panelStyle,
@@ -398,6 +471,7 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
       <UndoRedo />
       <BalanceButton />
       <HeadroomButton />
+      <N1Button />
       {!compact && <RiioButton />}
       <SoundButton />
       <button

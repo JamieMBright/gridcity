@@ -327,6 +327,17 @@ export function MapView() {
     rendererRef.current?.setOverlay(headroom ? 'headroom' : 'none');
   }, [headroom]);
 
+  // N-1 security rings + the catchment data feeding both overlays
+  const n1 = useAppStore((s) => s.n1);
+  useEffect(() => {
+    rendererRef.current?.setN1(n1);
+  }, [n1]);
+  useEffect(() => {
+    if (snapshot) {
+      rendererRef.current?.setCatchmentData(snapshot.catchments, snapshot.security);
+    }
+  }, [snapshot]);
+
   // highlight whatever the pinned inspector card is talking about, and
   // have the worker record its performance history for the sparkline
   const selectedAsset = useAppStore((s) => s.selectedAsset);

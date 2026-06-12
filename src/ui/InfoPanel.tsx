@@ -380,6 +380,15 @@ function LineInfo({ assetId }: { assetId: number }) {
             ⤓ underground the whole line · {fmtMoneyK(ugQuote?.capexK ?? 0)}
           </button>
         )}
+        {line.build === 'overhead' && (
+          <button
+            style={ACTION_BTN}
+            title="One-off emergency trim before the storm: halves this route's overgrowth"
+            onClick={() => sendCommand({ type: 'stormPrep', action: 'vegCut', lineId: assetId })}
+          >
+            ✂ emergency veg cut · {fmtMoneyK(Math.round(line.lengthTiles * 4))}
+          </button>
+        )}
         <button
           style={{ ...ACTION_BTN, color: theme.danger, borderColor: theme.danger }}
           onClick={() => {
@@ -449,6 +458,10 @@ function AssetInfo({ assetId }: { assetId: number }) {
     }
     if (asset.sub !== 'tee') {
       rows.push(['build', asset.underground ? 'underground (GIS)' : 'outdoor (AIS)']);
+    }
+    const sec = snapshot.security?.find(([id]) => id === assetId)?.[1];
+    if (sec !== undefined) {
+      rows.push(['N-1 security', sec ? 'secure ✓' : 'AT RISK — single point of failure']);
     }
     rows.push(['capex', fmtMoneyK(subCapexK(asset.sub, mva) * (asset.underground ? SUB_UG_MUL : 1))]);
   }

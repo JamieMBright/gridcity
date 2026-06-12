@@ -35,6 +35,7 @@ import {
   stepSatisfaction,
 } from './customers/adoption';
 import { growVegetation, isStorm, rollFaults } from './reliability/faults';
+import { stormPrepYrK } from './reliability/stormprep';
 import { stepFleet, syncVans } from './fleet/fleet';
 import { computeBill, type BillBreakdown } from './regulation/bill';
 import { updateReliability } from './regulation/kpis';
@@ -340,8 +341,13 @@ export function solveTick(
       }
     }
 
-    // the orange vans
-    state.vans = syncVans(state.vans, state.fleetSize, state.assets.values());
+    // the orange vans (+ any surge contractor crews still on hire)
+    state.vans = syncVans(
+      state.vans,
+      state.fleetSize +
+        (state.simTimeMin < (state.surgeUntilMin ?? 0) ? (state.surgeVans ?? 0) : 0),
+      state.assets.values(),
+    );
     const fleet = stepFleet(state.vans, state.jobs, state.assets.values(), dtMin);
     for (const r of fleet.restored) {
       state.outages.delete(r.branchId);
@@ -563,7 +569,8 @@ export function solveTick(
     vegCostMul: state.tech.droneVeg ? DRONE_VEG_COST_MUL : 1,
     flexYrK: state.flexYrK,
     constraintYrK: state.constraintYrK,
-    penaltyYrK: overdue * LATE_PENALTY_K_PER_DAY * 365,
+    // storm-prep spend rides the constraint/damages line (decays in stormprep)
+    penaltyYrK: overdue * LATE_PENALTY_K_PER_DAY * 365 + stormPrepYrK(state, dtMin),
     levyPct: state.levyPct,
   });
 

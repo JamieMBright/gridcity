@@ -3,6 +3,7 @@ import type { GenType, LineBuild, SubType } from '../sim/catalog';
 import type { VoltageLevel } from '../sim/grid/types';
 import type { SimSnapshot } from '../sim/protocol';
 import type { BalanceReport } from '../sim/balance';
+import type { ReinforcementPlan } from '../sim/planner';
 import type { ConnectionStudy } from '../sim/study';
 import type { TileHover } from '../render/MapRenderer';
 
@@ -62,8 +63,13 @@ interface AppState {
   /** The grid-balance report + panel state. */
   balance: BalanceReport | undefined;
   balanceOpen: boolean;
+  /** Reinforcement options for one scope (worker-computed; the latest
+   *  plan or loop proposal wins). */
+  plan: ReinforcementPlan | undefined;
   /** Headroom heatmap toggle (corridors coloured by spare capacity). */
   headroom: boolean;
+  /** N-1 security rings toggle. */
+  n1: boolean;
   /** Council ring-fence highlight on the map (balance row click). */
   highlightCouncil: number | undefined;
   menuOpen: boolean;
@@ -88,7 +94,9 @@ interface AppState {
   setStudy: (study: ConnectionStudy) => void;
   setBalance: (report: BalanceReport) => void;
   setBalanceOpen: (open: boolean) => void;
+  setPlan: (plan: ReinforcementPlan | undefined) => void;
   setHeadroom: (on: boolean) => void;
+  setN1: (on: boolean) => void;
   setHighlightCouncil: (id: number | undefined) => void;
   setMenuOpen: (open: boolean) => void;
   setTutorialStep: (step: number | undefined) => void;
@@ -124,7 +132,9 @@ export const useAppStore = create<AppState>((set) => ({
   studies: {},
   balance: undefined,
   balanceOpen: false,
+  plan: undefined,
   headroom: false,
+  n1: false,
   highlightCouncil: undefined,
   menuOpen: true,
   tutorialStep: undefined,
@@ -165,7 +175,9 @@ export const useAppStore = create<AppState>((set) => ({
   setBalance: (balance) => set({ balance }),
   setBalanceOpen: (balanceOpen) =>
     set(balanceOpen ? { balanceOpen } : { balanceOpen, highlightCouncil: undefined }),
+  setPlan: (plan) => set({ plan }),
   setHeadroom: (headroom) => set({ headroom }),
+  setN1: (n1) => set({ n1 }),
   setHighlightCouncil: (highlightCouncil) => set({ highlightCouncil }),
   setMenuOpen: (menuOpen) => set({ menuOpen }),
   setTutorialStep: (tutorialStep) => set({ tutorialStep }),

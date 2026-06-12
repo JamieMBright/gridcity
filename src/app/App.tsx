@@ -136,6 +136,8 @@ function useKeyboard(): void {
         s.setBalanceOpen(!s.balanceOpen);
       } else if (key === 'h') {
         s.setHeadroom(!s.headroom);
+      } else if (key === 'n') {
+        s.setN1(!s.n1);
       } else if (key === 'k') {
         s.setKpiOpen(!s.kpiOpen);
       } else if (key === 'u') {

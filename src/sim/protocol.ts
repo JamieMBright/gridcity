@@ -13,6 +13,7 @@ import type { BillBreakdown } from './regulation/bill';
 import type { KpiRates } from './regulation/kpis';
 import type { PeriodActuals, PeriodTargets, ReportCard } from './regulation/riio';
 import type { BalanceReport, BalanceSeason } from './balance';
+import type { ReinforcementPlan } from './planner';
 import type { ConnectionStudy } from './study';
 import type { GameEvent, GrowthRecord, SaveData } from './state';
 import type { BranchView } from './tick';
@@ -152,6 +153,15 @@ export interface SimSnapshot {
   };
   /** [council id, adoption + satisfaction]. */
   councils: Array<[number, CouncilState]>;
+  /** N-1 security per service substation: [sub asset id, secure].
+   *  Present only when it changed since the last snapshot (keyed off
+   *  assets + outages); consumers keep the previous array otherwise. */
+  security?: Array<[number, boolean]> | undefined;
+  /** Service catchments for the headroom heatmap: [subId, peakMW, mvaMW]. */
+  catchments?: Array<[number, number, number]> | undefined;
+  /** Named-storm forecast read off the weather regime pre-roll
+   *  (reliability/stormprep.ts; etaMin = game-minutes to landfall). */
+  stormForecast?: Array<{ name: string; etaMin: number; severity: number }> | undefined;
   /** Early-game goal ladder: the current goal, or undefined once the
    *  ladder is complete or dismissed. */
   goal?:
@@ -179,6 +189,12 @@ export type MainToWorker =
   /** Cut a grid-balance report (whole map + per council); profiles run
    *  on the chosen typical day (default 'today'). */
   | { type: 'balance'; season?: BalanceSeason | undefined }
+  /** Propose costed reinforcement bundles for a balance scope
+   *  (council id, or -1 for the whole licence area). */
+  | { type: 'plan'; scopeId: number }
+  /** Ring-main assist: the cheapest line closing a service sub's radial
+   *  into a loop (answered with a one-option 'plan'). */
+  | { type: 'proposeLoop'; subId: number }
   /** Fast-forward to the next evening peak / morning / notable event. */
   | { type: 'skip'; to: SkipTarget }
   /** Dismiss the early-game goal ladder for good (veterans). */
@@ -198,4 +214,5 @@ export type WorkerToMain =
   | { type: 'saveData'; data: SaveData }
   | { type: 'study'; study: ConnectionStudy }
   | { type: 'balance'; report: BalanceReport }
+  | { type: 'plan'; plan: ReinforcementPlan }
   | { type: 'fatal'; message: string };

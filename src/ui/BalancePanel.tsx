@@ -1,12 +1,14 @@
 // The grid balance: whole-area and per-council demand vs connected
 // supply, with the typical-day profile chart and worst-hour shortfall —
 // the "what does this town need" view. Rows ring-fence their council on
-// the map when tapped.
+// the map when tapped, and shortfall rows can ask the reinforcement
+// planner for costed work bundles ("plan works").
 
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../app/store';
-import { requestBalance } from '../app/workerBridge';
+import { requestBalance, requestPlan, sendCommand } from '../app/workerBridge';
 import type { ScopeBalance, ScopePoint } from '../sim/balance';
+import type { ReinforcementOption, ReinforcementPlan } from '../sim/planner';
 import { panelStyle, theme } from './theme';
 
 function ProfileChart({ profile }: { profile: ScopePoint[] }) {
@@ -59,10 +61,12 @@ function ScopeRow({
   sc,
   selected,
   onClick,
+  onPlan,
 }: {
   sc: ScopeBalance;
   selected: boolean;
   onClick: () => void;
+  onPlan: () => void;
 }) {
   return (
     <div
@@ -70,6 +74,7 @@ function ScopeRow({
       style={{
         display: 'flex',
         justifyContent: 'space-between',
+        alignItems: 'center',
         gap: 8,
         padding: '4px 8px',
         borderRadius: 6,
@@ -96,6 +101,88 @@ function ScopeRow({
           <span style={{ color: theme.ok }}>covered ✓</span>
         )}
       </span>
+      {sc.shortfallMW > 0.5 && (
+        <button
+          aria-label={`plan works for ${sc.name}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onPlan();
+          }}
+          style={{
+            flex: 'none',
+            padding: '1px 7px',
+            borderRadius: 5,
+            border: `1px solid ${theme.orange}`,
+            background: 'transparent',
+            color: theme.orange,
+            fontFamily: theme.font,
+            fontSize: 10,
+            cursor: 'pointer',
+          }}
+        >
+          plan works
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** £k pretty-printer: 360 → £360k, 12_000 → £12.0m. */
+function fmtCapex(capexK: number): string {
+  return capexK >= 1000 ? `£${(capexK / 1000).toFixed(1)}m` : `£${Math.round(capexK)}k`;
+}
+
+function PlanCard({
+  plan,
+  opt,
+  onApprove,
+}: {
+  plan: ReinforcementPlan;
+  opt: ReinforcementOption;
+  onApprove: () => void;
+}) {
+  return (
+    <div
+      style={{
+        border: `1px solid ${theme.navyLight}`,
+        borderRadius: 6,
+        padding: '6px 8px',
+        marginTop: 6,
+        fontSize: 11,
+        display: 'flex',
+        gap: 8,
+        alignItems: 'center',
+      }}
+    >
+      <div style={{ flex: 1 }}>
+        <div style={{ color: theme.offWhite }}>{opt.label}</div>
+        <div style={{ color: theme.slate, marginTop: 2 }}>
+          {fmtCapex(opt.capexK)} · +£{opt.billImpactYr.toFixed(2)}/home/yr ·{' '}
+          <span
+            style={{
+              color: opt.residualShortfallMW < plan.shortfallMW ? theme.ok : theme.warn,
+            }}
+          >
+            shortfall {plan.shortfallMW.toFixed(1)} → {opt.residualShortfallMW.toFixed(1)} MW
+          </span>
+        </div>
+      </div>
+      <button
+        onClick={onApprove}
+        style={{
+          flex: 'none',
+          padding: '3px 10px',
+          borderRadius: 5,
+          border: `1px solid ${theme.ok}`,
+          background: 'transparent',
+          color: theme.ok,
+          fontFamily: theme.font,
+          fontSize: 11,
+          cursor: 'pointer',
+        }}
+      >
+        approve
+      </button>
     </div>
   );
 }
@@ -106,7 +193,12 @@ export function BalancePanel() {
   const report = useAppStore((s) => s.balance);
   const requestPan = useAppStore((s) => s.requestPan);
   const setHighlightCouncil = useAppStore((s) => s.setHighlightCouncil);
+  const plan = useAppStore((s) => s.plan);
+  const setPlan = useAppStore((s) => s.setPlan);
   const [scopeId, setScopeId] = useState(-1);
+  /** Scope a plan was requested for (shows the "drawing up…" hint until
+   *  the worker's plan lands). */
+  const [planFor, setPlanFor] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     if (open) requestBalance();
@@ -115,6 +207,17 @@ export function BalancePanel() {
 
   const scopes = report?.scopes ?? [];
   const sel = scopes.find((s) => s.id === scopeId) ?? scopes[0];
+  const selPlan = plan && sel && plan.scopeId === sel.id ? plan : undefined;
+
+  const approve = (opt: ReinforcementOption): void => {
+    // each command in the bundle is its own undo step (the worker
+    // snapshots per command) — acceptable for v1; a compound command
+    // would make a bundle one step
+    for (const cmd of opt.commands) sendCommand(cmd);
+    setPlan(undefined);
+    setPlanFor(undefined);
+    requestBalance();
+  };
 
   return (
     <div
@@ -165,6 +268,27 @@ export function BalancePanel() {
             )}
           </div>
           <ProfileChart profile={sel.profile} />
+          {selPlan && (
+            <div style={{ marginTop: 6 }}>
+              <div style={{ fontSize: 11, color: theme.orange, letterSpacing: '0.06em' }}>
+                PLANNED WORKS · {selPlan.options.length} option
+                {selPlan.options.length === 1 ? '' : 's'}
+              </div>
+              {selPlan.options.map((opt, i) => (
+                <PlanCard key={i} plan={selPlan} opt={opt} onApprove={() => approve(opt)} />
+              ))}
+              {selPlan.options.length === 0 && (
+                <div style={{ color: theme.slate, fontSize: 11, marginTop: 4 }}>
+                  the planner found no workable options here — connect more generation by hand
+                </div>
+              )}
+            </div>
+          )}
+          {planFor === sel.id && !selPlan && (
+            <div style={{ color: theme.slate, fontSize: 11, marginTop: 6 }}>
+              drawing up options…
+            </div>
+          )}
         </div>
       )}
 
@@ -182,6 +306,12 @@ export function BalancePanel() {
               } else {
                 setHighlightCouncil(undefined);
               }
+            }}
+            onPlan={() => {
+              setScopeId(sc.id);
+              if (plan?.scopeId !== sc.id) setPlan(undefined);
+              setPlanFor(sc.id);
+              requestPlan(sc.id);
             }}
           />
         ))}
