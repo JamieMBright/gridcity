@@ -9,7 +9,9 @@ const sandboxChromium = !process.env.CI;
 export default defineConfig({
   testDir: 'e2e',
   ...(sandboxChromium ? { globalSetup: './e2e/global-setup.ts' } : {}),
-  workers: 1, // WebGL canvas under software rendering: keep it serial
+  // two parallel browsers on 4 cores roughly halves the wall clock;
+  // the software-WebGL canvas is CPU-bound but tests share one dev server
+  workers: 2,
   timeout: 60_000,
   expect: { timeout: 15_000 },
   retries: 1,
