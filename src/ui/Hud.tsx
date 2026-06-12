@@ -4,7 +4,9 @@ import { requestSkip, sendCommand, setSimSpeed, skipGoalLadder } from '../app/wo
 import { getAudioSettings, updateAudioSettings } from '../audio/audio';
 import { pushSettings } from '../online/cloud';
 import type { SimSpeed } from '../sim/protocol';
-import { panelStyle, theme } from './theme';
+import { ALLOWANCE_Y1_K, inRebuildYear } from '../sim/scenario/story';
+import { assetCapexK } from '../sim/regulation/bill';
+import { fmtMoneyK, panelStyle, theme } from './theme';
 
 function formatGameClock(simTimeMin: number): string {
   const day = Math.floor(simTimeMin / (24 * 60)) + 1;
@@ -140,6 +142,27 @@ function StormBanner() {
       )}
       {surging && <span style={{ color: theme.ok, fontSize: 11 }}>surge crews on standby ✓</span>}
     </div>
+  );
+}
+
+/** Year-1 rebuild allowance: network capex committed vs Ofgem's letter. */
+function AllowanceChip() {
+  const snapshot = useAppStore((s) => s.snapshot);
+  if (!snapshot || !inRebuildYear(snapshot.simTimeMin)) return null;
+  let spentK = 0;
+  for (const a of snapshot.assets) {
+    if (a.kind === 'gen' || (a.kind === 'sub' && a.idno)) continue;
+    spentK += assetCapexK(a);
+  }
+  const frac = spentK / ALLOWANCE_Y1_K;
+  const color = frac > 1 ? theme.danger : frac > 0.8 ? theme.warn : theme.slate;
+  return (
+    <span
+      title="Ofgem's year-1 allowance for the rebuild (network capex committed)"
+      style={{ color, fontSize: 11, whiteSpace: 'nowrap' }}
+    >
+      rebuild {fmtMoneyK(spentK)} / {fmtMoneyK(ALLOWANCE_Y1_K)}
+    </span>
   );
 }
 
@@ -469,6 +492,7 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
       </span>
       <SkipButtons compact={compact} />
       <UndoRedo />
+      <AllowanceChip />
       <BalanceButton />
       <HeadroomButton />
       <N1Button />

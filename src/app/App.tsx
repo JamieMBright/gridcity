@@ -12,6 +12,7 @@ import { MapView } from '../ui/MapView';
 import { MobileChrome } from '../ui/MobileChrome';
 import { SearchBox } from '../ui/SearchBox';
 import { StartMenu } from '../ui/StartMenu';
+import { StoryIntro } from '../ui/StoryIntro';
 import { Tutorial } from '../ui/Tutorial';
 import { panelStyle, theme } from '../ui/theme';
 import { playSfx } from '../audio/audio';
@@ -239,6 +240,7 @@ export function App() {
       <Toast />
       <Tutorial />
       {!menuOpen && <BalancePanel />}
+      <StoryIntro />
       <KpiDashboard />
       <StartMenu />
     </div>

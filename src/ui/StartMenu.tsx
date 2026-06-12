@@ -58,7 +58,10 @@ export function StartMenu() {
 
   const begin = (tutorial: boolean, fresh: boolean): void => {
     startMusic();
-    if (fresh) newGameCommand();
+    if (fresh) {
+      newGameCommand();
+      if (!tutorial) sessionStorage.setItem('ec-story-pending', '1');
+    }
     setTutorialStep(tutorial ? 0 : undefined);
     setMenuOpen(false);
   };
