@@ -25,6 +25,13 @@
 
 ## Done (chronological, latest first)
 
+### Nuclear siting prompt
+- [x] Nuclear placeable beside any cooling water (sea/river within 2
+      tiles), not just the licensed estuary zone — suitability overlay
+      paints the coastal/riverside band green (verified on screenshot);
+      "needs cooling water" error elsewhere; conservation areas/parks
+      still refuse; the licensed estuary site is always allowed
+
 ### Bill calibration prompt
 - [x] Household bill modelled the GB way: domestic users carry ~32% of
       the network pot (industry/commerce the rest) → a reasonable mature

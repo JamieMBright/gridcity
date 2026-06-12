@@ -144,6 +144,24 @@ describe('new generation', () => {
     const ocgt = applyCommand(state, map, { type: 'build', spec: { kind: 'gen', gen: 'gasPeaker', x: 12, y: 10 } });
     expect(ocgt.ok).toBe(true);
   });
+
+  it('nuclear wants cooling water: shoreline yes, inland no, licensed site always', () => {
+    const map = makeTestMap(30, 30);
+    for (let y = 0; y < 30; y++) map.terrain[y * 30] = TERRAIN.water; // west coast
+    const state = newGame();
+    // 2x2 footprint anchored a tile off the shore: every tile within reach
+    const shore = applyCommand(state, map, { type: 'build', spec: { kind: 'gen', gen: 'nuclear', x: 1, y: 5 } });
+    expect(shore.ok).toBe(true);
+    const inland = applyCommand(state, map, { type: 'build', spec: { kind: 'gen', gen: 'nuclear', x: 15, y: 15 } });
+    expect(inland.ok).toBe(false);
+    expect(inland.error).toMatch(/cooling water/);
+    setZone(map, 20, 20, ZONE.nuclearSite);
+    setZone(map, 21, 20, ZONE.nuclearSite);
+    setZone(map, 20, 21, ZONE.nuclearSite);
+    setZone(map, 21, 21, ZONE.nuclearSite);
+    const licensed = applyCommand(state, map, { type: 'build', spec: { kind: 'gen', gen: 'nuclear', x: 20, y: 20 } });
+    expect(licensed.ok).toBe(true);
+  });
 });
 
 describe('planning + construction', () => {
