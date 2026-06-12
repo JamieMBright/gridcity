@@ -117,6 +117,9 @@ function useKeyboard(): void {
       if (e.key === 'Escape') {
         if (s.selectedAsset !== undefined || s.selectedLine !== undefined) {
           s.setSelected({});
+        } else if (s.tool.t === 'line' && (s.tool.waypoints?.length ?? 0) > 0) {
+          // unwind the bent route one waypoint at a time
+          s.setTool({ ...s.tool, waypoints: s.tool.waypoints?.slice(0, -1) });
         } else if (s.tool.t === 'line' && s.tool.fromAssetId !== undefined) {
           s.setTool({ ...s.tool, fromAssetId: undefined });
         } else {
@@ -139,6 +142,7 @@ function useKeyboard(): void {
             ...s.tool,
             build: s.tool.build === 'overhead' ? 'underground' : 'overhead',
             fromAssetId: undefined,
+            waypoints: undefined,
           });
         }
       } else if (e.key === ' ') {

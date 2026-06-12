@@ -159,6 +159,8 @@ export type Ghost =
       ok: boolean;
       level: VoltageLevel;
       pylons?: number[] | undefined;
+      /** Waypoint towers the route bends through. */
+      via?: Array<{ x: number; y: number }> | undefined;
     }
   | { kind: 'endpoint'; x: number; y: number; level: VoltageLevel };
 

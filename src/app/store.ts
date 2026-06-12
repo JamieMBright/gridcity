@@ -13,7 +13,15 @@ export type Tool =
   | { t: 'gen'; gen: GenType }
   | { t: 'sub'; sub: SubType }
   | { t: 'depot' }
-  | { t: 'line'; level: VoltageLevel; build: LineBuild; fromAssetId?: number | undefined }
+  | {
+      t: 'line';
+      level: VoltageLevel;
+      build: LineBuild;
+      fromAssetId?: number | undefined;
+      /** Route vertices clicked between anchor and destination — each
+       *  becomes a junction tower and the circuit bends through it. */
+      waypoints?: Array<{ x: number; y: number }> | undefined;
+    }
   | { t: 'demolish' };
 
 export interface GhostInfo {

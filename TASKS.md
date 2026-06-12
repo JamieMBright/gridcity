@@ -12,6 +12,17 @@
 
 ## Open
 
+- [ ] **"Do all" campaign (owner, 2026-06-12): implement ROADMAP.md in
+      full**, tier by tier in gated waves (each wave: full local suite →
+      PR → auto-merge). Wave 1 IN FLIGHT: #1 waypoints (main lane —
+      CODE-COMPLETE: buildPath compound command through tee junction
+      towers, click-to-bend + multi-leg ghost + Esc unwind + palette
+      hint, 2 unit tests incl. whole-rollback; visual/e2e at the wave
+      gate), #5+#20 seasons/weather regimes (agent A), #6+#7 goals+
+      time-skip (agent B). Then 1b: #2 heatmap, #10 forecast overlay,
+      #4 labels+search, #3 planner, #8 N-1, #9 storm prep. Tier 2–4
+      follow. Items tick off in ROADMAP.md with PR links as they land.
+
 - [ ] **Map recognisability pass 2** (owner can't model 1M properties; keep it
       sensible/enjoyable): continue tuning until London "reads" at a glance.
 - [ ] **Existing GB generation from real data**: owner can provide the

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { LINE_UPRATE_MUL, SUB_UG_MUL, subCapexK, SUBS } from '../src/sim/catalog';
 import { applyCommand } from '../src/sim/commands';
 import { priceLine } from '../src/sim/cost';
-import { ZONE } from '../src/sim/map/types';
+import { TERRAIN, ZONE } from '../src/sim/map/types';
 import { deriveNetwork, lineBranchId, subMva } from '../src/sim/assets';
 import { assetCapexK } from '../src/sim/regulation/bill';
 import { deserialize, newGame, serialize } from '../src/sim/state';
@@ -294,5 +294,53 @@ describe('losing supply comes with an explanation', () => {
     advanceTime(state);
     solveTick(state, ctx, derive(state, ctx), true);
     expect(state.events.some((e) => e.msg.includes('sun has set'))).toBe(true);
+  });
+});
+
+describe('waypointed circuits (buildPath)', () => {
+  it('bends a circuit through junction towers as one command', () => {
+    const { state, ctx, ids } = poweredFixture();
+    const before = state.assets.size;
+    const r = applyCommand(state, ctx.map, {
+      type: 'buildPath',
+      level: 132,
+      build: 'overhead',
+      fromAssetId: ids.grid,
+      waypoints: [
+        { x: 25, y: 15 },
+        { x: 25, y: 5 },
+      ],
+      toX: 5,
+      toY: 5, // the gas plant's 132 bay, the long way round
+    });
+    expect(r.ok).toBe(true);
+    expect(state.assets.size).toBe(before + 5); // 2 towers + 3 legs
+    const towers = [...state.assets.values()].filter(
+      (a) => a.kind === 'sub' && a.sub === 'tee' && a.teeLevel === 132,
+    );
+    expect(towers.length).toBe(2);
+    for (const t of towers) {
+      const touching = [...state.assets.values()].filter(
+        (l) => l.kind === 'line' && (l.a === t.id || l.b === t.id),
+      );
+      expect(touching.length).toBe(2); // the route passes THROUGH each tower
+    }
+  });
+
+  it('rolls back wholly when a waypoint cannot stand', () => {
+    const { state, ctx, ids } = poweredFixture();
+    ctx.map.terrain[15 * 30 + 25] = TERRAIN.water; // drown the first waypoint
+    const before = state.assets.size;
+    const r = applyCommand(state, ctx.map, {
+      type: 'buildPath',
+      level: 132,
+      build: 'overhead',
+      fromAssetId: ids.grid,
+      waypoints: [{ x: 25, y: 15 }],
+      toX: 5,
+      toY: 5,
+    });
+    expect(r.ok).toBe(false);
+    expect(state.assets.size).toBe(before); // nothing half-built
   });
 });
