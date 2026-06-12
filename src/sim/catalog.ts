@@ -93,7 +93,8 @@ export const GENS: Record<GenType, GenSpec> = {
     siting: 'nuclearSite',
     planningDays: 365,
     buildDays: 720,
-    footprint: [2, 2],
+    // a real station campus: reactor hall, turbine hall, switchyard
+    footprint: [3, 2],
   },
   solarFarm: {
     name: 'Solar farm',
@@ -175,6 +176,9 @@ export const BATTERY_EFFICIENCY = 0.9;
 
 export interface SubSpec {
   name: string;
+  /** Tile footprint [w, h]; omitted = a single tile. A GSP switchyard
+   *  sprawls — gantries, busbars, banks of transformers. */
+  footprint?: [number, number];
   /** Buses present at the substation. */
   levels: VoltageLevel[];
   /** Transformer rating between the two levels (MW), if two levels. */
@@ -195,6 +199,7 @@ export interface SubSpec {
 export const SUBS: Record<SubType, SubSpec> = {
   bulk: {
     name: 'Bulk supply point (400/132/33 kV)',
+    footprint: [2, 2],
     levels: [400, 132, 33],
     txRatingMW: 1000,
     txX: 0.013,

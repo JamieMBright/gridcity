@@ -51,6 +51,9 @@ export interface GameState {
   heat: Map<number, number>;
   /** branch id → repair game-minutes remaining (tripped/out of service). */
   outages: Map<number, number>;
+  /** Transient (not saved): last tick's energization per service sub,
+   *  for "why did my site go dark" transition events. */
+  subLive: Map<number, boolean>;
   /** branch id -> why it's out (storm/tree/overload), for the inspector. */
   outageCause: Map<number, string>;
   /** rolling carbon intensity, g/kWh (exponentially smoothed). */
@@ -136,6 +139,7 @@ export function newGame(): GameState {
     soc: new Map(),
     heat: new Map(),
     outages: new Map(),
+    subLive: new Map(),
     outageCause: new Map(),
     carbonEMA: 0,
     fleetSize: 2,
@@ -348,7 +352,11 @@ export interface SaveData {
 }
 
 export function serialize(s: GameState): SaveData {
-  return {
+  // structuredClone at the end makes this a true snapshot: the worker's
+  // undo/redo stacks hold these, and shallow copies once let in-place
+  // mutations (GIS converts, uprates, MVA resizes, tick updates) leak
+  // backwards into the stack — undo "restored" an already-mutated state.
+  const data: SaveData = {
     v: SAVE_VERSION,
     tick: s.tick,
     simTimeMin: s.simTimeMin,
@@ -391,6 +399,7 @@ export function serialize(s: GameState): SaveData {
     period: { ...s.period, targets: { ...s.period.targets } },
     ...(s.lastReport ? { lastReport: { ...s.lastReport, scores: { ...s.lastReport.scores } } } : {}),
   };
+  return structuredClone(data);
 }
 
 export function deserialize(d: SaveData): GameState {
@@ -410,6 +419,7 @@ export function deserialize(d: SaveData): GameState {
     soc: new Map(d.soc ?? []),
     heat: new Map(d.heat ?? []),
     outages: new Map(d.outages ?? []),
+    subLive: new Map(),
     outageCause: new Map(d.outageCause ?? []),
     carbonEMA: d.carbonEMA ?? 0,
     fleetSize: d.fleetSize ?? 2,

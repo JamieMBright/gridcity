@@ -25,7 +25,7 @@ import {
 } from 'pixi.js';
 import { riverCenterY, riverHalfWidth } from '../data/londonMap';
 import { assetLevels, type PlacedAsset } from '../sim/assets';
-import { GENS } from '../sim/catalog';
+import { GENS, SUBS } from '../sim/catalog';
 import type { VoltageLevel } from '../sim/grid/types';
 import { sampleRoute } from '../sim/map/routes';
 import { CUSTOMERS_PER_TILE, type CityMap, type RouteClass, type Zone } from '../sim/map/types';
@@ -1270,11 +1270,20 @@ export class MapRenderer {
             : 'depot';
       const tex = name ? this.textures.get(name) : undefined;
       if (!tex) continue;
-      const [fw, fh] = a.kind === 'gen' ? (GENS[a.gen].footprint ?? [1, 1]) : [1, 1];
+      const [fw, fh] =
+        a.kind === 'gen'
+          ? (GENS[a.gen].footprint ?? [1, 1])
+          : a.kind === 'sub'
+            ? (SUBS[a.sub].footprint ?? [1, 1])
+            : [1, 1];
       const s = new Sprite(tex);
       const c = this.tileCentre(a.x, a.y);
-      if (!building && (fw > 1 || fh > 1)) {
+      if (!building && a.kind === 'gen' && (fw > 1 || fh > 1)) {
         s.position.set(c.x - fh * HALF_W, c.y - HALF_H - (CELL_H - FLOOR_H));
+      } else if (a.kind === 'sub' && (fw > 1 || fh > 1)) {
+        // interim: centre the (still single-tile) yard art on its plot
+        const cc = this.tileCentre(a.x + (fw - 1) / 2, a.y + (fh - 1) / 2);
+        s.position.set(cc.x - HALF_W, cc.y + HALF_H - CELL_H);
       } else {
         s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
       }
@@ -1311,11 +1320,15 @@ export class MapRenderer {
     for (const a of assets) {
       if (a.kind !== 'sub') continue;
       const levels = assetLevels(a);
+      const [fw, fh] = SUBS[a.sub].footprint ?? [1, 1];
+      const cx = a.x + (fw - 1) / 2;
+      const cy = a.y + (fh - 1) / 2;
+      const base = 1.12 + (Math.max(fw, fh) - 1);
       for (let i = 0; i < levels.length; i++) {
         const level = levels[i];
         if (level === undefined) continue;
-        // highest voltage outermost; every ring clears the sprite plinth
-        this.diamond(this.subRingsG, a.x, a.y, 1.12 + (levels.length - 1 - i) * 0.22);
+        // highest voltage outermost; every ring clears the whole plot
+        this.diamond(this.subRingsG, cx, cy, base + (levels.length - 1 - i) * 0.22);
         this.subRingsG.stroke({ color: LEVEL_COLOR[level], width: 1.8 * RES, alpha: 0.75 });
       }
     }
