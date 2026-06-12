@@ -37,17 +37,17 @@ export function P(u: number, v: number, z = 0): Pt {
 
 /** Warm-lit version of a colour (sun side). */
 export function lit(c: RGBA, t = 0.18): RGBA {
-  return mix(lighten(c, t), SUN_WARM, 0.12);
+  return mix(lighten(c, t), SUN_WARM, 0.17);
 }
 
 /** Dusk-shaded version of a colour (away from sun). */
 export function shaded(c: RGBA, t = 0.3): RGBA {
-  return mix(darken(c, t), DUSK_COOL, 0.18);
+  return mix(darken(c, t), DUSK_COOL, 0.25);
 }
 
 /** Brightest top-face version. */
 export function top(c: RGBA, t = 0.28): RGBA {
-  return mix(lighten(c, t), SUN_WARM, 0.08);
+  return mix(lighten(c, t), SUN_WARM, 0.12);
 }
 
 export class Iso {

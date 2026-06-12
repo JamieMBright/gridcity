@@ -25,6 +25,13 @@
 
 ## Done (chronological, latest first)
 
+### Style-direction prompt (menu mock + logotype refs)
+- [x] Logotype: glowing ELECTRI + bolt + CITY-as-buildings (SVG, in-app)
+- [x] Start menu redesigned to the mock: glassy panel, glowing CONTINUE,
+      iconed buttons, NETWORK ACCESS sign-in block, footer links
+- [~] World grade toward the dusk mock: warmer lighting mix, more lit
+      windows, atmospheric vignette — sprite pipeline, not raytraced 3D
+
 ### 400 kV confusion prompt
 - [x] Wind→supergrid path explained in-game: plants connect at their own kV
       and step up THROUGH substations; BSP's new 33 bay takes wind directly;

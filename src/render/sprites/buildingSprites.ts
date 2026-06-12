@@ -11,7 +11,9 @@ import { COLORS, roofColor, wallColor } from './palette';
 import { alpha, darken, hex, lighten, type RGBA } from './raster';
 
 function glass(rng: Rng, litP: number): RGBA {
-  return rng.chance(litP) ? (rng.chance(0.4) ? COLORS.glassHot : COLORS.glassLit) : COLORS.glassDark;
+  // the city glows at dusk: most windows have somebody home
+  const p = Math.min(0.92, litP + 0.24);
+  return rng.chance(p) ? (rng.chance(0.4) ? COLORS.glassHot : COLORS.glassLit) : COLORS.glassDark;
 }
 
 // Victorian fabric: brick reds/browns, render and pebbledash, slate roofs.
