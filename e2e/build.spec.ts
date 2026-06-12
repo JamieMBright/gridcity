@@ -5,6 +5,7 @@ test.describe('building on the map', () => {
   test('designate a site → developer bids → award → plant + wires on the bill', async ({
     page,
   }) => {
+    test.slow(); // waits real seconds for developer bids at 16x
     await boot(page);
     await pause(page);
     // a fresh game is seeded with the iDNO estate substations
@@ -73,7 +74,8 @@ test.describe('building on the map', () => {
     expect(genYrK).toBeGreaterThan(20_000); // a CCGT annuitized is £20m+/yr
     const capexYrK = await store<number>(page, '(s) => s.snapshot.bill.capexYrK');
     expect(capexYrK).toBeGreaterThan(0);
-    await expect(page.getByText('network capex')).toBeVisible();
+    await expect(page.getByText('network (DUoS)')).toBeVisible();
+    await expect(page.getByText('generation (PPA)')).toBeVisible();
   });
 
   test('ghost preview quotes a cost before building', async ({ page }) => {
