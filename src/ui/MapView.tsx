@@ -3,7 +3,7 @@ import { getLondonMap } from '../data/londonMap';
 import { MapRenderer, type Ghost, type TileHover } from '../render/MapRenderer';
 import { installTestHook } from '../app/testHook';
 import { useAppStore, type Tool } from '../app/store';
-import { sendCommand, setWatch } from '../app/workerBridge';
+import { requestForecast, sendCommand, setWatch } from '../app/workerBridge';
 import { assetAtTile, checkBuild, pylonTilesOf, siteErrorAt, type BuildSpec } from '../sim/commands';
 import { priceLine, pylonSiteOk } from '../sim/cost';
 import { ANNUITY_FACTOR, DEPOT, GENS, LINES, SUBS } from '../sim/catalog';
@@ -321,11 +321,17 @@ export function MapView() {
     rendererRef.current?.setCouncilHighlight(highlightCouncil);
   }, [highlightCouncil]);
 
-  // headroom heatmap (re-colours on the next snapshot pass)
+  // headroom / forecast overlays (forecast wins when both toggled)
   const headroom = useAppStore((s) => s.headroom);
+  const forecastOn = useAppStore((s) => s.forecastOn);
+  const forecast = useAppStore((s) => s.forecast);
   useEffect(() => {
-    rendererRef.current?.setOverlay(headroom ? 'headroom' : 'none');
-  }, [headroom]);
+    rendererRef.current?.setOverlay(forecastOn ? 'forecast' : headroom ? 'headroom' : 'none');
+    if (forecastOn) requestForecast();
+  }, [headroom, forecastOn]);
+  useEffect(() => {
+    if (forecast) rendererRef.current?.setForecastRows(forecast);
+  }, [forecast]);
 
   // N-1 security rings + the catchment data feeding both overlays
   const n1 = useAppStore((s) => s.n1);
@@ -459,7 +465,7 @@ export function MapView() {
     } else {
       const sprite =
         spec.kind === 'gen'
-          ? { gasCCGT: 'gen_gas', gasPeaker: 'gen_peaker', coal: 'gen_coal', nuclear: 'gen_nuclear', solarFarm: 'gen_solar', windOnshore: 'gen_windon', windOffshore: 'gen_windoff', tidal: 'gen_tidal', biomass: 'gen_biomass', battery: 'gen_battery' }[spec.gen]
+          ? { gasCCGT: 'gen_gas', gasPeaker: 'gen_peaker', coal: 'gen_coal', nuclear: 'gen_nuclear', solarFarm: 'gen_solar', windOnshore: 'gen_windon', windOffshore: 'gen_windoff', tidal: 'gen_tidal', biomass: 'gen_biomass', battery: 'gen_battery', interconnector: 'gen_interconnector' }[spec.gen]
           : spec.kind === 'sub'
             ? { bulk: 'sub_bulk', grid: 'sub_grid', dist: 'sub_dist', pole: 'sub_pole', vault: 'sub_vault', tee: 'sub_dist' }[spec.sub]
             : 'depot';

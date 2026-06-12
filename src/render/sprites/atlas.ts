@@ -54,6 +54,7 @@ import {
   depotTile,
   gasPeakerTile,
   gasPlantTile,
+  interconnectorTile,
   nuclearTile,
   pole33Tile,
   pylon132Tile,
@@ -221,6 +222,7 @@ function buildSpriteCells(): Map<string, Cell> {
   set('gen_tidal', tidalTile(231));
   set('gen_biomass', biomassTile(232));
   set('gen_battery', batteryTile(196));
+  set('gen_interconnector', interconnectorTile(246));
   set('depot', depotTile(197));
   set('van', vanTile(198));
   set('pylon_400', pylon400Tile(241));

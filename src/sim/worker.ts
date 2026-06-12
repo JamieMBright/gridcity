@@ -34,11 +34,13 @@ import {
   type SaveData,
 } from './state';
 import { computeBalance } from './balance';
+import { forecastCatchments } from './forecast';
 import { planReinforcement, proposeLoop } from './planner';
 import { connectionStudy } from './study';
 import { buildDemandField } from './map/demand';
 import {
   advanceTime,
+  billDetailRows,
   currentPeriodActuals,
   derive,
   deriveKey,
@@ -361,6 +363,9 @@ self.onmessage = (e: MessageEvent<MainToWorker>) => {
         post({ type: 'snapshot', snapshot: makeSnapshot(false) });
         post({ type: 'saveData', data: serialize(state) });
         break;
+      case 'forecast':
+        post({ type: 'forecast', rows: forecastCatchments(state, ctx) });
+        break;
       case 'balance':
         post({ type: 'balance', report: computeBalance(state, ctx, msg.season ?? 'today') });
         break;
@@ -381,6 +386,11 @@ self.onmessage = (e: MessageEvent<MainToWorker>) => {
       }
       case 'skip':
         if (!skipping) runSkip(msg.to);
+        break;
+      case 'billDetail':
+        // itemise on demand off the state's EMA maps / asset register —
+        // read-only, so paused inspection changes nothing
+        post({ type: 'billDetail', line: msg.line, rows: billDetailRows(state, msg.line) });
         break;
       case 'skipGoals':
         // dismiss the ladder for good: park the index past the end

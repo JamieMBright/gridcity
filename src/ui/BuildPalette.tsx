@@ -145,6 +145,7 @@ const GEN_ORDER: GenType[] = [
   'nuclear',
   'battery',
   'coal',
+  'interconnector',
 ];
 const SUB_ORDER: SubType[] = ['bulk', 'grid', 'dist', 'pole', 'vault'];
 const LEVELS: VoltageLevel[] = [400, 132, 33];

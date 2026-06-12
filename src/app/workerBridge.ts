@@ -2,7 +2,13 @@ import { playSfx } from '../audio/audio';
 import { pullCloudSave, pushCloudSave, submitScore } from '../online/cloud';
 import { localStorageStore } from '../persistence/localStorageStore';
 import type { Command } from '../sim/commands';
-import type { MainToWorker, SimSpeed, SkipTarget, WorkerToMain } from '../sim/protocol';
+import type {
+  BillDetailLine,
+  MainToWorker,
+  SimSpeed,
+  SkipTarget,
+  WorkerToMain,
+} from '../sim/protocol';
 import { isSaveData } from '../sim/state';
 import { useAppStore } from './store';
 
@@ -84,8 +90,14 @@ export function initWorker(): void {
       case 'balance':
         s.setBalance(msg.report);
         break;
+      case 'forecast':
+        s.setForecast(msg.rows);
+        break;
       case 'plan':
         s.setPlan(msg.plan);
+        break;
+      case 'billDetail':
+        s.setBillDetail({ line: msg.line, rows: msg.rows });
         break;
       case 'fatal':
         s.setWorkerStatus('error', msg.message);
@@ -126,9 +138,19 @@ export function skipGoalLadder(): void {
   send({ type: 'skipGoals' });
 }
 
+/** Ask the worker for the 5-year demand-growth forecast. */
+export function requestForecast(): void {
+  send({ type: 'forecast' });
+}
+
 /** Ask the worker to cut a fresh grid-balance report. */
 export function requestBalance(): void {
   send({ type: 'balance' });
+}
+
+/** Itemise one bill line (BillPanel tapped-row drill-down). */
+export function requestBillDetail(line: BillDetailLine): void {
+  send({ type: 'billDetail', line });
 }
 
 /** Ask the worker for costed reinforcement options for a balance scope

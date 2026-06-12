@@ -64,6 +64,10 @@ export interface BillInputs {
   flexYrK: number;
   /** Rolling constraint compensation to firm connections, £k/yr. */
   constraintYrK: number;
+  /** Rolling network I²R losses priced at the running marginal price,
+   *  £k/yr — DNO spend (a real DNO buys its losses), so it lands in the
+   *  network pot the household DUoS share is cut from. */
+  lossYrK: number;
   /** Liquidated damages run-rate for overdue connections, £k/yr. */
   penaltyYrK: number;
   /** Innovation levy, % of the subtotal. */
@@ -89,6 +93,10 @@ export interface BillBreakdown {
   flexYrK: number;
   /** Constraint compensation + late-connection damages, £k/yr. */
   constraintYrK: number;
+  /** Network I²R losses bought at the running marginal price, £k/yr.
+   *  Resistance never changes after build — re-conductoring raises
+   *  ratings, not r — so only shorter or lower-r routes cut this line. */
+  lossYrK: number;
   /** Innovation levy, £k/yr. */
   innovationYrK: number;
   totalYrK: number;
@@ -111,8 +119,12 @@ export function computeBill(inp: BillInputs): BillBreakdown {
   let overheadKm = 0;
   for (const a of inp.assets) {
     // generation is private spend: developers recover it through their
-    // PPA strike on delivered energy (inp.ppaYrK), never through DUoS
-    if (a.kind === 'gen') continue;
+    // PPA strike on delivered energy (inp.ppaYrK), never through DUoS —
+    // EXCEPT the interconnector, which is the player's own network
+    // asset (no developer, no PPA): its converter hall annuitizes onto
+    // the DUoS pot with the wires, while the energy it imports flows
+    // through energyYrK like any wholesale purchase
+    if (a.kind === 'gen' && a.gen !== 'interconnector') continue;
     if (a.kind === 'sub' && a.idno) continue; // the iDNO's iron, not yours
     const capex = assetCapexK(a);
     capexYrK += capex * ANNUITY_FACTOR;
@@ -124,11 +136,19 @@ export function computeBill(inp: BillInputs): BillBreakdown {
   const vegYrK = (VEG_POLICY[inp.vegPolicy]?.costPerKmYrK ?? 0) * overheadKm * inp.vegCostMul;
   const constraintYrK = inp.constraintYrK + inp.penaltyYrK;
   const subtotal =
-    capexYrK + opexYrK + fleetYrK + vegYrK + genYrK + inp.energyYrK + inp.flexYrK + constraintYrK;
+    capexYrK +
+    opexYrK +
+    fleetYrK +
+    vegYrK +
+    genYrK +
+    inp.energyYrK +
+    inp.flexYrK +
+    constraintYrK +
+    inp.lossYrK;
   const innovationYrK = subtotal * (inp.levyPct / 100);
   const totalYrK = subtotal + innovationYrK;
   const networkPotK =
-    capexYrK + opexYrK + fleetYrK + vegYrK + inp.flexYrK + constraintYrK + innovationYrK;
+    capexYrK + opexYrK + fleetYrK + vegYrK + inp.flexYrK + constraintYrK + inp.lossYrK + innovationYrK;
   const energyPotK = inp.energyYrK + genYrK;
   const perCustomerDuosYr =
     inp.totalCustomers > 0
@@ -149,6 +169,7 @@ export function computeBill(inp: BillInputs): BillBreakdown {
     energyYrK: inp.energyYrK,
     flexYrK: inp.flexYrK,
     constraintYrK,
+    lossYrK: inp.lossYrK,
     innovationYrK,
     totalYrK,
     servedCustomers: inp.servedCustomers,

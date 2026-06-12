@@ -86,13 +86,21 @@ describe('end-to-end tick: power flows from plant to homes', () => {
         b.energyYrK +
         b.flexYrK +
         b.constraintYrK +
+        b.lossYrK +
         b.innovationYrK,
       9,
     );
     expect(b.servedCustomers).toBe(360);
     // households pay the domestic share of each pot + the standing charge
     const networkK =
-      b.capexYrK + b.opexYrK + b.fleetYrK + b.vegYrK + b.flexYrK + b.constraintYrK + b.innovationYrK;
+      b.capexYrK +
+      b.opexYrK +
+      b.fleetYrK +
+      b.vegYrK +
+      b.flexYrK +
+      b.constraintYrK +
+      b.lossYrK +
+      b.innovationYrK;
     expect(b.perCustomerDuosYr).toBeCloseTo((networkK * DOMESTIC_NETWORK_SHARE * 1000) / 360, 9);
     expect(b.perCustomerYr).toBeCloseTo(
       b.perCustomerDuosYr +

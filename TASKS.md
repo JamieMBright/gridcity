@@ -12,6 +12,97 @@
 
 ## Open
 
+- [x] **ROADMAP #11 Interconnector + #12 Battery policy (this prompt;
+      dispatch/market lane)**:
+  - [x] #11: GenType `'interconnector'` in catalog (1000 MW, 400 kV,
+        £500m, carbon 150 g/kWh GB-import mix, new `siting: 'edge'`);
+        siteErrorAt edge rule (dry land within 2 tiles of the map
+        boundary, clear refusal text — suitability overlay shares it);
+        `nationalPriceMWh/K` in market/dispatch.ts (pure, no RNG:
+        nights ~£45 → evening peaks ~£140, +30% winter via seasonFactor,
+        +£60 calm-cold scarcity kicker); dispatch prices the unit off
+        the live series, merit-ordered, mustRun false, ppaK forced
+        undefined (NO PPA); commands.ts builds it DIRECTLY as a
+        player-owned asset (no tender; planning+build lead times);
+        bill.ts excepts it from the gen skip → converter hall
+        annuitizes into DUoS capex/opex; imports ride energyYrK free.
+        Palette/MobileChrome/hotkey ('M') entries; InfoPanel 'import
+        price now £X/MWh' off snapshot.simTimeMin+weather (same
+        series); `gen_interconnector` sprite (converter hall + DC
+        yard) + atlas/MapRenderer/MapView-ghost registration —
+        preview-inspected.
+        [~] balance.ts availAt untouched per lane constraints: the
+        interconnector shows as firm (1.0) in Balance profiles —
+        availability nuance is a later pass. Export mode (negative
+        demand) deferred per roadmap v1.
+  - [x] #12: `GenAsset.policy?: 'shave'|'arbitrage'|'reserve'`
+        (additive serialization for free via PlacedAsset; default
+        'shave' = exact original behaviour, unit-proven); dispatch
+        battery block branches per battery: shave (original gate kept),
+        arbitrage (charge natK<£60 off the grid at rate, discharge
+        natK>£110 at front-of-stack cost regardless of local peak),
+        reserve (hold ≥50% SoC, trickle-refill at 20% rate so standby
+        never cooks the local network, full store offered only when the
+        island would otherwise be unserved); `setBatteryPolicy` command
+        (mutating, undo-safe via worker snapshot, no assetsVersion
+        bump); InfoPanel battery card 3-button selector (MvaControls
+        pattern, pointerEvents auto).
+  - [x] VERIFIED: tests/interconnector.test.ts (10) +
+        tests/batteryPolicy.test.ts (7) — edge siting, direct build vs
+        tender, price series shape/winter/kicker/purity, dispatch
+        follows series (peak > 2x night) with zero PPA top-up, DUoS
+        billing exception, arbitrage night-charge/evening-discharge,
+        discharge-despite-local-cover, reserve floor hold + island
+        rescue, default==shave equivalence, command refusal +
+        serialize-clone undo safety. Full unit suite 202/202; tsc +
+        eslint clean.
+
+- [x] **ROADMAP #13 Network losses + #52 Bill drill-down (this prompt;
+      bill-accrual surface lane)**:
+  - [x] #13: per-branch I²R as the textbook pu identity lossMW =
+        flowMW²·r / 100 (the catalog's 100 MVA base IS the constant —
+        documented at tick.branchLossMW; 240 MW over 30 km of 132 kV
+        loses ≈6.9 MW ≈ 2.9%, inside the real 2–4% band). Rolling
+        `state.lossYrK` EMA beside energyCostYrK priced at the running
+        marginal priceMWh; `BillBreakdown.lossYrK` summed into totalYrK
+        AND the network pot (losses are DNO spend → household DUoS
+        share); `BranchView.lossMW?` (lines + transformers); InfoPanel
+        LINE CARD row 'losses now X MW (£Yk/yr)'; BillPanel 'losses
+        (I²R)' row with the only-shorter/lower-r-routes tooltip.
+        Checked LINES catalog: cable carries the SAME rPerTile as
+        overhead per level, so undergrounding does not cut losses —
+        specs left alone per scope, noted in tooltip + unit test.
+  - [x] #52: `state.billDetail` Maps (constraints/ppa/losses), EMA'd
+        with the SAME tau as their headline lines (that's what makes
+        reconciliation exact), pruned at 1e-6 for compactness;
+        serialized additively (billConstraints/billPpa/billLosses,
+        SAVE_VERSION untouched, old saves hydrate clean — unit-proven).
+        dispatch stays pure: returns `constraintDetail`/`ppaDetail`
+        [id, mw, £k/h] arrays (recordCurtailed + the ppa accrual site);
+        tick folds. capex/opex never stored — billDetailRows lives in
+        tick.ts (worker.ts can't be imported by vitest) and derives
+        them live via assetCapexK/assetOpexFrac, mirroring computeBill's
+        inclusion rule (gen skipped EXCEPT the interconnector lane's
+        new unit, iDNO skipped). Protocol billDetail request/response
+        (top 12, labels via GENS/SUBS + developer names, coords for
+        jump-to); worker case; workerBridge requestBillDetail; store
+        billDetail/setter. BillPanel rows tappable (▸/▾, pointer) →
+        inline detail card with £k/yr + MWh/yr + '→' jump (requestPan +
+        setSelected; line rows pin via lineId at the route midpoint).
+  - [x] Tests (15 new across losses.test.ts + billDetail.test.ts; full
+        suite 202/202): flow²·r scaling, 2–4% calibration, cable-r ==
+        overhead-r and uprating leaves r, BranchView lossMW identity,
+        bill sums + DUoS pot include lossYrK, constraint/ppa/losses
+        details each reconcile to their line ±2% on a running curtailed
+        fixture (firm solar at noon), attribution names the curtailed
+        unit, capex top list matches assetCapexK order, opex pricing,
+        protocol row shape + coords, determinism, save round-trip +
+        pre-losses hydration. tsc + eslint clean (whole repo green,
+        incl. the concurrent interconnector/battery lane).
+  - [x] File constraints respected: tick/state/bill/dispatch (≈12-line
+        diff)/protocol/worker/BillPanel/InfoPanel (LineInfo only)/
+        workerBridge/store/tests only; no Hud/scenario/balance/render.
+
 - [x] **ROADMAP #8 N-1 security + #9 storm prep — SIM SIDE (this prompt;
       UI/renderer land separately)**:
   - [x] `src/sim/security.ts` (new): `securityOf(state)` → per service

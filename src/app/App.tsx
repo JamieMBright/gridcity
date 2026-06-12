@@ -139,6 +139,8 @@ function useKeyboard(): void {
         s.setHeadroom(!s.headroom);
       } else if (key === 'n') {
         s.setN1(!s.n1);
+      } else if (key === 'f') {
+        s.setForecastOn(!s.forecastOn);
       } else if (key === 'k') {
         s.setKpiOpen(!s.kpiOpen);
       } else if (key === 'u') {

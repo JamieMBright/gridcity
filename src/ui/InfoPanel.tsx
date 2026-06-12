@@ -2,9 +2,10 @@ import { linePeaks, useAppStore } from '../app/store';
 import { getLondonMap, NAMED_PLACES } from '../data/londonMap';
 import { sendCommand } from '../app/workerBridge';
 import { GENS, LINES, SUB_UG_MUL, subCapexK, subRadius, SUBS, type SubType } from '../sim/catalog';
-import { assetLevels, subMva, type PlacedAsset } from '../sim/assets';
+import { assetLevels, subMva, type BatteryPolicy, type PlacedAsset } from '../sim/assets';
 import { assetAtTile, spanAt } from '../sim/commands';
 import { availAt } from '../sim/balance';
+import { nationalPriceMWh } from '../sim/market/dispatch';
 import { priceLine } from '../sim/cost';
 import { NO_COUNCIL, TERRAIN, ZONE, type Terrain, type Zone } from '../sim/map/types';
 import { COV } from '../sim/tick';
@@ -294,6 +295,12 @@ function LineInfo({ assetId }: { assetId: number }) {
   } else {
     rows.push(['loading', `${flow.toFixed(1)} / ${rating.toFixed(0)} MW (${((flow / rating) * 100).toFixed(0)}%)`]);
     rows.push(['headroom', `${Math.max(0, rating - flow).toFixed(1)} MW`]);
+    if (b?.lossMW !== undefined) {
+      // I²R at the current flow, priced at the running marginal price —
+      // only a shorter or lower-r route cuts this (uprating doesn't)
+      const lossKYr = (b.lossMW * snapshot.stats.priceMWh * 8760) / 1000;
+      rows.push(['losses now', `${b.lossMW.toFixed(2)} MW (£${Math.round(lossKYr)}k/yr)`]);
+    }
   }
   if (line.uprated) rows.push(['conductors', 'high-temp (+30% rating)']);
   if (peak > 0) rows.push(['peak seen', `${(peak * 100).toFixed(0)}% of rating`]);
@@ -435,6 +442,13 @@ function AssetInfo({ assetId }: { assetId: number }) {
         `${Math.abs(mw).toFixed(1)} / ${spec.capacityMW} MW`,
       ]);
       rows.push(['stored', `${soc.toFixed(0)} / ${spec.energyMWh ?? 0} MWh`]);
+    } else if (asset.gen === 'interconnector') {
+      rows.push(['importing', `${mw.toFixed(1)} / ${spec.capacityMW} MW`]);
+      // the same deterministic series dispatch buys at, quoted live
+      rows.push([
+        'import price now',
+        `£${nationalPriceMWh(snapshot.simTimeMin, snapshot.weather).toFixed(0)}/MWh`,
+      ]);
     } else {
       rows.push(['output', `${mw.toFixed(1)} / ${spec.capacityMW} MW`]);
       if (asset.ppaMWh !== undefined) rows.push(['PPA strike', `£${asset.ppaMWh}/MWh`]);
@@ -525,6 +539,9 @@ function AssetInfo({ assetId }: { assetId: number }) {
           </div>
         </div>
       )}
+      {asset.kind === 'gen' && asset.gen === 'battery' && (
+        <BatteryPolicyControls assetId={asset.id} policy={asset.policy ?? 'shave'} />
+      )}
       {asset.kind === 'sub' && !asset.idno && SUBS[asset.sub].mvaSteps && (
         <MvaControls assetId={asset.id} sub={asset.sub} mva={subMva(asset)} auto={asset.mvaAuto !== false} />
       )}
@@ -539,6 +556,68 @@ function AssetInfo({ assetId }: { assetId: number }) {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+const BATTERY_POLICIES: Array<{ id: BatteryPolicy; label: string; title: string }> = [
+  {
+    id: 'shave',
+    label: 'shave',
+    title:
+      'Peak shave (default): charge on cheap local surplus, discharge into the local evening peak',
+  },
+  {
+    id: 'arbitrage',
+    label: 'arbitrage',
+    title:
+      'Arbitrage: charge while the national price is under £60/MWh, discharge over £110/MWh — local peak or not',
+  },
+  {
+    id: 'reserve',
+    label: 'reserve',
+    title:
+      'Reserve: hold at least 50% charged; discharge only when this island would otherwise go dark',
+  },
+];
+
+/** Battery dispatch policy selector (ROADMAP #12). Like MvaControls it
+ *  sits in the pointer-transparent info panel, so it re-enables pointer
+ *  events for itself. */
+function BatteryPolicyControls({ assetId, policy }: { assetId: number; policy: BatteryPolicy }) {
+  return (
+    <div
+      style={{
+        pointerEvents: 'auto',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
+        marginTop: 4,
+        fontSize: 11,
+      }}
+    >
+      <span style={{ color: theme.slate, flex: 'none' }}>policy</span>
+      {BATTERY_POLICIES.map((p) => (
+        <button
+          key={p.id}
+          title={p.title}
+          aria-label={`battery policy ${p.id}`}
+          onClick={() => sendCommand({ type: 'setBatteryPolicy', assetId, policy: p.id })}
+          style={{
+            flex: 1,
+            padding: '2px 3px',
+            borderRadius: 4,
+            border: `1px solid ${policy === p.id ? theme.orange : theme.navyLight}`,
+            background: policy === p.id ? theme.orange : 'transparent',
+            color: policy === p.id ? theme.navy : theme.slate,
+            fontFamily: theme.font,
+            fontSize: 10,
+            cursor: 'pointer',
+          }}
+        >
+          {p.label}
+        </button>
+      ))}
     </div>
   );
 }

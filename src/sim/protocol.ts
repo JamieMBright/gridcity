@@ -12,6 +12,7 @@ import type { CouncilState } from './customers/adoption';
 import type { BillBreakdown } from './regulation/bill';
 import type { KpiRates } from './regulation/kpis';
 import type { PeriodActuals, PeriodTargets, ReportCard } from './regulation/riio';
+import type { CatchmentForecast } from './forecast';
 import type { BalanceReport, BalanceSeason } from './balance';
 import type { ReinforcementPlan } from './planner';
 import type { ConnectionStudy } from './study';
@@ -19,6 +20,23 @@ import type { GameEvent, GrowthRecord, SaveData } from './state';
 import type { BranchView } from './tick';
 
 export type SimSpeed = 0 | 1 | 4 | 16;
+
+// --- bill drill-down ---------------------------------------------------------
+
+/** Bill lines that itemise one layer deeper (#52). */
+export type BillDetailLine = 'constraints' | 'ppa' | 'losses' | 'capex' | 'opex';
+
+/** One itemised row: who, how much energy, how much money — with map
+ *  coords (and the asset to pin) when there's somewhere to jump to. */
+export interface BillDetailRow {
+  assetId?: number | undefined;
+  label: string;
+  /** Annualized energy on this row (curtailed / delivered), MWh/yr. */
+  mwhYr?: number | undefined;
+  kYr: number;
+  x?: number | undefined;
+  y?: number | undefined;
+}
 
 /** Game-minutes advanced per sim tick at 1x speed. Sim runs at 4 ticks/sec. */
 export const MINUTES_PER_TICK = 7.5;
@@ -189,6 +207,8 @@ export type MainToWorker =
   /** Cut a grid-balance report (whole map + per council); profiles run
    *  on the chosen typical day (default 'today'). */
   | { type: 'balance'; season?: BalanceSeason | undefined }
+  /** Project demand growth: per-catchment years-until-overload. */
+  | { type: 'forecast' }
   /** Propose costed reinforcement bundles for a balance scope
    *  (council id, or -1 for the whole licence area). */
   | { type: 'plan'; scopeId: number }
@@ -199,6 +219,8 @@ export type MainToWorker =
   | { type: 'skip'; to: SkipTarget }
   /** Dismiss the early-game goal ladder for good (veterans). */
   | { type: 'skipGoals' }
+  /** Itemise one bill line (top contributors, computed on demand). */
+  | { type: 'billDetail'; line: BillDetailLine }
   | { type: 'requestSave' };
 
 export type WorkerToMain =
@@ -214,5 +236,7 @@ export type WorkerToMain =
   | { type: 'saveData'; data: SaveData }
   | { type: 'study'; study: ConnectionStudy }
   | { type: 'balance'; report: BalanceReport }
+  | { type: 'forecast'; rows: CatchmentForecast[] }
   | { type: 'plan'; plan: ReinforcementPlan }
+  | { type: 'billDetail'; line: BillDetailLine; rows: BillDetailRow[] }
   | { type: 'fatal'; message: string };

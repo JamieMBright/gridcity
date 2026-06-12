@@ -387,6 +387,29 @@ function N1Button() {
   );
 }
 
+function ForecastButton() {
+  const on = useAppStore((s) => s.forecastOn);
+  const setOn = useAppStore((s) => s.setForecastOn);
+  return (
+    <button
+      onClick={() => setOn(!on)}
+      title="5-year demand forecast: catchments tinted by years until their transformer runs out of road (F)"
+      style={{
+        padding: '3px 8px',
+        borderRadius: 5,
+        border: `1px solid ${on ? theme.orange : theme.navyLight}`,
+        background: on ? theme.orange : 'transparent',
+        color: on ? theme.navy : theme.slate,
+        fontFamily: theme.font,
+        fontSize: 12,
+        cursor: 'pointer',
+      }}
+    >
+      ⏳
+    </button>
+  );
+}
+
 function RiioButton() {
   const kpiOpen = useAppStore((s) => s.kpiOpen);
   const setKpiOpen = useAppStore((s) => s.setKpiOpen);
@@ -496,6 +519,7 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
       <BalanceButton />
       <HeadroomButton />
       <N1Button />
+      <ForecastButton />
       {!compact && <RiioButton />}
       <SoundButton />
       <button

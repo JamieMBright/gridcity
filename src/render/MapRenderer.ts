@@ -72,6 +72,7 @@ const GEN_SPRITE: Record<string, string> = {
   tidal: 'gen_tidal',
   biomass: 'gen_biomass',
   battery: 'gen_battery',
+  interconnector: 'gen_interconnector',
 };
 const SUB_SPRITE: Record<string, string> = {
   bulk: 'sub_bulk',
@@ -227,7 +228,8 @@ export class MapRenderer {
   private levelG = new Graphics();
   private levelHighlight: VoltageLevel | undefined;
   /** 'headroom' re-colours every corridor by spare capacity. */
-  private overlayMode: 'none' | 'headroom' = 'none';
+  private overlayMode: 'none' | 'headroom' | 'forecast' = 'none';
+  private forecastRows: Array<{ subId: number; yearsToOverload: number }> = [];
   private n1Mode = false;
   private catchmentG = new Graphics();
   private catchments: Array<[number, number, number]> = [];
@@ -377,10 +379,16 @@ export class MapRenderer {
     }
   }
 
-  /** Headroom heatmap: corridors gradient green→amber→red by loading. */
-  setOverlay(mode: 'none' | 'headroom'): void {
+  /** Headroom heatmap: corridors gradient green→amber→red by loading.
+   *  Forecast mode tints catchments by years-until-overload instead. */
+  setOverlay(mode: 'none' | 'headroom' | 'forecast'): void {
     this.overlayMode = mode;
     this.drawCatchments();
+  }
+
+  setForecastRows(rows: Array<{ subId: number; yearsToOverload: number }>): void {
+    this.forecastRows = rows;
+    if (this.overlayMode === 'forecast') this.drawCatchments();
   }
 
   /** N-1 security rings: green = survives any single failure. */
@@ -409,6 +417,17 @@ export class MapRenderer {
       const spec = SUBS[a.sub];
       if (spec.serviceRadius === undefined) continue;
       const r = spec.serviceRadius * Math.sqrt(Math.max(mva, 1) / spec.txRatingMW);
+      if (this.overlayMode === 'forecast') {
+        const row = this.forecastRows.find((f) => f.subId === id);
+        if (row) {
+          const y = row.yearsToOverload;
+          const color = y <= 1 ? 0xe0697a : y <= 3 ? 0xf5c469 : y >= 99 ? 0x5b6378 : 0x7bc47f;
+          this.tileCircle(this.catchmentG, a.x, a.y, r);
+          this.catchmentG.fill({ color, alpha: 0.16 });
+          this.tileCircle(this.catchmentG, a.x, a.y, r);
+          this.catchmentG.stroke({ color, width: 2.4 * RES, alpha: 0.85 });
+        }
+      }
       if (this.overlayMode === 'headroom' && mva > 0) {
         const t = Math.max(0, Math.min(1, peak / mva));
         const lerp = (a0: number, b0: number): number => Math.round(a0 + (b0 - a0) * t);

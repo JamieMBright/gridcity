@@ -21,6 +21,8 @@ export const HOTKEYS: Hotkey[] = [
   { key: '8', tool: { t: 'gen', gen: 'nuclear' } },
   { key: '9', tool: { t: 'gen', gen: 'battery' } },
   { key: '0', tool: { t: 'gen', gen: 'coal' } },
+  // the number row is full: M for iMports (the interconnector)
+  { key: 'm', tool: { t: 'gen', gen: 'interconnector' } },
   // substations
   { key: 'q', tool: { t: 'sub', sub: 'bulk' } },
   { key: 'w', tool: { t: 'sub', sub: 'grid' } },

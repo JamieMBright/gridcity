@@ -15,7 +15,8 @@ export type GenType =
   | 'windOffshore'
   | 'tidal'
   | 'biomass'
-  | 'battery';
+  | 'battery'
+  | 'interconnector';
 export type SubType = 'bulk' | 'grid' | 'dist' | 'pole' | 'vault' | 'tee';
 export type LineBuild = 'overhead' | 'underground';
 
@@ -31,8 +32,9 @@ export interface GenSpec {
   marginalCostK: number;
   /** gCO2 per kWh. */
   carbonG: number;
-  /** Where it may be sited. */
-  siting: 'land' | 'solarSite' | 'windSite' | 'nuclearSite' | 'water';
+  /** Where it may be sited ('edge' = on land within 2 tiles of the map
+   *  boundary — interconnector landfalls). */
+  siting: 'land' | 'solarSite' | 'windSite' | 'nuclearSite' | 'water' | 'edge';
   /** Planning consultation, game-days before construction starts. */
   planningDays: number;
   /** Construction, game-days until the plant is commissioned. */
@@ -155,6 +157,20 @@ export const GENS: Record<GenType, GenSpec> = {
     siting: 'land',
     planningDays: 30,
     buildDays: 60,
+  },
+  interconnector: {
+    name: 'Interconnector (HVDC)',
+    capacityMW: 1000,
+    level: 400,
+    capexK: 500_000,
+    opexFrac: 0.015,
+    // display only — dispatch prices imports off the live national
+    // series (nationalPriceK in market/dispatch.ts), never this figure
+    marginalCostK: 0.09,
+    carbonG: 150, // GB import mix: French nuclear blended with NL/BE gas
+    siting: 'edge',
+    planningDays: 90,
+    buildDays: 180,
   },
   battery: {
     name: 'Battery storage',
@@ -371,6 +387,8 @@ export const CAPACITY_FACTOR: Record<GenType, number> = {
   tidal: 0.35,
   biomass: 0.7,
   battery: 0.15,
+  // imports run baseload-ish; never tendered, kept for Record totality
+  interconnector: 0.5,
 };
 
 /** The PPA strike a developer needs to make a technology pay, £/MWh:
