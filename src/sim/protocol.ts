@@ -63,8 +63,11 @@ export interface SimSnapshot {
     fleetSize: number;
     vegPolicy: VegPolicy;
     /** Open repair jobs: site + whether a crew is on the way. */
-    jobs: Array<{ x: number; y: number; label: string; staffed: boolean }>;
+    jobs: Array<{ x: number; y: number; label: string; assetId: number; staffed: boolean }>;
   };
+  /** Performance history of the asset the UI is watching: samples of
+   *  [game-min, MW through/out, capacity MW] on a 30-min grid. */
+  watch?: { assetId: number; series: Array<[number, number, number]> } | undefined;
   kpis: KpiRates & { worstVegPct: number };
   /** Recent event log (ring buffer; dedupe by seq). */
   events: GameEvent[];
@@ -106,6 +109,8 @@ export type MainToWorker =
   | { type: 'start'; save?: unknown }
   | { type: 'newGame' }
   | { type: 'command'; seq: number; cmd: Command }
+  /** Follow an asset's performance history (sparkline); undefined stops. */
+  | { type: 'watch'; assetId?: number | undefined }
   | { type: 'requestSave' };
 
 export type WorkerToMain =

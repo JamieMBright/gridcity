@@ -51,6 +51,8 @@ export interface GameState {
   heat: Map<number, number>;
   /** branch id → repair game-minutes remaining (tripped/out of service). */
   outages: Map<number, number>;
+  /** branch id -> why it's out (storm/tree/overload), for the inspector. */
+  outageCause: Map<number, string>;
   /** rolling carbon intensity, g/kWh (exponentially smoothed). */
   carbonEMA: number;
   /** Paid-for crewed vans. */
@@ -134,6 +136,7 @@ export function newGame(): GameState {
     soc: new Map(),
     heat: new Map(),
     outages: new Map(),
+    outageCause: new Map(),
     carbonEMA: 0,
     fleetSize: 2,
     vegPolicy: 0,
@@ -313,6 +316,7 @@ export interface SaveData {
   soc?: Array<[number, number]>;
   heat?: Array<[number, number]>;
   outages?: Array<[number, number]>;
+  outageCause?: Array<[number, string]>;
   carbonEMA?: number;
   fleetSize?: number;
   vegPolicy?: VegPolicy;
@@ -357,6 +361,7 @@ export function serialize(s: GameState): SaveData {
     soc: [...s.soc.entries()],
     heat: [...s.heat.entries()],
     outages: [...s.outages.entries()],
+    outageCause: [...s.outageCause.entries()],
     carbonEMA: s.carbonEMA,
     fleetSize: s.fleetSize,
     vegPolicy: s.vegPolicy,
@@ -404,6 +409,7 @@ export function deserialize(d: SaveData): GameState {
     soc: new Map(d.soc ?? []),
     heat: new Map(d.heat ?? []),
     outages: new Map(d.outages ?? []),
+    outageCause: new Map(d.outageCause ?? []),
     carbonEMA: d.carbonEMA ?? 0,
     fleetSize: d.fleetSize ?? 2,
     vegPolicy: d.vegPolicy ?? 0,

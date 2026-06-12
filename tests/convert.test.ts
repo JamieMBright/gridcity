@@ -2,10 +2,10 @@
 // placement setting.
 
 import { describe, expect, it } from 'vitest';
-import { SUB_UG_MUL, subCapexK, SUBS } from '../src/sim/catalog';
+import { LINE_UPRATE_MUL, SUB_UG_MUL, subCapexK, SUBS } from '../src/sim/catalog';
 import { applyCommand } from '../src/sim/commands';
 import { priceLine } from '../src/sim/cost';
-import { subMva } from '../src/sim/assets';
+import { deriveNetwork, lineBranchId, subMva } from '../src/sim/assets';
 import { assetCapexK } from '../src/sim/regulation/bill';
 import { newGame } from '../src/sim/state';
 import { derive } from '../src/sim/tick';
@@ -52,6 +52,28 @@ describe('convertSub (underground GIS rebuild)', () => {
     if (!sub || sub.kind !== 'sub') throw new Error('sub vanished');
     sub.idno = true;
     expect(applyCommand(state, ctx.map, { type: 'convertSub', assetId: ids.dist }).ok).toBe(false);
+  });
+});
+
+describe('line uprating', () => {
+  it('re-conductoring lifts the thermal rating 30% at a price, once', () => {
+    const { state, ctx, ids } = poweredFixture();
+    const before = state.assets.get(ids.line132);
+    if (!before || before.kind !== 'line') throw new Error('no line');
+    const capexBefore = before.capexK;
+    const r0 =
+      deriveNetwork(state.assets.values()).branches.find(
+        (b) => b.id === lineBranchId(ids.line132),
+      )?.ratingMW ?? 0;
+    expect(applyCommand(state, ctx.map, { type: 'uprateLine', assetId: ids.line132 }).ok).toBe(true);
+    const r1 =
+      deriveNetwork(state.assets.values()).branches.find(
+        (b) => b.id === lineBranchId(ids.line132),
+      )?.ratingMW ?? 0;
+    expect(r1).toBeCloseTo(r0 * LINE_UPRATE_MUL, 6);
+    const after = state.assets.get(ids.line132);
+    expect(after?.kind === 'line' ? after.capexK : 0).toBe(Math.round(capexBefore * 1.6));
+    expect(applyCommand(state, ctx.map, { type: 'uprateLine', assetId: ids.line132 }).ok).toBe(false);
   });
 });
 

@@ -25,6 +25,49 @@
 
 ## Done (chronological, latest first)
 
+### UI/UX critique flurry (map realism + inspection + faults)
+Map (recognisability pass 2 — owner provided London satellite/maps refs):
+- [ ] Thames redrawn to the real shape (Richmond/Kingston meanders,
+      central bends, Isle of Dogs + Greenwich loops, Erith/Purfleet
+      reaches, widening estuary past Tilbury) — "the river is the wrong
+      shape" ×2
+- [ ] M25 no longer intersects Heathrow (it passes west of it); ring and
+      radials follow the real layout
+- [ ] Satellite towns: realistic hubs — real names/positions, varied
+      sizes (big Watford/Croydon-class down to villages), not a ring of
+      identical evenly-spaced blobs
+- [ ] Terrain diversity: kill the uniform 4×4 same-texture checkerboard —
+      varied field sizes/shapes/textures, heath/meadow/wood patches,
+      hills, reservoirs (Staines/Lea chains), parks
+- [ ] Interesting infrastructure in the empty bits: reservoirs, gravel
+      pits, golf courses, sewage works, quarries, farms with yards
+- [ ] Roads to nowhere fixed: radials/locals end at towns or the map
+      edge, not in a field
+- [ ] Landmarks made visible/prominent (player reports "there's no
+      landmarks")
+- [ ] Cars no longer travel at light speed (vehicle speeds ~⅓)
+UX:
+- [x] Line interaction works on the WIRE as drawn: picking tests the
+      click at several conductor elevations (pylon height + sag shift
+      the wire in iso space), verified by clicking the drawn cable
+- [x] Demolish tool takes down lines (click near the span)
+- [x] Lines upratable: re-conductor +30% thermal rating for 60% of the
+      line's capex, from the line card (rating reflected in solver +
+      views; one-shot)
+- [x] "Why did it fail": outages carry their cause (storm/tree contact/
+      overload) into the inspector with tailored fix advice; >90%
+      loading shows a headroom warning before it bites
+- [x] News banner no longer resets when a new event lands — text swaps
+      between marquee passes (onAnimationIteration)
+- [x] Click (single or double) pins inspection; pinned card carries the
+      reinforcement controls AND a 2-game-day performance sparkline
+      (worker samples per-asset MW vs rating on a 30-min grid; watch
+      channel answers immediately even when paused)
+- [x] Faults get a red spanner pin (bounce + pulsing ring + label +
+      crew status); click → pans and pins the broken asset's card with
+      cause, repair ETA, crew need, and the one-click fix quotes
+      (re-conductor / bigger TX / underground span / GIS)
+
 ### Section undergrounding prompt
 - [x] Underground a SECTION of an overhead line: click the span in the
       line inspector ("underground this span", priced + sized) and bury

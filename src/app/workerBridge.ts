@@ -92,6 +92,11 @@ export function setSimSpeed(speed: SimSpeed): void {
   sendCommand({ type: 'setSpeed', speed });
 }
 
+/** Follow an asset's performance history (inspector sparkline). */
+export function setWatch(assetId: number | undefined): void {
+  send({ type: 'watch', assetId });
+}
+
 /** Wipe progress and start over (the worker posts a fresh save). */
 export function newGameCommand(): void {
   send({ type: 'newGame' });

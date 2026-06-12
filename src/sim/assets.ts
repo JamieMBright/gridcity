@@ -2,7 +2,16 @@
 // Bus/branch ids are deterministic functions of asset ids so the solver's
 // results can always be mapped back to assets.
 
-import { GENS, LINES, SUBS, TX_PAIR, type GenType, type LineBuild, type SubType } from './catalog';
+import {
+  GENS,
+  LINE_UPRATE_MUL,
+  LINES,
+  SUBS,
+  TX_PAIR,
+  type GenType,
+  type LineBuild,
+  type SubType,
+} from './catalog';
 import type { Branch, Bus, Network, VoltageLevel } from './grid/types';
 
 export type PlacedAsset = GenAsset | SubAsset | LineAsset | DepotAsset;
@@ -73,6 +82,8 @@ export interface LineAsset {
   /** Support tile indices along the route (pylons at 400/132 kV, wooden
    *  poles at 33 kV). Empty for underground cables. */
   pylons?: number[] | undefined;
+  /** Re-conductored: thermal rating ×LINE_UPRATE_MUL (one-shot). */
+  uprated?: boolean | undefined;
 }
 
 const LEVEL_SLOT: Record<VoltageLevel, number> = { 400: 0, 132: 1, 33: 2 };
@@ -158,7 +169,7 @@ export function deriveNetwork(assets: Iterable<PlacedAsset>, lineRatingMul = 1):
       kind: a.build === 'underground' ? 'underground' : 'overhead',
       x: spec.xPerTile * Math.max(1, a.lengthTiles),
       r: spec.rPerTile * Math.max(1, a.lengthTiles),
-      ratingMW: spec.ratingMW * lineRatingMul,
+      ratingMW: spec.ratingMW * lineRatingMul * (a.uprated ? LINE_UPRATE_MUL : 1),
       inService: true,
     });
   }

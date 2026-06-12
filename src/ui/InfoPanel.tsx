@@ -197,6 +197,52 @@ function assetName(a: PlacedAsset): string {
   return `${a.level} kV line`;
 }
 
+/** Two game-days of performance: MW through the kit vs its rating. */
+function Sparkline({ series }: { series: Array<[number, number, number]> }) {
+  if (series.length < 2) return null;
+  const w = 208;
+  const h = 36;
+  const maxCap = Math.max(...series.map((s) => s[2]), ...series.map((s) => s[1]), 1);
+  const pts = series
+    .map((s, i) => `${((i / (series.length - 1)) * w).toFixed(1)},${(h - (s[1] / maxCap) * h).toFixed(1)}`)
+    .join(' ');
+  const last = series[series.length - 1];
+  const capY = h - ((last?.[2] ?? maxCap) / maxCap) * h;
+  return (
+    <div style={{ marginTop: 6 }}>
+      <svg width={w} height={h} style={{ display: 'block', background: 'rgba(0,0,0,0.25)', borderRadius: 4 }}>
+        <line x1={0} y1={capY} x2={w} y2={capY} stroke={theme.danger} strokeDasharray="3 3" strokeWidth={1} opacity={0.7} />
+        <polyline points={pts} fill="none" stroke={theme.gold} strokeWidth={1.5} />
+      </svg>
+      <div style={{ fontSize: 10, color: theme.slate }}>
+        last 2 days · dashed = rating · headroom now{' '}
+        {Math.max(0, (last?.[2] ?? 0) - (last?.[1] ?? 0)).toFixed(1)} MW
+      </div>
+    </div>
+  );
+}
+
+/** What to do about it — the spanner pin's promised advice. */
+function fixAdvice(cause: string, kind: 'line' | 'tx'): string {
+  if (cause.includes('overload')) {
+    return kind === 'tx'
+      ? 'fix: fit a bigger transformer (controls below) or share the load with another substation'
+      : 'fix: re-conductor for +30% rating (below), run a second circuit, or move load off this corridor';
+  }
+  if (cause.includes('tree')) {
+    return 'fix: trim the trees (tree cutting, fleet panel) or underground this span — cables ignore vegetation';
+  }
+  if (cause.includes('storm')) {
+    return 'fix: underground this span/line — cables shrug storms off entirely';
+  }
+  if (cause.includes('cable')) {
+    return 'cable faults are rare but slow to dig up — more vans shorten the outage';
+  }
+  return kind === 'tx'
+    ? 'fix: transformers age — a bigger unit (below) or a GIS rebuild hardens the site'
+    : 'fix: underground the span, or keep a crew close — depots cut travel time';
+}
+
 const ACTION_BTN: React.CSSProperties = {
   padding: '4px 8px',
   borderRadius: 5,
@@ -233,15 +279,22 @@ function LineInfo({ assetId }: { assetId: number }) {
   ];
   if (endA) rows.push(['from', assetName(endA)]);
   if (endB) rows.push(['to', assetName(endB)]);
+  const job = snapshot.fleet.jobs.find((j) => j.assetId === assetId);
   if (b && b.outMin !== undefined) {
     rows.push([
       'status',
-      b.outMin < 0 ? 'TRIPPED · awaiting crew' : `TRIPPED · ${(b.outMin / 60).toFixed(1)}h to repair`,
+      b.outMin < 0
+        ? job?.staffed
+          ? 'TRIPPED · crew en route'
+          : 'TRIPPED · awaiting crew (1 van)'
+        : `TRIPPED · ${(b.outMin / 60).toFixed(1)}h to repair`,
     ]);
+    if (b.cause) rows.push(['why', b.cause]);
   } else {
     rows.push(['loading', `${flow.toFixed(1)} / ${rating.toFixed(0)} MW (${((flow / rating) * 100).toFixed(0)}%)`]);
     rows.push(['headroom', `${Math.max(0, rating - flow).toFixed(1)} MW`]);
   }
+  if (line.uprated) rows.push(['conductors', 'high-temp (+30% rating)']);
   if (peak > 0) rows.push(['peak seen', `${(peak * 100).toFixed(0)}% of rating`]);
 
   let ugQuote: { ok: boolean; capexK: number } | undefined;
@@ -273,13 +326,33 @@ function LineInfo({ assetId }: { assetId: number }) {
       </div>
       <div style={{ fontSize: 11 }}>
         {rows.map(([k, v]) => (
-          <div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: theme.slate }}>{k}</span>
-            <span style={v.startsWith('TRIPPED') ? { color: theme.danger } : undefined}>{v}</span>
+          <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+            <span style={{ color: theme.slate, flex: 'none' }}>{k}</span>
+            <span style={v.startsWith('TRIPPED') ? { color: theme.danger, textAlign: 'right' } : { textAlign: 'right' }}>{v}</span>
           </div>
         ))}
       </div>
+      {b?.cause && (
+        <div style={{ fontSize: 11, color: theme.orangeSoft, marginTop: 4 }}>
+          {fixAdvice(b.cause, 'line')}
+        </div>
+      )}
+      {!b?.cause && rating > 0 && flow / rating > 0.9 && (
+        <div style={{ fontSize: 11, color: theme.warn, marginTop: 4 }}>
+          headroom critical — re-conductor (below), run a second circuit, or shed load
+        </div>
+      )}
+      {snapshot.watch?.assetId === assetId && <Sparkline series={snapshot.watch.series} />}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
+        {line.build === 'overhead' && !line.uprated && (
+          <button
+            style={ACTION_BTN}
+            title="High-temperature conductors on the same supports: +30% thermal rating"
+            onClick={() => sendCommand({ type: 'uprateLine', assetId })}
+          >
+            ⚡ re-conductor (+30% rating) · {fmtMoneyK(Math.round(line.capexK * 0.6))}
+          </button>
+        )}
         {line.build === 'overhead' && spanQuote && !spanQuote.whole && at && (
           <button
             style={{ ...ACTION_BTN, opacity: spanQuote.ok ? 1 : 0.5 }}
@@ -361,7 +434,11 @@ function AssetInfo({ assetId }: { assetId: number }) {
     const spec = SUBS[asset.sub];
     const tx = snapshot.branches.find((b) => b.assetId === assetId && b.kind === 'tx');
     if (tx && tx.outMin !== undefined) {
-      rows.push(['transformer', `TRIPPED · ${(tx.outMin / 60).toFixed(1)}h to repair`]);
+      rows.push([
+        'transformer',
+        tx.outMin < 0 ? 'TRIPPED · awaiting crew (1 van)' : `TRIPPED · ${(tx.outMin / 60).toFixed(1)}h to repair`,
+      ]);
+      if (tx.cause) rows.push(['why', tx.cause]);
     } else if (tx) {
       rows.push(['transformer', `${Math.abs(tx.flowMW).toFixed(1)} / ${tx.ratingMW} MW`]);
     }
@@ -401,6 +478,25 @@ function AssetInfo({ assetId }: { assetId: number }) {
           </div>
         ))}
       </div>
+      {(() => {
+        const tx = snapshot.branches.find((b) => b.assetId === assetId && b.kind === 'tx');
+        if (tx?.cause) {
+          return (
+            <div style={{ fontSize: 11, color: theme.orangeSoft, marginTop: 4 }}>
+              {fixAdvice(tx.cause, 'tx')}
+            </div>
+          );
+        }
+        if (tx && tx.ratingMW > 0 && Math.abs(tx.flowMW) / tx.ratingMW > 0.9) {
+          return (
+            <div style={{ fontSize: 11, color: theme.warn, marginTop: 4 }}>
+              transformer near its limit — step the MVA up (below) before it cooks
+            </div>
+          );
+        }
+        return null;
+      })()}
+      {snapshot.watch?.assetId === assetId && <Sparkline series={snapshot.watch.series} />}
       {asset.kind === 'sub' && !asset.idno && SUBS[asset.sub].mvaSteps && (
         <MvaControls assetId={asset.id} sub={asset.sub} mva={subMva(asset)} auto={asset.mvaAuto !== false} />
       )}

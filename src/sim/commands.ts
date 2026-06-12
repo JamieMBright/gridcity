@@ -6,6 +6,8 @@ import { assetLevels, type PlacedAsset } from './assets';
 import {
   DEPOT,
   GENS,
+  LINE_UPRATE_COST_FRAC,
+  LINE_UPRATE_MUL,
   SUBS,
   type GenType,
   type LineBuild,
@@ -43,6 +45,8 @@ export type Command =
    *  splits at sealing-end towers and the middle leg becomes cable —
    *  amenity undergrounding through town. */
   | { type: 'undergroundSection'; lineId: number; x: number; y: number }
+  /** Re-conductor a line: +30% thermal rating, one-shot, at a price. */
+  | { type: 'uprateLine'; assetId: number }
   /** Rebuild a substation underground (indoor GIS: weatherproof, ×capex). */
   | { type: 'convertSub'; assetId: number }
   /** Tee into an existing circuit: split it at a junction near (x,y) and
@@ -584,6 +588,21 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
         `amenity undergrounding: the ${line.level} kV line ducks below the rooftops`,
         Math.round((span.ax + span.bx) / 2),
         Math.round((span.ay + span.by) / 2),
+      );
+      return { ok: true };
+    }
+
+    case 'uprateLine': {
+      const asset = state.assets.get(cmd.assetId);
+      if (!asset || asset.kind !== 'line') return { ok: false, error: 'no such line' };
+      if (asset.uprated) return { ok: false, error: 'already running hot conductors' };
+      asset.uprated = true;
+      asset.capexK = Math.round(asset.capexK * (1 + LINE_UPRATE_COST_FRAC));
+      state.assetsVersion++;
+      pushEvent(
+        state,
+        'info',
+        `${asset.level} kV circuit re-conductored — thermal rating up ${Math.round((LINE_UPRATE_MUL - 1) * 100)}%`,
       );
       return { ok: true };
     }
