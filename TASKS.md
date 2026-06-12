@@ -12,17 +12,317 @@
 
 ## Open
 
-- [ ] **Tutorial campaign (owner, 2026-06-12): "the game is complicated
+- [ ] **LOFI BEAUTY PASS (owner, 2026-06-12 21:04): "I've empowered you
+      with lots of design skills. I want you to use them all to make
+      the game more beautiful on that lofi aesthetic."** — a dedicated
+      art-direction wave on the cosy golden-hour lofi look (CLAUDE.md
+      vibe: sunset oranges, dusty pinks, muted purples, deep navy
+      shadows, warm lit windows, soft long shadows). Pulls forward
+      roadmap #41 day/night sky grading, #42 rain & storm visuals,
+      #44 seasonal field art; plus a world-grade pass (palette
+      harmonisation across sprite families, window-glow/bloom, lamp
+      pools, vignette) and a UI polish pass (theme tokens, panel
+      glass, type rhythm). Method: render real previews/screenshots,
+      LOOK at them, iterate — judged on images, not claims. Runs with/
+      after the transport overhaul (same renderer files; the overhaul
+      sets road/rail/water looks, beauty pass grades the whole frame).
+
+- [ ] **Mobile/desktop design principle (owner, 2026-06-12 21:14)**:
+      added to CLAUDE.md design principles — everything must work
+      beautifully on BOTH mobile and desktop web; mobile assumes a
+      LANDSCAPE hold.
+  - [x] Build: portrait-hold detection on touch devices → a styled
+        "rotate your phone" prompt overlay (lofi-branded, dismissible
+        never — it clears on rotate; menus may remain usable portrait).
+        DONE with the tutorial-campaign lane: src/ui/RotatePrompt.tsx
+        ((pointer: coarse) + (orientation: portrait), gameplay only —
+        menuOpen keeps the menus usable portrait), mounted in App.tsx;
+        e2e/campaign.spec.ts flips 844×390 ↔ 390×844 with hasTouch and
+        asserts the overlay appears and clears.
+  - [ ] Audit pass: existing panels (Bill/Balance/Info/Inbox/KPI) at a
+        phone-landscape viewport (~844×390) — fold into the lofi
+        beauty-pass wave's checklist.
+
+- [ ] **TRANSPORT OVERHAUL (owner, 2026-06-12, with screenshot): "The
+      roads are still goofy as shit. Real overhaul rethink of how to
+      get a really realistic looking road, rail, boat, and air
+      network."** — supersedes incremental road tweaks. Owner's
+      screenshot (zoomed-out city): roads read as thin noisy squiggles,
+      no visible hierarchy/junctions, river blobby, rail invisible.
+      Plan: deep design pass FIRST (read-only audit of routes→raster→
+      tileChooser→sprite pipeline + reference research), then implement
+      as the flagship lane of the next wave once render/** frees up
+      (currently owned by the voltage/hydrogen lane). Scope: roads
+      (hierarchy widths, true junction geometry, motorway dual
+      carriageways/roundabouts/bridges), rail (ballast/sleepers,
+      stations, trains), boat (river as smooth vector ribbon? piers,
+      wakes, routes), air (Heathrow/City flight paths, planes).
+      - [x] Design doc produced (docs/transport-overhaul.md) + audit
+            crops preview/audit_*.png inspected against the owner's
+            screenshot. Verdict: routes are screen-space strokes that
+            ignore the iso projection, with no zoom declutter, no
+            casing/hierarchy, accidental junctions, Lego shorelines,
+            and tools/preview.ts is blind to transport entirely. Plan:
+            P0 preview parity (shared routeRibbons.ts) → P1 projected
+            ground-plane ribbons + casing + 5 zoom bands (the core
+            fix) → P2 junctions/roundabouts → P3 bridges/piers/layer
+            split → P4 shoreline smoothing → P5 rail identity → P6
+            boat wakes → P7 air layer. Implementation = next wave's
+            flagship lane.
+      - [ ] Implementation + preview-inspected renders (multiple crops
+            at multiple zooms) before claiming fixed
+
+- [ ] **"Do all" campaign (owner, 2026-06-12): implement ROADMAP.md in
+      full**, tier by tier in gated waves. SHIPPED: Wave 1+1b (#1
+      waypoints, #5+#20 seasons/regimes, #6+#7 goals+time-skip, #2
+      headroom heatmap, #4 labels+search, #3 planner + #25 ring-main,
+      #8 N-1 view, #9 storm prep, #51 story opening); Wave 2 (#10
+      forecast overlay, #11 interconnector, #12 battery policy, #13
+      losses, #52 bill drill-down); Wave 3 (PR #21: #14 CfD rounds,
+      #17 constraint bidding, #15 asset ageing, #16 maintenance
+      windows). WAVE 4 complete pending gate (→ PR #22): TUTORIAL
+      CAMPAIGN + rotate prompt + stale-save bug fix, #18 smart
+      charging, #24 ToU tariffs, #19 capacitor banks, #23 hydrogen;
+      transport-overhaul design doc shipped alongside. Wave 5 next:
+      TRANSPORT OVERHAUL implementation (flagship) + generation
+      footprints to scale; then LOFI BEAUTY PASS wave (+#41/#42/#44 +
+      mobile-landscape audit); then Tier 2 remainder (#21 heat
+      networks, #22 scenario seeds, owner items #53–#55) and Tiers
+      3–4. Items tick off in ROADMAP.md with PR links as they land.
+
+- [ ] **Map recognisability pass 2** (owner can't model 1M properties; keep it
+      sensible/enjoyable): continue tuning until London "reads" at a glance.
+
+- [ ] **Existing GB generation from real data**: owner can provide the
+      Embedded Capacity Register extract (location + capacity of connected
+      generation). Integrate when supplied; Open Infrastructure Map judged
+      off-piste for now. (Hand-seeded real-ish plants shipped meanwhile.)
+
+- [ ] **Generation footprints to scale (owner, 2026-06-12): "the new
+      design for the bulk supply points [is] really good but you
+      haven't applied that to like the coal power station — it should
+      be massive, have like six cooling towers etc. Scale things like
+      the wind farms to be proportionate to the capacity… solar: 5 MW
+      might be one tile, 100 MW [many] tiles."**
+  - [ ] Coal station MASSIVE (supersedes the parked 3×2 item): six
+        cooling towers, boiler house + chimney stack, coal yard with
+        conveyors — Drax/Ratcliffe-class campus footprint (~4×3 or
+        bigger), nuclear-campus treatment (per-tile siting, occupancy,
+        pylon blocking, ghost, voltage rings).
+  - [ ] Capacity-proportional footprints for farm-type gen: tender MW
+        drives the awarded plant's tile claim — solar ≈ 1 tile per
+        ~5–10 MW (100 MW = a proper field array), wind farms spread N
+        turbine tiles by MW; designation must check/reserve the area
+        (or bids cap their MW to the open land around the designated
+        tile — developers offer what fits). CCGT/battery moderate
+        scaling; landmark-class plants (nuclear/coal) keep fixed
+        campuses.
+  - [ ] Queued for the next wave (catalog.ts + render/** are owned by
+        a running Wave 4 lane).
+
+- [ ] Car parks gain EV charging load (flagged "in future" by owner).
+
+- [ ] Town evolution: densification of existing areas (only edge infill today).
+
+## Done (chronological, latest first)
+
+### Wave 3 + Wave 4 of the roadmap campaign (PR #21 merged; Wave 4 → PR #22)
+Wave-lane ledger entries swept from Open on 2026-06-12 22:11:
+
+- [x] **Smart charging + ToU lane (Wave 4): ROADMAP #18 per-council
+      smart-charging lever and #24 time-of-use tariffs.** Finished the
+      killed predecessor's partial work (its helpers in
+      customers/smartCharging.ts, commands.ts union+case, adoption.ts
+      optional `smartCharging` flag, innovation.ts `touTariff`
+      tech/pitch/dip-offset, demand.ts `touDomesticRatio` were all kept;
+      the missing tick.ts wiring, bill ride, satisfaction hooks, UI and
+      tests were built fresh). #18: `setSmartCharging` command, majority-
+      council-per-catchment v1 EV re-shaping in shapeSubLoads (called
+      from tick.runPowerFlow), live £k/yr rate (council EV count ×
+      £20/EV/yr from stepCouncils) rides the flexibility bill line the
+      way stormPrepYrK rides penaltyYrK, +3 satisfaction target while
+      funded, refusal below satisfaction 50. #24: licence-wide pitch →
+      tech.touTariff; domestic profile shaves ~8% off the evening peak
+      into the midday shoulder with daily energy conserved (±1%, any
+      season — ratio cancels the seasonal term); satisfaction dips
+      TOU_DIP_SAT at launch fading over 90 days (derived from the
+      succeeded pitch, no new state). UI: BalancePanel council scope
+      gains "⚡ fund smart charging (£Xk/yr)" / "funded ✓ stop" with the
+      refusal reason when disabled (matches plan-works styling); InfoPanel
+      council hover card shows a funded badge. Saves: additive optional
+      fields only (council flag + tech key); old saves hydrate clean, no
+      SAVE_VERSION bump needed.
+  - [x] VERIFIED: tests/smartCharging.test.ts (10) — exact smart-profile
+        landing via shapeSubLoads, funded catchment evening peak drops /
+        overnight rises vs same-seed control (and the delta equals the
+        profile gap), no-op once global smartEv ships, refusal <50,
+        satisfaction nudge vs control, bill carries the rate and stops
+        when unfunded, councilEvCount×price = quote, save round-trip +
+        pre-programme hydration; tests/tou.test.ts (6) — peak −8%
+        (0.90–0.94×) with energy conserved ±1% midwinter AND midsummer,
+        shaping vs same-seed control through dispatch, dip-offset shape,
+        council dip-then-recover integration, fundPitch → succeeded →
+        tech.touTariff. Full `npx vitest run` 246/246 green; `npx tsc
+        -b` and `npx eslint src tests e2e tools` clean; real dev-server
+        screenshots of the BalancePanel control inspected at desktop
+        (1280×800) AND phone-landscape (844×390) — control and refusal
+        reason render and read at both. Dev server killed after.
+
+- [x] **BUG: stale equipment on new game (owner, 2026-06-12 21:48):
+      "There seems to be a cache issue where it remembers old
+      electricity equipment, even on a new game after hard refresh."**
+      ROOT CAUSE FOUND (workerBridge.ts chooseSave + online/cloud.ts):
+      boot picks `cloud.tick >= local.tick ? cloud : local` — the save
+      with MORE PLAYTIME wins. After "new game", the fresh save (tick
+      ~0) loses to the old cloud save (thousands of ticks) on every
+      reload until you out-play the old run; worse, pushCloudSave is
+      debounced 45 s and the pending timer dies on refresh, so the
+      fresh save may never reach the cloud at all. FIX (at Wave 4
+      integration — the lane owns workerBridge right now): stamp an
+      additive `savedAt` wall-clock on every stored save (bridge-side,
+      sim stays pure); chooseSave prefers the most RECENTLY SAVED, tick
+      only as tiebreak; newGame pushes the fresh save to the cloud
+      immediately (pushCloudSave(data, true) on the first saveData
+      after a newGame). Unit-test the chooser (fresh-new-game beats
+      old-high-tick cloud; cross-device newer-cloud still wins; legacy
+      saves without savedAt fall back to tick).
+  - [x] FIXED at Wave 4 integration: additive SaveData.savedAt
+        stamped bridge-side (sim stays wall-clock-free); pure
+        pickSave in persistence/saveStore.ts — most recently
+        SAVED wins, stamped beats unstamped, tick only breaks
+        legacy ties, cloud wins exact ties; newGameCommand AND
+        startMission push the fresh save to the cloud
+        immediately (debounce bypassed). VERIFIED:
+        tests/saveArbitration.test.ts (6) green; full suite 279.
+
+- [x] **Tutorial campaign (owner, 2026-06-12): "the game is complicated
       for not knowing all the things"** — a campaign of TINY scenario
-      maps that introduce core concepts one at a time, e.g. mission 1:
-      a hamlet, one wind turbine site, one 33 kV line, one distribution
-      substation → houses light up. Then missions layering in: step-up
-      voltages + the bay rule, tenders & firm-vs-flexible, faults/
-      storms/vans, the bill & RIIO. Each map is pure data (CityScenario
-      pattern); win condition + guided steps per mission; campaign menu
-      entry. PULLED TO THE FRONT of the "do all" campaign — next wave's
-      priority lane. (Owner also asked "are you doing them all?" —
-      answered in chat: yes, whole ROADMAP, in gated waves.)
+      maps that introduce core concepts one at a time. BUILT (this
+      prompt; campaign lane): five missions — **First Light** (hamlet +
+      wind tender + 33 kV + dist sub → every home lit), **Step Up**
+      (offshore wind 40 tiles east; the bays rule: 132 kV + grid sub),
+      **Keeping the Lights On** (pre-wired town through woodland; a
+      deterministically SCRIPTED Storm Aldgate trips the crossing —
+      depot, vans, veg policy; win = storm ridden + all restored),
+      **The Inbox** (seeded 12 MW data-centre application; study →
+      firm/flex → wires, no overloads), **Every Pound on the Bill**
+      (serve all of Pennyford with network £/home ≤ £200). Maps are pure
+      data (`src/data/missions.ts`, one named council each, every land
+      tile councilled); gameplay in `src/sim/scenario/missions.ts`
+      (steps with done(snapshot, ui), win predicates off a worker-built
+      MissionView, seeds, beat-bitmask scripts persisted additively as
+      `missionBeats`). Plumbing: `newGame(scenarioId?)` end-to-end
+      (protocol/state/worker; mission games skip seedScenario + the
+      goal ladder; undo stacks clear on newGame), SaveData/Snapshot gain
+      additive `scenarioId`/`missionComplete` (london saves hydrate
+      unchanged, NO SAVE_VERSION bump), worker latches the win once +
+      🏆 event. UI: StartMenu CAMPAIGN accordion (ticks, locks,
+      localStorage `ec-campaign-v1`, mission n completes → n+1
+      unlocks), Tutorial.tsx generalized (mission steps or the london
+      STEPS) + victory card (next mission / back to menu / keep
+      playing), StoryIntro hard-gated to london, SearchBox hidden on
+      missions. The client map follows the scenario: getLondonMap()
+      now serves the active scenario's map (setClientMap redirect —
+      historical name kept so InfoPanel/render call sites follow
+      without edits), MapView re-inits the renderer on scenario change.
+      Mission 1 gets developer bids organically (the roster + tender
+      stepping live outside seedScenario — nothing to factor out).
+  - [~] Simplifications, noted: tender-awarded renewables on missions
+        1/2/5 are stamped FLEXIBLE (a 100 MW firm plant on a hamlet
+        would swamp the tutorial bill with constraint payments —
+        firm-vs-flex is mission 4's lesson); mission 5's target uses
+        the DUoS slice (network £/home) rather than the all-in bill
+        (energy EMAs make an all-in threshold flappy); mission 3's
+        storm scripts the fault directly (rollFaults' storm odds over a
+        2-day window are ~0.15 — too random to teach with); mission
+        maps carry no road/rail vector layer (hamlet-on-farmland look).
+  - [x] VERIFIED: tests/missions.test.ts (10) — all five maps decode
+        (dims/arrays/customers>0/every land tile councilled), mission 1
+        win flips on a real powered fixture (and latches exactly once),
+        m3 seed + script trips the woodland line on schedule then wins
+        after depot+restore, m4 seeds the application into a served
+        town, m5 lean build beats the £200 target and a bulk supply
+        point blows it, scenarioId round-trips (same map back),
+        mission progress fields ride the save, london default + legacy
+        saves hydrate to london (and london saves carry no scenario
+        tag). Full `npx vitest run` 273/273; `npx tsc -b`, `npx eslint
+        src tests e2e tools`, `npm run build` clean. e2e/campaign.spec
+        run headless on a fresh server: menu → CAMPAIGN → mission 1
+        driven to the win through the real worker (story letterbox
+        provably absent, tiny-map asserts, victory card, completion
+        recorded, mission 2 unlocked) + phone-landscape (844×390,
+        hasTouch) steps render and the rotate prompt appears/clears on
+        orientation flips — 2/2 green; menu.spec + build.spec re-run
+        green (StartMenu/Tutorial/MapView touched). SHOTS=1 screenshots
+        preview/mission1-desktop.png + preview/mission1-mobile.png
+        captured mid-play at 1100×700 AND 844×390 and visually
+        inspected (step strip readable, village lit, mobile rails
+        clear of the strip).
+
+- [x] **ROADMAP #19 Voltage control (capacitor banks) + #23 Hydrogen
+      endgame (this prompt; voltage/hydrogen lane)**:
+  - [x] #19: SubType `'capbank'` (33 kV single bay, £2m, no transformer/
+        catchment); deriveNetwork stamps `Bus.vBoost` (one additive
+        optional field in grid/types.ts, flagged) on bank buses;
+        grid/voltage.ts spanning-tree walk credits +0.03 pu
+        (CAPBANK_BOOST_PU) at the bank's point of connection and every
+        bus downstream, bookkept separately from the resistive base so
+        it never compounds into drops, stacking clamped at 0.05 pu
+        (CAPBANK_BOOST_MAX, under the V_HIGH alert), slack pinned at
+        1.00 — ZERO effect on DC power flow (vBoost is never read by
+        dcpf). Palette/MobileChrome ('CAP')/hotkey 'V' entries;
+        `sub_capbank` sprite (fenced yard, three racks of stacked
+        capacitor cans on post insulators, busbars, orange kiosk) +
+        atlas/MapRenderer/MapView-ghost registration — preview-inspected.
+  - [x] #23: GenType `'electrolyser'` (100 MW soak, 33 kV, £80m
+        ungated-but-expensive, 800 MWh tank). Dispatch wires it at the
+        curtailment site: a load-side soak that takes only the cheap
+        surplus LEFT AFTER batteries (so it absorbs exactly the energy
+        the fill loop would curtail or spill) — gated on surplus > 0,
+        which provably never consumes ahead of unserved demand. Tank
+        levels ride state.soc per electrolyser (battery-style), so the
+        H₂ store reaches dispatch, serializes, and hydrates old saves
+        to empty tanks with NO state.ts edit at all (the flagged
+        "smallest additive block" turned out to be zero lines — soc
+        already round-trips; unit-proven). Store denominated in
+        re-generatable MWh (net 0.35 power→H₂→power on charge,
+        documented). Converted peakers (`convertToH2` command, apply
+        logic in new market/hydrogen.ts; commands.ts got exactly one
+        union member + one delegating case + its import, flagged) split
+        into an H₂ half (carbon 0, fuel £90/MWh H2_FUEL_COST_K, capped
+        by the licence-wide pool — hydrogen moves by pipe, not wire)
+        and a gas half (gas price + gas carbon) in one dispatch; the
+        fill loop drains tanks ascending-id as the H₂ half runs. Builds
+        flow through the normal tender market like batteries (flagged:
+        three additive electrolyser appetite keys in events/
+        developers.ts — Greenfield/Borough/Consolidated); no PPA is
+        ever paid (never a stack unit — delivered MWh 0, the battery
+        precedent). `gen_electrolyser` sprite (pale process hall +
+        domed H₂ tank farm + elevated pipework manifold) + full
+        registration, hotkey 'Y' — preview-inspected; atlas 4096x3754,
+        under the mobile ceiling.
+        [~] innovation gating deferred to the integrator (events/
+        innovation.ts is another lane's) — shipped ungated-but-
+        expensive per plan. [~] InfoPanel rows (capbank boost, H₂ store
+        level, convert button) and balance.ts availAt treatment (an
+        electrolyser is demand-side, should not count as firm supply in
+        Balance profiles) handed to the integrator as exact JSX/diffs
+        in the lane report — InfoPanel/balance are other lanes' files.
+  - [x] VERIFIED: tests/voltageControl.test.ts (6) — brownout feeder
+        (0.93 pu, COV.brownout tile) recovers to exactly +0.03 pu /
+        COV.on with a bank downstream, every branch flow byte-equal
+        before/after, no upstream credit, two banks clamp at +0.05,
+        £2m capex+opex annuitize onto the bill, single-bay spec.
+        tests/hydrogen.test.ts (11) — curtailed MW falls by the soak
+        while the store rises and constraint £/h falls, never consumes
+        during unserved demand (thin-sun shortfall + dead island),
+        converted peaker runs carbon 0 at £90/MWh and drains the tank
+        by exactly MWh generated, falls back to gas price/carbon dry,
+        split-hour case blends, unconverted peaker untouched, command
+        refusals, store+flag save round-trip + pre-hydrogen hydration
+        keeps dispatching, designation opens a tender that draws bids.
+        Full unit suite 273/273 with concurrent lanes' in-tree work;
+        tsc -b, eslint, vite build clean. e2e with the wave gate.
 
 - [x] **ROADMAP #15 Asset ageing + #16 Maintenance windows (this prompt;
       reliability lane)**:
@@ -239,32 +539,6 @@
       [~] ghost previews on option hover deferred (multi-ghost renderer
       API is another lane's file); approve executes directly.
 
-- [ ] **"Do all" campaign (owner, 2026-06-12): implement ROADMAP.md in
-      full**, tier by tier in gated waves. SHIPPED: Wave 1+1b (#1
-      waypoints, #5+#20 seasons/regimes, #6+#7 goals+time-skip, #2
-      headroom heatmap, #4 labels+search, #3 planner + #25 ring-main,
-      #8 N-1 view, #9 storm prep, #51 story opening); Wave 2 (#10
-      forecast overlay, #11 interconnector, #12 battery policy, #13
-      losses, #52 bill drill-down). WAVE 3 complete pending gate: #14
-      CfD allocation rounds, #17 constraint bidding, #15 asset ageing,
-      #16 maintenance windows. Wave 4 next: TUTORIAL CAMPAIGN (owner
-      priority) + Tier 2 remainder (#18 smart charging, #19 voltage
-      control, #21 heat networks, #22 scenario seeds, #23 hydrogen,
-      #24 ToU tariffs) and owner items #53–#55. Items tick off in
-      ROADMAP.md with PR links as they land.
-
-- [ ] **Map recognisability pass 2** (owner can't model 1M properties; keep it
-      sensible/enjoyable): continue tuning until London "reads" at a glance.
-- [ ] **Existing GB generation from real data**: owner can provide the
-      Embedded Capacity Register extract (location + capacity of connected
-      generation). Integrate when supplied; Open Infrastructure Map judged
-      off-piste for now. (Hand-seeded real-ish plants shipped meanwhile.)
-- [ ] Car parks gain EV charging load (flagged "in future" by owner).
-- [ ] Coal station footprint 3×2 — owner originally said "2×6 and all sorts";
-      enlarge if asked again.
-- [ ] Town evolution: densification of existing areas (only edge infill today).
-
-## Done (chronological, latest first)
 
 ### Roadmap additions prompt (bill drill-down, directorates, story, suits/H&S)
 - [x] Added to ROADMAP.md as items 51–55 with full design/build/verify

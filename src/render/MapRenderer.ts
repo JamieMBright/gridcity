@@ -73,6 +73,7 @@ const GEN_SPRITE: Record<string, string> = {
   biomass: 'gen_biomass',
   battery: 'gen_battery',
   interconnector: 'gen_interconnector',
+  electrolyser: 'gen_electrolyser',
 };
 const SUB_SPRITE: Record<string, string> = {
   bulk: 'sub_bulk',
@@ -80,6 +81,7 @@ const SUB_SPRITE: Record<string, string> = {
   dist: 'sub_dist',
   pole: 'sub_pole',
   vault: 'sub_vault',
+  capbank: 'sub_capbank',
 };
 
 // ribbon styling per route class, in world px. Speeds are deliberately

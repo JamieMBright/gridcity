@@ -39,6 +39,12 @@ import {
   stepAdoption,
   stepSatisfaction,
 } from './customers/adoption';
+import {
+  SMART_CHARGE_SAT_BONUS,
+  shapeSubLoads,
+  smartChargingCostK,
+} from './customers/smartCharging';
+import { touSatisfactionOffset } from './events/innovation';
 import { applyMaintenanceWindows, maintRateYrK } from './reliability/ageing';
 import { growVegetation, isStorm, rollFaults } from './reliability/faults';
 import { stormPrepYrK } from './reliability/stormprep';
@@ -220,6 +226,17 @@ function runPowerFlow(
     derived.service.tilesOfSub,
     state.councils,
     state.loadSites,
+  );
+  // demand-side programmes (#18 smart charging per council, #24 ToU
+  // tariff) re-shape the aggregated loads so dispatch's global diurnal
+  // factors land on the programme shapes — see customers/smartCharging.ts
+  shapeSubLoads(
+    loads,
+    derived.service.tilesOfSub,
+    ctx.map,
+    state.councils,
+    state.tech,
+    state.simTimeMin,
   );
   const dispatch = runDispatch(derived.net, state.assets.values(), loads, {
     simTimeMin: state.simTimeMin,
@@ -593,7 +610,14 @@ export function solveTick(
   }
 
   // councils: adoption + satisfaction (and accepted-connection progress)
-  const satisfactionAvg = stepCouncils(state, ctx, derived, coverage, pf, dtMin);
+  const { satisfactionAvg, smartChargingYrK } = stepCouncils(
+    state,
+    ctx,
+    derived,
+    coverage,
+    pf,
+    dtMin,
+  );
 
   const branches = buildBranchViews(state, pf, lossOfBranch);
   const volts: Array<[number, number, number]> = [];
@@ -630,7 +654,11 @@ export function solveTick(
     fleetSize: state.fleetSize,
     vegPolicy: state.vegPolicy,
     vegCostMul: state.tech.droneVeg ? DRONE_VEG_COST_MUL : 1,
-    flexYrK: state.flexYrK,
+    // funded smart-charging programmes (#18) are demand-side flexibility
+    // spend: their live £k/yr rate (per-council EV count × programme
+    // price, from stepCouncils) rides the flexibility bill line the way
+    // stormPrepYrK rides penaltyYrK below — bill.ts itself is untouched
+    flexYrK: state.flexYrK + smartChargingYrK,
     constraintYrK: state.constraintYrK,
     // storm-prep + maintenance/replacement spend ride the constraint/
     // damages line (each decays in its own module)
@@ -697,7 +725,8 @@ export function solveTick(
 }
 
 /** Adoption + satisfaction per council; also marks accepted connections
- *  live once they're actually energized. Returns avg satisfaction. */
+ *  live once they're actually energized. Returns avg satisfaction plus
+ *  the live smart-charging programme rate (#18) for the bill. */
 function stepCouncils(
   state: GameState,
   ctx: SimContext,
@@ -705,7 +734,7 @@ function stepCouncils(
   coverage: Uint8Array,
   pf: PowerFlowResult,
   dtMin: number,
-): number {
+): { satisfactionAvg: number; smartChargingYrK: number } {
   const { map } = ctx;
   interface Agg {
     tot: number;
@@ -733,6 +762,11 @@ function stepCouncils(
 
   let satNum = 0;
   let satDen = 0;
+  let smartChargingYrK = 0;
+  // ToU launch grumble (#24): a licence-wide satisfaction-target dip that
+  // fades over the weeks after the pilot lands (derived from the pitch —
+  // no extra state, identical paused or running)
+  const touOffset = touSatisfactionOffset(state.simTimeMin, state.pitches);
   for (const profile of map.councils) {
     const agg = byCouncil.get(profile.id);
     if (!agg) continue;
@@ -740,6 +774,12 @@ function stepCouncils(
     if (!cs) {
       cs = newCouncilState();
       state.councils.set(profile.id, cs);
+    }
+    // funded smart charging (#18) bills at the live programme rate —
+    // recomputed every solve from the council's CURRENT EV count, so the
+    // line grows with adoption and stops the moment the programme does
+    if (cs.smartCharging === true) {
+      smartChargingYrK += smartChargingCostK(agg.tot * cs.ev);
     }
     if (dtMin > 0) {
       const energized = agg.on + agg.brown;
@@ -751,6 +791,12 @@ function stepCouncils(
       // amenity undergrounding through town buys it back
       if (target > 0) {
         target = Math.max(0, target - Math.min(12, 0.35 * (derived.blight.get(profile.id) ?? 0)));
+      }
+      // demand-side programmes move the mood: being paid to plug in is
+      // popular (#18); the ToU launch grumble fades to nothing (#24)
+      if (target > 0) {
+        if (cs.smartCharging === true) target += SMART_CHARGE_SAT_BONUS;
+        target = Math.min(100, Math.max(0, target + touOffset));
       }
       stepSatisfaction(cs, target, dtMin);
       const before = { ev: cs.ev, hp: cs.hp, pv: cs.pv };
@@ -802,7 +848,10 @@ function stepCouncils(
     }
   }
 
-  return satDen > 0 ? satNum / satDen : 0;
+  return {
+    satisfactionAvg: satDen > 0 ? satNum / satDen : 0,
+    smartChargingYrK,
+  };
 }
 
 /** Monthly town growth: open or rural tiles next to streets that are

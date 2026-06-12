@@ -1,6 +1,7 @@
 import { playSfx } from '../audio/audio';
 import { pullCloudSave, pushCloudSave, submitScore } from '../online/cloud';
 import { localStorageStore } from '../persistence/localStorageStore';
+import { pickSave } from '../persistence/saveStore';
 import type { Command } from '../sim/commands';
 import type {
   BillDetailLine,
@@ -21,17 +22,23 @@ function send(msg: MainToWorker): void {
   worker?.postMessage(msg);
 }
 
-/** Pick whichever save has lived longer (cross-device source of truth). */
+/** Pick between the local and cloud copies (most recently saved wins —
+ *  see pickSave; "longest played wins" resurrected old networks after a
+ *  new game). */
 async function chooseSave(): Promise<unknown> {
   const local = localStorageStore.load();
   const cloud = await Promise.race([
     pullCloudSave().catch(() => undefined),
     new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), 4000)),
   ]);
-  if (!cloud) return local;
-  if (!isSaveData(local)) return cloud;
-  return cloud.tick >= local.tick ? cloud : local;
+  return pickSave(isSaveData(local) ? local : undefined, cloud);
 }
+
+/** Set by newGameCommand: the next save the worker posts is the fresh
+ *  game and must overwrite the old cloud copy IMMEDIATELY — the
+ *  debounced push dies on refresh, leaving the stale save to win the
+ *  next boot's arbitration. */
+let freshGamePending = false;
 
 /** Spin up the sim worker, restore the best save, stream snapshots. */
 export function initWorker(): void {
@@ -53,6 +60,13 @@ export function initWorker(): void {
         void chooseSave().then((save) => send({ type: 'start', save }));
         break;
       case 'snapshot': {
+        // sync the scenario BEFORE storing the snapshot: a changed id
+        // clears stale state, so order matters (the new snapshot must
+        // survive the clear). Also covers booting straight into a saved
+        // mission via 'continue'.
+        const sid = msg.snapshot.scenarioId ?? 'london';
+        if (s.scenarioId !== sid) s.setScenarioId(sid);
+        if (msg.snapshot.missionComplete && sid !== 'london') recordMissionComplete(sid);
         s.setSnapshot(msg.snapshot);
         // a snapshot arriving means any skip has finished (the worker
         // fast-forwards synchronously): re-enable the skip buttons
@@ -80,10 +94,14 @@ export function initWorker(): void {
           playSfx('error');
         }
         break;
-      case 'saveData':
-        localStorageStore.store(msg.data);
-        pushCloudSave(msg.data);
+      case 'saveData': {
+        // stamp here, not in the worker: the sim stays wall-clock-free
+        const stamped = { ...msg.data, savedAt: Date.now() };
+        localStorageStore.store(stamped);
+        pushCloudSave(stamped, freshGamePending);
+        freshGamePending = false;
         break;
+      }
       case 'study':
         s.setStudy(msg.study);
         break;
@@ -167,5 +185,41 @@ export function proposeLoop(subId: number): void {
 
 /** Wipe progress and start over (the worker posts a fresh save). */
 export function newGameCommand(): void {
+  useAppStore.getState().setScenarioId('london');
+  freshGamePending = true;
   send({ type: 'newGame' });
+}
+
+// --- the tutorial campaign ---------------------------------------------------
+
+/** Completed-mission ids (mission n+1 unlocks when n is in here). */
+const CAMPAIGN_KEY = 'ec-campaign-v1';
+
+export function completedMissions(): Set<string> {
+  try {
+    const raw = localStorage.getItem(CAMPAIGN_KEY);
+    const arr: unknown = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function recordMissionComplete(id: string): void {
+  try {
+    const done = completedMissions();
+    if (done.has(id)) return;
+    done.add(id);
+    localStorage.setItem(CAMPAIGN_KEY, JSON.stringify([...done]));
+  } catch {
+    // private mode: play on without campaign persistence
+  }
+}
+
+/** Start (or restart) a campaign mission: swap the client map at once,
+ *  then have the worker rebuild on the mission's scenario. */
+export function startMission(scenarioId: string): void {
+  useAppStore.getState().setScenarioId(scenarioId);
+  freshGamePending = true;
+  send({ type: 'newGame', scenarioId });
 }

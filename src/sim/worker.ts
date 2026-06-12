@@ -22,6 +22,7 @@ import {
 import { networkHealthPct } from './reliability/ageing';
 import { forecastStorms } from './reliability/stormprep';
 import { advanceGoals, GOALS, goalStatus, type GoalView } from './scenario/goals';
+import { advanceMission, missionOf, missionView } from './scenario/missions';
 import { securityKey, securityOf } from './security';
 import {
   applyGrowth,
@@ -64,7 +65,7 @@ const redoStack: SaveData[] = [];
 
 function restore(data: SaveData): void {
   state = deserialize(data);
-  ctx = newContext();
+  ctx = newContext(state.scenarioId);
   applyGrowth(ctx.map, state.growth);
   ctx.demand = buildDemandField(ctx.map);
   derived = undefined;
@@ -185,10 +186,16 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
   // completion event and the next rung both ride this same post
   const view = goalViewOf(out);
   advanceGoals(state, view);
+  // missions: scripted beats + the win check ride the same cadence
+  if (missionOf(state.scenarioId)) {
+    advanceMission(state, missionView(state, out, d.service.totalCustomers));
+  }
   return {
     tick: state.tick,
     simTimeMin: state.simTimeMin,
     speed: state.speed,
+    scenarioId: state.scenarioId,
+    missionComplete: state.missionComplete,
     assets: [...state.assets.values()],
     branches: out.branches,
     volts: out.volts,
@@ -294,6 +301,9 @@ function runSkip(to: SkipTarget): void {
       const out = solveTick(state, ctx, d, true);
       sampleHistory(out);
       advanceGoals(state, goalViewOf(out));
+      if (missionOf(state.scenarioId)) {
+        advanceMission(state, missionView(state, out, d.service.totalCustomers));
+      }
       if (skipAborts(state.events, seqBefore, to)) break;
       if (state.simTimeMin - lastPostMin >= SKIP_POST_EVERY_MIN && state.simTimeMin < target) {
         lastPostMin = state.simTimeMin;
@@ -329,7 +339,7 @@ function start(save: unknown): void {
       state = deserialize(save);
       // town growth mutated the saved game's map: replay it onto a
       // fresh copy so demand and service areas match the save
-      ctx = newContext();
+      ctx = newContext(state.scenarioId);
       applyGrowth(ctx.map, state.growth);
       ctx.demand = buildDemandField(ctx.map);
       derived = undefined;
@@ -353,18 +363,31 @@ self.onmessage = (e: MessageEvent<MainToWorker>) => {
       case 'start':
         start(msg.save);
         break;
-      case 'newGame':
-        state = newGame();
-        ctx = newContext(); // shed any previous run's growth mutations
-        seedScenario(state, ctx);
+      case 'newGame': {
+        const scenarioId = msg.scenarioId ?? 'london';
+        state = newGame(scenarioId);
+        ctx = newContext(scenarioId); // shed any previous run's growth mutations
+        const mission = missionOf(scenarioId);
+        if (mission) {
+          // missions run their own step strip + win predicate: park the
+          // London goal ladder and skip the London-only seeding (iDNO
+          // estates, existing plants, starter applications)
+          state.goalIndex = GOALS.length;
+          mission.seed?.(state, ctx);
+        } else {
+          seedScenario(state, ctx);
+        }
         derived = undefined;
         history.clear();
         lastHistMin = -1;
         studyRan = false;
         postedSecurityKey = undefined;
+        undoStack.length = 0; // a fresh scenario must not undo into the old one
+        redoStack.length = 0;
         post({ type: 'snapshot', snapshot: makeSnapshot(false) });
         post({ type: 'saveData', data: serialize(state) });
         break;
+      }
       case 'forecast':
         post({ type: 'forecast', rows: forecastCatchments(state, ctx) });
         break;

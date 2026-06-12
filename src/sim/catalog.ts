@@ -16,8 +16,9 @@ export type GenType =
   | 'tidal'
   | 'biomass'
   | 'battery'
-  | 'interconnector';
-export type SubType = 'bulk' | 'grid' | 'dist' | 'pole' | 'vault' | 'tee';
+  | 'interconnector'
+  | 'electrolyser';
+export type SubType = 'bulk' | 'grid' | 'dist' | 'pole' | 'vault' | 'tee' | 'capbank';
 export type LineBuild = 'overhead' | 'underground';
 
 export interface GenSpec {
@@ -172,6 +173,25 @@ export const GENS: Record<GenType, GenSpec> = {
     planningDays: 90,
     buildDays: 180,
   },
+  electrolyser: {
+    name: 'Hydrogen electrolyser',
+    // a LOAD, not a generator: dispatch never stacks it — it soaks energy
+    // that would otherwise be CURTAILED into an H₂ tank farm (#23). Its
+    // per-asset store level rides state.soc exactly like a battery's SoC;
+    // capacityMW is the soak rate, energyMWh the tank farm. Tendered to
+    // developers like any plant (the H₂ business is theirs); converted
+    // peakers buy the stored hydrogen back at H2_FUEL_COST_K.
+    capacityMW: 100,
+    level: 33,
+    capexK: 80_000, // deliberately expensive: innovation gating is deferred
+    opexFrac: 0.03,
+    marginalCostK: 0, // never enters the merit order (load-side unit)
+    carbonG: 0,
+    siting: 'land',
+    planningDays: 30,
+    buildDays: 90,
+    energyMWh: 800, // tank farm, denominated in re-generatable MWh
+  },
   battery: {
     name: 'Battery storage',
     capacityMW: 100,
@@ -259,6 +279,19 @@ export const SUBS: Record<SubType, SubSpec> = {
     opexFrac: 0.02,
     serviceRadius: 5,
     mvaSteps: [10, 25, 50],
+  },
+  // Shunt compensation (#19): a single 33 kV bay feeding racks of
+  // capacitor cans. No transformer is derived (one level), no service
+  // catchment — its whole job is the bounded voltage boost the spanning-
+  // tree estimate credits at and downstream of its point of connection
+  // (grid/voltage.ts CAPBANK_BOOST_PU). Zero effect on DC power flow.
+  capbank: {
+    name: 'Capacitor bank (33 kV shunt)',
+    levels: [33],
+    txRatingMW: 30, // nominal MVAr fitted; display only — never solved
+    txX: 0,
+    capexK: 2_000,
+    opexFrac: 0.02,
   },
   // not placed directly: created by teeing into an existing circuit.
   // Its single bay is the tee'd line's own level (SubAsset.teeLevel).
@@ -389,6 +422,9 @@ export const CAPACITY_FACTOR: Record<GenType, number> = {
   battery: 0.15,
   // imports run baseload-ish; never tendered, kept for Record totality
   interconnector: 0.5,
+  // soak duty: runs only on curtailment surplus — the figure prices the
+  // developer's H₂ offtake bid (strikeMWh), nothing else
+  electrolyser: 0.25,
 };
 
 /** The PPA strike a developer needs to make a technology pay, £/MWh:

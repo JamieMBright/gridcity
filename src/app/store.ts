@@ -80,8 +80,13 @@ interface AppState {
   /** Council ring-fence highlight on the map (balance row click). */
   highlightCouncil: number | undefined;
   menuOpen: boolean;
-  /** Current tutorial step index, or undefined when not in the tutorial. */
+  /** Current tutorial step index, or undefined when not in the tutorial.
+   *  Drives the London step strip AND the active mission's steps. */
   tutorialStep: number | undefined;
+  /** Active scenario id ('london' or a campaign mission); mirrors the
+   *  worker's authoritative value via the snapshot. The renderer keys
+   *  its map off this. */
+  scenarioId: string;
   kpiOpen: boolean;
   setWorkerStatus: (status: WorkerStatus, error?: string) => void;
   setSnapshot: (snapshot: SimSnapshot) => void;
@@ -110,6 +115,9 @@ interface AppState {
   setHighlightCouncil: (id: number | undefined) => void;
   setMenuOpen: (open: boolean) => void;
   setTutorialStep: (step: number | undefined) => void;
+  /** Switch scenario: a CHANGED id also drops the stale snapshot (the
+   *  old map's assets must never draw over the new map). */
+  setScenarioId: (id: string) => void;
   setKpiOpen: (open: boolean) => void;
   /** A time-skip is running on the worker (disables the HUD skip buttons
    *  until its final snapshot lands). */
@@ -151,6 +159,7 @@ export const useAppStore = create<AppState>((set) => ({
   highlightCouncil: undefined,
   menuOpen: true,
   tutorialStep: undefined,
+  scenarioId: 'london',
   kpiOpen: false,
   setWorkerStatus: (workerStatus, workerError) => set({ workerStatus, workerError }),
   setSnapshot: (snapshot) => {
@@ -197,6 +206,21 @@ export const useAppStore = create<AppState>((set) => ({
   setHighlightCouncil: (highlightCouncil) => set({ highlightCouncil }),
   setMenuOpen: (menuOpen) => set({ menuOpen }),
   setTutorialStep: (tutorialStep) => set({ tutorialStep }),
+  setScenarioId: (scenarioId) =>
+    set((s) =>
+      s.scenarioId === scenarioId
+        ? { scenarioId }
+        : {
+            scenarioId,
+            snapshot: undefined,
+            hoveredTile: undefined,
+            selectedAsset: undefined,
+            selectedLine: undefined,
+            selectedLineAt: undefined,
+            studies: {},
+            tool: { t: 'inspect' },
+          },
+    ),
   setKpiOpen: (kpiOpen) => set({ kpiOpen }),
   skipping: false,
   setSkipping: (skipping) => set({ skipping }),

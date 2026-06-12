@@ -67,6 +67,39 @@ export interface DemandField {
   totalMW: number;
 }
 
+// --- time-of-use tariff (ROADMAP #24) ---------------------------------------
+//
+// Once the ToU pilot delivers (tech.touTariff), domestic demand across
+// the whole licence area runs a re-shaped diurnal profile: the evening
+// peak shaves ~8% and the shaved energy moves into the midday shoulder,
+// so the DAY'S ENERGY IS CONSERVED — a tariff changes when people use
+// power, not how much. Implemented as a time-of-day RATIO against the
+// canonical domesticProfile, applied to each catchment's domMW
+// (customers/smartCharging.ts shapeSubLoads) so dispatch's global
+// domestic factor lands on the ToU shape without touching dispatch.
+//
+// The gaussian terms below mirror events/weather.ts domesticProfile
+// (that file is read-only to this lane); the seasonal multiplier cancels
+// in the ratio, which is why conservation holds in every season.
+
+/** Fraction shaved off the evening gaussian (≈8% off the peak VALUE,
+ *  since the evening term carries ~0.62 of the ~1.0 peak). */
+export const TOU_EVENING_SHAVE = 0.133;
+/** Midday shoulder fill, sized so ∫fill dt = ∫shave dt over a day:
+ *  shave energy = TOU_EVENING_SHAVE · 0.62 · 2.3√π, fill = TOU_FILL · 3√π. */
+export const TOU_FILL = (TOU_EVENING_SHAVE * 0.62 * 2.3) / 3;
+
+/** ToU/base domestic profile ratio at this moment (≤1 at the evening
+ *  peak, >1 over the midday shoulder; daily ∫ratio·dom dt = ∫dom dt). */
+export function touDomesticRatio(simTimeMin: number): number {
+  const h = (simTimeMin / 60) % 24;
+  const morning = 0.2 * Math.exp(-(((h - 7.8) / 1.6) ** 2));
+  const evening = 0.62 * Math.exp(-(((h - 18.4) / 2.3) ** 2));
+  const base = 0.38 + morning + evening;
+  const fill = TOU_FILL * Math.exp(-(((h - 13) / 3) ** 2));
+  return (base - TOU_EVENING_SHAVE * evening + fill) / base;
+}
+
 export function buildDemandField(map: CityMap): DemandField {
   const byTile = new Map<number, number>();
   let totalMW = 0;

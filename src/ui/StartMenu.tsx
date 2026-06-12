@@ -4,11 +4,13 @@
 
 import { useState } from 'react';
 import { useAppStore } from '../app/store';
-import { newGameCommand } from '../app/workerBridge';
+import { completedMissions, newGameCommand, startMission } from '../app/workerBridge';
 import { getAudioSettings, startMusic, updateAudioSettings } from '../audio/audio';
 import { pushSettings } from '../online/cloud';
 import { localStorageStore } from '../persistence/localStorageStore';
+import { MISSIONS } from '../sim/scenario/missions';
 import { AccountPanel } from './AccountPanel';
+import { STORY_KEY } from './StoryIntro';
 import { theme } from './theme';
 
 const bigBtn = (primary: boolean): React.CSSProperties => ({
@@ -51,10 +53,12 @@ export function StartMenu() {
   const setMenuOpen = useAppStore((s) => s.setMenuOpen);
   const setTutorialStep = useAppStore((s) => s.setTutorialStep);
   const [foot, setFoot] = useState<'settings' | 'leaderboard' | 'credits' | undefined>(undefined);
+  const [campaignOpen, setCampaignOpen] = useState(false);
   const [, force] = useState(0);
   if (!menuOpen) return null;
   const hasSave = localStorageStore.load() !== undefined;
   const audio = getAudioSettings();
+  const done = completedMissions();
 
   const begin = (tutorial: boolean, fresh: boolean): void => {
     startMusic();
@@ -63,6 +67,14 @@ export function StartMenu() {
       if (!tutorial) sessionStorage.setItem('ec-story-pending', '1');
     }
     setTutorialStep(tutorial ? 0 : undefined);
+    setMenuOpen(false);
+  };
+
+  const beginMission = (id: string): void => {
+    startMusic();
+    sessionStorage.removeItem(STORY_KEY); // missions never letterbox
+    startMission(id);
+    setTutorialStep(0);
     setMenuOpen(false);
   };
 
@@ -117,6 +129,63 @@ export function StartMenu() {
             <button style={bigBtn(false)} onClick={() => begin(true, true)}>
               <span style={{ color: theme.orange }}>📖 </span>tutorial
             </button>
+            <button style={bigBtn(false)} onClick={() => setCampaignOpen(!campaignOpen)}>
+              <span style={{ color: theme.orange }}>🎓 </span>campaign
+              <span style={{ color: theme.slate, fontWeight: 400 }}>
+                {' '}
+                · {[...done].filter((id) => MISSIONS.some((m) => m.id === id)).length}/
+                {MISSIONS.length}
+              </span>
+            </button>
+            {campaignOpen && (
+              <div style={{ width: 320, margin: '8px auto 0', textAlign: 'left' }}>
+                <div
+                  style={{
+                    color: theme.slate,
+                    fontSize: 10.5,
+                    letterSpacing: '0.14em',
+                    margin: '2px 0 6px',
+                  }}
+                >
+                  LEARN THE GRID, ONE TINY MAP AT A TIME
+                </div>
+                {MISSIONS.map((m, ix) => {
+                  const completed = done.has(m.id);
+                  const prev = ix > 0 ? MISSIONS[ix - 1] : undefined;
+                  const locked = prev !== undefined && !done.has(prev.id);
+                  return (
+                    <button
+                      key={m.id}
+                      disabled={locked}
+                      onClick={() => beginMission(m.id)}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        textAlign: 'left',
+                        margin: '4px 0',
+                        padding: '8px 12px',
+                        borderRadius: 10,
+                        border: `1px solid ${completed ? 'rgba(123,196,127,0.4)' : 'rgba(125,135,180,0.3)'}`,
+                        background: locked ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)',
+                        color: locked ? theme.slate : theme.offWhite,
+                        opacity: locked ? 0.55 : 1,
+                        fontFamily: theme.font,
+                        fontSize: 12.5,
+                        cursor: locked ? 'default' : 'pointer',
+                      }}
+                    >
+                      <span style={{ color: completed ? theme.ok : theme.orange }}>
+                        {completed ? '✓' : locked ? '🔒' : `${ix + 1}.`}
+                      </span>{' '}
+                      <b>{m.name}</b>
+                      <div style={{ color: theme.slate, fontSize: 11, marginTop: 2 }}>
+                        {locked ? `complete “${prev?.name}” to unlock` : m.tagline}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
 

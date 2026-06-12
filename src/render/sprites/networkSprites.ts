@@ -385,6 +385,135 @@ export function interconnectorTile(seed: number): Uint8ClampedArray<ArrayBuffer>
   return iso.build();
 }
 
+/** 33 kV capacitor bank (#19): a single-bay shunt-compensation yard —
+ *  three elevated steel racks carrying stacks of capacitor cans on
+ *  porcelain post insulators, a busbar run along each rack, the control
+ *  kiosk in the corner. Quiet kit that moves volts, not megawatts. */
+export function capBankTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  padFloor(iso);
+  fence(iso, 0.1, 10);
+
+  const rack = (v0: number): void => {
+    const u0 = 0.16;
+    const u1 = 0.74;
+    const beamH = 10;
+    // frame legs
+    for (const u of [u0 + 0.01, (u0 + u1) / 2, u1 - 0.02]) {
+      iso.r.poly(
+        [P(u, v0 + 0.05, beamH), P(u + 0.013, v0 + 0.05, beamH), P(u + 0.013, v0 + 0.05, 0), P(u, v0 + 0.05, 0)],
+        COLORS.steelDark,
+      );
+    }
+    // elevated deck the cans stand on
+    iso.quad(u0 - 0.015, v0, u1 + 0.015, v0 + 0.1, beamH, COLORS.steel, darken(COLORS.steel, 0.12));
+    iso.r.line(P(u0 - 0.015, v0 + 0.1, beamH), P(u1 + 0.015, v0 + 0.1, beamH), INK_W * 0.7, alpha(INK, 0.7));
+    // three phases: porcelain post + a stack of three cans each
+    for (let p = 0; p < 3; p++) {
+      const u = u0 + 0.06 + p * 0.2;
+      iso.box(u + 0.018, v0 + 0.03, u + 0.038, v0 + 0.05, beamH, beamH + 4, COLORS.white, { ink: false });
+      for (let c = 0; c < 3; c++) {
+        const z0 = beamH + 4 + c * 5.5;
+        iso.box(u, v0 + 0.005, u + 0.062, v0 + 0.075, z0, z0 + 4.6, c === 2 ? lighten(NAVY, 0.18) : COLORS.steel);
+      }
+      // bushing on the top can
+      iso.box(u + 0.024, v0 + 0.03, u + 0.038, v0 + 0.044, beamH + 4 + 16.5, beamH + 4 + 21, COLORS.white, { ink: false });
+    }
+    // busbar tying the three phases together
+    const busZ = beamH + 4 + 21;
+    iso.r.line(P(u0 + 0.09, v0 + 0.04, busZ), P(u1 - 0.06, v0 + 0.04, busZ), INK_W * 0.7, alpha(COLORS.steelDark, 0.9));
+  };
+  rack(0.18);
+  rack(0.42);
+  rack(0.66);
+
+  // control kiosk with the brand roof + orange wayleave door on the fence
+  iso.box(0.8, 0.66, 0.94, 0.82, 0, 10, COLORS.concrete);
+  iso.quad(0.79, 0.65, 0.95, 0.83, 10, COLORS.orange);
+  iso.r.poly([P(0.9, 0.14, 9), P(0.9, 0.26, 9), P(0.9, 0.26, 0), P(0.9, 0.14, 0)], COLORS.orange);
+  return iso.build();
+}
+
+/** Hydrogen electrolyser (#23): the power-to-gas works — a pale process
+ *  hall (stacks go in, hydrogen comes out), a farm of four white
+ *  cylindrical H₂ storage tanks with domed crowns, and the pipework
+ *  manifold running hall → tanks. Soaks curtailed MWh into the tanks. */
+export function electrolyserTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const HALL = hex('#c3cdd8'); // pale process-plant cladding
+  padFloor(iso);
+  fence(iso, 0.06, 11);
+
+  // process hall with a gable along its length
+  iso.shadow(0.08, 0.1, 0.5, 0.64, 0.2, 0.24);
+  iso.box(0.08, 0.1, 0.5, 0.64, 0, 28, HALL);
+  iso.gable(0.08, 0.1, 0.5, 0.64, 28, 9, 'u', darken(HALL, 0.16), HALL);
+  // warm service windows + the white sign band and orange brand stripe
+  iso.windowsLeft(0.64, 0.12, 0.46, 9, 20, 5, COLORS.glassLit, COLORS.white);
+  iso.r.poly([P(0.1, 0.64 + 0.001, 26), P(0.48, 0.64 + 0.001, 26), P(0.48, 0.64 + 0.001, 23), P(0.1, 0.64 + 0.001, 23)], COLORS.white);
+  iso.r.poly([P(0.5 + 0.001, 0.14, 20), P(0.5 + 0.001, 0.6, 20), P(0.5 + 0.001, 0.6, 15), P(0.5 + 0.001, 0.14, 15)], COLORS.orange);
+  // rooftop vent stack (hydrogen plants breathe)
+  iso.box(0.14, 0.16, 0.19, 0.21, 28, 40, COLORS.steel);
+
+  // H₂ tank farm: four vertical white cylinders with domed crowns
+  const tank = (u: number, v: number, s: number): void => {
+    const r = 0.062 * s;
+    const h = 24 * s;
+    iso.shadow(u - r, v, u + r, v + r * 1.4, 0.08, 0.16);
+    iso.box(u - r, v - r, u + r, v + r, 0, h, COLORS.white, {
+      leftC: shaded(COLORS.white, 0.16),
+      rightC: lit(COLORS.white, 0.04),
+      topC: COLORS.white,
+    });
+    // domed crown: stacked ellipse caps over the drum
+    const [cx, cy] = P(u, v, h);
+    const R = r * (CELL_W / 2) * 1.35;
+    for (const [sc, c] of [
+      [1, shaded(COLORS.white, 0.1)],
+      [0.62, lit(COLORS.white, 0.05)],
+    ] as const) {
+      const pts: Pt[] = [];
+      for (let i = 0; i <= 8; i++) {
+        const a = Math.PI * (i / 8);
+        pts.push([cx + Math.cos(a) * R * sc, cy - Math.sin(a) * R * 0.5 * sc]);
+      }
+      iso.r.poly(pts, c);
+    }
+    // mint H₂ band on the drum
+    iso.r.poly(
+      [P(u + r + 0.001, v - r + 0.01, h * 0.55), P(u + r + 0.001, v + r - 0.01, h * 0.55), P(u + r + 0.001, v + r - 0.01, h * 0.38), P(u + r + 0.001, v - r + 0.01, h * 0.38)],
+      hex('#79c7a8'),
+    );
+  };
+  tank(0.66, 0.22, 1);
+  tank(0.85, 0.32, 0.95);
+  tank(0.62, 0.46, 0.95);
+  tank(0.81, 0.56, 0.9);
+
+  // pipework: an elevated manifold from the hall's right face into the
+  // tank farm — ink underlay, steel body, bright highlight, on stub legs
+  const pipe = (a: Pt, b: Pt, w = 1.6): void => {
+    iso.r.line(a, b, w * RES + 1.6 * RES, alpha(INK, 0.8));
+    iso.r.line(a, b, w * RES, COLORS.steel);
+    iso.r.line([a[0], a[1] - 0.5 * RES], [b[0], b[1] - 0.5 * RES], w * RES * 0.4, lighten(COLORS.steel, 0.3));
+  };
+  const leg = (u: number, v: number, z: number): void => {
+    iso.r.line(P(u, v, z), P(u, v, 0), 0.9 * RES, COLORS.steelDark);
+  };
+  leg(0.58, 0.32, 11);
+  leg(0.6, 0.45, 9);
+  pipe(P(0.5, 0.3, 12), P(0.66, 0.3, 12));
+  pipe(P(0.66, 0.3, 12), P(0.66, 0.24, 12), 1.2);
+  pipe(P(0.5, 0.44, 9), P(0.62, 0.46, 9));
+  pipe(P(0.66, 0.27, 11), P(0.83, 0.42, 11), 1.1);
+  // compressor skid between hall and tanks
+  iso.box(0.56, 0.66, 0.72, 0.78, 0, 8, NAVY);
+  iso.quad(0.555, 0.655, 0.725, 0.785, 8.2, lighten(NAVY, 0.1));
+  return iso.build();
+}
+
 /** Steel lattice transmission pylon, drawn as a true line figure: legs,
  *  zig-zag bracing, taper, three crossarm pairs with insulator drops. */
 function latticePylon(iso: Iso, u: number, v: number, hgt: number, span: number): void {

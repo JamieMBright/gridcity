@@ -83,6 +83,8 @@ export function availAt(gen: keyof typeof GENS, h: number, dayMin = 0): number {
       return 0.5; // the tide is always somewhere in its cycle
     case 'battery':
       return h >= 17 && h < 21 ? 1 : 0; // discharges into the evening peak
+    case 'electrolyser':
+      return 0; // demand-side soak: never supply in the balance view
     default:
       return 1; // firm plant
   }

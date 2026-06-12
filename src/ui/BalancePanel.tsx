@@ -8,6 +8,10 @@ import { useEffect, useState } from 'react';
 import { useAppStore } from '../app/store';
 import { requestBalance, requestPlan, sendCommand } from '../app/workerBridge';
 import type { ScopeBalance, ScopePoint } from '../sim/balance';
+import {
+  SMART_CHARGE_MIN_SAT,
+  smartChargingCostK,
+} from '../sim/customers/smartCharging';
 import type { ReinforcementOption, ReinforcementPlan } from '../sim/planner';
 import { panelStyle, theme } from './theme';
 
@@ -130,6 +134,56 @@ function ScopeRow({
 /** £k pretty-printer: 360 → £360k, 12_000 → £12.0m. */
 function fmtCapex(capexK: number): string {
   return capexK >= 1000 ? `£${(capexK / 1000).toFixed(1)}m` : `£${Math.round(capexK)}k`;
+}
+
+/** Per-council smart-charging lever (ROADMAP #18): fund an aggregator to
+ *  shift the council's EV charging into the night. Quote = current EV
+ *  count × programme price; councils below the trust threshold refuse
+ *  (button disabled with the reason, mirroring the worker-side gate). */
+function SmartChargingRow({ sc }: { sc: ScopeBalance }) {
+  const snapshot = useAppStore((s) => s.snapshot);
+  const cs = snapshot?.councils.find(([id]) => id === sc.id)?.[1];
+  if (!cs) return null;
+  const funded = cs.smartCharging === true;
+  const costK = Math.round(smartChargingCostK(sc.customers * cs.ev));
+  const refused = !funded && cs.satisfaction < SMART_CHARGE_MIN_SAT;
+  return (
+    <div style={{ marginTop: 6, fontSize: 11, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <span style={{ color: theme.slate }}>
+        EVs {(cs.ev * 100).toFixed(0)}% of {sc.customers.toLocaleString()} homes
+        {funded && <span style={{ color: theme.ok }}> · smart charging funded ✓</span>}
+      </span>
+      <button
+        aria-label={`${funded ? 'stop' : 'fund'} smart charging for ${sc.name}`}
+        disabled={refused}
+        title={
+          funded
+            ? 'Wind the programme down — EV charging goes back to the evening plug-in spike'
+            : 'An aggregator shifts this council’s EV charging into the night: flatter evening peak, happier residents, £/yr on the bill scaled by its EV count'
+        }
+        onClick={() => sendCommand({ type: 'setSmartCharging', councilId: sc.id, on: !funded })}
+        style={{
+          flex: 'none',
+          padding: '1px 7px',
+          borderRadius: 5,
+          border: `1px solid ${funded ? theme.navyLight : theme.orange}`,
+          background: 'transparent',
+          color: funded ? theme.slate : theme.orange,
+          fontFamily: theme.font,
+          fontSize: 10,
+          cursor: refused ? 'default' : 'pointer',
+          opacity: refused ? 0.5 : 1,
+        }}
+      >
+        {funded ? `funded ✓ stop (£${costK}k/yr)` : `⚡ fund smart charging (£${costK}k/yr)`}
+      </button>
+      {refused && (
+        <span style={{ color: theme.warn }}>
+          council refuses — satisfaction {cs.satisfaction.toFixed(0)} &lt; {SMART_CHARGE_MIN_SAT}; keep their lights on first
+        </span>
+      )}
+    </div>
+  );
 }
 
 function PlanCard({
@@ -268,6 +322,7 @@ export function BalancePanel() {
             )}
           </div>
           <ProfileChart profile={sel.profile} />
+          {sel.id >= 0 && <SmartChargingRow sc={sel} />}
           {selPlan && (
             <div style={{ marginTop: 6 }}>
               <div style={{ fontSize: 11, color: theme.orange, letterSpacing: '0.06em' }}>

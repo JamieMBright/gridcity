@@ -1190,7 +1190,19 @@ export function buildLondonMap(): CityMap {
 
 let cached: CityMap | undefined;
 
+/** The map the CLIENT is currently playing. Historically always London;
+ *  tutorial missions swap in their tiny maps via
+ *  data/cityRegistry.setActiveScenario (which calls setClientMap). The
+ *  function keeps its name so the renderer/ghost/hover call sites — and
+ *  other lanes' code — follow the active scenario without edits. */
+let clientMap: CityMap | undefined;
+
+export function setClientMap(map: CityMap | undefined): void {
+  clientMap = map;
+}
+
 export function getLondonMap(): CityMap {
+  if (clientMap) return clientMap;
   cached ??= buildLondonMap();
   return cached;
 }

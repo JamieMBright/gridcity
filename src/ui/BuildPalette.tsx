@@ -146,8 +146,9 @@ const GEN_ORDER: GenType[] = [
   'battery',
   'coal',
   'interconnector',
+  'electrolyser',
 ];
-const SUB_ORDER: SubType[] = ['bulk', 'grid', 'dist', 'pole', 'vault'];
+const SUB_ORDER: SubType[] = ['bulk', 'grid', 'dist', 'pole', 'vault', 'capbank'];
 const LEVELS: VoltageLevel[] = [400, 132, 33];
 
 export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {

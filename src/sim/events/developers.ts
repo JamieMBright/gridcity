@@ -42,7 +42,7 @@ export const DEVELOPERS: Developer[] = [
     name: 'Greenfield Grid Capital',
     blurb: 'A pension-fund vehicle that has never seen a field it would not solar.',
     conglomerate: false,
-    appetite: { solarFarm: 1.6, windOnshore: 1.4, battery: 1.4, windOffshore: 0.8 },
+    appetite: { solarFarm: 1.6, windOnshore: 1.4, battery: 1.4, windOffshore: 0.8, electrolyser: 1.0 },
     curtailPriceK: 0.04,
   },
   {
@@ -74,7 +74,7 @@ export const DEVELOPERS: Developer[] = [
     name: 'Borough Light & Power',
     blurb: 'Urban storage developers — substations are their street furniture.',
     conglomerate: false,
-    appetite: { battery: 1.6, solarFarm: 1.0, windOnshore: 0.8 },
+    appetite: { battery: 1.6, solarFarm: 1.0, windOnshore: 0.8, electrolyser: 1.4 },
     curtailPriceK: 0.08,
   },
   {
@@ -94,6 +94,7 @@ export const DEVELOPERS: Developer[] = [
       biomass: 0.6,
       battery: 0.8,
       tidal: 0.4,
+      electrolyser: 0.6,
     },
   },
   {

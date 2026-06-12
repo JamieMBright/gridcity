@@ -7,11 +7,20 @@
 // shave / national-price arbitrage / emergency reserve); interconnectors
 // import at the deterministic national price. Firm curtailment is
 // compensated (constraint payments → bill); flexible curtailment is just
-// logged.
+// logged. Hydrogen (#23): electrolysers are load-side soaks that absorb
+// would-be curtailment into the H₂ store, and converted peakers burn that
+// store first — both wired below, model + constants in market/hydrogen.ts.
 
 import { BATTERY_EFFICIENCY, GENS, strikeMWh, SUBS } from '../catalog';
 import { busId, subMva, type BatteryPolicy, type PlacedAsset } from '../assets';
 import { devCurtailK } from '../events/developers';
+import {
+  drainH2,
+  electrolyserIds,
+  ELECTROLYSER_EFFICIENCY,
+  H2_FUEL_COST_K,
+  h2StoreMWh,
+} from './hydrogen';
 import { findIslands } from '../grid/topology';
 import type { Injection, Network } from '../grid/types';
 import {
@@ -150,6 +159,9 @@ interface Unit {
   /** Curtailment price, £k/MWh (#17): what a FIRM curtailment of this
    *  unit pays. Absent = the flat CONSTRAINT_COMP_K. */
   curtailK?: number | undefined;
+  /** #23: this unit's output burns the H₂ store (the hydrogen half of a
+   *  converted peaker) — the fill loop drains the tanks as it runs. */
+  h2Store?: boolean | undefined;
 }
 
 /** Still in planning/construction: on the network, generating nothing. */
@@ -182,7 +194,23 @@ export function runDispatch(
   loadOfSub: Map<number, SubLoad>,
   inp: DispatchInputs,
 ): DispatchResult {
+  const assetArr = [...assets];
   const { islandOf } = findIslands(net);
+  // H₂ pool (#23): the licence-wide store the converted fleet draws on —
+  // per-electrolyser tank levels ride inp.soc like battery SoC. Hydrogen
+  // moves by pipeline/tube trailer, not by wire, so the pool is global
+  // across electrical islands. Allocated to converted peakers in asset
+  // order as MW-for-this-tick; the fill loop drains what actually runs.
+  const h2Ids = electrolyserIds(
+    assetArr.filter((a) => a.kind === 'gen' && !underConstruction(a, inp.simTimeMin)),
+  );
+  const h2PoolMWh = h2StoreMWh(inp.soc, h2Ids);
+  let h2PoolMW =
+    inp.dtMin > 0
+      ? (h2PoolMWh * 60) / inp.dtMin
+      : h2PoolMWh > 1e-9
+        ? Number.POSITIVE_INFINITY // paused re-solve: no drain, assume covered
+        : 0;
   const fDom = domesticProfile(inp.simTimeMin);
   const fProc = processProfile(inp.simTimeMin);
   const fEv = evProfile(inp.simTimeMin, inp.tech.smartEv);
@@ -207,13 +235,15 @@ export function runDispatch(
       energyMWh: number;
       policy: BatteryPolicy;
     }>;
+    /** #23: connected electrolysers — load-side curtailment soaks. */
+    electrolysers: Array<{ id: number; bus: number; rateMW: number; capMWh: number }>;
     subs: SubNow[];
   }
   const byIsland = new Map<number, IslandAgg>();
   const agg = (gi: number): IslandAgg => {
     let a = byIsland.get(gi);
     if (!a) {
-      a = { units: [], batteries: [], subs: [] };
+      a = { units: [], batteries: [], electrolysers: [], subs: [] };
       byIsland.set(gi, a);
     }
     return a;
@@ -221,7 +251,7 @@ export function runDispatch(
 
   let flexCostKPerHour = 0;
 
-  for (const a of assets) {
+  for (const a of assetArr) {
     if (a.kind === 'gen') {
       const spec = GENS[a.gen];
       const bus = busId(a.id, spec.level);
@@ -238,6 +268,58 @@ export function runDispatch(
             policy: a.policy ?? 'shave',
           });
         }
+      } else if (a.gen === 'electrolyser') {
+        // #23: a load, never a unit — it soaks would-be curtailment into
+        // its tank (the island block below), and NOTHING when demand is
+        // unserved. Its tank level rides inp.soc like a battery's SoC.
+        if (!building) {
+          agg(gi).electrolysers.push({
+            id: a.id,
+            bus,
+            rateMW: spec.capacityMW,
+            capMWh: spec.energyMWh ?? 0,
+          });
+        }
+      } else if (a.gen === 'gasPeaker' && a.h2 === true) {
+        // #23: converted peaker — split into an H₂-fired half capped by
+        // the pool (carbon 0, fuel at the H₂ offtake price) and a gas
+        // half for the remainder. Same asset id on both: the fill loop
+        // accumulates genMW, and the H₂ half drains the tanks as it runs.
+        const ppaK =
+          a.ppaMWh !== undefined
+            ? a.ppaMWh / 1000
+            : a.developer !== undefined
+              ? strikeMWh(a.gen) / 1000
+              : undefined;
+        const avail = building ? 0 : spec.capacityMW;
+        const h2MW = Math.min(avail, h2PoolMW);
+        if (Number.isFinite(h2PoolMW)) h2PoolMW -= h2MW;
+        const flex = a.flex === true && !building;
+        if (h2MW > 0) {
+          agg(gi).units.push({
+            id: a.id,
+            bus,
+            availMW: h2MW,
+            costK: H2_FUEL_COST_K,
+            carbonG: 0,
+            mustRun: false,
+            flex,
+            isBattery: false,
+            ppaK,
+            h2Store: true,
+          });
+        }
+        agg(gi).units.push({
+          id: a.id,
+          bus,
+          availMW: avail - h2MW,
+          costK: spec.marginalCostK,
+          carbonG: spec.carbonG,
+          mustRun: false,
+          flex,
+          isBattery: false,
+          ppaK,
+        });
       } else {
         const renewable =
           a.gen === 'solarFarm' ||
@@ -406,6 +488,26 @@ export function runDispatch(
       }
     }
 
+    // electrolysers (#23) soak LAST — only the cheap surplus still left
+    // after the batteries have taken their fill, i.e. exactly the energy
+    // the fill loop would otherwise curtail (or spill as rooftop excess:
+    // the soak raises demand before the export-scale step below). Gated
+    // on surplus > 0, which guarantees the island's stack fully covers
+    // demand — an electrolyser NEVER consumes ahead of unserved load.
+    const soaking = new Map<number, number>();
+    for (const e of island.electrolysers) {
+      const soc = inp.soc.get(e.id) ?? 0;
+      const headroomMW =
+        inp.dtMin > 0
+          ? ((e.capMWh - soc) / ELECTROLYSER_EFFICIENCY) * (60 / inp.dtMin)
+          : e.rateMW;
+      const take = Math.max(0, Math.min(e.rateMW, headroomMW, surplus));
+      if (take <= 0) continue;
+      soaking.set(e.id, take);
+      demand += take;
+      surplus = Math.max(0, cheapMW - demand);
+    }
+
     // rooftop export serves local demand first; spill beyond it is lost
     let exportScale = 1;
     if (exportMW > demand) {
@@ -417,7 +519,8 @@ export function runDispatch(
 
     if (residual <= 0 && demand <= 0) {
       for (const u of island.units) {
-        genMW.set(u.id, 0);
+        // accumulate: a converted peaker is two units on one asset id
+        if (!genMW.has(u.id)) genMW.set(u.id, 0);
         if (u.mustRun || u.flex) recordCurtailed(u, u.availMW);
       }
       for (const s of island.subs) {
@@ -454,7 +557,9 @@ export function runDispatch(
     for (const u of stack) {
       const mw = Math.min(u.availMW, remaining);
       remaining -= mw;
-      genMW.set(u.id, mw);
+      // accumulate, not overwrite: a converted peaker (#23) is two units
+      // (H₂ half + gas half) carrying the same asset id
+      genMW.set(u.id, (genMW.get(u.id) ?? 0) + mw);
       if (mw > 0) {
         injections.push({ bus: u.bus, pMW: mw });
         costKPerHour += mw * u.costK;
@@ -469,6 +574,10 @@ export function runDispatch(
         slackCandidates.push({ bus: u.bus, mw });
         if (inp.dtMin > 0 && u.isBattery) {
           inp.soc.set(u.id, Math.max(0, (inp.soc.get(u.id) ?? 0) - (mw * inp.dtMin) / 60));
+        }
+        if (inp.dtMin > 0 && u.h2Store === true) {
+          // the H₂ half burns the tanks down as it runs (ascending id)
+          drainH2(inp.soc, h2Ids, (mw * inp.dtMin) / 60);
         }
       }
       if (u.mustRun || u.flex) recordCurtailed(u, u.availMW - mw);
@@ -485,6 +594,24 @@ export function runDispatch(
           Math.min(
             b.energyMWh,
             (inp.soc.get(id) ?? 0) + (mw * inp.dtMin * BATTERY_EFFICIENCY) / 60,
+          ),
+        );
+      }
+    }
+
+    // electrolysers (#23): soaked surplus leaves the wires here and
+    // lands in the tanks at the net round-trip efficiency
+    for (const [id, mw] of soaking) {
+      const e = island.electrolysers.find((x) => x.id === id);
+      if (!e) continue;
+      genMW.set(id, -mw);
+      injections.push({ bus: e.bus, pMW: -mw });
+      if (inp.dtMin > 0) {
+        inp.soc.set(
+          id,
+          Math.min(
+            e.capMWh,
+            (inp.soc.get(id) ?? 0) + (mw * inp.dtMin * ELECTROLYSER_EFFICIENCY) / 60,
           ),
         );
       }

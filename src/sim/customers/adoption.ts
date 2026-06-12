@@ -18,6 +18,11 @@ export interface CouncilAdoption {
 export interface CouncilState extends CouncilAdoption {
   /** Customer satisfaction 0..100 (0 until energized). */
   satisfaction: number;
+  /** Funded smart-charging programme (ROADMAP #18): the council's EV
+   *  evening profile runs the smart (flattened) shape and the programme
+   *  cost rides the bill. Additive + optional: old saves hydrate clean
+   *  (councils serialize by object spread). customers/smartCharging.ts. */
+  smartCharging?: boolean;
 }
 
 export function newCouncilState(): CouncilState {

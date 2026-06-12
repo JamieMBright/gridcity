@@ -18,7 +18,8 @@ import {
   type PeriodState,
   type ReportCard,
 } from './regulation/riio';
-import { buildLondonMap, EXISTING_GENERATION, NEW_ESTATES } from '../data/londonMap';
+import { EXISTING_GENERATION, NEW_ESTATES } from '../data/londonMap';
+import { getScenario } from '../data/cityRegistry';
 import type { SimSpeed } from './protocol';
 
 export interface GameEvent {
@@ -35,6 +36,14 @@ export interface GameState {
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;
+  /** Active scenario ('london', or a tutorial-mission id). Decides which
+   *  map newContext builds and which mission rules the worker runs. */
+  scenarioId: string;
+  /** Tutorial missions: the win predicate has fired (sticky). */
+  missionComplete?: boolean | undefined;
+  /** Tutorial missions: bitmask of scripted beats already fired, so
+   *  storms/faults trigger exactly once across saves and skips. */
+  missionBeats?: number | undefined;
   nextAssetId: number;
   assets: Map<number, PlacedAsset>;
   /** bumped on any asset change → network re-derivation. */
@@ -182,11 +191,12 @@ export interface SimContext {
   demand: DemandField;
 }
 
-export function newGame(): GameState {
+export function newGame(scenarioId = 'london'): GameState {
   return {
     tick: 0,
     simTimeMin: 0,
     speed: 1,
+    scenarioId,
     nextAssetId: 1,
     assets: new Map(),
     assetsVersion: 0,
@@ -247,10 +257,10 @@ export function pushEvent(
   if (s.events.length > 40) s.events.splice(0, s.events.length - 40);
 }
 
-export function newContext(): SimContext {
+export function newContext(scenarioId = 'london'): SimContext {
   // a fresh map every time: town growth mutates the context's copy, so
   // a new game (or a load) must never inherit a previous run's infill
-  const map = buildLondonMap();
+  const map = getScenario(scenarioId).build();
   return { map, demand: buildDemandField(map) };
 }
 
@@ -375,6 +385,17 @@ export interface SaveData {
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;
+  /** Scenario the save belongs to (additive; absent hydrates to
+   *  'london', so every pre-campaign save keeps its map). */
+  scenarioId?: string;
+  /** Wall-clock ms when this save was WRITTEN (additive; stamped by the
+   *  persistence layer, never the sim — determinism stays intact). Boot
+   *  arbitration prefers the most recently saved copy, so a fresh new
+   *  game beats an old long-played cloud save. */
+  savedAt?: number;
+  /** Tutorial-mission progress (additive). */
+  missionComplete?: boolean;
+  missionBeats?: number;
   nextAssetId: number;
   assets: PlacedAsset[];
   rngState: number;
@@ -499,6 +520,11 @@ export function serialize(s: GameState): SaveData {
       ? { maintenance: s.maintenance.map((m) => ({ ...m })) }
       : {}),
     ...(s.maintYrK !== undefined ? { maintYrK: s.maintYrK } : {}),
+    // scenario tag only when off the default: london saves stay
+    // byte-identical to pre-campaign ones
+    ...(s.scenarioId !== 'london' ? { scenarioId: s.scenarioId } : {}),
+    ...(s.missionComplete !== undefined ? { missionComplete: s.missionComplete } : {}),
+    ...(s.missionBeats !== undefined ? { missionBeats: s.missionBeats } : {}),
   };
   return structuredClone(data);
 }
@@ -510,6 +536,9 @@ export function deserialize(d: SaveData): GameState {
     tick: d.tick,
     simTimeMin: d.simTimeMin,
     speed: d.speed,
+    scenarioId: d.scenarioId ?? 'london',
+    missionComplete: d.missionComplete,
+    missionBeats: d.missionBeats,
     nextAssetId: d.nextAssetId,
     assets,
     assetsVersion: 1,

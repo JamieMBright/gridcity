@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { setActiveScenario } from '../data/cityRegistry';
 import { getLondonMap } from '../data/londonMap';
 import { MapRenderer, type Ghost, type TileHover } from '../render/MapRenderer';
 import { installTestHook } from '../app/testHook';
@@ -227,10 +228,16 @@ export function MapView() {
   const gridView = useAppStore((s) => s.gridView);
   const hovered = useAppStore((s) => s.hoveredTile);
   const tool = useAppStore((s) => s.tool);
+  const scenarioId = useAppStore((s) => s.scenarioId);
 
+  // a scenario change (campaign mission ↔ london) tears the renderer
+  // down and rebuilds it on the new scenario's map; every other map
+  // consumer (ghosts, hover info, the test hook) follows via the shared
+  // client map that setActiveScenario swaps in behind getLondonMap()
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
+    setActiveScenario(scenarioId);
     const renderer = new MapRenderer();
     rendererRef.current = renderer;
     renderer.onHover = (tile) => useAppStore.getState().setHoveredTile(tile);
@@ -257,7 +264,7 @@ export function MapView() {
       rendererRef.current = undefined;
       renderer.destroy();
     };
-  }, []);
+  }, [scenarioId]);
 
   useEffect(() => {
     if (snapshot) {
@@ -465,9 +472,9 @@ export function MapView() {
     } else {
       const sprite =
         spec.kind === 'gen'
-          ? { gasCCGT: 'gen_gas', gasPeaker: 'gen_peaker', coal: 'gen_coal', nuclear: 'gen_nuclear', solarFarm: 'gen_solar', windOnshore: 'gen_windon', windOffshore: 'gen_windoff', tidal: 'gen_tidal', biomass: 'gen_biomass', battery: 'gen_battery', interconnector: 'gen_interconnector' }[spec.gen]
+          ? { gasCCGT: 'gen_gas', gasPeaker: 'gen_peaker', coal: 'gen_coal', nuclear: 'gen_nuclear', solarFarm: 'gen_solar', windOnshore: 'gen_windon', windOffshore: 'gen_windoff', tidal: 'gen_tidal', biomass: 'gen_biomass', battery: 'gen_battery', interconnector: 'gen_interconnector', electrolyser: 'gen_electrolyser' }[spec.gen]
           : spec.kind === 'sub'
-            ? { bulk: 'sub_bulk', grid: 'sub_grid', dist: 'sub_dist', pole: 'sub_pole', vault: 'sub_vault', tee: 'sub_dist' }[spec.sub]
+            ? { bulk: 'sub_bulk', grid: 'sub_grid', dist: 'sub_dist', pole: 'sub_pole', vault: 'sub_vault', tee: 'sub_dist', capbank: 'sub_capbank' }[spec.sub]
             : 'depot';
       ghost = {
         kind: 'tile',

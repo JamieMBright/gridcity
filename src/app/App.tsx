@@ -10,6 +10,7 @@ import { InfoPanel } from '../ui/InfoPanel';
 import { KpiDashboard } from '../ui/KpiDashboard';
 import { MapView } from '../ui/MapView';
 import { MobileChrome } from '../ui/MobileChrome';
+import { RotatePrompt } from '../ui/RotatePrompt';
 import { SearchBox } from '../ui/SearchBox';
 import { StartMenu } from '../ui/StartMenu';
 import { StoryIntro } from '../ui/StoryIntro';
@@ -198,6 +199,8 @@ export function App() {
   useKeyboard();
   const isMobile = useIsMobile();
   const menuOpen = useAppStore((s) => s.menuOpen);
+  // campaign missions hide the London-specific chrome (place search)
+  const inMission = useAppStore((s) => s.scenarioId !== 'london');
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
@@ -228,7 +231,7 @@ export function App() {
         ) : (
           <>
             <Wordmark />
-            <SearchBox />
+            {!inMission && <SearchBox />}
             <BuildPalette />
             <InfoPanel />
             <BillPanel />
@@ -245,6 +248,7 @@ export function App() {
       <StoryIntro />
       <KpiDashboard />
       <StartMenu />
+      <RotatePrompt />
     </div>
   );
 }
