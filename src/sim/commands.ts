@@ -130,6 +130,7 @@ export function siteErrorAt(
   const z = map.zone[i];
   if (map.landmark !== undefined && (map.landmark[i] ?? 0) !== 0)
     return 'that is a protected landmark';
+  if (((map.flags?.[i] ?? 0) & 2) !== 0) return 'that is an active runway';
   if ((map.road[i] ?? 0) >= RC.arterial) {
     return (map.road[i] ?? 0) === RC.rail
       ? 'cannot build on the railway'

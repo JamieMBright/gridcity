@@ -18,7 +18,7 @@ import {
   type PeriodState,
   type ReportCard,
 } from './regulation/riio';
-import { buildLondonMap, NEW_ESTATES } from '../data/londonMap';
+import { buildLondonMap, EXISTING_GENERATION, NEW_ESTATES } from '../data/londonMap';
 import type { SimSpeed } from './protocol';
 
 export interface GameEvent {
@@ -202,6 +202,21 @@ export function seedScenario(state: GameState, ctx: SimContext): void {
       mva: 10,
       mvaAuto: false,
       idno: true,
+    });
+  }
+  // (a2) the real-world foundations: generation already on the system,
+  // developer-owned and operational — it just needs your wires
+  let devIx = 0;
+  for (const g of EXISTING_GENERATION) {
+    const id = state.nextAssetId++;
+    state.assets.set(id, {
+      id,
+      kind: 'gen',
+      gen: g.gen,
+      x: g.x,
+      y: g.y,
+      developer: (devIx++ % 6) + 1,
+      liveAtMin: 0,
     });
   }
   state.assetsVersion++;

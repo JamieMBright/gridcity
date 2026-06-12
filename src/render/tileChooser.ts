@@ -4,7 +4,7 @@
 // STRUCTURE sprite with a transparent floor — the renderer draws its vector
 // road ribbons between the two.
 
-import { FLAG_SHOPS, riverCenterY } from '../data/londonMap';
+import { FLAG_RUNWAY, FLAG_SHOPS, riverCenterY } from '../data/londonMap';
 import { LANDMARK, RC, TERRAIN, ZONE, type CityMap, type Landmark } from '../sim/map/types';
 
 const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {
@@ -27,6 +27,7 @@ const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {
   [LANDMARK.carpark]: 'lm_carpark',
   [LANDMARK.church]: 'lm_church',
   [LANDMARK.datacentre]: 'lm_datacentre',
+  [LANDMARK.airport]: 'lm_airport',
 };
 
 function at(map: CityMap, x: number, y: number, arr: Uint8Array): number {
@@ -68,6 +69,7 @@ export function groundSpriteFor(map: CityMap, x: number, y: number): string {
   const v = map.variant[i] ?? 0;
 
   if (terrain === TERRAIN.water) return `water_${landMask(map, x, y)}`;
+  if (((map.flags?.[i] ?? 0) & FLAG_RUNWAY) !== 0) return 'ground_runway';
   if (terrain === TERRAIN.hill) return 'ground_moor';
 
   switch (zone) {
@@ -141,6 +143,14 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
     case ZONE.urban: {
       if (shops) return `vicshop_${v % 2}`;
       const pick = estate % 5;
+      // sector character: the East End leans terraces + council blocks,
+      // the West End leans Georgian stucco
+      if (x > 128) {
+        if (pick >= 3) return `councilflat_${v % 2}`;
+        if (pick === 2) return `terrace_${v % 4}`;
+        return `victerrace_${(estate + (v % 2)) % 4}`;
+      }
+      if (x < 110 && pick <= 1) return `georgian_${(estate + (v % 2)) % 2}`;
       if (pick === 2) return `terrace_${v % 4}`;
       if (pick === 4) return `councilflat_${v % 2}`;
       // whole streets share the estate's style, with a subtle per-tile
@@ -157,9 +167,12 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
     }
     case ZONE.newEstate:
       return `newbuild_${1 + (v % 2)}`; // bias to the solar-roof variants
-    case ZONE.posh:
+    case ZONE.posh: {
       if (v % 11 === 0) return `trees_${v % 3}`;
-      return `villa_${v % 2}`;
+      // Mayfair/Belgravia are stucco terraces; the outer quarters, villas
+      const central = Math.hypot(x - 118, y - 80) < 14;
+      return central ? `georgian_${v % 2}` : `villa_${v % 2}`;
+    }
     case ZONE.rural:
       return `cottage_${v % 2}`;
     case ZONE.industrial:

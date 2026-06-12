@@ -29,7 +29,18 @@ test.describe('start menu, tutorial, KPI dashboard', () => {
       .toBe(3);
     await expect
       .poll(() =>
-        store<number>(page, "(s) => s.snapshot.assets.filter((a) => !a.idno).length"),
+        store<number>(
+          page,
+          "(s) => s.snapshot.assets.filter((a) => a.kind === 'gen' && a.developer).length",
+        ),
+      )
+      .toBe(4); // the existing-generation foundations
+    await expect
+      .poll(() =>
+        store<number>(
+          page,
+          "(s) => s.snapshot.assets.filter((a) => !a.idno && !a.developer).length",
+        ),
       )
       .toBe(0); // nothing of the player's yet
   });

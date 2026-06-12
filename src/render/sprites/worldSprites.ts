@@ -200,6 +200,26 @@ export function orchardTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
+/** Runway tarmac: dark asphalt, centreline dashes, threshold bars. */
+export function groundRunwayTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 4801 + 3);
+  const tarmac = hex('#3f3d49');
+  iso.floor(tarmac, darken(tarmac, 0.1));
+  // centreline dashes along u
+  for (let u = 0.08 + rng.range(0, 0.1); u < 0.92; u += 0.3) {
+    iso.quad(u, 0.47, u + 0.16, 0.53, 0, alpha(COLORS.marking, 0.8));
+  }
+  // edge lines
+  iso.quad(0.02, 0.06, 0.98, 0.1, 0, alpha(COLORS.marking, 0.45));
+  iso.quad(0.02, 0.9, 0.98, 0.94, 0, alpha(COLORS.marking, 0.45));
+  // rubber smear
+  if (rng.chance(0.4)) {
+    iso.quad(rng.range(0.2, 0.6), 0.3, rng.range(0.65, 0.9), 0.7, 0, alpha(hex('#241c38'), 0.18));
+  }
+  return iso.build();
+}
+
 // --- Water (ground pass, keeps its own surface) -----------------------------
 
 export function waterTile(seed: number, landMask: number): Uint8ClampedArray<ArrayBuffer> {

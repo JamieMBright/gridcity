@@ -704,6 +704,54 @@ export function churchTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 
 /** Datacentre: windowless grey hall, roof packed with AC units, mesh
  *  fence, and a glowing status strip — hungry and impatient. */
+/** The airport terminal: long glazed hall under a wave roof, control
+ *  tower with its glass cab, and a tail fin peeking past the stand. */
+export function airportTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  // apron
+  iso.quad(0.02, 0.3, 0.98, 0.98, 0, COLORS.steelDark, darken(COLORS.steelDark, 0.12));
+  // terminal hall: glass walls, white wave roof
+  iso.shadow(0.06, 0.08, 0.8, 0.42, 0.16, 0.2);
+  iso.box(0.06, 0.08, 0.8, 0.42, 0, 20, alpha(COLORS.glassSky, 0.95), {
+    leftC: alpha(shaded(COLORS.glassSky, 0.15), 0.95),
+    rightC: alpha(COLORS.glassSunset, 0.95),
+    topC: COLORS.white,
+  });
+  for (const z of [22, 26] as const) {
+    iso.r.poly(
+      [iso.P(0.04, 0.06, z), iso.P(0.82, 0.06, z), iso.P(0.82, 0.44, z - 6), iso.P(0.04, 0.44, z - 6)],
+      z === 22 ? COLORS.white : alpha(COLORS.white, 0.0),
+    );
+  }
+  iso.r.polyline(
+    [iso.P(0.04, 0.44, 16), iso.P(0.82, 0.44, 16)],
+    INK_W,
+    INK,
+  );
+  // control tower: shaft + flared glass cab
+  iso.box(0.86, 0.18, 0.93, 0.25, 0, 42, COLORS.white);
+  iso.box(0.83, 0.15, 0.96, 0.28, 42, 50, COLORS.glassDark, { topC: COLORS.white });
+  iso.r.polyline(
+    [iso.P(0.83, 0.28, 50), iso.P(0.96, 0.28, 50), iso.P(0.96, 0.15, 50)],
+    INK_W,
+    INK,
+  );
+  // a tail fin at the stand
+  const [fx, fy] = iso.P(0.3, 0.72, 0);
+  iso.r.poly(
+    [[fx, fy], [fx + 4 * RES, fy - 14 * RES], [fx + 9 * RES, fy - 14 * RES], [fx + 7 * RES, fy]],
+    COLORS.white,
+  );
+  iso.r.poly(
+    [[fx + 4 * RES, fy - 14 * RES], [fx + 9 * RES, fy - 14 * RES], [fx + 8 * RES, fy - 10 * RES], [fx + 5 * RES, fy - 10 * RES]],
+    COLORS.orange,
+  );
+  // stand markings
+  iso.r.line(iso.P(0.2, 0.6, 0.5), iso.P(0.7, 0.6, 0.5), 1.6, alpha(COLORS.marking, 0.7));
+  return iso.build();
+}
+
 export function datacentreTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 80147 + 15);
