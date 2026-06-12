@@ -12,6 +12,79 @@
 
 ## Open
 
+- [ ] **Tutorial campaign (owner, 2026-06-12): "the game is complicated
+      for not knowing all the things"** — a campaign of TINY scenario
+      maps that introduce core concepts one at a time, e.g. mission 1:
+      a hamlet, one wind turbine site, one 33 kV line, one distribution
+      substation → houses light up. Then missions layering in: step-up
+      voltages + the bay rule, tenders & firm-vs-flexible, faults/
+      storms/vans, the bill & RIIO. Each map is pure data (CityScenario
+      pattern); win condition + guided steps per mission; campaign menu
+      entry. PULLED TO THE FRONT of the "do all" campaign — next wave's
+      priority lane. (Owner also asked "are you doing them all?" —
+      answered in chat: yes, whole ROADMAP, in gated waves.)
+
+- [x] **ROADMAP #15 Asset ageing + #16 Maintenance windows (this prompt;
+      reliability lane)**:
+  - [x] #15: `builtAtMin?` on lines/subs (additive; absent hydrates to 0
+        — existing campaigns' kit ages from game start, documented in
+        assets.ts + ageing.ts; new builds/tees/sealing ends stamp it);
+        derived health in new `src/sim/reliability/ageing.ts`:
+        `assetHealth(asset, simTimeMin, loadingEmaFrac?)` 100→0 over the
+        catalog's 40-year asset life, ≤1.6× load acceleration (coarse
+        hook, documented: the per-branch overload-heat accumulator —
+        only kit run past its rating ages faster), ×1.15 storm exposure
+        for overhead lines/outdoor AIS subs (deterministic constant, not
+        an accumulator — health stays a pure function); `rollFaults` ×
+        health hazard (1× at ≥70 rising linearly to 3× at 10, clamped;
+        RNG draw count unchanged so seeds replay); inspector rows
+        `health X% · built year N` on line + sub cards; `replaceAsset`
+        command (resets builtAtMin, 70% of CURRENT capex — easements/
+        civils/consents reused, documented; undo-safe via the worker
+        snapshot, refuses iDNO; button below 50%); snapshot stat
+        `networkHealthPct` + KpiDashboard row.
+  - [x] #16: `scheduleMaintenance` command (inspector button below
+        health 80) → `state.maintenance` (additive) queues the next
+        01:00–05:00 window; tick applies a planned outage (cause
+        "planned maintenance" via outageCause, timed like a thermal
+        trip so it auto-clears at window end, NO fleet job), cost 10%
+        of capex one-off into rolling `maintYrK` (stormPrepYrK's exact
+        sibling, rides penaltyYrK → the constraint/damages bill line),
+        completion bumps builtAtMin forward ≈ +25 health (capped 100);
+        inspector warns "customers WILL lose supply during the window"
+        + second-click confirm when `maintenanceCutsSupply` (pure
+        topological screen mirroring security.ts reachability) says the
+        branch is the only path — N-1 secure kit queues silently.
+  - [x] VERIFIED: tests/ageing.test.ts (14) — curve endpoints (new=100,
+        40y=0, exposure, load-accel ordering + clamps), hazard anchors,
+        aged line faults >1.5× a new one under the identical seed,
+        replace resets + charges 70% + deserialize-undo reverts both,
+        nextMaintenanceStart edges, full radial window lifecycle (queue
+        £, dupe refusal, applies at 01:00 with cause + zero jobs, CML
+        accrues, clears at 05:00, +25.0 health, charge reconciles on
+        bill.constraintYrK), looped fixture rides through with CML=0,
+        cuts-supply warning truth table + dist/iDNO refusals, rate
+        decay, save round-trip + pre-ageing hydration. Full unit suite
+        230/230; tsc, eslint, vite build clean. e2e with the wave gate.
+
+- [x] **ROADMAP #14 CfD allocation rounds + #17 Constraint bidding (this
+      prompt; developer-market lane)**:
+  - [x] #14: quarterly sealed-bid allocation rounds in events/
+        developers.ts (ROUND_INTERVAL_DAYS=90; openAllocationRound
+        gathers all open tenders into a round, settleClearedRounds
+        clears them together at the deadline); Tender.roundId
+        (additive); InboxPanel groups bids under "ALLOCATION ROUND n"
+        with a one-click clear of the whole round.
+  - [x] #17: per-developer `curtailPriceK` personalities (£30/MWh co-op
+        → £120/MWh conglomerate), inherited onto awarded plant as
+        `GenAsset.curtailK` (inheritCurtailPrices); dispatch curtails
+        the CHEAPEST curtailers first, so a low constraint price is a
+        real reason to pick a bid; bid cards read "£92/MWh · curtails
+        at £45/MWh".
+  - [x] VERIFIED: tests/cfdRound.test.ts (8) + tests/
+        constraintBidding.test.ts (6); full unit suite green with the
+        concurrent ageing lane; tsc + eslint clean. e2e with the gate.
+
 - [x] **ROADMAP #11 Interconnector + #12 Battery policy (this prompt;
       dispatch/market lane)**:
   - [x] #11: GenType `'interconnector'` in catalog (1000 MW, 400 kV,
@@ -167,14 +240,17 @@
       API is another lane's file); approve executes directly.
 
 - [ ] **"Do all" campaign (owner, 2026-06-12): implement ROADMAP.md in
-      full**, tier by tier in gated waves. WAVES 1+1b COMPLETE pending
-      gate: #1 waypoints, #5+#20 seasons/regimes, #6+#7 goals+time-skip,
-      #2 headroom heatmap (corridors + catchments), #4 labels+search,
-      #3 planner + #25 ring-main assist, #8 N-1 view (rings + card row),
-      #9 storm prep (banner + surge crews + veg cut). Tutorial e2e
-      collision fixed (skip button aria-label). DEFERRED to Wave 2: #10
-      demand-growth forecast overlay (needs projected-council plumbing).
-      Wave 2 next: Tier-1 remainder + Tier 2 lanes. Items tick off in
+      full**, tier by tier in gated waves. SHIPPED: Wave 1+1b (#1
+      waypoints, #5+#20 seasons/regimes, #6+#7 goals+time-skip, #2
+      headroom heatmap, #4 labels+search, #3 planner + #25 ring-main,
+      #8 N-1 view, #9 storm prep, #51 story opening); Wave 2 (#10
+      forecast overlay, #11 interconnector, #12 battery policy, #13
+      losses, #52 bill drill-down). WAVE 3 complete pending gate: #14
+      CfD allocation rounds, #17 constraint bidding, #15 asset ageing,
+      #16 maintenance windows. Wave 4 next: TUTORIAL CAMPAIGN (owner
+      priority) + Tier 2 remainder (#18 smart charging, #19 voltage
+      control, #21 heat networks, #22 scenario seeds, #23 hydrogen,
+      #24 ToU tariffs) and owner items #53–#55. Items tick off in
       ROADMAP.md with PR links as they land.
 
 - [ ] **Map recognisability pass 2** (owner can't model 1M properties; keep it

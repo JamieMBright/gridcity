@@ -44,6 +44,11 @@ export interface GenAsset {
   developer?: number | undefined;
   /** The awarded PPA strike, £/MWh — what customers pay this plant. */
   ppaMWh?: number | undefined;
+  /** Constraint-market curtailment price, £k/MWh (#17): compensation per
+   *  curtailed MWh on a firm connection, inherited from the developer's
+   *  curtailPriceK personality. Absent (legacy saves, customer plant)
+   *  = the flat CONSTRAINT_COMP_K / the developer fallback in dispatch. */
+  curtailK?: number | undefined;
   /** Game-minute the plant is commissioned (planning + construction).
    *  Until then it exists on the network but generates nothing. */
   liveAtMin?: number | undefined;
@@ -71,6 +76,11 @@ export interface SubAsset {
   underground?: boolean | undefined;
   /** Tee junctions only: the voltage of the circuit that was tee'd. */
   teeLevel?: VoltageLevel | undefined;
+  /** Game-minute the kit was built/last replaced (asset ageing, ROADMAP
+   *  #15). Absent = built at campaign start (old saves hydrate to 0:
+   *  existing campaigns' kit starts ageing from game start — accepted).
+   *  Health is DERIVED from this in reliability/ageing.ts, never stored. */
+  builtAtMin?: number | undefined;
 }
 
 /** Effective fitted MVA of a substation. */
@@ -93,6 +103,8 @@ export interface LineAsset {
   pylons?: number[] | undefined;
   /** Re-conductored: thermal rating ×LINE_UPRATE_MUL (one-shot). */
   uprated?: boolean | undefined;
+  /** Game-minute the line was built/last replaced (see SubAsset). */
+  builtAtMin?: number | undefined;
 }
 
 const LEVEL_SLOT: Record<VoltageLevel, number> = { 400: 0, 132: 1, 33: 2 };

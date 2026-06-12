@@ -1,9 +1,20 @@
+import { useMemo, useState } from 'react';
 import { linePeaks, useAppStore } from '../app/store';
 import { getLondonMap, NAMED_PLACES } from '../data/londonMap';
 import { sendCommand } from '../app/workerBridge';
 import { GENS, LINES, SUB_UG_MUL, subCapexK, subRadius, SUBS, type SubType } from '../sim/catalog';
 import { assetLevels, subMva, type BatteryPolicy, type PlacedAsset } from '../sim/assets';
 import { assetAtTile, spanAt } from '../sim/commands';
+import {
+  assetHealth,
+  MAINT_COST_FRAC,
+  MAINT_HEALTH_BELOW,
+  maintenanceBranchOf,
+  maintenanceCutsSupply,
+  REPLACE_COST_FRAC,
+  REPLACE_HEALTH_BELOW,
+} from '../sim/reliability/ageing';
+import { assetCapexK } from '../sim/regulation/bill';
 import { availAt } from '../sim/balance';
 import { nationalPriceMWh } from '../sim/market/dispatch';
 import { priceLine } from '../sim/cost';
@@ -224,6 +235,16 @@ function Sparkline({ series }: { series: Array<[number, number, number]> }) {
   );
 }
 
+/** Inspector condition row (#15): derived health + build year. The UI
+ *  reads the base curve (no loading hook — the heat accumulator lives in
+ *  the worker; the curves agree whenever the kit isn't overloaded). */
+function healthRow(asset: PlacedAsset, simTimeMin: number): [string, string] {
+  const health = assetHealth(asset, simTimeMin);
+  const builtAtMin =
+    asset.kind === 'line' || asset.kind === 'sub' ? Math.max(0, asset.builtAtMin ?? 0) : 0;
+  return ['health', `${health.toFixed(0)}% · built year ${Math.floor(builtAtMin / 525_600) + 1}`];
+}
+
 /** What to do about it — the spanner pin's promised advice. */
 function fixAdvice(cause: string, kind: 'line' | 'tx'): string {
   if (cause.includes('overload')) {
@@ -278,6 +299,7 @@ function LineInfo({ assetId }: { assetId: number }) {
     ['build', line.build === 'underground' ? 'underground cable' : 'overhead line'],
     ['route', `${line.lengthTiles} km`],
     ['capex', fmtMoneyK(line.capexK)],
+    healthRow(line, snapshot.simTimeMin),
   ];
   if (endA) rows.push(['from', assetName(endA)]);
   if (endB) rows.push(['to', assetName(endB)]);
@@ -396,6 +418,7 @@ function LineInfo({ assetId }: { assetId: number }) {
             ✂ emergency veg cut · {fmtMoneyK(Math.round(line.lengthTiles * 4))}
           </button>
         )}
+        <ConditionActions key={assetId} asset={line} />
         <button
           style={{ ...ACTION_BTN, color: theme.danger, borderColor: theme.danger }}
           onClick={() => {
@@ -473,6 +496,7 @@ function AssetInfo({ assetId }: { assetId: number }) {
     if (asset.sub !== 'tee') {
       rows.push(['build', asset.underground ? 'underground (GIS)' : 'outdoor (AIS)']);
     }
+    rows.push(healthRow(asset, snapshot.simTimeMin));
     const sec = snapshot.security?.find(([id]) => id === assetId)?.[1];
     if (sec !== undefined) {
       rows.push(['N-1 security', sec ? 'secure ✓' : 'AT RISK — single point of failure']);
@@ -554,6 +578,77 @@ function AssetInfo({ assetId }: { assetId: number }) {
             ⤓ rebuild underground (GIS) · +
             {fmtMoneyK(subCapexK(asset.sub, subMva(asset)) * (SUB_UG_MUL - 1))}
           </button>
+        </div>
+      )}
+      {asset.kind === 'sub' && <ConditionActions key={asset.id} asset={asset} />}
+    </div>
+  );
+}
+
+/** Condition actions (#15/#16) for an aged line/substation: replace
+ *  like-for-like below 50% health, schedule a maintenance night below
+ *  80%. When switching the kit out would cut customers off (no alternate
+ *  path — a pure topological screen mirroring the N-1 machinery), the
+ *  button warns and takes a second click to confirm. Keyed by asset id
+ *  at the call sites so the confirm state resets per asset. */
+function ConditionActions({ asset }: { asset: PlacedAsset }) {
+  const snapshot = useAppStore((s) => s.snapshot);
+  const [armed, setArmed] = useState(false);
+  const ageing =
+    asset.kind === 'line' || (asset.kind === 'sub' && !asset.idno);
+  const health = snapshot && ageing ? assetHealth(asset, snapshot.simTimeMin) : 100;
+  const branchId = ageing ? maintenanceBranchOf(asset) : undefined;
+  const canMaintain = branchId !== undefined && health < MAINT_HEALTH_BELOW;
+  const cuts = useMemo(
+    () =>
+      snapshot && canMaintain && branchId !== undefined
+        ? maintenanceCutsSupply(snapshot.assets, branchId)
+        : false,
+    [snapshot, canMaintain, branchId],
+  );
+  if (!snapshot || !ageing) return null;
+  if (health >= MAINT_HEALTH_BELOW) return null;
+  const capexK = assetCapexK(asset);
+  return (
+    <div
+      style={{
+        pointerEvents: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        marginTop: 6,
+      }}
+    >
+      {health < REPLACE_HEALTH_BELOW && (
+        <button
+          style={ACTION_BTN}
+          title="New kit on the old easements and civils — that's why it's cheaper than a new build. Resets condition to 100%."
+          onClick={() => sendCommand({ type: 'replaceAsset', assetId: asset.id })}
+        >
+          ♻ replace like-for-like · {fmtMoneyK(Math.round(capexK * REPLACE_COST_FRAC))}
+        </button>
+      )}
+      {canMaintain && (
+        <button
+          style={armed ? { ...ACTION_BTN, color: theme.danger, borderColor: theme.danger } : ACTION_BTN}
+          title="Switch it out tonight 01:00–05:00 (planned outage, no repair crew) — condition +25 on completion"
+          onClick={() => {
+            if (cuts && !armed) {
+              setArmed(true);
+              return;
+            }
+            setArmed(false);
+            sendCommand({ type: 'scheduleMaintenance', assetId: asset.id });
+          }}
+        >
+          🔧 schedule maintenance tonight (01:00–05:00) ·{' '}
+          {fmtMoneyK(Math.round(capexK * MAINT_COST_FRAC))}
+        </button>
+      )}
+      {canMaintain && cuts && (
+        <div style={{ fontSize: 11, color: armed ? theme.danger : theme.warn }}>
+          ⚠ no alternate path: customers WILL lose supply during the window
+          {armed ? ' — click again to confirm' : ''}
         </div>
       )}
     </div>

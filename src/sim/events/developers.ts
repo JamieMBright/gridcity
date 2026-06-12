@@ -6,6 +6,7 @@
 // withdrawing tenders, connecting late or curtailing their plant. When
 // a conglomerate's mood breaks, the regulator hears about it.
 
+import type { PlacedAsset } from '../assets';
 import { GENS, type GenType, strikeMWh } from '../catalog';
 import type { Rng } from '../rng';
 import { pushEvent, type GameState } from '../state';
@@ -19,6 +20,12 @@ export interface Developer {
   conglomerate: boolean;
   /** Relative bidding appetite per technology (absent = never bids). */
   appetite: Partial<Record<GenType, number>>;
+  /** Constraint-market curtailment price, £k/MWh (ROADMAP #17): what
+   *  this developer's firm plant charges to be constrained off. A
+   *  personality, not market state — spread ~0.03–0.12 around the flat
+   *  CONSTRAINT_COMP_K (0.06) it replaces. Co-ops shrug for £30/MWh;
+   *  conglomerate lawyers invoice £120. */
+  curtailPriceK: number;
 }
 
 export const DEVELOPERS: Developer[] = [
@@ -28,6 +35,7 @@ export const DEVELOPERS: Developer[] = [
     blurb: 'Third-generation turbine men. Gas is in the blood.',
     conglomerate: false,
     appetite: { gasCCGT: 1.4, gasPeaker: 1.6, biomass: 0.8 },
+    curtailPriceK: 0.05,
   },
   {
     id: 2,
@@ -35,6 +43,7 @@ export const DEVELOPERS: Developer[] = [
     blurb: 'A pension-fund vehicle that has never seen a field it would not solar.',
     conglomerate: false,
     appetite: { solarFarm: 1.6, windOnshore: 1.4, battery: 1.4, windOffshore: 0.8 },
+    curtailPriceK: 0.04,
   },
   {
     id: 3,
@@ -42,6 +51,7 @@ export const DEVELOPERS: Developer[] = [
     blurb: 'Wind and tide specialists; happiest with salt on the blades.',
     conglomerate: false,
     appetite: { windOffshore: 1.4, windOnshore: 1.2, tidal: 1.2, solarFarm: 0.8 },
+    curtailPriceK: 0.07,
   },
   {
     id: 4,
@@ -49,6 +59,7 @@ export const DEVELOPERS: Developer[] = [
     blurb: 'Family firm. Peakers built to a price, delivered with a handshake.',
     conglomerate: false,
     appetite: { gasPeaker: 1.4, gasCCGT: 1.2, biomass: 1.2 },
+    curtailPriceK: 0.06,
   },
   {
     id: 5,
@@ -56,6 +67,7 @@ export const DEVELOPERS: Developer[] = [
     blurb: 'Community-owned panels; the AGM lasts longer than the build.',
     conglomerate: false,
     appetite: { solarFarm: 1.8, battery: 1.2 },
+    curtailPriceK: 0.03,
   },
   {
     id: 6,
@@ -63,12 +75,14 @@ export const DEVELOPERS: Developer[] = [
     blurb: 'Urban storage developers — substations are their street furniture.',
     conglomerate: false,
     appetite: { battery: 1.6, solarFarm: 1.0, windOnshore: 0.8 },
+    curtailPriceK: 0.08,
   },
   {
     id: 7,
     name: 'Consolidated Power Holdings',
     blurb: 'A balance sheet with cooling towers. Bids on anything big.',
     conglomerate: true,
+    curtailPriceK: 0.12,
     appetite: {
       gasCCGT: 1.6,
       gasPeaker: 1.0,
@@ -87,6 +101,7 @@ export const DEVELOPERS: Developer[] = [
     name: 'Albion Infrastructure Group',
     blurb: 'Lawyers first, engineers second — and friends at the regulator.',
     conglomerate: true,
+    curtailPriceK: 0.1,
     appetite: {
       gasCCGT: 1.4,
       gasPeaker: 0.8,
@@ -103,6 +118,12 @@ export const DEVELOPERS: Developer[] = [
 
 export function developerOf(id: number): Developer | undefined {
   return DEVELOPERS.find((d) => d.id === id);
+}
+
+/** The developer's curtailment price, £k/MWh (#17) — dispatch's fallback
+ *  for developer plant not yet stamped with GenAsset.curtailK. */
+export function devCurtailK(developerId: number): number | undefined {
+  return developerOf(developerId)?.curtailPriceK;
 }
 
 /** Every developer starts moderately well-disposed. */
@@ -141,12 +162,154 @@ export interface Tender {
   status: 'open' | 'awarded' | 'lapsed';
   /** The one no-bids extension has been used. */
   extended?: boolean | undefined;
+  /** Latest CfD allocation round (#14) that swept this tender, if any
+   *  — a still-open tender migrates into each new round. Additive:
+   *  pre-round saves' tenders simply have no round and list as today.
+   *  The inbox derives its "ALLOCATION ROUND n" grouping from this, so
+   *  the protocol carries no extra round plumbing. */
+  roundId?: number | undefined;
 }
 
 /** Adjusted lead time for a bid, game-days. */
 export function bidLeadDays(gen: GenType, bid: Bid): number {
   const g = GENS[gen];
   return Math.max(1, g.planningDays + g.buildDays + bid.leadDaysDelta);
+}
+
+// --- CfD allocation rounds (#14) --------------------------------------------
+//
+// Quarterly, every open designated site is swept into one sealed-bid
+// "allocation round": every developer with appetite prices every site at
+// once, and the inbox presents the round as a single clear-the-lot
+// decision (cheapest bid on every tender) alongside today's per-tender
+// awards. Per-site tendering between rounds is unchanged.
+
+/** Game-days between allocation rounds (a quarter). */
+export const ROUND_INTERVAL_DAYS = 90;
+export const ROUND_INTERVAL_MIN = ROUND_INTERVAL_DAYS * 1440;
+
+/** The calendar-aligned game-minute the next round opens after `nowMin`
+ *  (newGame and old-save hydration both land on the same schedule). */
+export function nextRoundOpensMin(nowMin: number): number {
+  return (Math.floor(nowMin / ROUND_INTERVAL_MIN) + 1) * ROUND_INTERVAL_MIN;
+}
+
+/** One bid's worth of RNG draws — shared by trickle and round bids so
+ *  the sealed round reuses the exact per-site machinery. `shade`
+ *  multiplies the strike (1 = the classic trickle bid). */
+function rollBid(rng: Rng, developerId: number, gen: GenType, shade: number): Bid {
+  const spec = GENS[gen];
+  const leadDays = spec.planningDays + spec.buildDays;
+  return {
+    developerId,
+    priceMWh: Math.max(1, Math.round(strikeMWh(gen) * rng.range(0.85, 1.15) * shade)),
+    leadDaysDelta: Math.round(leadDays * rng.range(-0.2, 0.25)),
+  };
+}
+
+/** A sealed allocation-round bid: strike ±15% shaded by personality —
+ *  an eager developer (high appetite) sharpens the pencil, a soured one
+ *  pads the price. Neutral (mood 70, appetite 1) shades nothing. */
+export function sealedRoundBid(rng: Rng, dev: Developer, gen: GenType, mood: number): Bid {
+  const appetite = dev.appetite[gen] ?? 0;
+  const shade = Math.max(
+    0.8,
+    Math.min(1.25, 1 + (START_MOOD - mood) * 0.002 - (appetite - 1) * 0.03),
+  );
+  return rollBid(rng, dev.id, gen, shade);
+}
+
+/** Open allocation round `roundId + 1`: tag every open tender into it and
+ *  collect a sealed bid from every developer with appetite that hasn't
+ *  already bid on the site. */
+function openAllocationRound(state: GameState, rng: Rng): void {
+  state.roundId += 1;
+  const open = state.tenders.filter((t) => t.status === 'open');
+  for (const t of open) t.roundId = state.roundId; // migrates leftovers forward
+  if (open.length === 0) {
+    state.roundClearedId = state.roundId; // empty round: nothing to clear
+    return;
+  }
+  let sealed = 0;
+  for (const t of open) {
+    for (const dev of DEVELOPERS) {
+      if ((dev.appetite[t.gen] ?? 0) <= 0) continue;
+      if (t.bids.some((b) => b.developerId === dev.id)) continue;
+      t.bids.push(sealedRoundBid(rng, dev, t.gen, state.devMood.get(dev.id) ?? START_MOOD));
+      sealed++;
+    }
+  }
+  pushEvent(
+    state,
+    'warn',
+    `Allocation Round ${state.roundId} open — ${sealed} sealed bid${sealed === 1 ? '' : 's'} across ${open.length} site${open.length === 1 ? '' : 's'}`,
+  );
+}
+
+/** The developer plant an awarded tender produced (acceptBid builds it on
+ *  the tender's tile). */
+function awardedPlantOf(
+  state: GameState,
+  t: Tender,
+): (PlacedAsset & { kind: 'gen' }) | undefined {
+  for (const a of state.assets.values()) {
+    if (a.kind === 'gen' && a.developer !== undefined && a.x === t.x && a.y === t.y) return a;
+  }
+  return undefined;
+}
+
+/** Round clearance bookkeeping: once every tender swept into a round has
+ *  settled (awarded individually or via the inbox's clear-round button,
+ *  or withdrawn/lapsed), developers who bid in the round and won nothing
+ *  sour slightly — on top of acceptBid's per-tender snub. Detected here
+ *  rather than in acceptBid because the clear is just sequential awards
+ *  (and commands.ts belongs to another work package this wave). */
+function settleClearedRounds(state: GameState): void {
+  while (state.roundClearedId < state.roundId) {
+    const r = state.roundClearedId + 1;
+    const members = state.tenders.filter((t) => t.roundId === r);
+    if (members.some((t) => t.status === 'open')) return; // round still live
+    state.roundClearedId = r;
+    if (members.length === 0) continue; // everything migrated into a later round
+    const winners = new Set<number>();
+    let priceSum = 0;
+    let priceN = 0;
+    for (const t of members) {
+      if (t.status !== 'awarded') continue;
+      const plant = awardedPlantOf(state, t);
+      if (plant?.developer !== undefined) winners.add(plant.developer);
+      if (plant?.ppaMWh !== undefined) {
+        priceSum += plant.ppaMWh;
+        priceN++;
+      }
+    }
+    if (winners.size === 0) continue; // wholly withdrawn round: declineTender already stung
+    const losers = new Set<number>();
+    for (const t of members) {
+      for (const b of t.bids) {
+        if (!winners.has(b.developerId)) losers.add(b.developerId);
+      }
+    }
+    for (const id of losers) bumpMood(state, id, -4);
+    pushEvent(
+      state,
+      'info',
+      `Allocation Round ${r} cleared${priceN > 0 ? ` at £${Math.round(priceSum / priceN)}/MWh average` : ''} — ${priceN} site${priceN === 1 ? '' : 's'} awarded`,
+    );
+  }
+}
+
+/** ROADMAP #17: awarded plants inherit their developer's curtailment
+ *  price onto the asset (additive — rides PlacedAsset serialization).
+ *  Stamped here rather than in acceptBid (commands.ts is another
+ *  engineer's this wave); dispatch falls back to the same personality
+ *  price for any plant not yet stamped, so behaviour is identical. */
+export function inheritCurtailPrices(state: GameState): void {
+  for (const a of state.assets.values()) {
+    if (a.kind !== 'gen' || a.developer === undefined || a.curtailK !== undefined) continue;
+    const k = devCurtailK(a.developer);
+    if (k !== undefined) a.curtailK = k;
+  }
 }
 
 /** Clamp-adjust a developer's mood; a conglomerate crossing below the
@@ -171,8 +334,19 @@ export function bumpAllMoods(state: GameState, delta: number): void {
 
 /** Advance open tenders by dtMin: bids accrue by appetite while bidding
  *  is open; a bid-less tender gets one 6-day extension, then lapses.
- *  Tenders holding bids wait indefinitely for the player's award. */
+ *  Tenders holding bids wait indefinitely for the player's award.
+ *  Also the home of the quarterly allocation-round timer (#14) and the
+ *  curtail-price inheritance pass (#17). */
 export function stepTenders(state: GameState, rng: Rng, dtMin: number): void {
+  if (dtMin > 0) {
+    // quarterly CfD allocation round: sweep all open tenders at once
+    while (state.simTimeMin >= state.roundOpensMin) {
+      openAllocationRound(state, rng);
+      state.roundOpensMin += ROUND_INTERVAL_MIN;
+    }
+    settleClearedRounds(state);
+    inheritCurtailPrices(state);
+  }
   for (const t of state.tenders) {
     if (t.status !== 'open') continue;
     if (state.simTimeMin < t.closesMin) {
@@ -182,12 +356,7 @@ export function stepTenders(state: GameState, rng: Rng, dtMin: number): void {
         if (appetite <= 0) continue;
         if (t.bids.some((b) => b.developerId === dev.id)) continue;
         if (!rng.chance((appetite * dtMin) / (BID_MEAN_DAYS * 1440))) continue;
-        const leadDays = spec.planningDays + spec.buildDays;
-        const bid: Bid = {
-          developerId: dev.id,
-          priceMWh: Math.max(1, Math.round(strikeMWh(t.gen) * rng.range(0.85, 1.15))),
-          leadDaysDelta: Math.round(leadDays * rng.range(-0.2, 0.25)),
-        };
+        const bid = rollBid(rng, dev.id, t.gen, 1); // classic trickle bid, unshaded
         t.bids.push(bid);
         pushEvent(
           state,
@@ -222,7 +391,7 @@ export function stepTenders(state: GameState, rng: Rng, dtMin: number): void {
   }
 }
 
-const FIRM_RENEWABLES: ReadonlySet<GenType> = new Set([
+export const FIRM_RENEWABLES: ReadonlySet<GenType> = new Set([
   'solarFarm',
   'windOnshore',
   'windOffshore',

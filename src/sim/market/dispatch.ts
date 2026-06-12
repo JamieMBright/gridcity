@@ -11,6 +11,7 @@
 
 import { BATTERY_EFFICIENCY, GENS, strikeMWh, SUBS } from '../catalog';
 import { busId, subMva, type BatteryPolicy, type PlacedAsset } from '../assets';
+import { devCurtailK } from '../events/developers';
 import { findIslands } from '../grid/topology';
 import type { Injection, Network } from '../grid/types';
 import {
@@ -73,7 +74,9 @@ export function nationalPriceK(
 ): number {
   return nationalPriceMWh(simTimeMin, weather) / 1000;
 }
-/** Compensation for constraining off a firm connection, £k/MWh. */
+/** Compensation for constraining off a firm connection, £k/MWh — the
+ *  flat fallback; developer plant prices its own curtailment (#17:
+ *  GenAsset.curtailK / the developer's curtailPriceK personality). */
 export const CONSTRAINT_COMP_K = 0.06;
 /** Price paid to demand turning down in the flexibility market, £k/MWh. */
 export const FLEX_PRICE_K = 0.15;
@@ -144,6 +147,9 @@ interface Unit {
    *  top-up above wholesale on DELIVERED energy only — idle plant is the
    *  developer's problem, like a real CfD. */
   ppaK?: number | undefined;
+  /** Curtailment price, £k/MWh (#17): what a FIRM curtailment of this
+   *  unit pays. Absent = the flat CONSTRAINT_COMP_K. */
+  curtailK?: number | undefined;
 }
 
 /** Still in planning/construction: on the network, generating nothing. */
@@ -258,6 +264,10 @@ export function runDispatch(
               : a.developer !== undefined
                 ? strikeMWh(a.gen) / 1000
                 : undefined,
+          // #17: the asset's stamped price, else its developer's
+          // personality (identical figure — see inheritCurtailPrices)
+          curtailK:
+            a.curtailK ?? (a.developer !== undefined ? devCurtailK(a.developer) : undefined),
         });
       }
     } else if (a.kind === 'sub' && SUBS[a.sub].serviceRadius !== undefined) {
@@ -309,9 +319,11 @@ export function runDispatch(
     if (u.flex) {
       curtailedFlexMW += mw;
     } else {
+      // firm curtailment pays the unit's own offer (#17), flat fallback
+      const compK = u.curtailK ?? CONSTRAINT_COMP_K;
       curtailedFirmMW += mw;
-      constraintKPerHour += mw * CONSTRAINT_COMP_K;
-      constraintDetail.push([u.id, mw, mw * CONSTRAINT_COMP_K]);
+      constraintKPerHour += mw * compK;
+      constraintDetail.push([u.id, mw, mw * compK]);
     }
   };
 
@@ -417,10 +429,18 @@ export function runDispatch(
       continue;
     }
 
-    // firm must-run first, flexible renewables next, then by marginal cost
+    // firm must-run first, flexible renewables next, then by marginal
+    // cost. THE CURTAILMENT ORDER (#17) lives in the must-run tiebreak:
+    // the fill loop below serves the stack top-down and curtails from
+    // the tail, so sorting the DEAREST curtailment offers first means
+    // the CHEAPEST curtailers are the ones constrained off when the
+    // island can't absorb every firm renewable.
     stack.sort(
       (a, b) =>
         Number(b.mustRun) - Number(a.mustRun) ||
+        (a.mustRun && b.mustRun
+          ? (b.curtailK ?? CONSTRAINT_COMP_K) - (a.curtailK ?? CONSTRAINT_COMP_K)
+          : 0) ||
         Number(b.flex && b.costK < 0.06) - Number(a.flex && a.costK < 0.06) ||
         a.costK - b.costK,
     );

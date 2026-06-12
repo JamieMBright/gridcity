@@ -6,7 +6,7 @@ import { TERRAIN, ZONE, type CityMap } from './map/types';
 import { buildDemandField, type DemandField } from './map/demand';
 import { newWeather, type WeatherState } from './events/weather';
 import type { Application } from './events/applications';
-import { newDevMood, type Tender } from './events/developers';
+import { newDevMood, nextRoundOpensMin, type Tender } from './events/developers';
 import { newTech, type Pitch, type TechState } from './events/innovation';
 import type { CouncilState } from './customers/adoption';
 import type { RepairJob, Van } from './fleet/fleet';
@@ -103,6 +103,14 @@ export interface GameState {
   nextAppId: number;
   /** Generation tenders (planning signals) and their developer bids. */
   tenders: Tender[];
+  /** CfD allocation rounds (#14): game-minute the next quarterly round
+   *  opens… */
+  roundOpensMin: number;
+  /** …the latest round number (0 = none yet)… */
+  roundId: number;
+  /** …and the last round whose clearance (loser souring) has settled —
+   *  persisted so a save/load mid-round can't sour the losers twice. */
+  roundClearedId: number;
   /** developer id → mood 0..100 (starts at 70). */
   devMood: Map<number, number>;
   /** Town growth/infill mutations applied to the map (append-only;
@@ -122,6 +130,21 @@ export interface GameState {
    *  here and decay with a 1-game-year tau; rides the bill's
    *  constraint/damages line via computeBill's penaltyYrK input). */
   stormPrepYrK?: number | undefined;
+  /** Planned maintenance windows (#16): queued/open outages applied by
+   *  tick.ts at their 01:00–05:00 window (reliability/ageing.ts). */
+  maintenance?: MaintenanceWindow[] | undefined;
+  /** Rolling annualized maintenance/replacement spend, £k/yr —
+   *  stormPrepYrK's exact sibling (decays in reliability/ageing.ts and
+   *  rides the same penaltyYrK bill input). */
+  maintYrK?: number | undefined;
+}
+
+/** One scheduled maintenance night (#16): `branchId` goes out as a
+ *  planned outage from startMin for durMin, then health is restored. */
+export interface MaintenanceWindow {
+  branchId: number;
+  startMin: number;
+  durMin: number;
 }
 
 /** Itemised bill accumulators (compact: pruned EMAs, not ledgers). */
@@ -203,6 +226,9 @@ export function newGame(): GameState {
     curtailedFlexMWh: 0,
     nextAppId: 1,
     tenders: [],
+    roundOpensMin: nextRoundOpensMin(0),
+    roundId: 0,
+    roundClearedId: 0,
     devMood: newDevMood(),
     growth: [],
     period: newPeriod(1, 0, initialTargets()),
@@ -389,6 +415,10 @@ export interface SaveData {
   curtailedFlexMWh?: number;
   nextAppId?: number;
   tenders?: Tender[];
+  /** CfD allocation round state (#14, additive). */
+  roundOpensMin?: number;
+  roundId?: number;
+  roundClearedId?: number;
   devMood?: Array<[number, number]>;
   growth?: GrowthRecord[];
   period?: PeriodState;
@@ -397,6 +427,10 @@ export interface SaveData {
   surgeUntilMin?: number;
   surgeVans?: number;
   stormPrepYrK?: number;
+  /** Planned maintenance windows (#16, additive). */
+  maintenance?: MaintenanceWindow[];
+  /** Rolling maintenance/replacement spend, £k/yr (#15/#16, additive). */
+  maintYrK?: number;
 }
 
 export function serialize(s: GameState): SaveData {
@@ -450,6 +484,9 @@ export function serialize(s: GameState): SaveData {
     curtailedFlexMWh: s.curtailedFlexMWh,
     nextAppId: s.nextAppId,
     tenders: s.tenders.map((t) => ({ ...t, bids: t.bids.map((b) => ({ ...b })) })),
+    roundOpensMin: s.roundOpensMin,
+    roundId: s.roundId,
+    roundClearedId: s.roundClearedId,
     devMood: [...s.devMood.entries()],
     growth: s.growth.map((g) => ({ ...g })),
     period: { ...s.period, targets: { ...s.period.targets } },
@@ -458,6 +495,10 @@ export function serialize(s: GameState): SaveData {
     ...(s.surgeUntilMin !== undefined ? { surgeUntilMin: s.surgeUntilMin } : {}),
     ...(s.surgeVans !== undefined ? { surgeVans: s.surgeVans } : {}),
     ...(s.stormPrepYrK !== undefined ? { stormPrepYrK: s.stormPrepYrK } : {}),
+    ...(s.maintenance && s.maintenance.length > 0
+      ? { maintenance: s.maintenance.map((m) => ({ ...m })) }
+      : {}),
+    ...(s.maintYrK !== undefined ? { maintYrK: s.maintYrK } : {}),
   };
   return structuredClone(data);
 }
@@ -514,6 +555,10 @@ export function deserialize(d: SaveData): GameState {
     curtailedFlexMWh: d.curtailedFlexMWh ?? 0,
     nextAppId: d.nextAppId ?? 1,
     tenders: (d.tenders ?? []).map((t) => ({ ...t, bids: t.bids.map((b) => ({ ...b })) })),
+    // pre-round saves join the quarterly schedule at the next boundary
+    roundOpensMin: d.roundOpensMin ?? nextRoundOpensMin(d.simTimeMin),
+    roundId: d.roundId ?? 0,
+    roundClearedId: d.roundClearedId ?? d.roundId ?? 0,
     devMood: d.devMood ? new Map(d.devMood) : newDevMood(),
     growth: (d.growth ?? []).map((g) => ({ ...g })),
     period: d.period
@@ -524,6 +569,8 @@ export function deserialize(d: SaveData): GameState {
     surgeUntilMin: d.surgeUntilMin,
     surgeVans: d.surgeVans,
     stormPrepYrK: d.stormPrepYrK,
+    maintenance: d.maintenance?.map((m) => ({ ...m })),
+    maintYrK: d.maintYrK,
   };
 }
 

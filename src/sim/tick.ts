@@ -39,6 +39,7 @@ import {
   stepAdoption,
   stepSatisfaction,
 } from './customers/adoption';
+import { applyMaintenanceWindows, maintRateYrK } from './reliability/ageing';
 import { growVegetation, isStorm, rollFaults } from './reliability/faults';
 import { stormPrepYrK } from './reliability/stormprep';
 import { stepFleet, syncVans } from './fleet/fleet';
@@ -334,7 +335,8 @@ export function solveTick(
       dtMin,
     );
 
-    // new faults open repair jobs and de-energize their branch
+    // new faults open repair jobs and de-energize their branch; aged
+    // kit faults more (simTimeMin + heat feed the ageing hazard curve)
     const faults = rollFaults(
       state.assets.values(),
       state.assets,
@@ -343,6 +345,8 @@ export function solveTick(
       state.weather.wind,
       rng,
       dtMin,
+      state.simTimeMin,
+      state.heat,
     );
     for (const f of faults) {
       state.outages.set(f.branchId, AWAITING_CREW);
@@ -371,6 +375,11 @@ export function solveTick(
         state.outages.set(id, left - dtMin);
       }
     }
+
+    // planned maintenance (#16): open due windows as timed outages (no
+    // fleet job — the night crew is booked), complete expired ones
+    // (outage cleared, health restored). reliability/ageing.ts.
+    applyMaintenanceWindows(state);
 
     // the orange vans (+ any surge contractor crews still on hire)
     state.vans = syncVans(
@@ -623,8 +632,12 @@ export function solveTick(
     vegCostMul: state.tech.droneVeg ? DRONE_VEG_COST_MUL : 1,
     flexYrK: state.flexYrK,
     constraintYrK: state.constraintYrK,
-    // storm-prep spend rides the constraint/damages line (decays in stormprep)
-    penaltyYrK: overdue * LATE_PENALTY_K_PER_DAY * 365 + stormPrepYrK(state, dtMin),
+    // storm-prep + maintenance/replacement spend ride the constraint/
+    // damages line (each decays in its own module)
+    penaltyYrK:
+      overdue * LATE_PENALTY_K_PER_DAY * 365 +
+      stormPrepYrK(state, dtMin) +
+      maintRateYrK(state, dtMin),
     levyPct: state.levyPct,
   });
 
