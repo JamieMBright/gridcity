@@ -2,7 +2,7 @@
 // Bus/branch ids are deterministic functions of asset ids so the solver's
 // results can always be mapped back to assets.
 
-import { GENS, LINES, SUBS, type GenType, type LineBuild, type SubType } from './catalog';
+import { GENS, LINES, SUBS, TX_PAIR, type GenType, type LineBuild, type SubType } from './catalog';
 import type { Branch, Bus, Network, VoltageLevel } from './grid/types';
 
 export type PlacedAsset = GenAsset | SubAsset | LineAsset | DepotAsset;
@@ -70,18 +70,26 @@ export interface LineAsset {
 }
 
 const LEVEL_SLOT: Record<VoltageLevel, number> = { 400: 0, 132: 1, 33: 2 };
+/** Id stride per asset: 3 bus slots + line slot + up to 2 tx pairs. */
+const STRIDE = 8;
 
 /** Stable bus id for an asset's bus at a voltage level. */
 export function busId(assetId: number, level: VoltageLevel): number {
-  return assetId * 4 + (LEVEL_SLOT[level] ?? 0);
+  return assetId * STRIDE + (LEVEL_SLOT[level] ?? 0);
 }
 
-/** Stable branch id for a line asset / a substation's transformer. */
+/** Stable branch id for a line asset / a substation's transformer pair
+ *  (multi-winding subs chain one pair per voltage step). */
 export function lineBranchId(assetId: number): number {
-  return assetId * 4;
+  return assetId * STRIDE + 3;
 }
-export function txBranchId(assetId: number): number {
-  return assetId * 4 + 3;
+export function txBranchId(assetId: number, pairIx = 0): number {
+  return assetId * STRIDE + 4 + pairIx;
+}
+
+/** Owning asset id of any bus or branch id. */
+export function assetOfId(id: number): number {
+  return Math.floor(id / STRIDE);
 }
 
 /** Voltage levels present on an asset (gen terminal / sub buses). */
@@ -107,20 +115,22 @@ export function deriveNetwork(assets: Iterable<PlacedAsset>, lineRatingMul = 1):
       for (const level of spec.levels) {
         buses.push({ id: busId(a.id, level), x: a.x, y: a.y, level });
       }
-      if (spec.levels.length === 2) {
-        const [hi, lo] = spec.levels;
-        if (hi !== undefined && lo !== undefined) {
-          branches.push({
-            id: txBranchId(a.id),
-            from: busId(a.id, hi),
-            to: busId(a.id, lo),
-            kind: 'transformer',
-            x: spec.txX,
-            r: spec.txX / 20,
-            ratingMW: spec.txRatingMW,
-            inService: true,
-          });
-        }
+      // chain a transformer per voltage step (BSPs carry 400/132 + 132/33)
+      for (let k = 0; k + 1 < spec.levels.length; k++) {
+        const hi = spec.levels[k];
+        const lo = spec.levels[k + 1];
+        if (hi === undefined || lo === undefined) continue;
+        const pair = TX_PAIR[`${hi}/${lo}`] ?? { ratingMW: spec.txRatingMW, x: spec.txX };
+        branches.push({
+          id: txBranchId(a.id, k),
+          from: busId(a.id, hi),
+          to: busId(a.id, lo),
+          kind: 'transformer',
+          x: pair.x,
+          r: pair.x / 20,
+          ratingMW: pair.ratingMW,
+          inService: true,
+        });
       }
     }
   }

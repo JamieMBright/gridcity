@@ -28,6 +28,49 @@ function weatherIcon(w: { sun: number; wind: number; cloud: number }, simTimeMin
   return w.wind > 0.7 ? `${sky}💨` : sky;
 }
 
+/** The rolling news banner: real grid events + the region's mutterings,
+ *  sliding across the very top of the screen. */
+function NewsTicker() {
+  const snapshot = useAppStore((s) => s.snapshot);
+  const requestPan = useAppStore((s) => s.requestPan);
+  if (!snapshot || snapshot.events.length === 0) return null;
+  const items = snapshot.events.slice(-8).reverse();
+  const text = items.map((e) => e.msg).join('   •••   ');
+  const duration = Math.max(18, text.length * 0.28);
+  const latest = items[0];
+  return (
+    <div
+      onClick={() => latest?.x !== undefined && latest.y !== undefined && requestPan(latest.x, latest.y)}
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 22,
+        overflow: 'hidden',
+        background: 'rgba(10, 14, 34, 0.92)',
+        borderBottom: '1px solid rgba(255, 138, 30, 0.25)',
+        fontFamily: theme.font,
+        fontSize: 11,
+        lineHeight: '22px',
+        color: theme.offWhite,
+        whiteSpace: 'nowrap',
+        cursor: latest?.x !== undefined ? 'pointer' : 'default',
+        zIndex: 5,
+      }}
+    >
+      <style>{`@keyframes ec-ticker { from { transform: translateX(100vw); } to { transform: translateX(-100%); } }`}</style>
+      <span
+        key={text.length + (latest?.seq ?? 0)}
+        style={{ display: 'inline-block', animation: `ec-ticker ${duration}s linear infinite` }}
+      >
+        <span style={{ color: theme.orange, fontWeight: 700 }}>⚡ GRID WIRE: </span>
+        {text}
+      </span>
+    </div>
+  );
+}
+
 function MarketTicker() {
   const snapshot = useAppStore((s) => s.snapshot);
   if (!snapshot) return null;
@@ -38,7 +81,7 @@ function MarketTicker() {
       style={{
         ...panelStyle,
         position: 'absolute',
-        top: 12,
+        top: 28,
         left: '50%',
         transform: 'translateX(-50%)',
         display: 'flex',
@@ -117,6 +160,7 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
 
   return (
     <>
+    <NewsTicker />
     <MarketTicker />
     <div
       style={{

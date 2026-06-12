@@ -284,20 +284,20 @@ export function seedScenario(state: GameState, ctx: SimContext): void {
 
 // --- save / load -----------------------------------------------------------
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 /** Guard for untrusted save payloads; lives beside SAVE_VERSION so the two
  *  can never drift apart again (a stale guard silently discarded saves). */
 export function isSaveData(d: unknown): d is SaveData {
   if (typeof d !== 'object' || d === null) return false;
   const v = (d as { v?: unknown }).v;
-  // v6 rebuilt the map (bigger region, new geography); older saves
-  // reference tiles that no longer exist, so they can't be migrated.
-  return typeof v === 'number' && v >= 6 && v <= SAVE_VERSION;
+  // v7 changed the bus/branch id scheme (multi-winding substations);
+  // older saves key outages/heat by ids that no longer exist.
+  return typeof v === 'number' && v >= 7 && v <= SAVE_VERSION;
 }
 
 export interface SaveData {
-  v: 6;
+  v: 7;
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;

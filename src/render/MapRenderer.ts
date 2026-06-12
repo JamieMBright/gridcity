@@ -24,7 +24,7 @@ import {
   Texture,
 } from 'pixi.js';
 import { riverCenterY, riverHalfWidth } from '../data/londonMap';
-import type { PlacedAsset } from '../sim/assets';
+import { assetLevels, type PlacedAsset } from '../sim/assets';
 import { GENS } from '../sim/catalog';
 import type { VoltageLevel } from '../sim/grid/types';
 import { sampleRoute } from '../sim/map/routes';
@@ -203,6 +203,9 @@ export class MapRenderer {
   private fleetLayer = new Container();
   private jobsG = new Graphics();
   private siteLayer = new Container();
+  private levelG = new Graphics();
+  private levelHighlight: VoltageLevel | undefined;
+  private lastAssets: PlacedAsset[] = [];
   private vanSprites = new Map<number, Sprite>();
   private ghostG = new Graphics();
   private ghostSprite: Sprite | undefined;
@@ -271,6 +274,7 @@ export class MapRenderer {
     this.world.addChild(this.linesG);
     this.world.addChild(this.flowG);
     this.world.addChild(this.pulseG);
+    this.world.addChild(this.levelG);
     this.world.addChild(this.jobsG);
     this.world.addChild(this.fleetLayer);
     this.world.addChild(this.siteLayer);
@@ -292,6 +296,27 @@ export class MapRenderer {
   setGridView(on: boolean): void {
     this.city.filters = on ? [this.cityFilter] : [];
     this.vehicleLayer.visible = !on;
+  }
+
+  /** While the line tool is armed: ring every asset with a bay at that
+   *  voltage so it's obvious what can connect to what. */
+  setLevelHighlight(level: VoltageLevel | undefined): void {
+    this.levelHighlight = level;
+    this.drawLevelHighlight();
+  }
+
+  private drawLevelHighlight(): void {
+    this.levelG.clear();
+    const level = this.levelHighlight;
+    if (level === undefined) return;
+    for (const a of this.lastAssets) {
+      if (a.kind === 'line') continue;
+      if (!assetLevels(a).includes(level)) continue;
+      this.diamond(this.levelG, a.x, a.y, 1.15);
+      this.levelG.stroke({ color: LEVEL_COLOR[level], width: 2.6 * RES, alpha: 0.95 });
+      this.diamond(this.levelG, a.x, a.y, 1.45);
+      this.levelG.stroke({ color: LEVEL_COLOR[level], width: 1.2 * RES, alpha: 0.4 });
+    }
   }
 
   /** Green/red build-suitability overlay (1 = suitable per tile), or off. */
@@ -354,6 +379,8 @@ export class MapRenderer {
     for (const a of assets) byId.set(a.id, a);
     const mwOf = new Map(genMW);
 
+    this.lastAssets = assets;
+    if (this.levelHighlight !== undefined) this.drawLevelHighlight();
     const sig = assets
       .map((a) => `${a.id}:${a.kind}:${a.kind === 'gen' && (a.liveAtMin ?? 0) > simTimeMin ? 'c' : ''}`)
       .join(',');

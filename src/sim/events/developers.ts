@@ -119,7 +119,7 @@ export const TENDER_OPEN_DAYS = 6;
 /** Mean game-days between bids per unit of appetite, per developer.
  *  With ~6 points of total appetite on a popular technology that works
  *  out near one bid every two game-days. */
-const BID_MEAN_DAYS = 12;
+const BID_MEAN_DAYS = 3;
 
 export interface Bid {
   developerId: number;
@@ -192,7 +192,7 @@ export function stepTenders(state: GameState, rng: Rng, dtMin: number): void {
         pushEvent(
           state,
           'warn',
-          `${dev.name} bids on the ${spec.name} tender — £${bid.priceMWh}/MWh, ${bidLeadDays(t.gen, bid)} days`,
+          `${dev.name} bids on the ${spec.name} tender — £${bid.priceMWh}/MWh`,
           t.x,
           t.y,
         );

@@ -25,6 +25,28 @@
 
 ## Done (chronological, latest first)
 
+### 400 kV confusion prompt
+- [x] Wind→supergrid path explained in-game: plants connect at their own kV
+      and step up THROUGH substations; BSP's new 33 bay takes wind directly;
+      palette legend spells out the step-up rule
+
+### Liveliness prompt
+- [x] News ticker banner: scrolling feed of real grid events + amusing
+      colour headlines (desktop + mobile)
+- [x] Ambient news: flavour events flow steadily even in quiet spells
+- [x] Event cadence up: applications/data centres arrive without needing a
+      big served base first; pitch flow quicker
+
+### Instant construction + voltage clarity prompt
+- [x] Construction lead times removed: awarding a bid creates the plant
+      instantly, operational (tender/bid market unchanged)
+- [x] Voltage clarity: "bays" row on every asset inspector; armed line tool
+      rings every compatible asset in the level colour; palette hint
+- [~] Any-step-down: BSP now carries 400/132/33 bays (multi-winding, like a
+      real BSP with 132/33 on site) so 33 kV drags BSP→dist directly; chose
+      explicit multi-winding subs over implicit auto-created 132/11 subs
+      (11 kV is abstracted into the 33 kV level in-game)
+
 ### iOS home-screen icon prompt
 - [x] Icon-weight logo redraw (chunky pylon + bolt, full-bleed, gradient)
 - [x] apple-touch-icon.png 180px (iOS ignores SVG icons) + 512px icon

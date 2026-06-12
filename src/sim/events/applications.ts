@@ -104,7 +104,8 @@ function findSite(
 
 /** Mean game-days between applications (more arrive as the city grows). */
 function meanIntervalDays(servedCustomers: number): number {
-  return servedCustomers > 20_000 ? 12 : servedCustomers > 2_000 ? 20 : 35;
+  // brisk from day one — a quiet inbox is a boring inbox
+  return servedCustomers > 20_000 ? 5 : servedCustomers > 2_000 ? 8 : 14;
 }
 
 export function maybeSpawnApplication(

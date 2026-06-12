@@ -17,7 +17,7 @@ const STEPS: Step[] = [
     text: 'Welcome, operator. London is dark — every cold blue tile is a neighbourhood waiting for power. Drag to pan, scroll to zoom.',
   },
   {
-    text: 'First, generation — but you are a network operator, not a power company. Pick GAS CCGT (hotkey 1) and designate a site on open land away from homes — the map shades green where it can go, red where it cannot. That opens a tender: developers bid in your INBOX, and awarding a bid starts their build (a crane marks the site until commissioning).',
+    text: 'First, generation — but you are a network operator, not a power company. Pick GAS CCGT (hotkey 1) and designate a site on open land away from homes — the map shades green where it can go, red where it cannot. That opens a tender: developers bid in your INBOX, and the moment you award one their plant appears, online and waiting for your wires.',
     done: (s) => s.assets.some((a) => a.kind === 'gen') || s.inbox.tenders.length > 0,
   },
   {
@@ -29,7 +29,7 @@ const STEPS: Step[] = [
     done: (s) => s.assets.some((a) => a.kind === 'line' && a.level === 132),
   },
   {
-    text: 'Last hop: place a DISTRIBUTION SUBSTATION among homes (watch its service ring), and run a 33 KV LINE to it — wooden poles march along the route. Homes light up the moment your plant finishes construction; run 16× speed to hurry it along.',
+    text: 'Last hop: place a DISTRIBUTION SUBSTATION among homes (watch its service ring), and run a 33 KV LINE to it — wooden poles march along the route. Homes light up the moment power reaches them — watch the chevrons ride your new line.',
     done: (s) => s.assets.some((a) => a.kind === 'line' && a.level === 33),
   },
   {

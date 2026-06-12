@@ -194,8 +194,8 @@ export interface SubSpec {
 
 export const SUBS: Record<SubType, SubSpec> = {
   bulk: {
-    name: 'Bulk supply point (400/132 kV)',
-    levels: [400, 132],
+    name: 'Bulk supply point (400/132/33 kV)',
+    levels: [400, 132, 33],
     txRatingMW: 1000,
     txX: 0.013,
     capexK: 40_000,
@@ -260,6 +260,13 @@ export const SUB_UPGRADE_AT = 0.9;
 
 /** Pylon/pole spacing along overhead routes, tiles between supports. */
 export const PYLON_SPACING: Record<VoltageLevel, number> = { 400: 3, 132: 3, 33: 2 };
+
+/** Transformer pairs inside multi-winding substations: rating + reactance
+ *  per voltage step (a BSP chains 400/132 then 132/33 on site). */
+export const TX_PAIR: Record<string, { ratingMW: number; x: number }> = {
+  '400/132': { ratingMW: 1000, x: 0.013 },
+  '132/33': { ratingMW: 240, x: 0.06 },
+};
 
 export interface LineSpec {
   ratingMW: number;

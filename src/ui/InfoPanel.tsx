@@ -2,7 +2,7 @@ import { useAppStore } from '../app/store';
 import { getLondonMap, NAMED_PLACES } from '../data/londonMap';
 import { sendCommand } from '../app/workerBridge';
 import { GENS, subCapexK, subRadius, SUBS, type SubType } from '../sim/catalog';
-import { subMva } from '../sim/assets';
+import { assetLevels, subMva } from '../sim/assets';
 import { assetAtTile } from '../sim/commands';
 import { NO_COUNCIL, TERRAIN, ZONE, type Terrain, type Zone } from '../sim/map/types';
 import { COV } from '../sim/tick';
@@ -69,7 +69,7 @@ export function InfoPanel({ frame }: { frame?: React.CSSProperties } = {}) {
       style={{
         ...panelStyle,
         position: 'absolute',
-        top: 12,
+        top: 28,
         right: 12,
         width: 240,
         padding: '10px 14px',
@@ -145,6 +145,7 @@ function AssetInfo({ assetId }: { assetId: number }) {
     );
   }
 
+  rows.push(['bays', assetLevels(asset).map((l) => `${l} kV`).join(' / ') || '—']);
   if (asset.kind === 'gen') {
     const spec = GENS[asset.gen];
     const mw = snapshot.genMW.find(([id]) => id === assetId)?.[1] ?? 0;
