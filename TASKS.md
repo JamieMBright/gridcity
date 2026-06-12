@@ -25,6 +25,24 @@
 
 ## Done (chronological, latest first)
 
+### "Suggest 50 improvements ranked by impact" prompt
+- [x] Delivered in chat (2026-06-12); owner picks become new entries here
+
+### Grid balance / energy accounting prompt
+- [x] GRID BALANCE view (⚖ HUD button / B): whole-map gross position —
+      "X MW procured but not wired in" called out — demand now vs
+      connected supply, and a typical-day 24h PROFILE chart (demand
+      line vs connected-supply area, unserved gap shaded red; rooftop
+      PV rides the supply curve) — verified on screenshot incl. the
+      solar night-hole, which is also unit-tested exactly
+- [x] Ring-fenced council breakdown: rows sorted worst-first with
+      connected/total customers and "needs +X MW at HH:00" in short
+      form; tapping a row highlights the council on the map and pans
+      to it (orange ring-fence tint)
+- [x] Generation profile inspection: every pinned gen card shows its
+      typical-day availability profile chart under the live output
+      sparkline
+
 ### Connection study prompt (firm vs flexible is a blind choice)
 - [x] Every open application gets a one-click ⚖ CONNECTION STUDY in the
       inbox: the worker clones the live state (never touches it —

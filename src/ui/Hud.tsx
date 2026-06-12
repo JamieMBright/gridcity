@@ -165,6 +165,29 @@ function UndoRedo() {
   );
 }
 
+function BalanceButton() {
+  const open = useAppStore((s) => s.balanceOpen);
+  const setOpen = useAppStore((s) => s.setBalanceOpen);
+  return (
+    <button
+      onClick={() => setOpen(!open)}
+      title="Grid balance: demand vs supply, whole map + per council (B)"
+      style={{
+        padding: '3px 10px',
+        borderRadius: 5,
+        border: `1px solid ${open ? theme.orange : theme.navyLight}`,
+        background: open ? theme.orange : 'transparent',
+        color: open ? theme.navy : theme.slate,
+        fontFamily: theme.font,
+        fontSize: 12,
+        cursor: 'pointer',
+      }}
+    >
+      ⚖
+    </button>
+  );
+}
+
 function RiioButton() {
   const kpiOpen = useAppStore((s) => s.kpiOpen);
   const setKpiOpen = useAppStore((s) => s.setKpiOpen);
@@ -268,6 +291,7 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
         })}
       </span>
       <UndoRedo />
+      <BalanceButton />
       {!compact && <RiioButton />}
       <SoundButton />
       <button
