@@ -3,7 +3,7 @@ import { getLondonMap, NAMED_PLACES } from '../data/londonMap';
 import { sendCommand } from '../app/workerBridge';
 import { GENS, LINES, SUB_UG_MUL, subCapexK, subRadius, SUBS, type SubType } from '../sim/catalog';
 import { assetLevels, subMva, type PlacedAsset } from '../sim/assets';
-import { assetAtTile } from '../sim/commands';
+import { assetAtTile, spanAt } from '../sim/commands';
 import { priceLine } from '../sim/cost';
 import { NO_COUNCIL, TERRAIN, ZONE, type Terrain, type Zone } from '../sim/map/types';
 import { COV } from '../sim/tick';
@@ -214,6 +214,7 @@ const ACTION_BTN: React.CSSProperties = {
 function LineInfo({ assetId }: { assetId: number }) {
   const snapshot = useAppStore((s) => s.snapshot);
   const setSelected = useAppStore((s) => s.setSelected);
+  const at = useAppStore((s) => s.selectedLineAt);
   if (!snapshot) return null;
   const line = snapshot.assets.find((a) => a.id === assetId);
   if (!line || line.kind !== 'line') return null;
@@ -244,9 +245,24 @@ function LineInfo({ assetId }: { assetId: number }) {
   if (peak > 0) rows.push(['peak seen', `${(peak * 100).toFixed(0)}% of rating`]);
 
   let ugQuote: { ok: boolean; capexK: number } | undefined;
+  let spanQuote: { ok: boolean; capexK: number; km: number; whole: boolean } | undefined;
   if (line.build === 'overhead' && endA && endA.kind !== 'line' && endB && endB.kind !== 'line') {
-    const q = priceLine(getLondonMap(), line.level, 'underground', endA.x, endA.y, endB.x, endB.y);
+    const map = getLondonMap();
+    const q = priceLine(map, line.level, 'underground', endA.x, endA.y, endB.x, endB.y);
     ugQuote = { ok: q.ok, capexK: q.capexK };
+    // the clicked span between two supports: amenity undergrounding
+    if (at) {
+      const span = spanAt(line, endA, endB, map.width, at.x, at.y);
+      if (span) {
+        const sq = priceLine(map, line.level, 'underground', span.ax, span.ay, span.bx, span.by);
+        spanQuote = {
+          ok: sq.ok,
+          capexK: sq.capexK,
+          km: sq.lengthTiles,
+          whole: span.fromEnd && span.toEnd,
+        };
+      }
+    }
   }
 
   return (
@@ -264,13 +280,30 @@ function LineInfo({ assetId }: { assetId: number }) {
         ))}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
+        {line.build === 'overhead' && spanQuote && !spanQuote.whole && at && (
+          <button
+            style={{ ...ACTION_BTN, opacity: spanQuote.ok ? 1 : 0.5 }}
+            disabled={!spanQuote.ok}
+            title="Bury just the span you clicked, between its two supports — the line surfaces at sealing-end towers either side"
+            onClick={() =>
+              sendCommand({
+                type: 'undergroundSection',
+                lineId: assetId,
+                x: Math.round(at.x),
+                y: Math.round(at.y),
+              })
+            }
+          >
+            ⤓ underground this span ({spanQuote.km} km) · {fmtMoneyK(spanQuote.capexK)}
+          </button>
+        )}
         {line.build === 'overhead' && (
           <button
             style={{ ...ACTION_BTN, opacity: ugQuote?.ok ? 1 : 0.5 }}
             disabled={!ugQuote?.ok}
             onClick={() => sendCommand({ type: 'convertLine', assetId })}
           >
-            ⤓ underground this line · {fmtMoneyK(ugQuote?.capexK ?? 0)}
+            ⤓ underground the whole line · {fmtMoneyK(ugQuote?.capexK ?? 0)}
           </button>
         )}
         <button

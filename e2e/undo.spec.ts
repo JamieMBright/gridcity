@@ -110,7 +110,7 @@ test.describe('pinned inspector', () => {
       )
       .toBe(true);
     await expect(page.getByText('headroom')).toBeVisible();
-    await clickButton(page, /underground this line/);
+    await clickButton(page, /underground the whole line/);
     await expect
       .poll(() =>
         store<boolean>(

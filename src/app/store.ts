@@ -34,6 +34,9 @@ interface AppState {
    *  ×, Escape, clicking empty ground, or arming another tool. */
   selectedAsset: number | undefined;
   selectedLine: number | undefined;
+  /** Where on the line the inspect click landed (tile space) — picks
+   *  the span for section undergrounding. */
+  selectedLineAt: { x: number; y: number } | undefined;
   /** Placing a substation auto-runs circuits to the nearest compatible
    *  bays (palette setting). */
   autoConnect: boolean;
@@ -52,7 +55,11 @@ interface AppState {
   setSnapshot: (snapshot: SimSnapshot) => void;
   setHoveredTile: (tile: TileHover | undefined) => void;
   setTool: (tool: Tool) => void;
-  setSelected: (sel: { assetId?: number | undefined; lineId?: number | undefined }) => void;
+  setSelected: (sel: {
+    assetId?: number | undefined;
+    lineId?: number | undefined;
+    at?: { x: number; y: number } | undefined;
+  }) => void;
   setAutoConnect: (on: boolean) => void;
   setGridView: (on: boolean) => void;
   setGhostInfo: (info: GhostInfo | undefined) => void;
@@ -79,6 +86,7 @@ export const useAppStore = create<AppState>((set) => ({
   tool: { t: 'inspect' },
   selectedAsset: undefined,
   selectedLine: undefined,
+  selectedLineAt: undefined,
   autoConnect: false,
   gridView: false,
   ghostInfo: undefined,
@@ -104,8 +112,10 @@ export const useAppStore = create<AppState>((set) => ({
       tool,
       selectedAsset: tool.t === 'inspect' ? s.selectedAsset : undefined,
       selectedLine: tool.t === 'inspect' ? s.selectedLine : undefined,
+      selectedLineAt: tool.t === 'inspect' ? s.selectedLineAt : undefined,
     })),
-  setSelected: ({ assetId, lineId }) => set({ selectedAsset: assetId, selectedLine: lineId }),
+  setSelected: ({ assetId, lineId, at }) =>
+    set({ selectedAsset: assetId, selectedLine: lineId, selectedLineAt: at }),
   setAutoConnect: (autoConnect) => set({ autoConnect }),
   setGridView: (gridView) => set({ gridView }),
   setGhostInfo: (ghostInfo) => set({ ghostInfo }),

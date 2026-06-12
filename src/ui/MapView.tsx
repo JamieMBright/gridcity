@@ -92,7 +92,9 @@ function handleTileClick(tile: TileHover): void {
         tile.fx !== undefined && tile.fy !== undefined
           ? pickLine(assets, tile.fx, tile.fy)
           : undefined;
-      st.setSelected(line ? { lineId: line.id } : {});
+      st.setSelected(
+        line ? { lineId: line.id, at: { x: tile.fx ?? x, y: tile.fy ?? y } } : {},
+      );
       return;
     }
     case 'gen':
