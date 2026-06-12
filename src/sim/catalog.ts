@@ -269,6 +269,12 @@ export function subRadius(sub: SubType, mva: number): number {
  *  costs this multiple of the outdoor build — but storms can't touch it. */
 export const SUB_UG_MUL = 3;
 
+/** Re-conductoring an existing line (high-temperature conductors on the
+ *  same supports): thermal rating multiplier and its cost as a fraction
+ *  of the line's current capex. */
+export const LINE_UPRATE_MUL = 1.3;
+export const LINE_UPRATE_COST_FRAC = 0.6;
+
 /** A substation auto-upgrades when sustained load passes this loading. */
 export const SUB_UPGRADE_AT = 0.9;
 

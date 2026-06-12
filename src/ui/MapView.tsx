@@ -3,7 +3,7 @@ import { getLondonMap } from '../data/londonMap';
 import { MapRenderer, type Ghost, type TileHover } from '../render/MapRenderer';
 import { installTestHook } from '../app/testHook';
 import { useAppStore, type Tool } from '../app/store';
-import { sendCommand } from '../app/workerBridge';
+import { sendCommand, setWatch } from '../app/workerBridge';
 import { assetAtTile, checkBuild, siteErrorAt, type BuildSpec } from '../sim/commands';
 import { ANNUITY_FACTOR, DEPOT, GENS, LINES, SUBS } from '../sim/catalog';
 import type { LineAsset, PlacedAsset } from '../sim/assets';
@@ -52,20 +52,27 @@ function segDist(px: number, py: number, ax: number, ay: number, bx: number, by:
   return Math.hypot(px - (ax + dx * t), py - (ay + dy * t));
 }
 
-/** The line span nearest the pointer, if it's close enough to mean it. */
+/** The line span nearest the pointer, if it's close enough to mean it.
+ *  The DRAWN conductor rides above its ground segment (pylon height +
+ *  sag), which in iso screen space shifts the click by equal amounts in
+ *  -x/-y tile space — so test the click at several elevations and take
+ *  the best, letting the player click the wire itself, not its shadow. */
+const ELEVATION_OFFSETS = [0, 0.35, 0.7, 1.05, 1.35];
 function pickLine(assets: PlacedAsset[], fx: number, fy: number): LineAsset | undefined {
   const byId = new Map(assets.map((a) => [a.id, a]));
   let best: LineAsset | undefined;
-  let bestD = 0.75;
+  let bestD = 0.8;
   for (const l of assets) {
     if (l.kind !== 'line') continue;
     const a = byId.get(l.a);
     const b = byId.get(l.b);
     if (!a || a.kind === 'line' || !b || b.kind === 'line') continue;
-    const d = segDist(fx, fy, a.x, a.y, b.x, b.y);
-    if (d < bestD) {
-      bestD = d;
-      best = l;
+    for (const e of ELEVATION_OFFSETS) {
+      const d = segDist(fx + e, fy + e, a.x, a.y, b.x, b.y);
+      if (d < bestD) {
+        bestD = d;
+        best = l;
+      }
     }
   }
   return best;
@@ -109,7 +116,16 @@ function handleTileClick(tile: TileHover): void {
     }
     case 'demolish': {
       const a = assetAtTile(assets, x, y);
-      if (a) sendCommand({ type: 'demolish', assetId: a.id });
+      if (a) {
+        sendCommand({ type: 'demolish', assetId: a.id });
+        return;
+      }
+      // no structure here: a click near a span takes the line down
+      const line =
+        tile.fx !== undefined && tile.fy !== undefined
+          ? pickLine(assets, tile.fx, tile.fy)
+          : undefined;
+      if (line) sendCommand({ type: 'demolish', assetId: line.id });
       else setToast('nothing to demolish here');
       return;
     }
@@ -192,6 +208,19 @@ export function MapView() {
     renderer.onHover = (tile) => useAppStore.getState().setHoveredTile(tile);
     renderer.onTileClick = (tile) => handleTileClick(tile);
     renderer.onSiteClick = (site) => useAppStore.getState().requestInboxFocus(site.x, site.y);
+    renderer.onJobClick = (job) => {
+      // spanner pin → pin the broken asset's card: cause, ETA, fixes
+      const st = useAppStore.getState();
+      const asset = st.snapshot?.assets.find((a) => a.id === job.assetId);
+      if (!asset) return;
+      st.setTool({ t: 'inspect' });
+      st.setSelected(
+        asset.kind === 'line'
+          ? { lineId: asset.id, at: { x: job.x, y: job.y } }
+          : { assetId: asset.id },
+      );
+      st.requestPan(job.x, job.y);
+    };
     void renderer.init(host, getLondonMap()).then(() => {
       // StrictMode double-mounts: only the surviving renderer gets the hook
       if (rendererRef.current === renderer) installTestHook(renderer);
@@ -258,9 +287,13 @@ export function MapView() {
     if (panTarget) rendererRef.current?.panTo(panTarget.x, panTarget.y);
   }, [panTarget]);
 
-  // highlight whatever the pinned inspector card is talking about
+  // highlight whatever the pinned inspector card is talking about, and
+  // have the worker record its performance history for the sparkline
   const selectedAsset = useAppStore((s) => s.selectedAsset);
   const selectedLine = useAppStore((s) => s.selectedLine);
+  useEffect(() => {
+    setWatch(selectedAsset ?? selectedLine);
+  }, [selectedAsset, selectedLine]);
   useEffect(() => {
     const r = rendererRef.current;
     if (!r) return;

@@ -80,16 +80,18 @@ const SUB_SPRITE: Record<string, string> = {
   vault: 'sub_vault',
 };
 
-// ribbon styling per route class, in world px
+// ribbon styling per route class, in world px. Speeds are deliberately
+// well below "light speed": a tile is ~a km, so even these cheat fast,
+// but they READ as traffic rather than tracer rounds.
 const ROUTE_STYLE: Record<
   RouteClass,
   { width: number; color: number; speed: number; perTile: number }
 > = {
-  motorway: { width: 13 * RES, color: 0x474556, speed: 6, perTile: 7 },
-  arterial: { width: 8.5 * RES, color: 0x55525f, speed: 3, perTile: 12 },
-  street: { width: 5 * RES, color: 0x5f5c66, speed: 1.1, perTile: 45 },
-  lane: { width: 4 * RES, color: 0x6e6757, speed: 1.4, perTile: 30 },
-  rail: { width: 6.5 * RES, color: 0x3f3c49, speed: 5, perTile: 0 },
+  motorway: { width: 13 * RES, color: 0x474556, speed: 1.7, perTile: 7 },
+  arterial: { width: 8.5 * RES, color: 0x55525f, speed: 0.9, perTile: 12 },
+  street: { width: 5 * RES, color: 0x5f5c66, speed: 0.4, perTile: 45 },
+  lane: { width: 4 * RES, color: 0x6e6757, speed: 0.5, perTile: 30 },
+  rail: { width: 6.5 * RES, color: 0x3f3c49, speed: 1.6, perTile: 0 },
 };
 const CAR_COLORS = [0xf4f1ea, 0x27324d, 0xc9453a, 0x5e8fc2, 0xe8a23f, 0x9aa4b5, 0x3f8f8a];
 const FLOWERS = [0xd6566e, 0xf4f1ea, 0xffd277, 0x7a6fae];
@@ -104,6 +106,10 @@ export interface VanView {
 export interface JobView {
   x: number;
   y: number;
+  /** What broke (fault label) — shown on the spanner pin. */
+  label: string;
+  /** The asset that owns the failed branch — click-through target. */
+  assetId: number;
   staffed: boolean;
 }
 
@@ -237,6 +243,9 @@ export class MapRenderer {
   private growthApplied = 0;
 
   private sitePins: Array<{ ring: Graphics; body: Container; phase: number }> = [];
+  private jobLayer = new Container();
+  private jobPins: Array<{ ring: Graphics; body: Container; phase: number }> = [];
+  private jobsSignature = '';
   private siteTapped = false;
   private lastSimTimeMin = Number.POSITIVE_INFINITY;
   private routePaths: RoutePath[] = [];
@@ -252,6 +261,8 @@ export class MapRenderer {
   onTileClick: ((tile: TileHover) => void) | undefined;
   /** A contract pin was tapped (applications/tenders/overdue sites). */
   onSiteClick: ((site: SiteView) => void) | undefined;
+  /** A fault spanner pin was tapped — open the diagnosis. */
+  onJobClick: ((job: JobView) => void) | undefined;
 
   async init(host: HTMLElement, map: CityMap): Promise<void> {
     this.map = map;
@@ -294,6 +305,7 @@ export class MapRenderer {
     this.world.addChild(this.levelG);
     this.world.addChild(this.selG);
     this.world.addChild(this.jobsG);
+    this.world.addChild(this.jobLayer);
     this.world.addChild(this.fleetLayer);
     this.world.addChild(this.siteLayer);
     this.world.addChild(this.ghostG);
@@ -873,6 +885,14 @@ export class MapRenderer {
     this.stepFlow(dt);
     this.stepPulses(dt);
     this.bobPhase += dt;
+    for (const pin of this.jobPins) {
+      const t = (this.bobPhase * 1.1 + pin.phase) % 1.3;
+      const bounce = Math.abs(Math.sin((this.bobPhase * 3 + pin.phase) * Math.PI * 0.5));
+      pin.body.y = -bounce * 7 * RES;
+      const k = t / 1.3;
+      pin.ring.scale.set(0.35 + k * 1.5);
+      pin.ring.alpha = Math.max(0, 0.9 * (1 - k));
+    }
     for (const pin of this.sitePins) {
       // bouncing pin + an expanding ring pulse rolling off the ground
       const t = (this.bobPhase * 0.9 + pin.phase) % 1.6;
@@ -976,6 +996,59 @@ export class MapRenderer {
     }
   }
 
+  /** Red spanner pins over live faults: what broke, click → diagnosis.
+   *  Same attention language as the contract pins (bounce + pulse). */
+  private rebuildJobPins(jobs: JobView[]): void {
+    this.jobLayer.removeChildren().forEach((c) => c.destroy({ children: true }));
+    this.jobPins = [];
+    for (const j of jobs) {
+      const c = this.tileCentre(j.x, j.y);
+      const pin = new Container();
+      pin.position.set(c.x, c.y);
+
+      const ring = new Graphics();
+      ring.ellipse(0, 0, 16 * RES, 8 * RES).stroke({ color: 0xe0697a, width: 2.4 * RES });
+      pin.addChild(ring);
+
+      const body = new Container();
+      const g = new Graphics();
+      const r = 12 * RES;
+      const head = -r * 3;
+      g.moveTo(0, 0)
+        .quadraticCurveTo(-r * 1.05, head + r * 1.7, -r, head)
+        .arc(0, head, r, Math.PI, 0)
+        .quadraticCurveTo(r * 1.05, head + r * 1.7, 0, 0)
+        .fill({ color: 0xe0697a, alpha: 0.97 })
+        .stroke({ color: 0x241c38, width: 2 * RES, alpha: 0.95 });
+      body.addChild(g);
+      const glyph = new Text({
+        text: '🔧',
+        style: { fontFamily: 'monospace', fontSize: 13 * RES, fontWeight: '800', fill: 0xfff6e8 },
+      });
+      glyph.anchor.set(0.5);
+      glyph.position.set(0, head);
+      body.addChild(glyph);
+      const label = new Text({
+        text: j.staffed ? `${j.label} · crew on it` : `${j.label} · awaiting crew`,
+        style: { fontFamily: 'monospace', fontSize: 8 * RES, fontWeight: '700', fill: 0xffd6d6 },
+      });
+      label.anchor.set(0.5, 1);
+      label.position.set(0, head - r * 1.3);
+      body.addChild(label);
+      pin.addChild(body);
+
+      pin.eventMode = 'static';
+      pin.cursor = 'pointer';
+      pin.on('pointerdown', () => {
+        this.siteTapped = true;
+      });
+      pin.on('pointertap', () => this.onJobClick?.(j));
+
+      this.jobLayer.addChild(pin);
+      this.jobPins.push({ ring, body, phase: Math.random() * Math.PI * 2 });
+    }
+  }
+
   // --- pins: applications, tenders and angry customers -------------------------
 
   private rebuildSites(sites: SiteView[]): void {
@@ -1049,13 +1122,14 @@ export class MapRenderer {
 
   private drawFleet(vans: VanView[], jobs: JobView[]): void {
     this.jobsG.clear();
+    const jobSig = jobs.map((j) => `${j.x},${j.y},${j.staffed ? 1 : 0}`).join(';');
+    if (jobSig !== this.jobsSignature) {
+      this.jobsSignature = jobSig;
+      this.rebuildJobPins(jobs);
+    }
     for (const j of jobs) {
       this.diamond(this.jobsG, j.x, j.y, 0.9);
       this.jobsG.stroke({ color: j.staffed ? 0xffb066 : 0xe0697a, width: 3 * RES, alpha: 0.9 });
-      const c = this.tileCentre(j.x, j.y);
-      this.jobsG.moveTo(c.x, c.y - 26 * RES).lineTo(c.x, c.y - 8 * RES);
-      this.jobsG.stroke({ color: 0xe0697a, width: 4 * RES, alpha: 0.9 });
-      this.jobsG.circle(c.x, c.y - 32 * RES, 4 * RES).fill({ color: 0xe0697a, alpha: 0.95 });
     }
     const tex = this.textures.get('van');
     const seen = new Set<number>();

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from '../app/store';
 import { sendCommand, setSimSpeed } from '../app/workerBridge';
 import { getAudioSettings, updateAudioSettings } from '../audio/audio';
@@ -29,18 +29,41 @@ function weatherIcon(w: { sun: number; wind: number; cloud: number }, simTimeMin
 }
 
 /** The rolling news banner: real grid events + the region's mutterings,
- *  sliding across the very top of the screen. */
+ *  sliding across the very top of the screen. New headlines do NOT
+ *  restart the marquee — the text refreshes when a pass completes. */
 function NewsTicker() {
   const snapshot = useAppStore((s) => s.snapshot);
   const requestPan = useAppStore((s) => s.requestPan);
-  if (!snapshot || snapshot.events.length === 0) return null;
-  const items = snapshot.events.slice(-8).reverse();
-  const text = items.map((e) => e.msg).join('   •••   ');
-  const duration = Math.max(18, text.length * 0.28);
-  const latest = items[0];
+  const [shown, setShown] = useState<{
+    text: string;
+    target?: { x: number; y: number } | undefined;
+  }>({ text: '' });
+
+  const refresh = (): void => {
+    const snap = useAppStore.getState().snapshot;
+    if (!snap || snap.events.length === 0) return;
+    const items = snap.events.slice(-8).reverse();
+    const latest = items[0];
+    setShown({
+      text: items.map((e) => e.msg).join('   •••   '),
+      target:
+        latest?.x !== undefined && latest.y !== undefined
+          ? { x: latest.x, y: latest.y }
+          : undefined,
+    });
+  };
+  // first headlines start the marquee; after that it only swaps text
+  // between passes (onAnimationIteration)
+  const hasEvents = (snapshot?.events.length ?? 0) > 0;
+  const empty = shown.text === '';
+  useEffect(() => {
+    if (empty && hasEvents) refresh();
+  }, [empty, hasEvents]);
+  if (!shown.text) return null;
+  const duration = Math.max(18, shown.text.length * 0.28);
   return (
     <div
-      onClick={() => latest?.x !== undefined && latest.y !== undefined && requestPan(latest.x, latest.y)}
+      onClick={() => shown.target && requestPan(shown.target.x, shown.target.y)}
       style={{
         position: 'absolute',
         top: 0,
@@ -55,17 +78,17 @@ function NewsTicker() {
         lineHeight: '22px',
         color: theme.offWhite,
         whiteSpace: 'nowrap',
-        cursor: latest?.x !== undefined ? 'pointer' : 'default',
+        cursor: shown.target ? 'pointer' : 'default',
         zIndex: 5,
       }}
     >
       <style>{`@keyframes ec-ticker { from { transform: translateX(100vw); } to { transform: translateX(-100%); } }`}</style>
       <span
-        key={text.length + (latest?.seq ?? 0)}
+        onAnimationIteration={refresh}
         style={{ display: 'inline-block', animation: `ec-ticker ${duration}s linear infinite` }}
       >
         <span style={{ color: theme.orange, fontWeight: 700 }}>⚡ GRID WIRE: </span>
-        {text}
+        {shown.text}
       </span>
     </div>
   );

@@ -6,7 +6,7 @@
 // rolls into the bill.
 
 import { assetOfId, busId, deriveNetwork, lineBranchId, subMva, txBranchId } from './assets';
-import { LINES, SUB_UPGRADE_AT, SUBS, TX_PAIR, VEG_POLICY } from './catalog';
+import { LINE_UPRATE_MUL, LINES, SUB_UPGRADE_AT, SUBS, TX_PAIR, VEG_POLICY } from './catalog';
 import { COV } from './coverage';
 import { routeTiles } from './cost';
 import { solveDcPowerFlow } from './grid/dcpf';
@@ -96,6 +96,8 @@ export interface BranchView {
   ratingMW: number;
   /** Out of service: repair game-minutes remaining, or -1 awaiting crew. */
   outMin?: number | undefined;
+  /** Why it's out (storm/tree/overload) — the inspector's diagnosis. */
+  cause?: string | undefined;
 }
 
 export interface TickOutputs {
@@ -250,6 +252,7 @@ export function solveTick(
     );
     for (const f of faults) {
       state.outages.set(f.branchId, AWAITING_CREW);
+      state.outageCause.set(f.branchId, f.label);
       state.jobs.set(f.branchId, {
         branchId: f.branchId,
         assetId: f.assetId,
@@ -267,6 +270,7 @@ export function solveTick(
       if (left === AWAITING_CREW) continue;
       if (left - dtMin <= 0) {
         state.outages.delete(id);
+        state.outageCause.delete(id);
         state.heat.delete(id);
         pushEvent(state, 'info', `${assetLabel(state, assetOfId(id))} back in service`);
       } else {
@@ -279,6 +283,7 @@ export function solveTick(
     const fleet = stepFleet(state.vans, state.jobs, state.assets.values(), dtMin);
     for (const r of fleet.restored) {
       state.outages.delete(r.branchId);
+      state.outageCause.delete(r.branchId);
       state.heat.delete(r.branchId);
       pushEvent(
         state,
@@ -424,6 +429,7 @@ export function solveTick(
       if (tripped.length === 0) break;
       for (const id of tripped) {
         state.outages.set(id, TRIP_RECLOSE_MIN);
+        state.outageCause.set(id, 'overload — ran past its thermal rating and tripped');
         pushEvent(state, 'warn', `overload tripped the ${assetLabel(state, assetOfId(id))}`);
       }
       applyOutages(derived.net, state);
@@ -781,8 +787,9 @@ function buildBranchViews(state: GameState, pf: PowerFlowResult): BranchView[] {
         assetId: a.id,
         kind: 'line',
         flowMW: pf.flowMW.get(id) ?? 0,
-        ratingMW: LINES[a.level].ratingMW * lineMul,
+        ratingMW: LINES[a.level].ratingMW * lineMul * (a.uprated ? LINE_UPRATE_MUL : 1),
         outMin: state.outages.get(id),
+        cause: state.outageCause.get(id),
       });
     } else if (a.kind === 'sub' && SUBS[a.sub].levels.length >= 2) {
       const levels = SUBS[a.sub].levels;
@@ -794,6 +801,7 @@ function buildBranchViews(state: GameState, pf: PowerFlowResult): BranchView[] {
           flowMW: pf.flowMW.get(id) ?? 0,
           ratingMW: TX_PAIR[`${levels[k]}/${levels[k + 1]}`]?.ratingMW ?? SUBS[a.sub].txRatingMW,
           outMin: state.outages.get(id),
+          cause: state.outageCause.get(id),
         });
       }
     }

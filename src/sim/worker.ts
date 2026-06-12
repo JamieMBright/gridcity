@@ -93,9 +93,44 @@ function buildSites(s: GameState): SimSnapshot['sites'] {
   return sites;
 }
 
+// performance history for the inspector's sparkline: per-asset samples on
+// a 30-game-minute grid (worker-local; rebuilt after load — it's a chart,
+// not game state)
+const HIST_STEP_MIN = 30;
+const HIST_KEEP = 96; // two game-days
+const history = new Map<number, Array<[number, number, number]>>(); // [tMin, MW, capMW]
+let lastHistMin = -1;
+
+function sampleHistory(out: ReturnType<typeof solveTick>): void {
+  const slot = Math.floor(state.simTimeMin / HIST_STEP_MIN);
+  if (slot === lastHistMin) return;
+  lastHistMin = slot;
+  const seen = new Set<number>();
+  for (const b of out.branches) {
+    // a sub's first tx pair / a line's own branch is its headline series
+    if (seen.has(b.assetId)) continue;
+    seen.add(b.assetId);
+    const arr = history.get(b.assetId) ?? [];
+    arr.push([state.simTimeMin, Math.abs(b.flowMW), b.ratingMW]);
+    if (arr.length > HIST_KEEP) arr.shift();
+    history.set(b.assetId, arr);
+  }
+  for (const [id, mw] of out.dispatch.genMW) {
+    const a = state.assets.get(id);
+    if (!a || a.kind !== 'gen') continue;
+    const arr = history.get(id) ?? [];
+    arr.push([state.simTimeMin, Math.abs(mw), GENS[a.gen].capacityMW]);
+    if (arr.length > HIST_KEEP) arr.shift();
+    history.set(id, arr);
+  }
+}
+
+let watchedAsset: number | undefined;
+
 function makeSnapshot(accumulate: boolean): SimSnapshot {
   const d = ensureDerived();
   const out = solveTick(state, ctx, d, accumulate);
+  if (accumulate) sampleHistory(out);
   return {
     tick: state.tick,
     simTimeMin: state.simTimeMin,
@@ -135,9 +170,14 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
         x: j.x,
         y: j.y,
         label: j.label,
+        assetId: j.assetId,
         staffed: state.vans.some((v) => v.jobBranch === j.branchId),
       })),
     },
+    watch:
+      watchedAsset !== undefined && history.has(watchedAsset)
+        ? { assetId: watchedAsset, series: [...(history.get(watchedAsset) ?? [])] }
+        : undefined,
     kpis: {
       ...kpiRates(state.reliability, d.service.totalCustomers, state.simTimeMin),
       worstVegPct: Math.max(0, ...[...state.lineVeg.values()]) * 100,
@@ -215,8 +255,17 @@ self.onmessage = (e: MessageEvent<MainToWorker>) => {
         ctx = newContext(); // shed any previous run's growth mutations
         seedScenario(state, ctx);
         derived = undefined;
+        history.clear();
+        lastHistMin = -1;
         post({ type: 'snapshot', snapshot: makeSnapshot(false) });
         post({ type: 'saveData', data: serialize(state) });
+        break;
+      case 'watch':
+        watchedAsset = msg.assetId;
+        // answer immediately so the sparkline appears even while paused
+        if (msg.assetId !== undefined) {
+          post({ type: 'snapshot', snapshot: makeSnapshot(false) });
+        }
         break;
       case 'command': {
         if (msg.cmd.type === 'undo' || msg.cmd.type === 'redo') {
