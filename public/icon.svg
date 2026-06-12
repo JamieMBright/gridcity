@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#232a52"/>
+      <stop offset="1" stop-color="#0d1228"/>
+    </linearGradient>
+  </defs>
+  <rect width="180" height="180" fill="url(#bg)"/>
+  <!-- chunky lattice pylon -->
+  <g stroke="#b9c2d4" stroke-width="7" stroke-linecap="round" fill="none">
+    <path d="M56 166 L80 40"/>
+    <path d="M124 166 L100 40"/>
+    <path d="M80 40 L90 18 L100 40"/>
+    <path d="M56 166 L113 120 M124 166 L67 120"/>
+    <path d="M28 60 L152 60"/>
+    <path d="M42 88 L138 88"/>
+  </g>
+  <g stroke="#f4f1ea" stroke-width="6" stroke-linecap="round">
+    <path d="M33 60 L33 71 M147 60 L147 71 M47 88 L47 99 M133 88 L133 99"/>
+  </g>
+  <!-- the bolt -->
+  <path d="M104 8 L57 88 L85 88 L68 172 L126 74 L96 74 Z"
+        fill="#ff8a1e" stroke="#241c38" stroke-width="6" stroke-linejoin="round"/>
+</svg>

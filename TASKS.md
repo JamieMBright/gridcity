@@ -25,6 +25,11 @@
 
 ## Done (chronological, latest first)
 
+### iOS home-screen icon prompt
+- [x] Icon-weight logo redraw (chunky pylon + bolt, full-bleed, gradient)
+- [x] apple-touch-icon.png 180px (iOS ignores SVG icons) + 512px icon
+- [x] Web app manifest + iOS metas (standalone, title, status bar)
+
 ### Memory + London recognisability (this prompt)
 - [x] CLAUDE.md created (game concept, working doctrine, gotchas)
 - [x] TASKS.md created with this protocol
