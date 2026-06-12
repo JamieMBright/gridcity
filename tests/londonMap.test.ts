@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { buildLondonMap, LONDON_H, LONDON_W } from '../src/data/londonMap';
-import { NO_COUNCIL, RC, TERRAIN, ZONE } from '../src/sim/map/types';
+import {
+  buildLondonMap,
+  LONDON_H,
+  LONDON_W,
+  riverCenterY,
+  riverHalfWidth,
+} from '../src/data/londonMap';
+import { sampleRoute } from '../src/sim/map/routes';
+import { LANDMARK, NO_COUNCIL, RC, TERRAIN, ZONE } from '../src/sim/map/types';
 
 const map = buildLondonMap();
 
@@ -103,5 +110,54 @@ describe('london map invariants', () => {
     }
     expect(streets).toBeGreaterThan(1000); // homes keep fronting the streets
     expect(heavy).toBeGreaterThan(400);
+  });
+
+  it('streets follow the tile-edge lattice: integer corners, axis-aligned runs', () => {
+    for (const r of map.routes ?? []) {
+      if (r.kind !== 'street') continue;
+      for (const [x, y] of r.pts) {
+        expect(Number.isInteger(x) && Number.isInteger(y), `street point ${x},${y}`).toBe(true);
+      }
+      for (let k = 0; k + 1 < r.pts.length; k++) {
+        const a = r.pts[k];
+        const b = r.pts[k + 1];
+        if (!a || !b) continue;
+        expect(a[0] === b[0] || a[1] === b[1], `street segment ${a} → ${b} is diagonal`).toBe(
+          true,
+        );
+      }
+    }
+  });
+
+  it('no street, lane or arterial crosses the Thames away from a bridge', () => {
+    // the designated crossings: Kingston/Richmond/Hammersmith and the
+    // central bridges, the Circular's two crossings (96, 143), the
+    // Staines town bridge (30), Tower Bridge (120) and the pier (238)
+    const BRIDGES = new Set([30, 74, 80, 88, 96, 102, 106, 110, 114, 117, 120, 143, 238]);
+    for (const r of map.routes ?? []) {
+      if (r.kind === 'rail' || r.kind === 'motorway') continue;
+      for (const [sx, sy] of sampleRoute(r, 0.3)) {
+        const inThames = Math.abs(sy - riverCenterY(sx)) <= riverHalfWidth(sx) - 0.6;
+        if (inThames) {
+          expect(
+            BRIDGES.has(Math.round(sx)),
+            `${r.kind} crosses the Thames off-bridge at ${sx.toFixed(1)},${sy.toFixed(1)}`,
+          ).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('to-scale landmarks reserve their full precincts', () => {
+    const tilesOf = (id: number): number => {
+      let count = 0;
+      for (const lm of map.landmark ?? []) if (lm === id) count++;
+      return count;
+    };
+    expect(tilesOf(LANDMARK.parliament)).toBe(6); // 3 long × 2 deep on the bank
+    expect(tilesOf(LANDMARK.dome)).toBe(4); // St Paul's 2×2
+    expect(tilesOf(LANDMARK.powerstation)).toBe(4); // Battersea 2×2
+    expect(tilesOf(LANDMARK.eye)).toBe(1); // single-anchor icons stay as-is
+    expect(tilesOf(LANDMARK.spire)).toBe(1);
   });
 });

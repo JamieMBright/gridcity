@@ -12,6 +12,7 @@ import type { CouncilState } from './customers/adoption';
 import type { BillBreakdown } from './regulation/bill';
 import type { KpiRates } from './regulation/kpis';
 import type { PeriodActuals, PeriodTargets, ReportCard } from './regulation/riio';
+import type { ConnectionStudy } from './study';
 import type { GameEvent, GrowthRecord, SaveData } from './state';
 import type { BranchView } from './tick';
 
@@ -111,6 +112,8 @@ export type MainToWorker =
   | { type: 'command'; seq: number; cmd: Command }
   /** Follow an asset's performance history (sparkline); undefined stops. */
   | { type: 'watch'; assetId?: number | undefined }
+  /** Run a connection study for an open application. */
+  | { type: 'study'; appId: number }
   | { type: 'requestSave' };
 
 export type WorkerToMain =
@@ -124,4 +127,5 @@ export type WorkerToMain =
       assetId?: number | undefined;
     }
   | { type: 'saveData'; data: SaveData }
+  | { type: 'study'; study: ConnectionStudy }
   | { type: 'fatal'; message: string };

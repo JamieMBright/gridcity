@@ -406,20 +406,30 @@ export function buildLondonMap(): CityMap {
 
   // 4) The radial skeleton (real bearings) — defined BEFORE the density
   // field so housing can ribbon along it the way real London does.
-  const RADIALS: Array<{ pts: Array<[number, number]>; amp: number }> = [
-    { pts: [[118, 70], [112, 46], [104, 32], [98, 22], [92, 0]], amp: 1.4 }, // A1 north
-    { pts: [[121, 70], [130, 44], [134, 28], [136, 12], [136, 0]], amp: 1.4 }, // A10 past Ware
-    { pts: [[124, 73], [142, 56], [154, 40], [162, 24]], amp: 1.6 }, // A12/M11 → Harlow
-    { pts: [[128, 76], [152, 60], [182, 50], [208, 34], [240, 24], [255, 20]], amp: 1.8 }, // A12 → Brentwood, Chelmsford, out east
-    { pts: [[130, 78], [158, 64], [178, 60], [198, 58], [222, 56], [236, 62]], amp: 1.4 }, // A127 → Romford, Basildon, Southend
-    { pts: [[128, 82], [148, 80], [166, 84], [182, 86], [196, 82], [212, 74], [228, 68], [238, 64]], amp: 1.4 }, // A13 along the estuary
-    { pts: [[122, 88], [140, 96], [158, 102], [174, 104], [188, 106], [206, 112], [226, 124], [240, 130], [255, 136]], amp: 1.5 }, // A2 → Dartford, Gravesend, Kent
-    { pts: [[116, 90], [114, 112], [110, 130], [106, 146], [104, 159]], amp: 1.4 }, // A23 south
-    { pts: [[112, 88], [94, 106], [74, 120], [60, 128], [50, 140], [44, 152], [42, 159]], amp: 1.6 }, // A3 → Cobham, Guildford
-    { pts: [[108, 82], [88, 82], [70, 78], [52, 74], [34, 70], [16, 66], [0, 64]], amp: 1.4 }, // A4 → Slough, out west
-    { pts: [[110, 76], [88, 64], [62, 52], [40, 42], [22, 36], [8, 28], [0, 26]], amp: 1.5 }, // A40 west-northwest
-    { pts: [[112, 72], [98, 56], [78, 46], [64, 42], [50, 30], [40, 16], [36, 0]], amp: 1.5 }, // A41 → Watford, out north-west
-    { pts: [[120, 86], [134, 98], [148, 112], [156, 124], [162, 138], [166, 150], [168, 159]], amp: 1.6 }, // A21 → Sevenoaks, out south
+  // The south-bank radials anchor on the embankment carriageway row (a
+  // fixed quantized setback off the water) so none of them starts in, or
+  // clips, the river.
+
+  /** Quantized carriageway row a fixed setback off the river bank. */
+  const bank = (x: number, side: -1 | 1): number =>
+    side < 0
+      ? Math.floor(riverCenterY(x) - riverHalfWidth(x)) - 3
+      : Math.ceil(riverCenterY(x) + riverHalfWidth(x)) + 3;
+
+  const RADIALS: Array<Array<[number, number]>> = [
+    [[118, 70], [112, 46], [104, 32], [98, 22], [92, 0]], // A1 north
+    [[121, 70], [130, 44], [134, 28], [136, 12], [136, 0]], // A10 past Ware
+    [[124, 73], [142, 56], [154, 40], [162, 24]], // A12/M11 → Harlow
+    [[128, 76], [152, 60], [182, 50], [208, 34], [240, 24], [255, 20]], // A12 → Brentwood, Chelmsford, out east
+    [[130, 78], [158, 64], [178, 60], [198, 58], [222, 56], [236, 62]], // A127 → Romford, Basildon, Southend
+    [[128, 82], [148, 80], [166, 84], [182, 86], [196, 82], [212, 74], [228, 68], [238, 64]], // A13 along the estuary
+    [[122, bank(122, 1)], [130, 99], [142, 100], [158, 102], [174, 104], [188, 106], [206, 112], [226, 124], [240, 130], [255, 136]], // A2 → Dartford, Gravesend, Kent (south of the loop)
+    [[116, bank(116, 1)], [114, 112], [110, 130], [106, 146], [104, 159]], // A23 south
+    [[112, bank(112, 1)], [104, 102], [94, 106], [74, 120], [60, 128], [50, 140], [44, 152], [42, 159]], // A3 → Cobham, Guildford (south of the Battersea bend)
+    [[108, 82], [88, 82], [70, 78], [52, 74], [34, 70], [16, 66], [0, 64]], // A4 → Slough, out west
+    [[110, 76], [88, 64], [62, 52], [40, 42], [22, 36], [8, 28], [0, 26]], // A40 west-northwest
+    [[112, 72], [98, 56], [78, 46], [64, 42], [50, 30], [40, 16], [36, 0]], // A41 → Watford, out north-west
+    [[120, bank(120, 1)], [128, 101], [148, 112], [156, 124], [162, 138], [166, 150], [168, 159]], // A21 → Sevenoaks, out south
   ];
 
   // 5) The city: an organic density field around the centre, boosted
@@ -428,7 +438,7 @@ export function buildLondonMap(): CityMap {
     // corridor boost raster from radial samples
     const boost = new Float32Array(n);
     for (const r of RADIALS) {
-      for (const [sx, sy] of sampleRoute({ kind: 'arterial', pts: r.pts }, 0.5)) {
+      for (const [sx, sy] of sampleRoute({ kind: 'arterial', pts: r }, 0.5)) {
         for (let dy = -2; dy <= 2; dy++) {
           for (let dx = -2; dx <= 2; dx++) {
             const tx = Math.round(sx + dx);
@@ -645,35 +655,85 @@ export function buildLondonMap(): CityMap {
   }
 
   // 8) The vector transport network ------------------------------------------
+  // Doctrine: through built fabric every carriageway follows the TILE
+  // LATTICE — integer corner points and axis-aligned runs (the render
+  // spline rounds each corner by well under a tile, a neat chamfer), so
+  // streets run BETWEEN the building blocks and houses front straight onto
+  // them. Out in the open country, motorways, railways and lanes keep
+  // their sweep. No street or arterial crosses the Thames except at the
+  // designated bridges, always perpendicular to the water.
 
-  const wander = (pts: Array<[number, number]>, amp: number): Array<[number, number]> => {
-    const out: Array<[number, number]> = [];
+  /** Tiles that count as built fabric for the road lattice. */
+  const inhabited = (x: number, y: number): boolean => {
+    if (!inb(x, y) || !isLand(x, y)) return false;
+    const z = zone[idx(x, y)] as Zone;
+    return (
+      z === ZONE.urbanCore ||
+      z === ZONE.cbd ||
+      z === ZONE.urban ||
+      z === ZONE.suburb ||
+      z === ZONE.posh ||
+      z === ZONE.industrial ||
+      z === ZONE.newEstate
+    );
+  };
+  const nearTown = (x: number, y: number): boolean => {
+    const xi = Math.round(x);
+    const yi = Math.round(y);
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        if (inhabited(xi + dx, yi + dy)) return true;
+      }
+    }
+    return false;
+  };
+
+  /** Re-lay a sweeping polyline so that wherever it passes through town it
+   *  follows the lattice: waypoints snap to tile corners and every leg
+   *  becomes axis-aligned runs with an L-corner every few tiles. Open-
+   *  country stretches keep their original sweep. Original waypoints are
+   *  preserved, so junctions between routes survive. */
+  const latticeThroughTowns = (pts: Array<[number, number]>): Array<[number, number]> => {
+    // chop every leg into ~4-tile chords so the town test is local
+    const chords: Array<[number, number]> = [];
     for (let s = 0; s + 1 < pts.length; s++) {
       const [ax, ay] = pts[s] ?? [0, 0];
       const [bx, by] = pts[s + 1] ?? [0, 0];
-      const dx = bx - ax;
-      const dy = by - ay;
-      const len = Math.max(1, Math.hypot(dx, dy));
-      const px = -dy / len;
-      const py = dx / len;
-      const phase = rng.range(0, Math.PI * 2);
-      const freq = rng.range(1.2, 2.4);
-      const pieces = Math.max(1, Math.round(len / 6));
+      const pieces = Math.max(1, Math.round(Math.hypot(bx - ax, by - ay) / 4));
       for (let k = 0; k < pieces; k++) {
-        const t = k / pieces;
-        const off =
-          Math.sin(phase + t * Math.PI * 2 * freq) * amp * Math.sin(Math.PI * t) +
-          (k > 0 ? rng.range(-0.5, 0.5) : 0);
-        out.push([ax + dx * t + px * off, ay + dy * t + py * off]);
+        chords.push([ax + ((bx - ax) * k) / pieces, ay + ((by - ay) * k) / pieces]);
       }
     }
-    const last = pts[pts.length - 1];
-    if (last) out.push(last);
+    const lastPt = pts[pts.length - 1];
+    if (lastPt) chords.push([lastPt[0], lastPt[1]]);
+    const town = chords.map(([x, y]) => nearTown(x, y));
+    const out: Array<[number, number]> = [];
+    const push = (x: number, y: number): void => {
+      const tail = out[out.length - 1];
+      if (!tail || tail[0] !== x || tail[1] !== y) out.push([x, y]);
+    };
+    for (let k = 0; k < chords.length; k++) {
+      const [cx, cy] = chords[k] ?? [0, 0];
+      const snap = town[k] === true;
+      const px = snap ? Math.round(cx) : cx;
+      const py = snap ? Math.round(cy) : cy;
+      const tail = out[out.length - 1];
+      if (tail && snap && town[k - 1] === true && px !== tail[0] && py !== tail[1]) {
+        // L-corner between lattice points: longest leg first
+        if (Math.abs(px - tail[0]) >= Math.abs(py - tail[1])) push(px, tail[1]);
+        else push(tail[0], py);
+      }
+      push(px, py);
+    }
     return out;
   };
 
-  const addRoute = (kind: TransportRoute['kind'], pts: Array<[number, number]>, amp = 0): void => {
-    routes.push({ kind, pts: amp > 0 ? wander(pts, amp) : pts });
+  const addRoute = (kind: TransportRoute['kind'], pts: Array<[number, number]>): void => {
+    routes.push({ kind, pts });
+  };
+  /** Arterials and country lanes take the in-town lattice treatment. */
+  const addRoad = (kind: 'arterial' | 'lane', pts: Array<[number, number]>): void => {
+    addRoute(kind, latticeThroughTowns(pts));
   };
 
   // the M25, ringing the whole city — hand-laid on its real line: it
@@ -712,62 +772,74 @@ export function buildLondonMap(): CityMap {
     [118, 28],
   ]);
   // the M4 west past Slough and the M3 south-west — Heathrow sits between
+  // (the M3 starts on the south bank: it never enters the river)
   addRoute('motorway', [[100, 78], [80, 76], [60, 72], [40, 68], [20, 64], [0, 62]]);
-  addRoute('motorway', [[102, 96], [82, 104], [62, 112], [44, 116], [24, 122], [0, 126]]);
-  // the North + South Circulars: the inner ring road
+  addRoute('motorway', [[100, 101], [82, 105], [62, 112], [44, 116], [24, 122], [0, 126]]);
+  // the North + South Circulars: the inner ring road, lattice-laid, with
+  // its two river crossings as perpendicular bridges (Kew side at x=96,
+  // Blackwall side at x=143)
+  addRoad('arterial', [
+    [104, 62], [112, 60], [124, 60], [132, 63], [138, 68], [142, 74],
+    [143, bank(143, -1)], [143, bank(143, 1)], // the east crossing
+    [140, 97], [134, 103], [126, 104], [118, 103], [110, 102], [102, 103],
+    [96, bank(96, 1)], [96, bank(96, -1)], // the west crossing
+    [94, 87], [93, 80], [94, 72], [98, 66], [104, 62],
+  ]);
+  // embankment arterials hugging each bank through town: stepped along the
+  // lattice at a fixed quantized setback off the water
   {
-    const pts: Array<[number, number]> = [];
-    for (let i = 0; i <= 30; i++) {
-      const a = (i / 30) * Math.PI * 2;
-      pts.push([
-        CENTRE.x + Math.cos(a) * 25 + rng.range(-1, 1),
-        CENTRE.y + Math.sin(a) * 20 + rng.range(-1, 1),
-      ]);
-    }
-    addRoute('arterial', pts);
-  }
-  // embankment arterials hugging each bank through town
-  {
-    const north: Array<[number, number]> = [];
-    const south: Array<[number, number]> = [];
-    for (let x = 86; x <= 170; x += 6) {
-      const cy = riverCenterY(x);
-      const hw = riverHalfWidth(x);
-      north.push([x, cy - hw - 2.5 + rng.range(-0.5, 0.5)]);
-      if (x <= 160) south.push([x, cy + hw + 2.5 + rng.range(-0.5, 0.5)]);
-    }
-    addRoute('arterial', north);
-    addRoute('arterial', south);
+    // the north embankment steps one column early behind Westminster so
+    // the Parliament precinct keeps its river frontage to itself
+    const rowAt = (x: number, side: -1 | 1): number =>
+      side < 0 && x >= 106 && x <= 110 ? bank(x + 1, -1) : bank(x, side);
+    const bankPath = (x0: number, x1: number, side: -1 | 1): void => {
+      let y = rowAt(x0, side);
+      const pts: Array<[number, number]> = [[x0, y]];
+      for (let x = x0 + 1; x <= x1; x++) {
+        const ny = rowAt(x, side);
+        if (ny !== y) {
+          pts.push([x, y]);
+          pts.push([x, ny]);
+          y = ny;
+        }
+      }
+      const tail = pts[pts.length - 1];
+      if (!tail || tail[0] !== x1 || tail[1] !== y) pts.push([x1, y]);
+      addRoute('arterial', pts); // lattice by construction
+    };
+    bankPath(86, 170, -1);
+    bankPath(86, 160, 1);
   }
   // the radials themselves
-  for (const r of RADIALS) addRoute('arterial', r.pts, r.amp);
+  for (const r of RADIALS) addRoad('arterial', r);
   // country lanes chaining the villages — every lane ends at a town, a
-  // village, another road or the map edge; none dies in a field
-  addRoute('lane', [[22, 36], [18, 60], [18, 86]], 2); // Amersham → Windsor
-  addRoute('lane', [[18, 86], [26, 78], [34, 70]], 1.8); // Windsor → Slough
-  addRoute('lane', [[18, 86], [28, 100], [36, 108]], 1.8); // Windsor → Staines
-  addRoute('lane', [[36, 108], [48, 114], [60, 128], [76, 128], [90, 128]], 2); // Staines → Chertsey → Cobham → Epsom
-  addRoute('lane', [[48, 114], [40, 122]], 1.5); // Chertsey → Woking
-  addRoute('lane', [[60, 128], [48, 142]], 1.8); // Cobham → Guildford
-  addRoute('lane', [[48, 142], [68, 146], [88, 144]], 2); // Guildford → Dorking, under the Downs
-  addRoute('lane', [[88, 144], [90, 128]], 1.5); // Dorking → Epsom
-  addRoute('lane', [[90, 128], [106, 122], [120, 114]], 1.8); // Epsom → Croydon
-  addRoute('lane', [[120, 114], [126, 130], [132, 146]], 1.8); // Croydon → Oxted
-  addRoute('lane', [[132, 146], [148, 144], [162, 138]], 1.8); // Oxted → Sevenoaks
-  addRoute('lane', [[188, 106], [206, 110]], 1.5); // Gravesend → Hoo
-  addRoute('lane', [[206, 110], [216, 118], [225, 124]], 1.8); // Hoo → the A2
-  addRoute('lane', [[22, 36], [40, 40], [64, 42]], 2); // Amersham → Watford
-  addRoute('lane', [[64, 42], [80, 34], [98, 22]], 1.8); // Watford → St Albans
-  addRoute('lane', [[98, 22], [112, 14], [136, 12]], 1.8); // St Albans → Hatfield → Ware
-  addRoute('lane', [[136, 12], [148, 16], [162, 24]], 1.8); // Ware → Harlow
-  addRoute('lane', [[162, 24], [174, 36], [182, 50]], 1.8); // Harlow → Ongar → Brentwood
-  addRoute('lane', [[182, 50], [194, 44], [208, 32]], 1.8); // Brentwood → Billericay → Chelmsford
-  addRoute('lane', [[208, 32], [222, 26], [234, 22]], 1.8); // Chelmsford → Maldon
-  addRoute('lane', [[234, 22], [228, 38], [222, 50]], 1.8); // Maldon → Rayleigh
-  addRoute('lane', [[198, 58], [210, 54], [222, 50]], 1.5); // Basildon → Rayleigh
-  addRoute('lane', [[222, 50], [230, 56], [236, 62]], 1.5); // Rayleigh → Southend
-  addRoute('lane', [[182, 92], [178, 90], [177, 85]], 1); // Tilbury → Grays → the A13
-  addRoute('lane', [[142, 62], [150, 64], [158, 64]], 1.5); // Chigwell → Romford
+  // village, another road or the map edge; none dies in a field. They
+  // sweep through open country and snap to the lattice through towns.
+  addRoad('lane', [[22, 36], [18, 60], [18, 86]]); // Amersham → Windsor
+  addRoad('lane', [[18, 86], [26, 78], [34, 70]]); // Windsor → Slough
+  addRoad('lane', [[18, 86], [26, 92], [30, 96], [30, 107], [36, 108]]); // Windsor → Staines, crossing the river square-on at the town bridge
+  addRoad('lane', [[36, 108], [48, 114], [60, 128], [76, 128], [90, 128]]); // Staines → Chertsey → Cobham → Epsom
+  addRoad('lane', [[48, 114], [40, 122]]); // Chertsey → Woking
+  addRoad('lane', [[60, 128], [48, 142]]); // Cobham → Guildford
+  addRoad('lane', [[48, 142], [68, 146], [88, 144]]); // Guildford → Dorking, under the Downs
+  addRoad('lane', [[88, 144], [90, 128]]); // Dorking → Epsom
+  addRoad('lane', [[90, 128], [106, 122], [120, 114]]); // Epsom → Croydon
+  addRoad('lane', [[120, 114], [126, 130], [132, 146]]); // Croydon → Oxted
+  addRoad('lane', [[132, 146], [148, 144], [162, 138]]); // Oxted → Sevenoaks
+  addRoad('lane', [[188, 106], [206, 110]]); // Gravesend → Hoo
+  addRoad('lane', [[206, 110], [216, 118], [225, 124]]); // Hoo → the A2
+  addRoad('lane', [[22, 36], [40, 40], [64, 42]]); // Amersham → Watford
+  addRoad('lane', [[64, 42], [80, 34], [98, 22]]); // Watford → St Albans
+  addRoad('lane', [[98, 22], [112, 14], [136, 12]]); // St Albans → Hatfield → Ware
+  addRoad('lane', [[136, 12], [148, 16], [162, 24]]); // Ware → Harlow
+  addRoad('lane', [[162, 24], [174, 36], [182, 50]]); // Harlow → Ongar → Brentwood
+  addRoad('lane', [[182, 50], [194, 44], [208, 32]]); // Brentwood → Billericay → Chelmsford
+  addRoad('lane', [[208, 32], [222, 26], [234, 22]]); // Chelmsford → Maldon
+  addRoad('lane', [[234, 22], [228, 38], [222, 50]]); // Maldon → Rayleigh
+  addRoad('lane', [[198, 58], [210, 54], [222, 50]]); // Basildon → Rayleigh
+  addRoad('lane', [[222, 50], [230, 56], [236, 62]]); // Rayleigh → Southend
+  addRoad('lane', [[182, 92], [178, 90], [177, 85]]); // Tilbury → Grays → the A13
+  addRoad('lane', [[142, 62], [150, 64], [158, 64]]); // Chigwell → Romford
 
   // railways out of the central termini, every line ending at a town or
   // the map edge
@@ -779,67 +851,61 @@ export function buildLondonMap(): CityMap {
     [[122, 86], [142, 96], [160, 100], [174, 103], [188, 105], [206, 112], [222, 124], [236, 138], [246, 152], [250, 159]], // North Kent → Dartford, Gravesend, out SE
     [[114, 86], [118, 102], [120, 116], [114, 132], [108, 148], [106, 159]], // Brighton line through Croydon
     [[122, 88], [136, 102], [150, 118], [162, 138]], // SE → Sevenoaks
-    [[110, 86], [88, 98], [66, 108], [48, 114], [40, 122]], // SW → Staines side, Woking
+    [[110, 83], [88, 98], [66, 108], [48, 114], [40, 122]], // SW → Staines side, Woking (lifted off the bank behind Parliament)
     [[112, 78], [88, 80], [62, 76], [34, 70], [14, 68], [0, 67]], // Great Western → Slough
   ];
-  for (const line of RAILS) addRoute('rail', line, 1.2);
+  for (const line of RAILS) addRoute('rail', line);
 
-  // local streets: orthogonal-ish grids with a soft jitter, where people live
+  // local streets: the CITY-BLOCK LATTICE. Straight runs along the tile
+  // grid — rows every 4th tile, columns every 5th — clipped to inhabited
+  // land, never crossing water. The carriageway corridor clears its own
+  // row of structures and the houses either side front straight onto it;
+  // blocks come out 4 wide by 3 deep. No jitter: tessellation is the point.
   {
-    const inhabited = (x: number, y: number): boolean => {
-      if (!inb(x, y) || !isLand(x, y)) return false;
-      const z = zone[idx(x, y)] as Zone;
-      return (
-        z === ZONE.urbanCore ||
-        z === ZONE.cbd ||
-        z === ZONE.urban ||
-        z === ZONE.suburb ||
-        z === ZONE.posh ||
-        z === ZONE.industrial ||
-        z === ZONE.newEstate
-      );
-    };
-    const pitchOf = (x: number, y: number): number => {
-      const z = zone[idx(x, y)] as Zone;
-      if (z === ZONE.newEstate) return 4;
-      return z === ZONE.urbanCore || z === ZONE.cbd || z === ZONE.urban ? 6 : 8;
-    };
-    for (let y = 2; y < h - 2; y++) {
+    for (let y = 4; y < h - 2; y += 4) {
       let runStart = -1;
       for (let x = 0; x <= w; x++) {
-        const onGrid = x < w && inhabited(x, y) && y % pitchOf(x, y) === 0;
-        if (onGrid && runStart < 0) runStart = x;
-        if (!onGrid && runStart >= 0) {
-          if (x - runStart >= 4) {
-            addRoute('street', [
-              [runStart, y],
-              [(runStart + x - 1) / 2, y + rng.range(-0.7, 0.7)],
-              [x - 1, y],
-            ]);
-          }
+        const on = x < w && inhabited(x, y);
+        if (on && runStart < 0) runStart = x;
+        if (!on && runStart >= 0) {
+          if (x - runStart >= 3) addRoute('street', [[runStart, y], [x - 1, y]]);
           runStart = -1;
         }
       }
     }
-    for (let x = 2; x < w - 2; x++) {
+    for (let x = 2; x < w - 2; x += 5) {
       let runStart = -1;
       for (let y = 0; y <= h; y++) {
-        const p = y < h && inhabited(x, y) ? pitchOf(x, y) : 8;
-        const crank = (Math.floor(y / p) % 2) * Math.floor(p / 2);
-        const onGrid = y < h && inhabited(x, y) && (x + crank) % p === 0;
-        if (onGrid && runStart < 0) runStart = y;
-        if (!onGrid && runStart >= 0) {
-          if (y - runStart >= 4) {
-            addRoute('street', [
-              [x, runStart],
-              [x + rng.range(-0.7, 0.7), (runStart + y - 1) / 2],
-              [x, y - 1],
-            ]);
-          }
+        const on = y < h && inhabited(x, y);
+        if (on && runStart < 0) runStart = y;
+        if (!on && runStart >= 0) {
+          if (y - runStart >= 3) addRoute('street', [[x, runStart], [x, y - 1]]);
           runStart = -1;
         }
       }
     }
+  }
+
+  // the Thames bridges: Kingston, Richmond, Hammersmith upstream, then
+  // Westminster, Waterloo, Blackfriars, London Bridge and Tower Bridge
+  // through town — each crossing square-on to the water, its approach
+  // road running on to meet the nearest street-lattice row. (The
+  // Circular's own crossings at x=96 and x=143 are arterial bridges.)
+  for (const bx of [74, 80, 88, 102, 106, 110, 114, 117, 120]) {
+    let yN = bank(bx, -1);
+    while (yN % 4 !== 0) yN--;
+    let yS = bank(bx, 1);
+    while (yS % 4 !== 0) yS++;
+    addRoute('street', [[bx, yN], [bx, yS]]);
+  }
+  // Heathrow's spur road: in from the A4 along the lattice, crossing the
+  // north runway square-on to reach the terminal between the runways
+  addRoute('street', [[70, 78], [70, 83], [66, 83], [66, 86]]);
+  // Southend's pier: the longest in the world, a street into the sea
+  {
+    const px = 238;
+    const shore = Math.ceil(riverCenterY(px) - riverHalfWidth(px));
+    addRoute('street', [[px, shore - 1], [px, shore + 5]]);
   }
 
   // 8b) Stamp routes onto the gameplay raster
@@ -957,14 +1023,44 @@ export function buildLondonMap(): CityMap {
     }
   };
 
+  /** Claim an exact w×h tile rectangle for a to-scale landmark: every
+   *  tile is protected fabric + building exclusion. Land only; arterials
+   *  refuse; streets beneath demote to a frontage touch. */
+  const placeLandmarkRect = (x0: number, y0: number, rw: number, rh: number, id: Landmark): void => {
+    for (let ty = y0; ty < y0 + rh; ty++) {
+      for (let tx = x0; tx < x0 + rw; tx++) {
+        if (!inb(tx, ty)) continue;
+        const i = idx(tx, ty);
+        if (terrain[i] !== TERRAIN.land) continue;
+        if ((road[i] ?? 0) >= RC.arterial) continue;
+        landmark[i] = id;
+        if (road[i] === RC.street) road[i] = RC.streetTouch;
+        for (let ny = -1; ny <= 1; ny++) {
+          for (let nx = -1; nx <= 1; nx++) {
+            if (!inb(tx + nx, ty + ny)) continue;
+            const j = idx(tx + nx, ty + ny);
+            if (zone[j] === ZONE.urbanCore || zone[j] === ZONE.cbd) zone[j] = ZONE.urban;
+          }
+        }
+      }
+    }
+  };
+
   const riverY = (x: number): number => Math.round(riverCenterY(x));
   const hwAt = (x: number): number => riverHalfWidth(x);
-  // Westminster: parliament on the north bank at the bend, the wheel
-  // across the water
-  placeLandmark(107, riverY(107) - Math.ceil(hwAt(107)) - 1, LANDMARK.parliament);
+  // Westminster: the Houses of Parliament take a full 3-long × 2-deep
+  // river-front precinct on the north bank at the bend (each column
+  // follows the bank, so the long face fronts the water beside the
+  // Westminster bridge); the wheel watches from across the water
+  for (let px = 107; px <= 109; px++) {
+    const py = riverY(px) - Math.ceil(hwAt(px)) - 1;
+    placeLandmarkRect(px, py - 1, 1, 2, LANDMARK.parliament);
+  }
   placeLandmark(108, riverY(108) + Math.ceil(hwAt(108)) + 1, LANDMARK.eye);
-  // the City: the dome; the shard on the south bank; the fortress + bridge
-  placeLandmark(114, 80, LANDMARK.dome);
+  // the City: St Paul's takes a 2×2 close (a step back from the
+  // embankment carriageway); the shard on the south bank; the fortress
+  // + bridge
+  placeLandmarkRect(114, 79, 2, 2, LANDMARK.dome);
   placeLandmark(118, riverY(118) + Math.ceil(hwAt(118)) + 1, LANDMARK.spire);
   {
     const bx = 120;
@@ -976,21 +1072,12 @@ export function buildLondonMap(): CityMap {
       const i = idx(bx, y);
       if (terrain[i] === TERRAIN.water) landmark[i] = LANDMARK.towerBridge;
     }
-    addRoute('street', [[bx, cy - hw - 2], [bx, cy + hw + 2]]);
   }
-  // the bridges: Kingston, Richmond, Hammersmith and Putney upstream;
-  // Westminster, Waterloo, Blackfriars and London bridge through town
-  for (const bx of [74, 80, 88, 96, 102, 106, 110, 114, 117]) {
-    const cy = riverCenterY(bx);
-    const hw = riverHalfWidth(bx);
-    addRoute('street', [[bx, cy - hw - 2], [bx, cy + hw + 2]]);
-  }
-  // Heathrow's terminal between its two runways, with the spur road in
-  // from the A4
+  // Heathrow's terminal between its two runways (spur road laid with the
+  // network above)
   placeLandmark(65, 87, LANDMARK.airport);
-  addRoute('street', [[70, 78], [68, 83], [66, 86]]);
-  // Battersea's four chimneys on the south bank, west of the centre
-  placeLandmark(100, riverY(100) + Math.ceil(hwAt(100)) + 1, LANDMARK.powerstation);
+  // Battersea's four chimneys claim a 2×2 block on the south bank
+  placeLandmarkRect(100, riverY(100) + Math.ceil(hwAt(100)) + 1, 2, 2, LANDMARK.powerstation);
   placeLandmark(132, 68, LANDMARK.stadium); // the Olympic bowl on the Lea
   placeLandmark(118, 58, LANDMARK.arena); // north London ground
   placeLandmark(106, 110, LANDMARK.arena); // south London ground
@@ -1042,13 +1129,6 @@ export function buildLondonMap(): CityMap {
       if (rng.chance(0.3)) placeLandmark(t.x + 2, t.y + 2, LANDMARK.watertower);
     }
   }
-  // Southend's pier: the longest in the world, a street into the sea
-  {
-    const px = 238;
-    const shore = Math.ceil(riverCenterY(px) - riverHalfWidth(px));
-    addRoute('street', [[px, shore - 1], [px, shore + 5]]);
-  }
-
   // 10) Customers, vegetation, sprite variants. Open countryside takes a
   // coherent per-field tint (one enclosure, one sward) so the patchwork
   // reads as real fields of varied size rather than per-tile noise.

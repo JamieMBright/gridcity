@@ -75,6 +75,9 @@ export function initWorker(): void {
         localStorageStore.store(msg.data);
         pushCloudSave(msg.data);
         break;
+      case 'study':
+        s.setStudy(msg.study);
+        break;
       case 'fatal':
         s.setWorkerStatus('error', msg.message);
         break;
@@ -95,6 +98,11 @@ export function setSimSpeed(speed: SimSpeed): void {
 /** Follow an asset's performance history (inspector sparkline). */
 export function setWatch(assetId: number | undefined): void {
   send({ type: 'watch', assetId });
+}
+
+/** Ask the worker for a connection study of an open application. */
+export function requestStudy(appId: number): void {
+  send({ type: 'study', appId });
 }
 
 /** Wipe progress and start over (the worker posts a fresh save). */
