@@ -2,7 +2,7 @@ import { playSfx } from '../audio/audio';
 import { pullCloudSave, pushCloudSave, submitScore } from '../online/cloud';
 import { localStorageStore } from '../persistence/localStorageStore';
 import type { Command } from '../sim/commands';
-import type { MainToWorker, SimSpeed, WorkerToMain } from '../sim/protocol';
+import type { MainToWorker, SimSpeed, SkipTarget, WorkerToMain } from '../sim/protocol';
 import { isSaveData } from '../sim/state';
 import { useAppStore } from './store';
 
@@ -48,6 +48,9 @@ export function initWorker(): void {
         break;
       case 'snapshot': {
         s.setSnapshot(msg.snapshot);
+        // a snapshot arriving means any skip has finished (the worker
+        // fast-forwards synchronously): re-enable the skip buttons
+        if (s.skipping) s.setSkipping(false);
         // chime once per fresh bad-news event
         const fresh = msg.snapshot.events.filter(
           (ev) => ev.seq > lastEventSeq && ev.sev === 'bad',
@@ -106,6 +109,18 @@ export function setWatch(assetId: number | undefined): void {
 /** Ask the worker for a connection study of an open application. */
 export function requestStudy(appId: number): void {
   send({ type: 'study', appId });
+}
+
+/** Fast-forward the sim to the next peak / morning / event. The store
+ *  flag disables the HUD buttons until the worker's snapshot lands. */
+export function requestSkip(to: SkipTarget): void {
+  useAppStore.getState().setSkipping(true);
+  send({ type: 'skip', to });
+}
+
+/** Dismiss the early-game goal ladder for good (chip click). */
+export function skipGoalLadder(): void {
+  send({ type: 'skipGoals' });
 }
 
 /** Ask the worker to cut a fresh grid-balance report. */

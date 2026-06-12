@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { computeBalance } from '../src/sim/balance';
+import { sunFactor } from '../src/sim/events/weather';
 import { ZONE } from '../src/sim/map/types';
 import { newGame } from '../src/sim/state';
 import {
@@ -63,7 +64,8 @@ describe('grid balance', () => {
     expect(night?.supplyMW).toBe(0); // and clocks off at night
     expect(night && night.demandMW > 0).toBe(true);
     expect(whole.shortfallMW).toBeGreaterThan(0);
-    // the gap bites after dark or before dawn
-    expect(whole.shortfallHour < 6 || whole.shortfallHour > 20).toBe(true);
+    // the gap bites after dark or before dawn (the sun arc is seasonal,
+    // so check against the sun itself rather than fixed hours)
+    expect(sunFactor(whole.shortfallHour * 60, { cloud: 0 })).toBeLessThan(0.05);
   });
 });

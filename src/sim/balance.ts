@@ -10,6 +10,8 @@ import {
   domesticProfile,
   evProfile,
   hpProfile,
+  MIDSUMMER_MIN,
+  MIDWINTER_MIN,
   processProfile,
   sunFactor,
   windFactor,
@@ -50,19 +52,26 @@ export interface ScopeBalance {
   cy: number;
 }
 
+/** Which typical day the 24h profiles run on: the current date's
+ *  ('today', the default), or a canonical midwinter / midsummer day. */
+export type BalanceSeason = 'winter' | 'summer' | 'today';
+
 export interface BalanceReport {
   scopes: ScopeBalance[];
   /** Game-minute the report was cut. */
   atMin: number;
+  /** Which typical day the profiles were run on. */
+  season: BalanceSeason;
 }
 
 /** The forecast runs on a standard day so profiles read clean. */
 const TYP_WEATHER = { cloud: 0.35, wind: 0.5 };
 
-/** Availability of a connected plant at hour h on the typical day.
+/** Availability of a connected plant at hour h on the typical day
+ *  starting at sim-minute `dayMin` (0 = the scenario's opening day).
  *  Shared with the UI for per-generator profile charts. */
-export function availAt(gen: keyof typeof GENS, h: number): number {
-  const t = h * 60;
+export function availAt(gen: keyof typeof GENS, h: number, dayMin = 0): number {
+  const t = dayMin + h * 60;
   switch (gen) {
     case 'solarFarm':
       return sunFactor(t, TYP_WEATHER);
@@ -79,8 +88,20 @@ export function availAt(gen: keyof typeof GENS, h: number): number {
   }
 }
 
-export function computeBalance(state: GameState, ctx: SimContext): BalanceReport {
+export function computeBalance(
+  state: GameState,
+  ctx: SimContext,
+  season: BalanceSeason = 'today',
+): BalanceReport {
   const { map } = ctx;
+  // midnight of the day the profile loop runs over: season factors ride
+  // along inside the profile functions via the date carried in t
+  const dayMin =
+    season === 'winter'
+      ? MIDWINTER_MIN
+      : season === 'summer'
+        ? MIDSUMMER_MIN
+        : Math.floor(state.simTimeMin / 1440) * 1440;
   const service = assignServiceAreas(map, state.assets.values(), state.loadSites, state.councils);
   // connectivity ignores transient outages: this is about the wiring
   const net = deriveNetwork(state.assets.values());
@@ -193,7 +214,7 @@ export function computeBalance(state: GameState, ctx: SimContext): BalanceReport
     let shortfallMW = 0;
     let shortfallHour = 18;
     for (let h = 0; h < 24; h++) {
-      const t = h * 60;
+      const t = dayMin + h * 60;
       const demandMW =
         a.dom * domesticProfile(t) +
         a.proc * processProfile(t) +
@@ -201,7 +222,7 @@ export function computeBalance(state: GameState, ctx: SimContext): BalanceReport
         a.hp * hpProfile(t, TYP_WEATHER.cloud);
       // rooftop PV is local supply riding the same sun arc
       const supplyMW =
-        connectedGens.reduce((s, g) => s + g.capMW * availAt(g.gen, h), 0) +
+        connectedGens.reduce((s, g) => s + g.capMW * availAt(g.gen, h, dayMin), 0) +
         a.pv * sunFactor(t, TYP_WEATHER);
       profile.push({
         h,
@@ -245,5 +266,5 @@ export function computeBalance(state: GameState, ctx: SimContext): BalanceReport
   // worst-served first, after the whole-area headline
   const [head, ...rest] = scopes;
   rest.sort((x, y) => y.shortfallMW - x.shortfallMW);
-  return { scopes: head ? [head, ...rest] : rest, atMin: state.simTimeMin };
+  return { scopes: head ? [head, ...rest] : rest, atMin: state.simTimeMin, season };
 }

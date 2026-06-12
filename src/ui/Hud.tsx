@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../app/store';
-import { sendCommand, setSimSpeed } from '../app/workerBridge';
+import { requestSkip, sendCommand, setSimSpeed, skipGoalLadder } from '../app/workerBridge';
 import { getAudioSettings, updateAudioSettings } from '../audio/audio';
 import { pushSettings } from '../online/cloud';
 import type { SimSpeed } from '../sim/protocol';
@@ -123,6 +123,87 @@ function MarketTicker() {
       </span>
       <span>{weatherIcon(snapshot.weather, snapshot.simTimeMin)}</span>
     </div>
+  );
+}
+
+/** Time-skip buttons beside the speed controls: fast-forward to the
+ *  evening peak, the morning, or (desktop) the next notable event. */
+function SkipButtons({ compact }: { compact: boolean }) {
+  const skipping = useAppStore((s) => s.skipping);
+  const btn: React.CSSProperties = {
+    padding: '3px 7px',
+    borderRadius: 5,
+    border: `1px solid ${theme.navyLight}`,
+    background: 'transparent',
+    color: skipping ? theme.slate : theme.offWhite,
+    opacity: skipping ? 0.45 : 1,
+    fontFamily: theme.font,
+    fontSize: 11,
+    cursor: skipping ? 'default' : 'pointer',
+  };
+  return (
+    <span style={{ display: 'flex', gap: 2 }}>
+      <button
+        aria-label="skip to 18:00"
+        title="Fast-forward to the evening peak (18:00). Bad news stops the skip."
+        style={btn}
+        disabled={skipping}
+        onClick={() => requestSkip('peak')}
+      >
+        ⇥18:00
+      </button>
+      <button
+        aria-label="skip to 06:00"
+        title="Fast-forward to the morning (06:00). Bad news stops the skip."
+        style={btn}
+        disabled={skipping}
+        onClick={() => requestSkip('morning')}
+      >
+        ⇥06:00
+      </button>
+      {!compact && (
+        <button
+          aria-label="skip to next event"
+          title="Fast-forward until something happens (max 7 game-days)."
+          style={btn}
+          disabled={skipping}
+          onClick={() => requestSkip('event')}
+        >
+          ⇥!
+        </button>
+      )}
+    </span>
+  );
+}
+
+/** The early-game goal ladder, as one unobtrusive chip in the bottom
+ *  bar; the tint fills with ladder progress. Click dismisses it. */
+function GoalChip() {
+  const goal = useAppStore((s) => s.snapshot?.goal);
+  if (!goal) return null;
+  const pct = Math.round((100 * goal.index) / goal.total);
+  return (
+    <button
+      onClick={() => skipGoalLadder()}
+      title={`Goal ${goal.index + 1} of ${goal.total} — click to dismiss the goal ladder`}
+      style={{
+        padding: '3px 10px',
+        borderRadius: 5,
+        border: `1px solid ${theme.navyLight}`,
+        background: `linear-gradient(90deg, rgba(255, 138, 30, 0.22) ${pct}%, transparent ${pct}%)`,
+        color: theme.offWhite,
+        fontFamily: theme.font,
+        fontSize: 10,
+        cursor: 'pointer',
+        maxWidth: 280,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      goal {goal.index + 1}/{goal.total} · {goal.label}
+      {goal.progress ? ` · ${goal.progress}` : ''}
+    </button>
   );
 }
 
@@ -290,6 +371,7 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
           );
         })}
       </span>
+      <SkipButtons compact={compact} />
       <UndoRedo />
       <BalanceButton />
       {!compact && <RiioButton />}
@@ -311,6 +393,7 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
       >
         {compact ? '⚡' : '⚡ grid view'}
       </button>
+      {!compact && <GoalChip />}
     </div>
     </>
   );

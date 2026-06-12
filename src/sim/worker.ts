@@ -8,11 +8,17 @@ import { GENS } from './catalog';
 import { underConstruction } from './market/dispatch';
 import { kpiRates } from './regulation/kpis';
 import {
+  MAX_SKIP_TICKS,
+  skipAborts,
+  skipTargetMin,
+  skipTickSpeed,
   TICKS_PER_SECOND,
   type MainToWorker,
   type SimSnapshot,
+  type SkipTarget,
   type WorkerToMain,
 } from './protocol';
+import { advanceGoals, GOALS, goalStatus, type GoalView } from './scenario/goals';
 import {
   applyGrowth,
   deserialize,
@@ -129,10 +135,37 @@ function sampleHistory(out: ReturnType<typeof solveTick>): void {
 
 let watchedAsset: number | undefined;
 
+// --- goal ladder -------------------------------------------------------------
+
+/** A connection study ran this session (transient — feeds one goal). */
+let studyRan = false;
+
+/** Goal-predicate view straight off game state + this tick's outputs;
+ *  built per tick (skip loop) without paying for a full snapshot. The
+ *  ladder must see identical inputs whether a tick ran live (step →
+ *  makeSnapshot) or inside a skip, or skipping would not be replayable. */
+function goalViewOf(out: ReturnType<typeof solveTick>): GoalView {
+  return {
+    assets: [...state.assets.values()],
+    events: state.events,
+    councils: [...state.councils.entries()],
+    stats: {
+      servedCustomers: out.servedCustomers,
+      connectedMW: out.dispatch.connectedMW,
+    },
+    inbox: { tenders: state.tenders },
+    studyRan,
+  };
+}
+
 function makeSnapshot(accumulate: boolean): SimSnapshot {
   const d = ensureDerived();
   const out = solveTick(state, ctx, d, accumulate);
   if (accumulate) sampleHistory(out);
+  // advance the goal ladder BEFORE assembling the snapshot so the
+  // completion event and the next rung both ride this same post
+  const view = goalViewOf(out);
+  advanceGoals(state, view);
   return {
     tick: state.tick,
     simTimeMin: state.simTimeMin,
@@ -198,6 +231,7 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
       levyPct: state.levyPct,
     },
     councils: [...state.councils.entries()].map(([k, c]) => [k, { ...c }]),
+    goal: goalStatus(state.goalIndex ?? 0, view),
     riio: {
       index: state.period.index,
       elapsedMin: Math.max(0, state.simTimeMin - state.period.startMin),
@@ -208,9 +242,50 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
   };
 }
 
+// --- time-skip ---------------------------------------------------------------
+
+let skipping = false;
+
+/** Post a progress snapshot every 2 game-hours of a skip. */
+const SKIP_POST_EVERY_MIN = 120;
+
+/** Fast-forward to the skip target by running ordinary ticks back to
+ *  back (advanceTime + accumulating solveTick at 16x-equivalent speed,
+ *  downshifting to land exactly) — deterministically identical to
+ *  playing the same ticks live. Any new 'bad' event aborts; an
+ *  event-skip also stops on 'warn' (that arrival is the destination). */
+function runSkip(to: SkipTarget): void {
+  skipping = true;
+  const prevSpeed = state.speed;
+  try {
+    const target = skipTargetMin(state.simTimeMin, to);
+    let lastPostMin = state.simTimeMin;
+    for (let ticks = 0; state.simTimeMin < target && ticks < MAX_SKIP_TICKS; ticks++) {
+      state.speed = skipTickSpeed(state.simTimeMin, target);
+      const seqBefore = state.eventSeq;
+      advanceTime(state);
+      const d = ensureDerived();
+      const out = solveTick(state, ctx, d, true);
+      sampleHistory(out);
+      advanceGoals(state, goalViewOf(out));
+      if (skipAborts(state.events, seqBefore, to)) break;
+      if (state.simTimeMin - lastPostMin >= SKIP_POST_EVERY_MIN && state.simTimeMin < target) {
+        lastPostMin = state.simTimeMin;
+        post({ type: 'snapshot', snapshot: makeSnapshot(false) });
+      }
+    }
+  } finally {
+    state.speed = prevSpeed;
+    skipping = false;
+  }
+  post({ type: 'snapshot', snapshot: makeSnapshot(false) });
+  post({ type: 'saveData', data: serialize(state) });
+}
+
 function step(): void {
   try {
-    if (state.speed === 0) return;
+    // a running skip owns the clock: the interval must not double-advance
+    if (skipping || state.speed === 0) return;
     advanceTime(state);
     post({ type: 'snapshot', snapshot: makeSnapshot(true) });
     if (state.tick % AUTOSAVE_TICKS === 0) {
@@ -259,17 +334,30 @@ self.onmessage = (e: MessageEvent<MainToWorker>) => {
         derived = undefined;
         history.clear();
         lastHistMin = -1;
+        studyRan = false;
         post({ type: 'snapshot', snapshot: makeSnapshot(false) });
         post({ type: 'saveData', data: serialize(state) });
         break;
       case 'balance':
-        post({ type: 'balance', report: computeBalance(state, ctx) });
+        post({ type: 'balance', report: computeBalance(state, ctx, msg.season ?? 'today') });
         break;
       case 'study': {
         const app = state.applications.find((x) => x.id === msg.appId);
-        if (app) post({ type: 'study', study: connectionStudy(state, ctx, app) });
+        if (app) {
+          studyRan = true; // the goal ladder counts any study as run
+          post({ type: 'study', study: connectionStudy(state, ctx, app) });
+        }
         break;
       }
+      case 'skip':
+        if (!skipping) runSkip(msg.to);
+        break;
+      case 'skipGoals':
+        // dismiss the ladder for good: park the index past the end
+        state.goalIndex = GOALS.length;
+        post({ type: 'snapshot', snapshot: makeSnapshot(false) });
+        post({ type: 'saveData', data: serialize(state) });
+        break;
       case 'watch':
         watchedAsset = msg.assetId;
         // answer immediately so the sparkline appears even while paused

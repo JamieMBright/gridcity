@@ -285,7 +285,7 @@ export function solveTick(
   const rng = new Rng(state.rngState);
 
   if (dtMin > 0) {
-    stepWeather(state.weather, rng, dtMin);
+    stepWeather(state.weather, rng, dtMin, state.simTimeMin);
     if (isStorm(state.weather.wind) && !state.stormAnnounced) {
       state.stormAnnounced = true;
       pushEvent(state, 'warn', 'storm over the region — overhead lines at risk');
@@ -801,12 +801,24 @@ export function currentPeriodActuals(state: GameState): PeriodActuals {
   };
 }
 
-/** Current weather/renewable factors for the HUD. */
-export function weatherView(state: GameState): { sun: number; wind: number; cloud: number } {
+/** Current weather/renewable factors for the HUD, plus the multi-day
+ *  regime (current + pre-rolled next) for the forecast strip. */
+export function weatherView(state: GameState): {
+  sun: number;
+  wind: number;
+  cloud: number;
+  regime: string;
+  nextRegime: string;
+  regimeEndsMin: number;
+} {
   return {
     sun: sunFactor(state.simTimeMin, state.weather),
     wind: windFactor(state.weather, false),
     cloud: state.weather.cloud,
+    // fallbacks cover pre-season saves before their first stepWeather
+    regime: state.weather.regime ?? 'mild',
+    nextRegime: state.weather.nextRegime ?? 'mild',
+    regimeEndsMin: state.weather.regimeEndsMin ?? state.simTimeMin,
   };
 }
 

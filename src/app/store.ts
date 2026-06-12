@@ -90,6 +90,10 @@ interface AppState {
   setMenuOpen: (open: boolean) => void;
   setTutorialStep: (step: number | undefined) => void;
   setKpiOpen: (open: boolean) => void;
+  /** A time-skip is running on the worker (disables the HUD skip buttons
+   *  until its final snapshot lands). */
+  skipping: boolean;
+  setSkipping: (skipping: boolean) => void;
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -161,4 +165,6 @@ export const useAppStore = create<AppState>((set) => ({
   setMenuOpen: (menuOpen) => set({ menuOpen }),
   setTutorialStep: (tutorialStep) => set({ tutorialStep }),
   setKpiOpen: (kpiOpen) => set({ kpiOpen }),
+  skipping: false,
+  setSkipping: (skipping) => set({ skipping }),
 }));

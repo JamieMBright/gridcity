@@ -12,7 +12,7 @@ import type { CouncilState } from './customers/adoption';
 import type { BillBreakdown } from './regulation/bill';
 import type { KpiRates } from './regulation/kpis';
 import type { PeriodActuals, PeriodTargets, ReportCard } from './regulation/riio';
-import type { BalanceReport } from './balance';
+import type { BalanceReport, BalanceSeason } from './balance';
 import type { ConnectionStudy } from './study';
 import type { GameEvent, GrowthRecord, SaveData } from './state';
 import type { BranchView } from './tick';
@@ -22,6 +22,52 @@ export type SimSpeed = 0 | 1 | 4 | 16;
 /** Game-minutes advanced per sim tick at 1x speed. Sim runs at 4 ticks/sec. */
 export const MINUTES_PER_TICK = 7.5;
 export const TICKS_PER_SECOND = 4;
+
+// --- time-skip ---------------------------------------------------------------
+
+/** Skip destinations: next evening peak / next morning / next notable event. */
+export type SkipTarget = 'peak' | 'morning' | 'event';
+
+/** Hard wall-time safety cap on a single skip, ticks. */
+export const MAX_SKIP_TICKS = 20_000;
+
+/** Longest an event-skip fast-forwards before giving up, game-minutes. */
+export const SKIP_EVENT_MAX_MIN = 7 * 1440;
+
+/** The game-minute a skip aims for: the NEXT 18:00 ('peak') / 06:00
+ *  ('morning'), or now + 7 game-days for an event-skip (which expects to
+ *  stop early the moment something happens). */
+export function skipTargetMin(nowMin: number, to: SkipTarget): number {
+  if (to === 'event') return nowMin + SKIP_EVENT_MAX_MIN;
+  const targetOfDay = to === 'peak' ? 18 * 60 : 6 * 60;
+  const ahead = (targetOfDay - (nowMin % 1440) + 1440) % 1440;
+  return nowMin + (ahead === 0 ? 1440 : ahead);
+}
+
+/** Speed for the next skip tick: as fast as possible without overshooting.
+ *  Sim time always moves in MINUTES_PER_TICK·speed steps, so downshifting
+ *  16→4→1 near the target lands exactly on any 7.5-minute-aligned target
+ *  — and every tick stays identical to one the player could play live. */
+export function skipTickSpeed(nowMin: number, targetMin: number): Exclude<SimSpeed, 0> {
+  const remaining = targetMin - nowMin;
+  for (const speed of [16, 4] as const) {
+    if (MINUTES_PER_TICK * speed <= remaining) return speed;
+  }
+  return 1;
+}
+
+/** Should a skip stop after a tick that pushed events past `seqBefore`?
+ *  'bad' news always interrupts; an event-skip also stops on 'warn'
+ *  (that arrival IS the destination). */
+export function skipAborts(
+  events: ReadonlyArray<{ seq: number; sev: 'info' | 'warn' | 'bad' }>,
+  seqBefore: number,
+  to: SkipTarget,
+): boolean {
+  return events.some(
+    (e) => e.seq > seqBefore && (e.sev === 'bad' || (to === 'event' && e.sev !== 'info')),
+  );
+}
 
 export interface SimSnapshot {
   tick: number;
@@ -58,7 +104,17 @@ export interface SimSnapshot {
     /** Customer-weighted council satisfaction, 0..100. */
     satisfactionAvg: number;
   };
-  weather: { sun: number; wind: number; cloud: number };
+  weather: {
+    sun: number;
+    wind: number;
+    cloud: number;
+    /** Multi-day weather regime now in force, and the pre-rolled next
+     *  one — the forecast strip reads ahead off these. */
+    regime: string;
+    nextRegime: string;
+    /** Sim minute the current regime hands over. */
+    regimeEndsMin: number;
+  };
   bill: BillBreakdown;
   fleet: {
     vans: Array<{ id: number; x: number; y: number; busy: boolean }>;
@@ -96,6 +152,11 @@ export interface SimSnapshot {
   };
   /** [council id, adoption + satisfaction]. */
   councils: Array<[number, CouncilState]>;
+  /** Early-game goal ladder: the current goal, or undefined once the
+   *  ladder is complete or dismissed. */
+  goal?:
+    | { index: number; total: number; label: string; progress?: string | undefined }
+    | undefined;
   riio: {
     index: number;
     /** Game-minutes into the 5-year period. */
@@ -115,8 +176,13 @@ export type MainToWorker =
   | { type: 'watch'; assetId?: number | undefined }
   /** Run a connection study for an open application. */
   | { type: 'study'; appId: number }
-  /** Cut a grid-balance report (whole map + per council). */
-  | { type: 'balance' }
+  /** Cut a grid-balance report (whole map + per council); profiles run
+   *  on the chosen typical day (default 'today'). */
+  | { type: 'balance'; season?: BalanceSeason | undefined }
+  /** Fast-forward to the next evening peak / morning / notable event. */
+  | { type: 'skip'; to: SkipTarget }
+  /** Dismiss the early-game goal ladder for good (veterans). */
+  | { type: 'skipGoals' }
   | { type: 'requestSave' };
 
 export type WorkerToMain =
