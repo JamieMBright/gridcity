@@ -80,7 +80,7 @@ test.describe('building on the map', () => {
     expect(genYrK).toBeLessThan(1000); // idle plant is the developer's problem
     const capexYrK = await store<number>(page, '(s) => s.snapshot.bill.capexYrK');
     expect(capexYrK).toBeGreaterThan(0);
-    await expect(page.getByText('network (DUoS)', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'itemise network (DUoS)' })).toBeVisible();
   });
 
   test('ghost preview quotes a cost before building', async ({ page }) => {
