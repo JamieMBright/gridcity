@@ -13,6 +13,7 @@ import {
   type SubType,
 } from './catalog';
 import type { Branch, Bus, Network, VoltageLevel } from './grid/types';
+import { CAPBANK_BOOST_PU } from './grid/voltage';
 
 export type PlacedAsset = GenAsset | SubAsset | LineAsset | DepotAsset;
 
@@ -55,6 +56,12 @@ export interface GenAsset {
   /** Batteries only: dispatch policy (default 'shave' — saves from
    *  before this field hydrate to today's behaviour unchanged). */
   policy?: BatteryPolicy | undefined;
+  /** Gas peakers only (#23): converted to hydrogen firing. Burns the
+   *  electrolyser fleet's H₂ store first (carbon 0, fuel at
+   *  H2_FUEL_COST_K) and falls back to gas price + gas carbon when the
+   *  store runs dry. Additive: rides PlacedAsset serialization; absent
+   *  (old saves, unconverted plant) = gas firing, behaviour unchanged. */
+  h2?: boolean | undefined;
 }
 
 export interface SubAsset {
@@ -155,7 +162,15 @@ export function deriveNetwork(assets: Iterable<PlacedAsset>, lineRatingMul = 1):
       const spec = SUBS[a.sub];
       const levels = assetLevels(a); // tee junctions carry the line's level
       for (const level of levels) {
-        buses.push({ id: busId(a.id, level), x: a.x, y: a.y, level });
+        // capacitor banks (#19) stamp their voltage credit on the bus;
+        // only the voltage estimate reads it — DC flow is untouched
+        buses.push({
+          id: busId(a.id, level),
+          x: a.x,
+          y: a.y,
+          level,
+          ...(a.sub === 'capbank' ? { vBoost: CAPBANK_BOOST_PU } : {}),
+        });
       }
       // chain a transformer per voltage step (BSPs carry 400/132 + 132/33)
       for (let k = 0; k + 1 < levels.length; k++) {

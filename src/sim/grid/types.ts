@@ -12,6 +12,11 @@ export interface Bus {
   x: number;
   y: number;
   level: VoltageLevel;
+  /** Shunt-compensation voltage credit, pu (#19): stamped by
+   *  deriveNetwork on capacitor-bank buses, consumed ONLY by the
+   *  voltage-magnitude estimate (grid/voltage.ts). The DC power flow
+   *  never reads it — banks move volts, not megawatts. */
+  vBoost?: number | undefined;
 }
 
 export interface Branch {

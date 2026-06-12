@@ -93,6 +93,10 @@ export interface SimSnapshot {
   /** Game time in minutes since scenario start. */
   simTimeMin: number;
   speed: SimSpeed;
+  /** Active scenario ('london' or a tutorial-mission id; additive). */
+  scenarioId?: string | undefined;
+  /** Tutorial missions: the win predicate has fired (sticky). */
+  missionComplete?: boolean | undefined;
   assets: PlacedAsset[];
   branches: BranchView[];
   /** [assetId, voltage level, voltage pu] per network bus. */
@@ -201,7 +205,7 @@ export interface SimSnapshot {
 export type MainToWorker =
   | { type: 'ping'; t: number }
   | { type: 'start'; save?: unknown }
-  | { type: 'newGame' }
+  | { type: 'newGame'; scenarioId?: string }
   | { type: 'command'; seq: number; cmd: Command }
   /** Follow an asset's performance history (sparkline); undefined stops. */
   | { type: 'watch'; assetId?: number | undefined }

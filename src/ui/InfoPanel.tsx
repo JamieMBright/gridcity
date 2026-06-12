@@ -17,6 +17,7 @@ import {
 import { assetCapexK } from '../sim/regulation/bill';
 import { availAt } from '../sim/balance';
 import { nationalPriceMWh } from '../sim/market/dispatch';
+import { CAPBANK_BOOST_PU } from '../sim/grid/voltage';
 import { priceLine } from '../sim/cost';
 import { NO_COUNCIL, TERRAIN, ZONE, type Terrain, type Zone } from '../sim/map/types';
 import { COV } from '../sim/tick';
@@ -174,6 +175,11 @@ function CouncilStats({ councilId }: { councilId: number }) {
         · EV {(cs.ev * 100).toFixed(0)}% · HP {(cs.hp * 100).toFixed(0)}% · PV{' '}
         {(cs.pv * 100).toFixed(0)}%
       </span>
+      {cs.smartCharging === true && (
+        // fund/stop lives in the grid-balance panel (this hover card is
+        // pointer-transparent); the badge just reflects the programme
+        <span style={{ color: theme.ok }}> · ⚡ smart charging</span>
+      )}
     </div>
   );
 }
@@ -472,6 +478,10 @@ function AssetInfo({ assetId }: { assetId: number }) {
         'import price now',
         `£${nationalPriceMWh(snapshot.simTimeMin, snapshot.weather).toFixed(0)}/MWh`,
       ]);
+    } else if (asset.gen === 'electrolyser') {
+      const soc = snapshot.soc.find(([id]) => id === assetId)?.[1] ?? 0;
+      rows.push(['soaking', `${Math.abs(Math.min(0, mw)).toFixed(1)} / ${spec.capacityMW} MW`]);
+      rows.push(['H₂ store', `${soc.toFixed(0)} / ${spec.energyMWh ?? 0} MWh`]);
     } else {
       rows.push(['output', `${mw.toFixed(1)} / ${spec.capacityMW} MW`]);
       if (asset.ppaMWh !== undefined) rows.push(['PPA strike', `£${asset.ppaMWh}/MWh`]);
@@ -495,6 +505,9 @@ function AssetInfo({ assetId }: { assetId: number }) {
     }
     if (asset.sub !== 'tee') {
       rows.push(['build', asset.underground ? 'underground (GIS)' : 'outdoor (AIS)']);
+    }
+    if (asset.sub === 'capbank') {
+      rows.push(['voltage support', `+${CAPBANK_BOOST_PU.toFixed(2)} pu at and downstream of its bus`]);
     }
     rows.push(healthRow(asset, snapshot.simTimeMin));
     const sec = snapshot.security?.find(([id]) => id === assetId)?.[1];
@@ -565,6 +578,22 @@ function AssetInfo({ assetId }: { assetId: number }) {
       )}
       {asset.kind === 'gen' && asset.gen === 'battery' && (
         <BatteryPolicyControls assetId={asset.id} policy={asset.policy ?? 'shave'} />
+      )}
+      {asset.kind === 'gen' && asset.gen === 'gasPeaker' && (
+        <div style={{ pointerEvents: 'auto', marginTop: 6 }}>
+          {asset.h2 ? (
+            <div style={{ fontSize: 11, color: theme.gold }}>
+              hydrogen-fired — burns the H₂ store first, gas when the tanks run dry
+            </div>
+          ) : (
+            <button
+              style={{ ...ACTION_BTN, width: '100%' }}
+              onClick={() => sendCommand({ type: 'convertToH2', assetId: asset.id })}
+            >
+              ⚗ convert to hydrogen firing
+            </button>
+          )}
+        </div>
       )}
       {asset.kind === 'sub' && !asset.idno && SUBS[asset.sub].mvaSteps && (
         <MvaControls assetId={asset.id} sub={asset.sub} mva={subMva(asset)} auto={asset.mvaAuto !== false} />

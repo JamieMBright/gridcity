@@ -49,9 +49,11 @@ import {
 import {
   batteryTile,
   biomassTile,
+  capBankTile,
   coalPlantTile,
   constructionTile,
   depotTile,
+  electrolyserTile,
   gasPeakerTile,
   gasPlantTile,
   interconnectorTile,
@@ -212,6 +214,7 @@ function buildSpriteCells(): Map<string, Cell> {
   set('sub_bulk', subBulkTile(183), 2, 2);
   set('sub_pole', subPoleTile(184));
   set('sub_vault', subVaultTile(185));
+  set('sub_capbank', capBankTile(186));
   set('gen_gas', gasPlantTile(191));
   set('gen_peaker', gasPeakerTile(199));
   set('gen_coal', coalPlantTile(291), 3, 2);
@@ -223,6 +226,7 @@ function buildSpriteCells(): Map<string, Cell> {
   set('gen_biomass', biomassTile(232));
   set('gen_battery', batteryTile(196));
   set('gen_interconnector', interconnectorTile(246));
+  set('gen_electrolyser', electrolyserTile(247));
   set('depot', depotTile(197));
   set('van', vanTile(198));
   set('pylon_400', pylon400Tile(241));

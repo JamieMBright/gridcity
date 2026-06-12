@@ -15,8 +15,10 @@ import {
   type VegPolicy,
 } from './catalog';
 import { CONNECT_DAYS, GEN_OF_KIND } from './events/applications';
+import { applyConvertToH2 } from './market/hydrogen';
 import { applyReplaceAsset, applyScheduleMaintenance } from './reliability/ageing';
 import { applyStormPrep } from './reliability/stormprep';
+import { applySetSmartCharging } from './customers/smartCharging';
 import { bumpMood, developerOf, TENDER_OPEN_DAYS, type Tender } from './events/developers';
 import { MAX_VANS } from './fleet/fleet';
 import type { VoltageLevel } from './grid/types';
@@ -72,6 +74,11 @@ export type Command =
   /** Storm preparation (ROADMAP #9): hire surge contractor crews or run
    *  an emergency vegetation cut. Logic lives in reliability/stormprep. */
   | { type: 'stormPrep'; action: 'surge' | 'vegCut'; lineId?: number; days?: number }
+  /** Fund (or wind down) a council's smart-charging programme (ROADMAP
+   *  #18): that council's EV evening profile flattens, the £/yr cost
+   *  rides the bill. Councils below satisfaction 50 refuse. Logic lives
+   *  in customers/smartCharging.ts. */
+  | { type: 'setSmartCharging'; councilId: number; on: boolean }
   /** Replace an aged line/substation like-for-like (ROADMAP #15): resets
    *  builtAtMin (derived health → 100) at 70% of current capex — the
    *  easements and civils are already paid for. reliability/ageing.ts. */
@@ -80,6 +87,10 @@ export type Command =
    *  (ROADMAP #16): ~+25 health on completion, 10% of capex, no fleet
    *  job. Logic lives in reliability/ageing.ts. */
   | { type: 'scheduleMaintenance'; assetId: number }
+  /** Convert a gas peaker to hydrogen firing (ROADMAP #23): burns the
+   *  electrolyser fleet's H₂ store first (carbon 0), falls back to gas
+   *  when the tanks run dry. Logic lives in market/hydrogen.ts. */
+  | { type: 'convertToH2'; assetId: number }
   /** Handled by the worker via its snapshot stacks. */
   | { type: 'undo' }
   | { type: 'redo' };
@@ -766,11 +777,17 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
     case 'stormPrep':
       return applyStormPrep(state, cmd);
 
+    case 'setSmartCharging':
+      return applySetSmartCharging(state, map, cmd);
+
     case 'replaceAsset':
       return applyReplaceAsset(state, cmd.assetId);
 
     case 'scheduleMaintenance':
       return applyScheduleMaintenance(state, cmd.assetId);
+
+    case 'convertToH2':
+      return applyConvertToH2(state, cmd.assetId);
 
     case 'undo':
     case 'redo':

@@ -13,16 +13,21 @@ export const STORY_KEY = 'ec-story-pending';
 
 export function StoryIntro() {
   const menuOpen = useAppStore((s) => s.menuOpen);
+  const scenarioId = useAppStore((s) => s.scenarioId);
   const [beat, setBeat] = useState(-1);
 
+  // London-only fiction: campaign missions must never letterbox. The
+  // pending flag is consumed (not deferred) so it can't leak into a
+  // later mission → london transition.
+  const isLondon = scenarioId === 'london';
   useEffect(() => {
     if (!menuOpen && sessionStorage.getItem(STORY_KEY) === '1') {
       sessionStorage.removeItem(STORY_KEY);
-      setBeat(0);
+      if (isLondon) setBeat(0);
     }
-  }, [menuOpen]);
+  }, [menuOpen, isLondon]);
 
-  if (menuOpen || beat < 0) return null;
+  if (menuOpen || beat < 0 || !isLondon) return null;
   const current = STORY_BEATS[beat];
   if (!current) return null;
   const last = beat === STORY_BEATS.length - 1;

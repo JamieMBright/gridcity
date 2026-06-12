@@ -21,14 +21,17 @@ export const HOTKEYS: Hotkey[] = [
   { key: '8', tool: { t: 'gen', gen: 'nuclear' } },
   { key: '9', tool: { t: 'gen', gen: 'battery' } },
   { key: '0', tool: { t: 'gen', gen: 'coal' } },
-  // the number row is full: M for iMports (the interconnector)
+  // the number row is full: M for iMports (the interconnector),
+  // Y for hYdrogen (the electrolyser)
   { key: 'm', tool: { t: 'gen', gen: 'interconnector' } },
-  // substations
+  { key: 'y', tool: { t: 'gen', gen: 'electrolyser' } },
+  // substations (V = VAr support: the capacitor bank)
   { key: 'q', tool: { t: 'sub', sub: 'bulk' } },
   { key: 'w', tool: { t: 'sub', sub: 'grid' } },
   { key: 'e', tool: { t: 'sub', sub: 'dist' } },
   { key: 'r', tool: { t: 'sub', sub: 'pole' } },
   { key: 't', tool: { t: 'sub', sub: 'vault' } },
+  { key: 'v', tool: { t: 'sub', sub: 'capbank' } },
   // lines (the handler preserves the current overhead/underground mode)
   { key: 'z', tool: { t: 'line', level: 400, build: 'overhead' } },
   { key: 'x', tool: { t: 'line', level: 132, build: 'overhead' } },

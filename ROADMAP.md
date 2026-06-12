@@ -329,7 +329,7 @@ tender UI shows both numbers.
 **Verify.** Unit: cheaper curtailer is cut first; constraint cost equals
 offers paid.
 
-### 18. Per-council smart-charging lever
+### 18. ~~Per-council smart-charging lever~~ (shipped — smart-charging/ToU lane, this branch; summary in TASKS.md Done)
 **What/Why.** The EV evening spike is the canonical DSO problem; smart
 charging is the canonical fix. Making it a per-council programme ties
 the satisfaction system to load-shape engineering.
@@ -344,7 +344,7 @@ mix; approximate by majority council per catchment v1).
 **Verify.** Unit: funded council's sub peak drops; refusal below trust
 threshold; bill line appears.
 
-### 19. Voltage control builds (capacitor banks / SVCs)
+### ~~19. Voltage control builds (capacitor banks / SVCs)~~ — SHIPPED (Wave 4)
 **What/Why.** Voltage sag currently has one answer: more copper. A
 cheap shunt-compensation build differentiates the voltage problem from
 the thermal one and uses the voltage model that already exists.
@@ -394,7 +394,7 @@ link = location hash.
 **Verify.** Unit: two newGame(seed) runs tick-identical for 1k ticks.
 e2e: URL seed produces named expectation.
 
-### 23. Hydrogen / electrolyser endgame
+### ~~23. Hydrogen / electrolyser endgame~~ — SHIPPED (Wave 4; innovation gating deferred to integration)
 **What/Why.** Late-game surplus wind needs somewhere to go; hydrogen is
 the era-appropriate sink and a second life for the gas fleet.
 **Design.** Innovation-gated: electrolyser builds soak curtailed energy
@@ -407,7 +407,7 @@ gating; balance supply notes H₂ backing.
 **Verify.** Unit: surplus charges store instead of curtailing; peaker
 burns H₂ first; carbon drops.
 
-### 24. Demand response / time-of-use tariffs
+### 24. ~~Demand response / time-of-use tariffs~~ (shipped — smart-charging/ToU lane, this branch; summary in TASKS.md Done)
 **What/Why.** The demand SHAPE is fixed; ToU tariffs are the
 behavioural lever every real supplier pulls. It complements smart
 charging with a whole-home effect.

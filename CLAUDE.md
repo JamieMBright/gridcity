@@ -33,6 +33,12 @@ model it the way GB actually works, then simplify for fun.
   e2e duplication was deliberately removed — local must stay identical
   to a clean checkout: fresh server, no reuse).
 - Use subagents for parallel independent work (art vs sim vs renderer).
+- **Never fire-and-forget long background work** (owner, 2026-06-12:
+  "check in way more regularly to avoid timeout"). Arm a watchdog/
+  heartbeat on every e2e gate and long agent, and check progress every
+  few minutes — a silently killed gate looks identical to a slow one
+  (one died at a timeout cap and sat unnoticed ~1 h). Stream gate
+  output to a pollable file, not just a terminal pipe.
 - **Auto-merge is standing policy** (owner-authorized): when a work
   package is complete and the full local suite is green, create the PR,
   wait for CI, and merge it yourself — no need to ask. Never push to
@@ -57,6 +63,17 @@ events/developers) · `src/data/londonMap.ts` (the whole map, code-drawn)
 
 Commands: `npx vitest run` · `npx playwright test` (~7 min, 2 workers)
 · `npx tsc -b` · `npx eslint src tests e2e tools` · `npm run build`.
+
+## Design principles
+
+- **Beautiful on BOTH mobile and desktop web** (owner, 2026-06-12) —
+  every feature/panel/overlay is judged on both. Mobile assumes a
+  **landscape hold**: design for it, and show a rotate prompt when
+  held portrait. Test/screenshot at a phone-landscape viewport as
+  well as desktop before claiming UI works.
+- Lofi cosy golden-hour aesthetic (sunset oranges, dusty pinks, muted
+  purples, deep navy shadows); powering an area literally makes it
+  glow. UI chrome belongs to the same dusk world as the map.
 
 ## Map doctrine (current direction)
 
