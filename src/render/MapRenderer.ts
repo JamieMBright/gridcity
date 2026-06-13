@@ -1239,6 +1239,10 @@ export class MapRenderer {
   }
 
   tileToScreen(x: number, y: number): { x: number; y: number } {
+    // a tile query can race a renderer (re)build (e.g. on a mission map
+    // swap): if the Pixi app isn't up yet, report off-screen rather than
+    // throw inside the caller's page.evaluate
+    if (!this.app?.canvas) return { x: -1, y: -1 };
     const c = this.tileCentre(x, y);
     const rect = this.app.canvas.getBoundingClientRect();
     return {

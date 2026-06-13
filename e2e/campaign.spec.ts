@@ -89,8 +89,10 @@ test.describe('campaign tutorial — real UI path at phone-landscape', () => {
     // THE camera bug fix: the village + ridge are on-screen on mission
     // start (the prior bug left them off-screen and clicks landed on
     // nothing). Assert both are inside the 844x390 viewport.
-    expect(await tileOnScreen(page, VILLAGE)).toBe(true);
-    expect(await tileOnScreen(page, WIND)).toBe(true);
+    // poll: the camera-fit + first render can lag a beat behind the
+    // mission start under e2e load — wait for it to settle, don't snap
+    await expect.poll(() => tileOnScreen(page, VILLAGE), { timeout: 15_000 }).toBe(true);
+    await expect.poll(() => tileOnScreen(page, WIND), { timeout: 15_000 }).toBe(true);
 
     // tiny map: a few hundred customers, nothing seeded
     const total = await store<number>(page, '(s) => s.snapshot.stats.totalCustomers');
