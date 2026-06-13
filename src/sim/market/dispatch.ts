@@ -22,14 +22,17 @@ import {
   h2StoreMWh,
 } from './hydrogen';
 import { findIslands } from '../grid/topology';
+import { islandFrequencyHz, type IslandFreqSample } from './frequency';
 import type { Injection, Network } from '../grid/types';
 import {
+  coolingFactor,
   domesticProfile,
   evProfile,
   hpProfile,
   processProfile,
   seasonFactor,
   sunFactor,
+  thermalDerate,
   tideFactor,
   windFactor,
   type WeatherState,
@@ -141,6 +144,10 @@ export interface DispatchResult {
   connectedMW: number;
   /** Demand actually supplied after ratings and generation limits, MW. */
   servedMW: number;
+  /** Per-electrified-island [loadMW, local frequency Hz] — the HUD's
+   *  load-weighted system frequency is the mean of these (market/
+   *  frequency.ts). Islands carrying no load do not appear. */
+  freqSamples: IslandFreqSample[];
 }
 
 interface Unit {
@@ -212,7 +219,8 @@ export function runDispatch(
       : h2PoolMWh > 1e-9
         ? Number.POSITIVE_INFINITY // paused re-solve: no drain, assume covered
         : 0;
-  const fDom = domesticProfile(inp.simTimeMin);
+  // heatwave cooling load lifts the domestic shape (AC/fridges/fans)
+  const fDom = domesticProfile(inp.simTimeMin) * (1 + coolingFactor(inp.simTimeMin, inp.weather));
   const fProc = processProfile(inp.simTimeMin);
   const fEv = evProfile(inp.simTimeMin, inp.tech.smartEv);
   const fHp = hpProfile(inp.simTimeMin, inp.weather.cloud);
@@ -366,7 +374,9 @@ export function runDispatch(
       const bus = busId(a.id, 33);
       const gi = islandOf.get(bus);
       if (gi === undefined) continue;
-      const rating = subMva(a);
+      // heatwave robs transformers of cooling margin → derated rating,
+      // so a hot-day catchment overloads sooner (cappedNowMW bites earlier)
+      const rating = subMva(a) * thermalDerate(inp.simTimeMin, inp.weather);
       let shavedMW = 0;
       let effective = loadNowMW;
       if (inp.tech.flexMarket && loadNowMW > rating) {
@@ -393,6 +403,7 @@ export function runDispatch(
   let curtailedFlexMW = 0;
   let connectedMW = 0;
   let servedMW = 0;
+  const freqSamples: IslandFreqSample[] = [];
 
   const constraintDetail: Array<[number, number, number]> = [];
   const ppaDetail: Array<[number, number, number]> = [];
@@ -554,6 +565,13 @@ export function runDispatch(
     // consumers are served by dispatched generation plus rooftop export
     const consFrac = demand > 0 ? Math.min(1, (target + exportMW) / demand) : 1;
 
+    // this energized island's local frequency: a deficit (load it can't
+    // meet) drags it below nominal; spare capacity nudges it a touch over.
+    // It votes into the HUD's load-weighted system frequency (frequency.ts).
+    if (demand > 0) {
+      freqSamples.push({ loadMW: demand, hz: islandFrequencyHz(1 - consFrac) });
+    }
+
     let remaining = target;
     for (const u of stack) {
       const mw = Math.min(u.availMW, remaining);
@@ -653,5 +671,6 @@ export function runDispatch(
     curtailedFlexMW,
     connectedMW,
     servedMW,
+    freqSamples,
   };
 }

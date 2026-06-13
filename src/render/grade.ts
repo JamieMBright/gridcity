@@ -159,7 +159,7 @@ export function sceneGrade(simTimeMin: number, weather: WeatherLike): SceneGrade
 
   const storm = smooth(0.68, 0.85, weather.wind);
   const drizzle =
-    weather.regime === 'windy-wet'
+    weather.regime === 'windy-wet' || weather.regime === 'storm'
       ? smooth(0.5, 0.78, weather.cloud)
       : smooth(0.82, 0.95, weather.cloud) * 0.5;
   const rain = clamp01(Math.max(drizzle * 0.7, storm));

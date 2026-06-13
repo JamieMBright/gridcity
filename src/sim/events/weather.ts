@@ -43,7 +43,7 @@ export const MIDSUMMER_MIN = simMinOfDoy(COLDEST_DOY + Math.round(DAYS_PER_YEAR 
 // ----------------------------------------------------------------------
 // Multi-day weather regimes.
 
-export type WeatherRegime = 'windy-wet' | 'calm-cold' | 'mild' | 'heatwave';
+export type WeatherRegime = 'windy-wet' | 'calm-cold' | 'mild' | 'heatwave' | 'storm';
 
 export interface WeatherState {
   /** 0..1 cloud cover. */
@@ -57,6 +57,11 @@ export interface WeatherState {
   nextRegime?: WeatherRegime;
   /** Sim minute the current regime hands over to the next. */
   regimeEndsMin?: number;
+  /** Dedupe key for the disaster-incident announcer (events/incidents.ts):
+   *  the regimeEndsMin of the regime instance whose named incident has
+   *  already been announced, so a storm/heatwave fires its banner exactly
+   *  once however many ticks it spans. Additive — absent on old saves. */
+  incidentKeyMin?: number;
 }
 
 interface RegimeSpec {
@@ -72,8 +77,13 @@ interface RegimeSpec {
 }
 
 const REGIMES: Record<WeatherRegime, RegimeSpec> = {
-  // Atlantic front conveyor: gales and rain; storms live here.
-  'windy-wet': { wind: 0.66, windWinterBoost: 0.12, cloud: 0.8, windBand: 0.15, cloudBand: 0.15 },
+  // Atlantic front conveyor: gales and rain — heavy enough to flood, but
+  // it stays under the storm-fault threshold (faults.ts isStorm = 0.85).
+  'windy-wet': { wind: 0.66, windWinterBoost: 0.12, cloud: 0.85, windBand: 0.15, cloudBand: 0.12 },
+  // Named storm / severe windstorm: gusts well past the 0.85 fault
+  // threshold (and the 0.7 severe band) with torrential rain. The
+  // set-piece disaster — short and sharp.
+  storm: { wind: 0.92, windWinterBoost: 0.06, cloud: 0.95, windBand: 0.06, cloudBand: 0.05 },
   // Winter anticyclone: still air and gloom — the dunkelflaute set-piece.
   'calm-cold': { wind: 0.1, windWinterBoost: 0, cloud: 0.55, windBand: 0.08, cloudBand: 0.2 },
   // Changeable nothing-weather; the old baseline behaviour.
@@ -82,23 +92,33 @@ const REGIMES: Record<WeatherRegime, RegimeSpec> = {
   heatwave: { wind: 0.18, windWinterBoost: 0, cloud: 0.06, windBand: 0.08, cloudBand: 0.06 },
 };
 
-/** Regimes last 2–6 game-days. */
+/** Regimes last 2–6 game-days — but a storm blows through in 1–2 (a
+ *  severe windstorm is hours-to-a-day in reality; we round up for play). */
 export const REGIME_MIN_DAYS = 2;
 export const REGIME_MAX_DAYS = 6;
+export const STORM_MIN_DAYS = 1;
+export const STORM_MAX_DAYS = 2;
 
-function regimeDurationMin(rng: Rng): number {
-  return rng.range(REGIME_MIN_DAYS, REGIME_MAX_DAYS) * MIN_PER_DAY;
+function regimeDurationMin(rng: Rng, regime: WeatherRegime): number {
+  return regime === 'storm'
+    ? rng.range(STORM_MIN_DAYS, STORM_MAX_DAYS) * MIN_PER_DAY
+    : rng.range(REGIME_MIN_DAYS, REGIME_MAX_DAYS) * MIN_PER_DAY;
 }
 
-/** Seeded regime draw, weighted by season: windy-wet fronts queue up
- *  Oct–Mar (so storms cluster there), calm-cold is winter-only, the
- *  heatwave is summer-only, mild fills the rest. */
+/** Seeded regime draw, weighted by season: windy-wet fronts (and the
+ *  occasional named STORM that escalates out of them) queue up Oct–Mar,
+ *  calm-cold is winter-only, the heatwave is summer-only, mild fills the
+ *  rest. Storms are deliberately frequent enough to actually be seen —
+ *  a notable blow every couple of weeks in the stormy half of the year. */
 function pickRegime(rng: Rng, winterness: number): WeatherRegime {
-  const windyWet = 0.15 + 0.3 * winterness;
-  const calmCold = winterness > 0.55 ? (0.35 * (winterness - 0.55)) / 0.45 : 0;
-  const heatwave = winterness < 0.35 ? (0.3 * (0.35 - winterness)) / 0.35 : 0;
-  const mild = Math.max(0, 1 - windyWet - calmCold - heatwave);
-  let roll = rng.next() * (windyWet + calmCold + heatwave + mild);
+  // a named storm is a winter-weighted slice carved out of the windy band
+  const storm = 0.04 + 0.16 * winterness;
+  const windyWet = 0.13 + 0.22 * winterness;
+  const calmCold = winterness > 0.55 ? (0.32 * (winterness - 0.55)) / 0.45 : 0;
+  const heatwave = winterness < 0.35 ? (0.32 * (0.35 - winterness)) / 0.35 : 0;
+  const mild = Math.max(0, 1 - storm - windyWet - calmCold - heatwave);
+  let roll = rng.next() * (storm + windyWet + calmCold + heatwave + mild);
+  if ((roll -= storm) < 0) return 'storm';
   if ((roll -= windyWet) < 0) return 'windy-wet';
   if ((roll -= calmCold) < 0) return 'calm-cold';
   if ((roll -= heatwave) < 0) return 'heatwave';
@@ -123,14 +143,14 @@ export function stepWeather(
   // pre-season saves (or a fresh newWeather) initialize lazily
   if (w.regime === undefined || w.nextRegime === undefined || w.regimeEndsMin === undefined) {
     w.regime = 'mild';
-    w.regimeEndsMin = simTimeMin + regimeDurationMin(rng);
+    w.regimeEndsMin = simTimeMin + regimeDurationMin(rng, 'mild');
     w.nextRegime = pickRegime(rng, seasonFactor(w.regimeEndsMin));
   }
   // regime turnover: the pre-rolled front moves in; queue the next one
   // (picked for the season it will actually arrive in)
   while (simTimeMin >= w.regimeEndsMin) {
     w.regime = w.nextRegime;
-    w.regimeEndsMin += regimeDurationMin(rng);
+    w.regimeEndsMin += regimeDurationMin(rng, w.regime);
     w.nextRegime = pickRegime(rng, seasonFactor(w.regimeEndsMin));
   }
 
@@ -145,6 +165,36 @@ export function stepWeather(
   w.wind += (windMean - w.wind) * k + (rng.next() - 0.5) * 2 * spec.windBand * sq;
   w.cloud = Math.min(1, Math.max(0, w.cloud));
   w.wind = Math.min(1, Math.max(0, w.wind));
+}
+
+/** True when a regime is rain-heavy enough to pose a flood risk — the
+ *  Atlantic conveyor and its escalated storms dump the rain. */
+export function isWet(regime: WeatherRegime | undefined): boolean {
+  return regime === 'windy-wet' || regime === 'storm';
+}
+
+/** Cooling-load multiplier on domestic demand during hot spells: a
+ *  heatwave drives AC/refrigeration/fans and pushes the evening peak.
+ *  Returns the EXTRA fraction of domestic demand (0 in normal weather, up
+ *  to ~+0.35 at the height of a clear-sky heatwave). Pure function of
+ *  weather + season — deterministic, paused-safe. */
+export function coolingFactor(simTimeMin: number, w: { regime?: WeatherRegime; cloud: number }): number {
+  if (w.regime !== 'heatwave') return 0;
+  const summer = 1 - seasonFactor(simTimeMin); // 1 = high summer
+  const h = hourOf(simTimeMin);
+  // cooling load tracks the afternoon-into-evening heat, eased by cloud
+  const diurnal = Math.exp(-(((h - 16) / 4) ** 2));
+  return 0.35 * summer * diurnal * (1 - 0.6 * w.cloud);
+}
+
+/** Thermal rating derate during a heatwave: hot ambient air robs overhead
+ *  lines and transformers of their cooling margin, so their effective
+ *  rating falls. Returns a rating multiplier ≤ 1 (1 = no derate). Pure
+ *  function of weather + season. */
+export function thermalDerate(simTimeMin: number, w: { regime?: WeatherRegime }): number {
+  if (w.regime !== 'heatwave') return 1;
+  const summer = 1 - seasonFactor(simTimeMin);
+  return 1 - 0.08 * summer; // up to ~8% off ratings at peak summer heat
 }
 
 // ----------------------------------------------------------------------

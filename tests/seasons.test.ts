@@ -12,6 +12,8 @@ import {
   newWeather,
   REGIME_MAX_DAYS,
   REGIME_MIN_DAYS,
+  STORM_MAX_DAYS,
+  STORM_MIN_DAYS,
   seasonFactor,
   simMinOfDoy,
   stepWeather,
@@ -110,13 +112,18 @@ describe('multi-day weather regimes', () => {
     return { bounds, regimes };
   };
 
-  it('regime lengths sit within 2–6 game-days and the year cycles through several', () => {
+  it('regime lengths sit within their band and the year cycles through several', () => {
     const { bounds, regimes } = runYear(123);
     expect(bounds.length).toBeGreaterThan(Math.floor(365 / REGIME_MAX_DAYS) - 1);
     for (let i = 1; i < bounds.length; i++) {
       const durMin = (bounds[i] ?? 0) - (bounds[i - 1] ?? 0);
-      expect(durMin).toBeGreaterThanOrEqual(REGIME_MIN_DAYS * DAY);
-      expect(durMin).toBeLessThanOrEqual(REGIME_MAX_DAYS * DAY);
+      // the interval [bounds[i-1], bounds[i]) is the regime that ran
+      // through it (regimes[i]); a named storm blows through in 1–2 days,
+      // every other regime lasts 2–6.
+      const min = regimes[i] === 'storm' ? STORM_MIN_DAYS : REGIME_MIN_DAYS;
+      const max = regimes[i] === 'storm' ? STORM_MAX_DAYS : REGIME_MAX_DAYS;
+      expect(durMin).toBeGreaterThanOrEqual(min * DAY);
+      expect(durMin).toBeLessThanOrEqual(max * DAY);
     }
     expect(new Set(regimes).size).toBeGreaterThan(1); // not stuck in one
   });

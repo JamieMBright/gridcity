@@ -125,8 +125,9 @@ export interface SimSnapshot {
     /** Lifetime curtailed energy by connection type, MWh. */
     curtailedFirmMWh: number;
     curtailedFlexMWh: number;
-    /** Indicative system frequency, Hz. */
-    freqHz: number;
+    /** Load-weighted system frequency over electrified islands, Hz.
+     *  Undefined when nothing is electrified (HUD reads N/A). */
+    freqHz: number | undefined;
     /** Customer-weighted council satisfaction, 0..100. */
     satisfactionAvg: number;
     /** Average derived condition of the player's lines + substations,

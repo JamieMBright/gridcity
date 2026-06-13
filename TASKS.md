@@ -12,32 +12,42 @@
 
 ## Open
 
-- [ ] **GAME FEELS DEAD: no weather incidents, no new applications, bad
-      frequency model (owner, 2026-06-13 05:33).** Confirmed via repro:
-      0 new applications over 30 game-days (stuck at the seeded 3), and
-      weather stuck in 'mild' the whole time (no storms/heatwaves/floods).
-  - [ ] WEATHER INCIDENTS: owner has "left the game going some time and
-        havent seen any of the incidents… like hurricane or heavy rain
-        floods or heatwaves." Make the regime machine actually cycle and
-        fire NAMED disaster incidents — hurricane/severe storm, heavy
-        rain + FLOODS, HEATWAVES — with real consequences (fault
-        clusters, demand spikes, flood damage) and news-banner coverage.
-        (Beauty pass added rain/storm VISUALS; this is the EVENTS.) Check
-        stepWeather (events/weather.ts) regime turnover + whether
-        rngState persists per tick.
-  - [ ] APPLICATION CADENCE: owner "no new applications dripped through
-        should be getting … a new gen application and demand application
-        a week." Guarantee ~1 GEN + ~1 DEMAND connection application per
-        game-week (seeded/deterministic), not gated behind a served base.
-        Spawn site tick.ts ~478; baseline scaled by directorate
-        connectionCadenceMul.
-  - [ ] FREQUENCY MODEL: owner "the frequency of the grid doesnt really
-        make sense. Especially at start where there is no frequency cos
-        all unelectrified. It should be the average of all electrified
-        areas." Replace the global Math.max(47.5, 50-1.5*deficit) with a
-        load-weighted average over ELECTRIFIED islands; show N/A (or
-        steady 50.00) when nothing is energized. Surface correctly on the
-        HUD freq readout.
+- [x] **GAME FEELS DEAD: no weather incidents, no new applications, bad
+      frequency model (owner, 2026-06-13 05:33). VERIFIED.** Root cause of
+      the owner's "dead" repro: rngState was NOT persisted across the
+      manual ticks (the real worker persists it every tick), so weather
+      never cycled and apps never rolled. But two genuine model bugs lay
+      underneath; both fixed.
+  - [x] WEATHER INCIDENTS — **VERIFIED.** Regimes DID cycle in the real
+        worker, but (a) windy-wet wind capped at ~0.78 so isStorm (0.85)
+        NEVER fired, and (b) there were no named incidents at all. Added a
+        dedicated `storm` regime (wind 0.92+, 1–2 days, winter-weighted in
+        pickRegime), and a new events/incidents.ts that fires named
+        Storm/Heatwave/Flood banners (once per regime instance, deduped on
+        regimeEndsMin) with real consequences: storms → fault clusters via
+        the existing stormFactor; floods → underground cable/substation
+        outages routed through the fault job/van system; heatwave → cooling
+        demand spike (coolingFactor on domestic load) + transformer thermal
+        derate (thermalDerate on the sub rating clamp). forecastStorms now
+        leads the named `storm` pre-roll too. Over a seeded london YEAR:
+        8 named storms + 12 heatwaves; all five regimes cycle; maxWind
+        >0.85. Floods scale with network size (rare on the 3-sub starter,
+        a few a winter on a real grid). Deterministic — all off `rng`.
+  - [x] APPLICATION CADENCE — **VERIFIED.** Was ONE shared chance() draw
+        whose kind-list was 5/6 generation, so demand (data centre/EV hub)
+        starved out (0 demand apps in 120 days). Split into TWO independent
+        seeded streams (maybeSpawnApplications), each ~1/week mean at the
+        neutral baseline (7-day interval), kept the connectionCadenceMul
+        scaling. Over 24 weeks neutral london: ~1.27 gen + ~1.08 demand per
+        week. Not gated behind a served base.
+  - [x] FREQUENCY MODEL — **VERIFIED.** Extracted market/frequency.ts:
+        each electrified island floats at its own balance frequency
+        (50 − 1.5·deficit, floored 47.5); the HUD shows the LOAD-WEIGHTED
+        mean (systemFrequencyHz), and N/A ("— Hz", muted) when no island
+        carries load — replacing the old global Math.max(47.5,50−1.5·
+        deficit) that invented a deficit on the blank day-0 grid. Dispatch
+        emits per-island freqSamples; tick + protocol + Hud carry
+        freqHz?:number|undefined (additive, no SAVE_VERSION bump).
 
 - [ ] **Day/night flashing + animation pacing (owner, 2026-06-13
       05:10): "Animations should move as fast as the game clock speed

@@ -11,7 +11,7 @@ import {
   START_MOOD,
   stepTenders,
 } from '../src/sim/events/developers';
-import { maybeSpawnApplication } from '../src/sim/events/applications';
+import { maybeSpawnApplications } from '../src/sim/events/applications';
 import { NEW_ESTATES } from '../src/data/londonMap';
 import { ZONE } from '../src/sim/map/types';
 import { closePeriod, initialTargets, newPeriod } from '../src/sim/regulation/riio';
@@ -302,8 +302,9 @@ describe('data-centre applications', () => {
     }
     const rng = new Rng(7);
     for (let i = 0; i < 4000; i++) {
-      const app = maybeSpawnApplication(map, rng, 1440, 0, 50_000, 1, () => false);
-      if (app?.kind !== 'dataCentre') continue;
+      const apps = maybeSpawnApplications(map, rng, 1440, 0, 50_000, 1, () => false);
+      const app = apps.find((a) => a.kind === 'dataCentre');
+      if (!app) continue;
       expect(map.customers[app.y * map.width + app.x] ?? 0).toBeGreaterThanOrEqual(60);
       expect(app.mw).toBeGreaterThanOrEqual(40);
       expect(app.mw).toBeLessThanOrEqual(120);

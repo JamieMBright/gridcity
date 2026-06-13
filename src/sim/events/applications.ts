@@ -105,29 +105,43 @@ function findSite(
   return undefined;
 }
 
-/** Mean game-days between applications (more arrive as the city grows). */
-function meanIntervalDays(servedCustomers: number): number {
-  // brisk from day one — a quiet inbox is a boring inbox
-  return servedCustomers > 20_000 ? 5 : servedCustomers > 2_000 ? 8 : 14;
+/** Mean game-days between a GENERATION application: the developer pipeline
+ *  is brisk from day one (a quiet inbox is a dead game) and quickens as
+ *  the served base grows. A neutral org sees ~1/week at the baseline. */
+function genIntervalDays(servedCustomers: number): number {
+  return servedCustomers > 20_000 ? 5 : servedCustomers > 2_000 ? 6 : 7;
 }
 
-export function maybeSpawnApplication(
-  map: CityMap,
-  rng: Rng,
-  dtMin: number,
-  simTimeMin: number,
-  servedCustomers: number,
-  nextId: number,
-  taken: (x: number, y: number) => boolean,
-): Application | undefined {
-  const p = dtMin / (meanIntervalDays(servedCustomers) * 1440);
-  if (!rng.chance(p)) return undefined;
-  const kinds: AppKind[] = ['solarFarm', 'solarFarm', 'windOnshore', 'battery', 'dataCentre', 'evHub'];
+/** Mean game-days between a DEMAND application (data centre / EV hub).
+ *  Demand connections seek out the grid that can feed them, so they
+ *  quicken with the served base — but even a day-1 operator fields about
+ *  one a week (developers want to BE the reason the grid grows). */
+function demandIntervalDays(servedCustomers: number): number {
+  return servedCustomers > 20_000 ? 5 : servedCustomers > 2_000 ? 6 : 7;
+}
+
+/** The generation mix gets richer the bigger the grid (more storage/wind
+ *  interest); the demand mix tilts toward data centres on a fed grid. */
+function genKindsFor(_servedCustomers: number): AppKind[] {
+  return ['solarFarm', 'solarFarm', 'windOnshore', 'battery'];
+}
+function demandKindsFor(servedCustomers: number): AppKind[] {
+  const kinds: AppKind[] = ['dataCentre', 'evHub', 'evHub'];
   // data centres smell a grid that can feed them: the bigger the served
   // base, the more often they come knocking
   if (servedCustomers > 10_000) kinds.push('dataCentre');
   if (servedCustomers > 30_000) kinds.push('dataCentre', 'dataCentre');
-  const kind = kinds[rng.int(kinds.length)] ?? 'solarFarm';
+  return kinds;
+}
+
+function buildApplication(
+  map: CityMap,
+  rng: Rng,
+  kind: AppKind,
+  simTimeMin: number,
+  nextId: number,
+  taken: (x: number, y: number) => boolean,
+): Application | undefined {
   const site = findSite(map, rng, kind, taken);
   if (!site) return undefined;
   const names = NAMES[kind];
@@ -147,4 +161,43 @@ export function maybeSpawnApplication(
     decideByMin: simTimeMin + DECIDE_DAYS * 1440,
     status: 'open',
   };
+}
+
+/** Roll the connection pipeline this tick: an INDEPENDENT generation
+ *  stream and demand stream, each arriving on its own ~weekly Poisson
+ *  cadence (so a neutral org fields roughly one new generation AND one new
+ *  demand application a game-week — not a single shared stream that the
+ *  gen-heavy kind list starved demand out of). Both rolls come off the
+ *  seeded `rng`, so saves replay identically; `nextId` is consumed in
+ *  order (gen first, then demand) and the caller bumps state.nextAppId per
+ *  returned app. Returns 0–2 applications. */
+export function maybeSpawnApplications(
+  map: CityMap,
+  rng: Rng,
+  dtMin: number,
+  simTimeMin: number,
+  servedCustomers: number,
+  nextId: number,
+  taken: (x: number, y: number) => boolean,
+): Application[] {
+  const out: Application[] = [];
+  let id = nextId;
+  // generation stream
+  if (rng.chance(dtMin / (genIntervalDays(servedCustomers) * 1440))) {
+    const pool = genKindsFor(servedCustomers);
+    const kind = pool[rng.int(pool.length)] ?? 'solarFarm';
+    const app = buildApplication(map, rng, kind, simTimeMin, id, taken);
+    if (app) {
+      out.push(app);
+      id++;
+    }
+  }
+  // demand stream
+  if (rng.chance(dtMin / (demandIntervalDays(servedCustomers) * 1440))) {
+    const pool = demandKindsFor(servedCustomers);
+    const kind = pool[rng.int(pool.length)] ?? 'evHub';
+    const app = buildApplication(map, rng, kind, simTimeMin, id, taken);
+    if (app) out.push(app);
+  }
+  return out;
 }
