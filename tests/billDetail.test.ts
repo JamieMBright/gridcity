@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { ANNUITY_FACTOR } from '../src/sim/catalog';
 import { assetCapexK, assetOpexFrac } from '../src/sim/regulation/bill';
 import { deserialize, serialize, type GameState, type SimContext } from '../src/sim/state';
-import { advanceTime, billDetailRows, derive, solveTick } from '../src/sim/tick';
+import { advanceTime, billDetailRows, derive, REBUILD_GRACE_MIN, solveTick } from '../src/sim/tick';
 import { commissionAll, directBuildGen, mustApply, poweredFixture } from './helpers';
 
 /** poweredFixture + a firm must-run solar farm at noon: its 50 MW dwarf
@@ -26,7 +26,7 @@ function runningFixture(ticks = 8): {
     spec: { kind: 'line', level: 33, build: 'overhead', ax: 10, ay: 25, bx: 15, by: 15 },
   });
   commissionAll(f.state);
-  f.state.simTimeMin = 12 * 60; // noon: the sun is up, solar must-run
+  f.state.simTimeMin = REBUILD_GRACE_MIN + 12 * 60; // noon, past the rebuild grace (constraint bills)
   for (let i = 0; i < ticks; i++) {
     advanceTime(f.state);
     solveTick(f.state, f.ctx, derive(f.state, f.ctx), true);

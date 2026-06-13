@@ -29,7 +29,7 @@ import { farmClaimTiles, isFarmGen } from '../sim/farms';
 import { GENS, SUBS } from '../sim/catalog';
 import type { VoltageLevel } from '../sim/grid/types';
 import { sampleRoute } from '../sim/map/routes';
-import { CUSTOMERS_PER_TILE, type CityMap, type RouteClass, type Zone } from '../sim/map/types';
+import { CUSTOMERS_PER_TILE, LANDMARK, type CityMap, type Landmark, type RouteClass, type Zone } from '../sim/map/types';
 import { COV, type BranchView } from '../sim/tick';
 import { getAtlas } from './atlasCache';
 import { AIRPORTS, NAMED_PLACES, TOWNS } from '../data/londonMap';
@@ -310,6 +310,9 @@ export class MapRenderer {
   private ghostSprite: Sprite | undefined;
   private textures = new Map<string, Texture>();
   private frameSize = new Map<string, { w: number; h: number }>();
+  /** Per-sprite trim offset (transparent left/top margin dropped from the
+   *  atlas): added to every placement so the trim never shifts a pixel. */
+  private frameOffset = new Map<string, { ox: number; oy: number }>();
   private structureSprites = new Map<number, Sprite>();
   private groundSprites = new Map<number, Sprite>();
   private destroyed = false;
@@ -359,6 +362,13 @@ export class MapRenderer {
   private glowWorld = new Container();
   private lightsSprite: Sprite | undefined;
   private bloomG = new Graphics();
+  /** The hero-landmark gleam: a warm specular bloom on the SAME additive
+   *  glow layer (so it rides the dusk grade, never fights it), pulsing
+   *  gently with the day/night glow + a slow sine, plus a travelling glint
+   *  across the glass heroes. Rebuilt when the map loads (static data). */
+  private gleamG = new Graphics();
+  /** Hero landmark anchors (tile centres + whether glass) for the gleam. */
+  private gleamHeroes: Array<{ x: number; y: number; r: number; glass: boolean }> = [];
   /** Wet sheen + rain streaks + lightning, screen-space. */
   private sheenG = new Graphics();
   private rainG = new Graphics();
@@ -471,7 +481,11 @@ export class MapRenderer {
     // all non-interactive, each a single quad or a small streak batch —
     // mobile-GPU cheap.
     this.bloomG.blendMode = 'add';
+    this.gleamG.blendMode = 'add';
+    this.gleamG.eventMode = 'none';
     this.glowWorld.addChild(this.bloomG);
+    this.glowWorld.addChild(this.gleamG);
+    this.buildGleamHeroes();
     this.vignette = new Sprite(makeVignetteTexture());
     for (const layer of [
       this.skyG,
@@ -879,6 +893,95 @@ export class MapRenderer {
     }
   }
 
+  /** The hero landmarks that earn the special gleam (env-art 5% hero rule):
+   *  the silhouette icons + glass towers, with a per-id glow radius and
+   *  whether they're glass (glass heroes get the travelling glint). The
+   *  civic kit (station/school/townhall…) is deliberately excluded so the
+   *  squint test lands on the heroes, not the fabric. */
+  private static readonly GLEAM_HEROES: Partial<Record<Landmark, { r: number; glass: boolean }>> = {
+    [LANDMARK.spire]: { r: 30, glass: true }, // the Shard
+    [LANDMARK.gherkin]: { r: 24, glass: true },
+    [LANDMARK.dome]: { r: 30, glass: false }, // St Paul's
+    [LANDMARK.parliament]: { r: 34, glass: false },
+    [LANDMARK.eye]: { r: 28, glass: true },
+    [LANDMARK.fortress]: { r: 22, glass: false },
+    [LANDMARK.towerBridge]: { r: 30, glass: false },
+    [LANDMARK.powerstation]: { r: 30, glass: false },
+    [LANDMARK.stadium]: { r: 26, glass: false },
+    [LANDMARK.wembley]: { r: 26, glass: false },
+    [LANDMARK.o2dome]: { r: 28, glass: true },
+    [LANDMARK.bttower]: { r: 24, glass: true },
+    [LANDMARK.allypally]: { r: 26, glass: false },
+    [LANDMARK.excel]: { r: 24, glass: true },
+    [LANDMARK.palacemast]: { r: 18, glass: false },
+    [LANDMARK.kewhouse]: { r: 20, glass: true },
+  };
+
+  /** Scan the map once for hero-landmark anchors and cache their tile
+   *  centres for the per-frame gleam. One entry per landmark reservation
+   *  (the min-x/min-y tile), so big precincts don't double-bloom. */
+  private buildGleamHeroes(): void {
+    this.gleamHeroes = [];
+    const map = this.map;
+    if (!map || !map.landmark) return;
+    const seenAnchor = new Set<number>();
+    for (let y = 0; y < map.height; y++) {
+      for (let x = 0; x < map.width; x++) {
+        const lm = (map.landmark[y * map.width + x] ?? 0) as Landmark;
+        const spec = MapRenderer.GLEAM_HEROES[lm];
+        if (!spec) continue;
+        // anchor = the reservation's top-left tile (no same-id tile N or W)
+        const same = (xx: number, yy: number): boolean =>
+          xx >= 0 && yy >= 0 && xx < map.width && yy < map.height &&
+          (map.landmark?.[yy * map.width + xx] ?? 0) === lm;
+        if (same(x - 1, y) || same(x, y - 1)) continue;
+        const key = lm * 100003 + y * map.width + x;
+        if (seenAnchor.has(key)) continue;
+        seenAnchor.add(key);
+        const c = this.tileCentre(x, y);
+        this.gleamHeroes.push({ x: c.x, y: c.y - 16 * RES, r: spec.r * RES, glass: spec.glass });
+      }
+    }
+  }
+
+  /** The per-frame hero gleam on the additive glow layer: a warm specular
+   *  bloom (sunset gold ~#ffe6b0, the complement of the navy dusk) that
+   *  pulses gently with the day/night glow + a slow sine, and a travelling
+   *  glint sweeping the glass heroes. Coordinated with the beauty pass: it
+   *  rides bloomG's sibling on glowWorld, so it dims by day and warms the
+   *  heroes at night exactly as the doctrine wants. */
+  private drawGleam(glow: number, phase: number): void {
+    this.gleamG.clear();
+    if (this.gridViewOn || this.gleamHeroes.length === 0) return;
+    // a gentle breathing pulse (never a flash): floor it so the heroes hold
+    // a faint golden-hour glint even by day, swelling toward night
+    const breathe = 0.82 + 0.18 * Math.sin(phase * 1.3);
+    const base = (0.32 + 0.68 * glow) * breathe;
+    if (base <= 0.01) return;
+    const GOLD = 0xffe6b0;
+    for (const h of this.gleamHeroes) {
+      for (const [mul, a] of [
+        [2.0, 0.05],
+        [1.25, 0.1],
+        [0.7, 0.16],
+      ] as const) {
+        this.gleamG
+          .ellipse(h.x, h.y, h.r * mul, h.r * mul * 0.62)
+          .fill({ color: GOLD, alpha: a * base });
+      }
+      // a bright specular core pip on every hero
+      this.gleamG.ellipse(h.x, h.y - h.r * 0.2, h.r * 0.28, h.r * 0.2).fill({ color: 0xfff3d6, alpha: 0.22 * base });
+      // travelling glint on the glass heroes: a slim highlight sweeping up
+      if (h.glass) {
+        const t = (phase * 0.35 + (h.x % 7) / 7) % 1;
+        const gy = h.y + h.r * 0.6 - t * h.r * 1.6;
+        this.gleamG
+          .ellipse(h.x + (t - 0.5) * h.r * 0.5, gy, h.r * 0.5, h.r * 0.12)
+          .fill({ color: 0xfff6e2, alpha: 0.5 * base * (1 - Math.abs(t - 0.5) * 1.4) });
+      }
+    }
+  }
+
   /** While the line tool is armed: ring every asset with a bay at that
    *  voltage so it's obvious what can connect to what. */
   setLevelHighlight(level: VoltageLevel | undefined): void {
@@ -1136,6 +1239,10 @@ export class MapRenderer {
   }
 
   tileToScreen(x: number, y: number): { x: number; y: number } {
+    // a tile query can race a renderer (re)build (e.g. on a mission map
+    // swap): if the Pixi app isn't up yet, report off-screen rather than
+    // throw inside the caller's page.evaluate
+    if (!this.app?.canvas) return { x: -1, y: -1 };
     const c = this.tileCentre(x, y);
     const rect = this.app.canvas.getBoundingClientRect();
     return {
@@ -1159,11 +1266,14 @@ export class MapRenderer {
   private paintTile(map: CityMap, x: number, y: number): void {
     const i = y * map.width + x;
     const c = this.tileCentre(x, y);
+    const baseX = c.x - HALF_W;
+    const baseY = c.y + HALF_H - CELL_H;
     const groundName = groundSpriteFor(map, x, y);
     const ground = this.textures.get(groundName);
     if (ground) {
       const s = new Sprite(ground);
-      s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
+      const o = this.frameOffset.get(groundName);
+      s.position.set(baseX + (o?.ox ?? 0), baseY + (o?.oy ?? 0));
       if (this.seasonNow) s.tint = seasonTintFor(groundName, this.seasonNow) ?? 0xffffff;
       this.terrainLayer.addChild(s);
       this.groundSprites.set(i, s);
@@ -1172,7 +1282,8 @@ export class MapRenderer {
     const struct = structName ? this.textures.get(structName) : undefined;
     if (struct && structName) {
       const s = new Sprite(struct);
-      s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
+      const o = this.frameOffset.get(structName);
+      s.position.set(baseX + (o?.ox ?? 0), baseY + (o?.oy ?? 0));
       if (this.seasonNow) s.tint = seasonTintFor(structName, this.seasonNow) ?? 0xffffff;
       s.zIndex = x + y;
       this.structureLayer.addChild(s);
@@ -1494,6 +1605,9 @@ export class MapRenderer {
     // game still settles the dusk wash and pulses its "look here" rings)
     this.stepAtmosphere(dt);
     this.bobPhase += dt;
+    // the hero-landmark gleam rides the glow layer (built once when the map
+    // loaded); pulse it on the eased grade glow + the shared bobPhase
+    this.drawGleam(this.grade?.glow ?? 0, this.bobPhase);
     {
       // labels: visible zoomed out, gone close in, each held at a CONSTANT
       // on-screen px floor. The layer rides the world scale `sc`, so a
@@ -1845,6 +1959,7 @@ export class MapRenderer {
       if (!s) continue;
       const c = this.tileCentre(v.x, v.y);
       s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
+      this.applyTrim(s, 'van');
     }
     for (const [id, s] of [...this.vanSprites]) {
       if (!seen.has(id)) {
@@ -1909,6 +2024,7 @@ export class MapRenderer {
           const s = new Sprite(tex);
           const c = this.tileCentre(ghost.x, ghost.y);
           s.position.set(c.x - fh * HALF_W, c.y - HALF_H - (CELL_H - FLOOR_H));
+          this.applyTrim(s, ghost.sprite);
           s.alpha = 0.65;
           this.world.addChild(s);
           this.ghostSprite = s;
@@ -1953,6 +2069,7 @@ export class MapRenderer {
           const s = new Sprite(tex);
           const c = this.tileCentre(px, py);
           s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
+          this.applyTrim(s, PYLON_SPRITE[a.level]);
           s.zIndex = px + py;
           this.assetLayer.addChild(s);
         }
@@ -1982,6 +2099,7 @@ export class MapRenderer {
           const s = new Sprite(tex);
           const c = this.tileCentre(tx, ty);
           s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
+          if (name) this.applyTrim(s, name);
           s.zIndex = tx + ty;
           this.assetLayer.addChild(s);
           if (a.gen === 'windOnshore' || a.gen === 'windOffshore') {
@@ -2008,6 +2126,7 @@ export class MapRenderer {
       } else {
         s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
       }
+      if (name) this.applyTrim(s, name);
       s.zIndex = a.x + fw - 1 + a.y + fh - 1;
       this.assetLayer.addChild(s);
 
@@ -2024,6 +2143,9 @@ export class MapRenderer {
     c: { x: number; y: number },
     z: number,
   ): void {
+    // the rotor hub offsets are measured against the turbine sprite's
+    // UNtrimmed canvas origin, so add that sprite's trim back in
+    const wo = this.frameOffset.get(gen === 'windOffshore' ? 'gen_windoff' : 'gen_windon');
     for (const spec of WIND_HUBS[gen === 'windOffshore' ? 'offshore' : 'onshore']) {
       const [hx, hy] = windHubOffset(spec);
       const rotor = new Graphics() as RotorG;
@@ -2034,7 +2156,7 @@ export class MapRenderer {
       }
       rotor.stroke({ color: 0xf4f1ea, width: 2.2 * RES, cap: 'round' });
       rotor.circle(0, 0, 2.6 * RES).fill(0xff8a1e);
-      rotor.position.set(c.x - HALF_W + hx, c.y + HALF_H - CELL_H + hy);
+      rotor.position.set(c.x - HALF_W + hx + (wo?.ox ?? 0), c.y + HALF_H - CELL_H + hy + (wo?.oy ?? 0));
       rotor.scale.y = 0.92;
       rotor.zIndex = z + 0.1;
       rotor.spin = 1;
@@ -2252,6 +2374,13 @@ export class MapRenderer {
     return { x: (x - y) * HALF_W, y: (x + y) * HALF_H };
   }
 
+  /** Nudge a just-positioned sprite by its atlas trim offset, so the
+   *  4-side-trimmed frame lands exactly where the untrimmed canvas would. */
+  private applyTrim(s: Sprite, name: string): void {
+    const o = this.frameOffset.get(name);
+    if (o) s.position.set(s.position.x + o.ox, s.position.y + o.oy);
+  }
+
   private async buildTextures(): Promise<void> {
     const atlas = await getAtlas();
     const canvas = document.createElement('canvas');
@@ -2268,6 +2397,7 @@ export class MapRenderer {
         new Texture({ source: base.source, frame: new Rectangle(f.x, f.y, f.w, f.h) }),
       );
       this.frameSize.set(name, { w: f.w, h: f.h });
+      this.frameOffset.set(name, { ox: f.ox, oy: f.oy });
     }
   }
 

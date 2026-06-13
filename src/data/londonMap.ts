@@ -242,6 +242,15 @@ export const NAMED_PLACES: Array<{ x: number; y: number; name: string }> = [
   { x: 122, y: 76, name: 'Liverpool Street' },
   { x: 122, y: 90, name: 'London Bridge' },
   { x: 65, y: 87, name: 'Heathrow' },
+  // Wave 9 heroes (map-overhaul §5) — labelled in the inspector at their
+  // true relative positions
+  { x: 88, y: 60, name: 'Wembley' },
+  { x: 140, y: 90, name: 'The O2' },
+  { x: 118, y: 118, name: 'Crystal Palace' },
+  { x: 114, y: 52, name: 'Alexandra Palace' },
+  { x: 150, y: 86, name: 'ExCeL' },
+  { x: 86, y: 96, name: 'Kew Gardens' },
+  { x: 112, y: 72, name: 'BT Tower' },
 ];
 
 /** Generation already on the system when the game opens — the real-world
@@ -1142,9 +1151,22 @@ export function buildLondonMap(): CityMap {
       if (terrain[i] === TERRAIN.water) landmark[i] = LANDMARK.towerBridge;
     }
   }
-  // Heathrow's terminal between its two runways (spur road laid with the
-  // network above)
-  placeLandmark(65, 87, LANDMARK.airport);
+  // HEATHROW: the bespoke concrete terminal island reserved between its
+  // two parallel runways (the runway tiles are FLAG_RUNWAY at y84-85 and
+  // y89-90 above). An 8×3 stamp on x61..68, y86..88 — the air layer flies
+  // the real thresholds at (ap.x+9, ap.y±2.5). The whole island is tarmac:
+  // force its tiles to open zone and clear any street/arterial so nothing
+  // builds on the apron and the single stamp covers a clean rectangle.
+  for (let ty = 86; ty <= 88; ty++) {
+    for (let tx = 61; tx <= 68; tx++) {
+      if (!inb(tx, ty)) continue;
+      const i = idx(tx, ty);
+      if (terrain[i] !== TERRAIN.land) continue;
+      zone[i] = ZONE.none;
+      road[i] = RC.none;
+    }
+  }
+  placeLandmarkRect(61, 86, 8, 3, LANDMARK.heathrow);
   // Battersea's four chimneys claim a 2×2 block on the south bank
   placeLandmarkRect(100, riverY(100) + Math.ceil(hwAt(100)) + 1, 2, 2, LANDMARK.powerstation);
   placeLandmark(132, 68, LANDMARK.stadium); // the Olympic bowl on the Lea
@@ -1154,6 +1176,24 @@ export function buildLondonMap(): CityMap {
   placeLandmark(133, 71, LANDMARK.mall); // the eastern one by the bowl
   placeLandmark(114, 65, LANDMARK.zoo); // in Regent's park
   placeLandmark(115, 65, LANDMARK.zoo);
+  // Wave 9 heroes (map-overhaul §5: "many are missing") at true positions.
+  // Multi-tile ones reserve their precinct; the rest take a single anchor.
+  placeLandmark(88, 60, LANDMARK.wembley); // the arch, NW
+  placeLandmark(140, 90, LANDMARK.o2dome); // Greenwich peninsula
+  placeLandmark(118, 118, LANDMARK.palacemast); // Crystal Palace, S ridge
+  placeLandmarkRect(112, 52, 2, 1, LANDMARK.allypally); // Alexandra Palace, N hill
+  placeLandmarkRect(149, 85, 2, 1, LANDMARK.excel); // ExCeL / Royal Docks, E
+  placeLandmark(86, 96, LANDMARK.kewhouse); // Kew Palm House by the bend
+  placeLandmark(112, 72, LANDMARK.bttower); // BT Tower, West End spike
+  // the Gherkin: a single CBD tile gets its own id (no neighbour demotion —
+  // it IS a City tower), so the icon survives map shifts that used to lose it
+  {
+    const gi = idx(118, 77);
+    if (terrain[gi] === TERRAIN.land && (landmark[gi] ?? 0) === 0 && (road[gi] ?? 0) < RC.arterial) {
+      landmark[gi] = LANDMARK.gherkin;
+      if (road[gi] === RC.street) road[gi] = RC.streetTouch;
+    }
+  }
   // central termini
   placeLandmark(114, 78, LANDMARK.station);
   placeLandmark(122, 76, LANDMARK.station);
@@ -1216,6 +1256,15 @@ export function buildLondonMap(): CityMap {
     [LANDMARK.townhall]: 6,
     [LANDMARK.church]: 2,
     [LANDMARK.datacentre]: 2,
+    // Wave 9 heroes: venues draw a crowd, masts/glasshouses barely any
+    [LANDMARK.wembley]: 14,
+    [LANDMARK.o2dome]: 16,
+    [LANDMARK.excel]: 12,
+    [LANDMARK.allypally]: 6,
+    [LANDMARK.kewhouse]: 3,
+    [LANDMARK.palacemast]: 1,
+    [LANDMARK.bttower]: 6,
+    [LANDMARK.gherkin]: 40, // a full City office tower
   };
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {

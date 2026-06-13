@@ -5,7 +5,7 @@ import { stepFleet, syncVans, type RepairJob, type Van } from '../src/sim/fleet/
 import { kpiRates, updateReliability } from '../src/sim/regulation/kpis';
 import { COV } from '../src/sim/coverage';
 import { Rng } from '../src/sim/rng';
-import { advanceTime, AWAITING_CREW, derive, solveTick } from '../src/sim/tick';
+import { advanceTime, AWAITING_CREW, derive, REBUILD_GRACE_MIN, solveTick } from '../src/sim/tick';
 import { makeTestMap, mustApply, poweredFixture } from './helpers';
 import type { PlacedAsset } from '../src/sim/assets';
 
@@ -130,6 +130,7 @@ describe('CI / CML', () => {
 
   it('end-to-end: a faulted feeder racks up CML until the crew restores it', () => {
     const { state, ctx, ids } = poweredFixture();
+    state.simTimeMin = REBUILD_GRACE_MIN; // past the rebuild grace so CI/CML scores
     mustApply(state, ctx.map, { type: 'build', spec: { kind: 'depot', x: 16, y: 16 } });
     state.fleetSize = 1;
     const branchId = lineBranchId(ids.line33);

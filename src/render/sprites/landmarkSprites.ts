@@ -4,7 +4,7 @@
 // blocks, lit by the same lofi sunset.
 
 import { Rng } from '../../sim/rng';
-import { CELL_W, INK, INK_W, Iso, lit, P, RES, shaded } from './iso';
+import { CELL_W, INK, INK_W, Iso, lit, P, RES, shaded, top } from './iso';
 import { COLORS } from './palette';
 import { alpha, darken, hex, lighten, type Pt, type RGBA } from './raster';
 
@@ -766,6 +766,350 @@ export function powerstationTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
+// --- New heroes (map-overhaul §5: "many are missing") -----------------------
+
+/** WEMBLEY: the great white arch springing over the stadium bowl — a hero
+ *  silhouette read from far zoom. A compact 1×1: a low white seating bowl
+ *  with a green pitch and the parabolic arch leaning over it, its sun-facing
+ *  limb catching the gleam. */
+export function wembleyTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const [cx, cyB] = P(0.5, 0.52, 0);
+  const RX = 0.44 * (CELL_W / 2);
+  const RY = RX * 0.5;
+  const ring = (rx: number, ry: number, lift: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 28; i++) {
+      const a = (i / 28) * Math.PI * 2;
+      pts.push([cx + Math.cos(a) * rx, cyB - lift + Math.sin(a) * ry]);
+    }
+    return pts;
+  };
+  iso.shadow(0.16, 0.32, 0.86, 0.74, 0.16, 0.2);
+  // the white bowl + roof ring, an orange seat band, the green pitch
+  iso.r.poly([...ring(RX, RY, 0), ...ring(RX, RY, 16 * RES).reverse()], COLORS.white);
+  iso.r.poly(ring(RX * 0.92, RY * 0.92, 16 * RES), lighten(COLORS.steel, 0.2));
+  iso.r.poly(ring(RX * 0.78, RY * 0.78, 14 * RES), COLORS.orange);
+  iso.r.poly(ring(RX * 0.6, RY * 0.6, 12 * RES), darken(COLORS.orange, 0.28));
+  iso.r.poly(ring(RX * 0.48, RY * 0.48, 11 * RES), hex('#5f9e4e'));
+  iso.r.polyline(ring(RX, RY, 16 * RES), INK_W, INK, true);
+  iso.r.polyline(ring(RX, RY, 0), INK_W * 0.7, alpha(INK, 0.5), true);
+  // THE ARCH: a tall white parabola leaning over the bowl, NW→SE
+  const aL: Pt = [cx - RX * 1.0, cyB - 8 * RES];
+  const aR: Pt = [cx + RX * 0.66, cyB - RY * 0.4 - 6 * RES];
+  const apexX = cx - RX * 0.16;
+  const apexY = cyB - 78 * RES;
+  const archPt = (t: number): Pt => {
+    const m = 1 - t;
+    return [
+      m * m * aL[0] + 2 * m * t * apexX + t * t * aR[0],
+      m * m * aL[1] + 2 * m * t * apexY + t * t * aR[1],
+    ];
+  };
+  for (let k = 1; k < 6; k++) {
+    const p = archPt(k / 6);
+    const rA = (k / 6) * Math.PI * 1.05 + 0.2;
+    iso.r.line(p, [cx + Math.cos(rA) * RX * 0.9, cyB - 13 * RES + Math.sin(rA) * RY * 0.9], 0.45 * RES, alpha(COLORS.steel, 0.6));
+  }
+  const archPoly: Pt[] = [];
+  for (let i = 0; i <= 20; i++) archPoly.push(archPt(i / 20));
+  iso.r.polyline(archPoly, 2.8 * RES, COLORS.white);
+  iso.r.polyline(archPoly, INK_W * 0.6, alpha(INK, 0.55));
+  iso.gleam(archPt(0.5), archPt(0.8), 1.3 * RES);
+  return iso.build();
+}
+
+/** THE O2 / DOME on Greenwich peninsula: a great white tented canopy on a
+ *  ring of tall yellow masts, cables radiating to the dome — a compact 1×1
+ *  hero. The sun-facing mast tips catch the gleam. */
+export function o2domeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const [cx, cyB] = P(0.5, 0.52, 0);
+  const R = 0.5 * (CELL_W / 2);
+  const ZR = R * 0.46;
+  const domeH = 26 * RES;
+  iso.shadow(0.14, 0.32, 0.88, 0.76, 0.18, 0.2);
+  const dome = (s: number, lift: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 26; i++) {
+      const a = (i / 26) * Math.PI * 2;
+      pts.push([cx + Math.cos(a) * R * s, cyB - lift + Math.sin(a) * ZR * s]);
+    }
+    return pts;
+  };
+  iso.r.poly([...dome(1, 4 * RES), ...dome(1, 0).reverse()], shaded(COLORS.white, 0.12));
+  iso.r.poly(dome(1, 4 * RES), hex('#e6e3df'));
+  iso.r.poly(
+    dome(0.6, 4 * RES).map(([x, y]): Pt => [x + R * 0.08, y - domeH * 0.7]),
+    COLORS.white,
+  );
+  const apex: Pt = [cx + R * 0.05, cyB - 4 * RES - domeH];
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    const e: Pt = [cx + Math.cos(a) * R, cyB - 4 * RES + Math.sin(a) * ZR];
+    iso.r.line(apex, e, 0.5 * RES, alpha(hex('#c9c6cf'), 0.7));
+  }
+  iso.r.polyline(dome(1, 4 * RES), INK_W * 0.8, alpha(INK, 0.6), true);
+  // the twelve yellow masts spiking past the rim, cable-stayed
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2 + 0.26;
+    const bx = cx + Math.cos(a) * R * 1.02;
+    const by = cyB - 2 * RES + Math.sin(a) * ZR * 1.02;
+    const tx = bx + Math.cos(a) * 4 * RES;
+    const ty = by - 22 * RES;
+    iso.r.line([bx, by], [tx, ty], 1.1 * RES, COLORS.orange);
+    iso.r.line([tx, ty], apex, 0.4 * RES, alpha(COLORS.steel, 0.55));
+    if (Math.cos(a) > 0.2) iso.glint([tx, ty], 1.6 * RES);
+  }
+  return iso.build();
+}
+
+/** CRYSTAL PALACE transmitter mast: a slim red-and-white lattice tower on
+ *  the south ridge — a thin vertical hero spike. 1×1. */
+export function palacemastTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const u = 0.5;
+  const v = 0.52;
+  const H = 150;
+  const w0 = 0.12;
+  const w1 = 0.02;
+  iso.shadow(u - w0, v - w0 * 0.4, u + w0, v + w0, 0.4, 0.24);
+  // tapering lattice: four leg lines + cross bracing, banded red/white
+  const legAt = (du: number, dv: number, z: number): Pt => {
+    const t = z / H;
+    const w = w0 + (w1 - w0) * t;
+    return iso.P(u + du * w, v + dv * w, z);
+  };
+  const legs: Array<[number, number]> = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+  for (const [du, dv] of legs) {
+    iso.r.line(legAt(du, dv, 0), legAt(du, dv, H), 1.1 * RES, COLORS.steelDark);
+  }
+  // banded bracing (alternating warm + white reads as the aviation paint)
+  for (let z = 6; z < H - 6; z += 9) {
+    const band = (Math.floor(z / 9) % 2 === 0 ? COLORS.orange : COLORS.white);
+    iso.r.line(legAt(-1, 1, z), legAt(1, -1, z + 9), 0.7 * RES, alpha(band, 0.9));
+    iso.r.line(legAt(1, 1, z), legAt(-1, -1, z + 9), 0.7 * RES, alpha(band, 0.8));
+    iso.r.line(legAt(-1, -1, z), legAt(1, -1, z), 0.6 * RES, alpha(band, 0.85));
+  }
+  // antenna stack + the red aircraft-warning lamp at the very top
+  iso.r.line(iso.P(u, v, H), iso.P(u, v, H + 26), 1.2 * RES, COLORS.steel);
+  for (const z of [H + 6, H + 13, H + 20]) {
+    iso.r.line(iso.P(u - 0.02, v, z), iso.P(u + 0.02, v, z), 1.4 * RES, alpha(COLORS.steel, 0.9));
+  }
+  const lamp = iso.P(u, v, H + 28);
+  iso.r.line([lamp[0] - 1.6 * RES, lamp[1]], [lamp[0] + 1.6 * RES, lamp[1]], 2.2 * RES, hex('#ff5a4a'));
+  // a faint gleam catches the upper mast
+  iso.gleam(iso.P(u + w1, v, H * 0.7), iso.P(u + w1, v, H), 1 * RES);
+  return iso.build();
+}
+
+/** ALEXANDRA PALACE on its north hill: a long Victorian palace with the
+ *  great central rose-window hall, a hipped roof and the BBC transmitter
+ *  mast — a broad horizontal hero on a 2×1 (SW-anchored). */
+export function allypallyTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 1, { swAnchor: true });
+  void seed;
+  const PAL = hex('#e0cda6');
+  iso.shadow(0.12, 0.2, 1.88, 0.84, 0.2, 0.22);
+  // the long palace block, slightly stepped centre hall
+  iso.box(0.12, 0.24, 1.88, 0.78, 0, 28, PAL);
+  iso.box(0.74, 0.18, 1.26, 0.84, 0, 36, lighten(PAL, 0.05));
+  // arched window arcade down the south face
+  iso.windowsLeft(0.78, 0.18, 1.82, 8, 22, 12, alpha(COLORS.glassDark, 0.92), COLORS.white);
+  // the great rose window in the central hall gable
+  const g = iso.P(1.0, 0.84, 24);
+  const rose: Pt[] = [];
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    rose.push([g[0] + Math.cos(a) * 6 * RES, g[1] + Math.sin(a) * 5.4 * RES]);
+  }
+  iso.r.poly(rose, alpha(COLORS.glassDark, 0.92));
+  iso.r.polyline(rose, INK_W * 0.5, COLORS.white, true);
+  iso.r.line([g[0], g[1] - 6 * RES], [g[0], g[1] + 6 * RES], 0.6 * RES, alpha(COLORS.white, 0.8));
+  iso.r.line([g[0] - 6 * RES, g[1]], [g[0] + 6 * RES, g[1]], 0.6 * RES, alpha(COLORS.white, 0.8));
+  // hipped roofs + a pair of corner pavilion towers with lead caps
+  iso.hip(0.74, 0.16, 1.26, 0.86, 36, 12, hex('#5d6b80'));
+  for (const cu of [0.2, 1.8] as const) {
+    iso.box(cu - 0.08, 0.32, cu + 0.08, 0.5, 28, 48, PAL);
+    iso.hip(cu - 0.1, 0.3, cu + 0.1, 0.52, 48, 9, hex('#5d6b80'));
+  }
+  // the transmitter mast rising behind the east end
+  const mb = iso.P(1.74, 0.34, 28);
+  iso.r.line(mb, [mb[0], mb[1] - 64 * RES], 1.3 * RES, COLORS.steelDark);
+  for (const dz of [18, 34, 50]) {
+    iso.r.line([mb[0] - 3 * RES, mb[1] - dz * RES], [mb[0] + 3 * RES, mb[1] - dz * RES], 0.7 * RES, alpha(COLORS.steel, 0.85));
+  }
+  iso.r.line([mb[0] - 1.4 * RES, mb[1] - 66 * RES], [mb[0] + 1.4 * RES, mb[1] - 66 * RES], 2 * RES, hex('#ff5a4a'));
+  // the gleam runs the sun-facing roof ridge
+  iso.gleam(iso.P(1.26, 0.18, 36), iso.P(1.82, 0.24, 28), 1.3 * RES);
+  return iso.build();
+}
+
+/** ExCeL / ROYAL DOCKS: long parallel exhibition halls with their barrel
+ *  roofs beside the dock water — a broad low industrial hero on a 2×1. */
+export function excelTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 1, { swAnchor: true });
+  void seed;
+  const HALL = hex('#d4dae2');
+  iso.shadow(0.1, 0.16, 1.86, 0.88, 0.2, 0.2);
+  // a strip of dock water along the south edge (the Royal Docks)
+  iso.quad(0.1, 0.86, 1.9, 0.99, 0, COLORS.waterDeep, COLORS.water);
+  iso.r.line(iso.P(0.1, 0.86, 0), iso.P(1.9, 0.86, 0), INK_W * 0.6, alpha(COLORS.waterGlint, 0.5));
+  // the two long halls, each with a curved barrel roof + clerestory band
+  for (const v0 of [0.2, 0.52] as const) {
+    const v1 = v0 + 0.26;
+    iso.box(0.14, v0, 1.84, v1, 0, 18, HALL);
+    const ridge = 24;
+    const vm = (v0 + v1) / 2;
+    iso.r.poly(
+      [iso.P(0.14, v0, 18), iso.P(1.84, v0, 18), iso.P(1.84, vm, ridge), iso.P(0.14, vm, ridge)],
+      top(HALL, 0.3),
+    );
+    iso.r.poly(
+      [iso.P(0.14, vm, ridge), iso.P(1.84, vm, ridge), iso.P(1.84, v1, 18), iso.P(0.14, v1, 18)],
+      lit(HALL, 0.04),
+    );
+    iso.r.line(iso.P(0.14, vm, ridge), iso.P(1.84, vm, ridge), INK_W * 0.6, alpha(INK, 0.5));
+    iso.windowsLeft(v1, 0.2, 1.78, 7, 15, 13, alpha(COLORS.glassSky, 0.9), undefined);
+    iso.r.poly([iso.P(0.2, v1, 7), iso.P(1.76, v1, 7), iso.P(1.76, v1, 4), iso.P(0.2, v1, 4)], COLORS.orange);
+    iso.gleam(iso.P(0.95, vm, ridge), iso.P(1.84, vm, ridge), 1.0 * RES);
+  }
+  return iso.build();
+}
+
+/** KEW PALM HOUSE: the curved Victorian glasshouse — a pale green-glass
+ *  barrel-vaulted nave running along the v-axis, the lower side aisles and
+ *  a taller raised central crossing, ribbed glazing bars. 1×1. */
+export function kewhouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const GLASS = COLORS.greenhouseGlass;
+  iso.shadow(0.16, 0.22, 0.84, 0.74, 0.18, 0.2);
+  // white stylobate base the house sits on
+  iso.box(0.18, 0.24, 0.82, 0.78, 0, 4, COLORS.white);
+  // a rounded glasshouse limb running along v: a half-round vault swept
+  // from the v0 end to the v1 show-front, drawn as stacked curved bands
+  const limb = (u0: number, u1: number, v0: number, v1: number, h: number): void => {
+    const um = (u0 + u1) / 2;
+    const hw = (u1 - u0) / 2;
+    const ribs = 7;
+    for (let s = 0; s < ribs; s++) {
+      const t0 = s / ribs;
+      const t1 = (s + 1) / ribs;
+      const seg = (lift0: number, lift1: number, col: RGBA): void => {
+        const a0 = Math.PI * lift0;
+        const a1 = Math.PI * lift1;
+        iso.r.poly(
+          [
+            iso.P(um + Math.cos(a0) * hw, v0 + (v1 - v0) * t0, h * Math.sin(a0)),
+            iso.P(um + Math.cos(a1) * hw, v0 + (v1 - v0) * t0, h * Math.sin(a1)),
+            iso.P(um + Math.cos(a1) * hw, v0 + (v1 - v0) * t1, h * Math.sin(a1)),
+            iso.P(um + Math.cos(a0) * hw, v0 + (v1 - v0) * t1, h * Math.sin(a0)),
+          ],
+          col,
+        );
+      };
+      seg(0.0, 0.34, shaded(GLASS, 0.04));
+      seg(0.34, 0.66, lit(GLASS, 0.14));
+      seg(0.66, 1.0, lighten(GLASS, 0.2));
+    }
+    // glazing-bar ribs across the vault
+    for (let s = 0; s <= ribs; s++) {
+      const t = s / ribs;
+      const pts: Pt[] = [];
+      for (let k = 0; k <= 8; k++) {
+        const a = Math.PI * (k / 8);
+        pts.push(iso.P(um + Math.cos(a) * hw, v0 + (v1 - v0) * t, h * Math.sin(a)));
+      }
+      iso.r.polyline(pts, 0.5 * RES, alpha(COLORS.white, 0.55));
+    }
+    // the v1 show-front half-round arch, inked
+    const endArch: Pt[] = [];
+    for (let k = 0; k <= 12; k++) {
+      const a = Math.PI * (k / 12);
+      endArch.push(iso.P(um + Math.cos(a) * hw, v1, h * Math.sin(a)));
+    }
+    iso.r.polyline(endArch, INK_W * 0.6, alpha(INK, 0.55));
+  };
+  // low side aisles then the taller central nave
+  limb(0.24, 0.76, 0.3, 0.72, 18);
+  limb(0.34, 0.66, 0.26, 0.74, 34);
+  // a couple of palm crowns showing through the glass apex
+  for (const v of [0.42, 0.58]) {
+    const apex = iso.P(0.5, v, 30);
+    for (const da of [-0.6, -0.2, 0.2, 0.6]) {
+      iso.r.line(apex, [apex[0] + Math.sin(da) * 6 * RES, apex[1] - 6 * RES - Math.cos(da) * 3 * RES], 0.7 * RES, alpha(hex('#3c7a38'), 0.7));
+    }
+  }
+  // gleam catches the lit flank + a glint on the crown
+  iso.gleam(iso.P(0.66, 0.3, 30), iso.P(0.66, 0.74, 30), 1 * RES);
+  iso.glint(iso.P(0.5, 0.5, 34), 2.2 * RES);
+  return iso.build();
+}
+
+/** BT TOWER: a slender cylindrical concrete-and-glass hero spike in the
+ *  West End — banded glazing up the shaft, the lattice aerial galleries
+ *  near the top and a thin antenna mast. 1×1, reads from far zoom. */
+export function bttowerTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const [cx, cyB] = P(0.5, 0.52, 0);
+  const H = 168;
+  const Rb = 13 * RES;
+  iso.shadow(0.4, 0.4, 0.62, 0.62, 0.34, 0.26);
+  // cylindrical shaft: a tall lit/dusk-split column
+  const col = (s: number): { lx: Pt; rx: Pt } => ({
+    lx: [cx - Rb * s, cyB],
+    rx: [cx + Rb * s, cyB],
+  });
+  void col;
+  const yAt = (z: number): number => cyB - z * RES;
+  // shaft body (two vertical halves: shaded SW + lit NE)
+  iso.r.poly(
+    [[cx - Rb, cyB], [cx, cyB + Rb * 0.4], [cx, yAt(H) + Rb * 0.4], [cx - Rb, yAt(H)]],
+    shaded(COLORS.concrete, 0.12),
+  );
+  iso.r.poly(
+    [[cx, cyB + Rb * 0.4], [cx + Rb, cyB], [cx + Rb, yAt(H)], [cx, yAt(H) + Rb * 0.4]],
+    lit(COLORS.concrete, 0.06),
+  );
+  // banded glazing rings up the shaft
+  for (let z = 16; z < H - 28; z += 11) {
+    iso.r.poly(
+      [[cx - Rb, yAt(z)], [cx, yAt(z) + Rb * 0.4], [cx + Rb, yAt(z)], [cx, yAt(z) - Rb * 0.4]],
+      alpha(COLORS.glassSky, 0.85),
+    );
+    iso.r.poly(
+      [[cx - Rb, yAt(z + 4)], [cx, yAt(z + 4) + Rb * 0.4], [cx + Rb, yAt(z + 4)], [cx, yAt(z + 4) - Rb * 0.4]],
+      alpha(COLORS.glassDark, 0.7),
+    );
+  }
+  // the aerial galleries: two wider lattice drums near the top
+  for (const z of [H - 26, H - 14]) {
+    const Rg = Rb * 1.5;
+    iso.r.poly(
+      [[cx - Rg, yAt(z)], [cx, yAt(z) + Rg * 0.4], [cx + Rg, yAt(z)], [cx, yAt(z) - Rg * 0.4]],
+      COLORS.steel,
+    );
+    iso.r.poly(
+      [[cx - Rg, yAt(z)], [cx, yAt(z) + Rg * 0.4], [cx + Rg, yAt(z)], [cx + Rg, yAt(z + 6)], [cx, yAt(z + 6) + Rg * 0.4], [cx - Rg, yAt(z + 6)]],
+      alpha(COLORS.steelDark, 0.85),
+    );
+  }
+  // antenna mast + warning lamp
+  iso.r.line([cx, yAt(H)], [cx, yAt(H + 36)], 1.3 * RES, COLORS.steel);
+  for (const dz of [10, 20]) iso.r.line([cx - 2.4 * RES, yAt(H + dz)], [cx + 2.4 * RES, yAt(H + dz)], 0.7 * RES, alpha(COLORS.steel, 0.8));
+  iso.r.line([cx - 1.4 * RES, yAt(H + 38)], [cx + 1.4 * RES, yAt(H + 38)], 2 * RES, hex('#ff5a4a'));
+  // silhouette ink + the gleam down the sun-facing (right) edge
+  iso.r.line([cx + Rb, cyB], [cx + Rb, yAt(H)], INK_W * 0.7, alpha(INK, 0.6));
+  iso.r.line([cx - Rb, cyB], [cx - Rb, yAt(H)], INK_W * 0.7, alpha(INK, 0.6));
+  iso.gleam([cx + Rb * 0.9, yAt(H * 0.55)], [cx + Rb * 0.9, yAt(H - 28)], 1.1 * RES);
+  return iso.build();
+}
+
 // --- Civic fabric: every town seed gets a reason to exist --------------------
 
 /** Railway station: brick station house + glazed canopy over a platform. */
@@ -1113,5 +1457,137 @@ export function datacentreTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   iso.r.line(P(fb, fa, fh), P(fb, fb, fh), INK_W * 0.5, alpha(COLORS.steel, 0.9));
   iso.r.line(P(fa, fb, fh * 0.55), P(fb, fb, fh * 0.55), INK_W * 0.4, alpha(COLORS.steel, 0.5));
   iso.r.line(P(fb, fa, fh * 0.55), P(fb, fb, fh * 0.55), INK_W * 0.4, alpha(COLORS.steel, 0.5));
+  return iso.build();
+}
+
+// --- Bespoke Heathrow (owner: "its all concrete… specially design it") ------
+
+/** HEATHROW, the concrete terminal island that sits BETWEEN the two
+ *  parallel E–W runways: a continuous tarmac apron, the perimeter taxiway,
+ *  the long glazed terminals with their wave roofs, satellite pier fingers
+ *  with parked aircraft nosed onto the stands, the control tower, cargo
+ *  sheds and a multi-storey car park. Everything tarmac/concrete, read from
+ *  the iso camera as the real airport. A wide HEATHROW_W×HEATHROW_H tile
+ *  stamp, SW-anchored so the chooser emits it on the reservation's
+ *  (min x, max y) tile and standard placement covers the island. The
+ *  runways themselves are `ground_runway` tiles laid to the north and south
+ *  of this island (the air layer flies the real thresholds). */
+export const HEATHROW_W = 8;
+export const HEATHROW_H = 3;
+
+export function heathrowTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(HEATHROW_W, HEATHROW_H, { swAnchor: true });
+  const rng = new Rng(seed * 90163 + 17);
+  const W = HEATHROW_W;
+  const H = HEATHROW_H;
+  const APRON = hex('#9b9aa6'); // light concrete apron
+  const TAXI = hex('#8a8996'); // taxiway tarmac, a touch darker
+  const TERM = hex('#cdd2da'); // pale terminal cladding
+  const taxiMark = alpha(hex('#e8c84a'), 0.85); // yellow taxiway centreline
+  const apronMark = alpha(COLORS.marking, 0.7);
+
+  // (1) the whole island is concrete: a continuous apron slab edge-to-edge
+  iso.shadow(0.08, 0.08, W - 0.08, H - 0.08, 0.16, 0.18);
+  iso.quad(0.05, 0.05, W - 0.05, H - 0.05, 0, APRON, shaded(APRON, 0.08));
+  iso.r.polyline(
+    [iso.P(0.05, 0.05, 0), iso.P(W - 0.05, 0.05, 0), iso.P(W - 0.05, H - 0.05, 0), iso.P(0.05, H - 0.05, 0)],
+    INK_W * 0.5,
+    alpha(INK, 0.4),
+    true,
+  );
+  // perimeter taxiways north + south (between island and each runway), with
+  // dashed yellow centrelines
+  for (const v of [0.24, H - 0.24]) {
+    iso.quad(0.08, v - 0.11, W - 0.08, v + 0.11, 0, TAXI);
+    for (let u = 0.3; u < W - 0.3; u += 0.42) {
+      iso.r.line(iso.P(u, v, 0.4), iso.P(u + 0.24, v, 0.4), 1.1 * RES, taxiMark);
+    }
+  }
+  // taxiway links crossing the island onto the runways
+  for (const u of [1.0, 2.3, 3.7, 5.1, 6.5]) {
+    iso.r.line(iso.P(u, 0.24, 0.4), iso.P(u, H - 0.24, 0.4), 1.1 * RES, taxiMark);
+  }
+
+  // (2) the central terminal spine: a glazed hall with a white wave roof
+  // running W–E down the middle of the island
+  const tV0 = H / 2 - 0.2;
+  const tV1 = H / 2 + 0.2;
+  const tVm = H / 2;
+  const tU0 = 1.0;
+  const tU1 = W - 2.4;
+  iso.box(tU0, tV0, tU1, tV1, 0, 16, TERM);
+  // long clerestory glazing down the south face
+  iso.windowsLeft(tV1, tU0 + 0.1, tU1 - 0.1, 6, 13, Math.round((tU1 - tU0) * 1.6), alpha(COLORS.glassSky, 0.92), undefined);
+  // white wave roof: shallow alternating barrels
+  for (let u = tU0; u < tU1 - 0.01; u += 0.7) {
+    const uu = Math.min(u + 0.7, tU1);
+    iso.r.poly(
+      [iso.P(u, tV0, 16), iso.P(uu, tV0, 16), iso.P(uu, tVm, 22), iso.P(u, tVm, 22)],
+      top(COLORS.white, 0.2),
+    );
+    iso.r.poly(
+      [iso.P(u, tVm, 22), iso.P(uu, tVm, 22), iso.P(uu, tV1, 16), iso.P(u, tV1, 16)],
+      lit(COLORS.white, 0.0),
+    );
+    iso.r.line(iso.P(u, tVm, 22), iso.P(uu, tVm, 22), INK_W * 0.5, alpha(INK, 0.4));
+    iso.gleam(iso.P(u, tVm, 22), iso.P(uu, tVm, 22), 0.9 * RES); // sun-facing crest
+  }
+
+  // (3) satellite PIER fingers reaching N and S off the spine, parked
+  // aircraft nosed onto the stands either side
+  const drawPlane = (px: number, py: number, dir: number, scl = 1): void => {
+    const [bx, by] = iso.P(px, py, 1);
+    const L = 12 * RES * scl;
+    const wsp = 9 * RES * scl;
+    iso.r.line([bx, by - dir * L * 0.5], [bx, by + dir * L * 0.5], 2.4 * RES * scl, COLORS.white);
+    iso.r.line([bx, by - dir * L * 0.5], [bx, by + dir * L * 0.5], 0.6 * RES, alpha(INK, 0.5));
+    iso.r.line([bx, by], [bx - wsp, by + dir * wsp * 0.5], 1.6 * RES * scl, COLORS.white);
+    iso.r.line([bx, by], [bx + wsp, by + dir * wsp * 0.5], 1.6 * RES * scl, COLORS.white);
+    iso.r.line([bx, by + dir * L * 0.42], [bx, by + dir * L * 0.5], 3.6 * RES * scl, COLORS.orange);
+  };
+  for (const fu of [1.6, 3.0, 4.4, 5.8] as const) {
+    iso.box(fu - 0.13, 0.46, fu + 0.13, tV0 - 0.04, 0, 8, TERM); // north finger
+    iso.hip(fu - 0.15, 0.44, fu + 0.15, tV0 - 0.02, 8, 3.5, lighten(TERM, 0.1));
+    iso.box(fu - 0.13, tV1 + 0.04, fu + 0.13, H - 0.46, 0, 8, TERM); // south finger
+    iso.hip(fu - 0.15, tV1 + 0.02, fu + 0.15, H - 0.44, 8, 3.5, lighten(TERM, 0.1));
+    // painted stand lead-in lines, then the parked aircraft either side
+    iso.r.line(iso.P(fu, tV0, 0.4), iso.P(fu, 0.44, 0.4), 0.6 * RES, apronMark);
+    iso.r.line(iso.P(fu, tV1, 0.4), iso.P(fu, H - 0.44, 0.4), 0.6 * RES, apronMark);
+    drawPlane(fu - 0.28, 0.56, -1, 0.88);
+    drawPlane(fu + 0.28, 0.56, -1, 0.88);
+    drawPlane(fu - 0.28, H - 0.58, 1, 0.88);
+    drawPlane(fu + 0.28, H - 0.58, 1, 0.88);
+  }
+
+  // (4) the CONTROL TOWER at the east end: tall shaft, flared glass cab —
+  // the hero of the island
+  const ctU = W - 1.7;
+  iso.box(ctU - 0.09, tVm - 0.09, ctU + 0.09, tVm + 0.09, 0, 44, COLORS.white);
+  iso.box(ctU - 0.16, tVm - 0.16, ctU + 0.16, tVm + 0.16, 44, 54, COLORS.glassDark, { topC: COLORS.white });
+  iso.r.polyline(
+    [iso.P(ctU - 0.16, tVm + 0.16, 54), iso.P(ctU + 0.16, tVm + 0.16, 54), iso.P(ctU + 0.16, tVm - 0.16, 54)],
+    INK_W,
+    INK,
+  );
+  iso.r.line(iso.P(ctU, tVm, 54), iso.P(ctU, tVm, 62), 1 * RES, COLORS.steel);
+  iso.gleam(iso.P(ctU + 0.16, tVm - 0.16, 54), iso.P(ctU + 0.16, tVm + 0.16, 44), 1.2 * RES);
+  iso.glint(iso.P(ctU, tVm, 62), 2 * RES);
+
+  // (5) CARGO shed + a MULTI-STOREY CAR PARK at the west end
+  iso.box(W - 1.9, 0.5, W - 0.7, 0.92, 0, 12, hex('#a9adb8')); // cargo shed
+  iso.gable(W - 1.92, 0.48, W - 0.68, 0.94, 12, 4, 'u', hex('#7d8390'), hex('#a9adb8'));
+  iso.box(0.34, tVm - 0.42, 0.86, tVm + 0.42, 0, 20, COLORS.concrete); // MSCP
+  for (const z of [6, 12, 17]) {
+    iso.r.line(iso.P(0.34, tVm + 0.42, z), iso.P(0.86, tVm + 0.42, z), 0.8 * RES, alpha(darken(COLORS.concrete, 0.2), 0.8));
+    iso.r.line(iso.P(0.86, tVm - 0.42, z), iso.P(0.86, tVm + 0.42, z), 0.8 * RES, alpha(darken(COLORS.concrete, 0.2), 0.7));
+  }
+  // cargo containers + service vehicles dotted on the apron
+  const dots: RGBA[] = [COLORS.orange, hex('#3f8f8a'), hex('#c9453a'), COLORS.steel];
+  for (let k = 0; k < 8; k++) {
+    const u = rng.range(1.0, W - 1.0);
+    const v = rng.chance(0.5) ? rng.range(0.4, 0.62) : rng.range(H - 0.62, H - 0.4);
+    const c = dots[rng.int(dots.length)] ?? COLORS.steel;
+    iso.box(u, v, u + 0.06, v + 0.045, 0, 2.2, c, { ink: false });
+  }
   return iso.build();
 }

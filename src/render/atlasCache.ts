@@ -40,7 +40,7 @@ interface StoredAtlas {
   key: string;
   width: number;
   height: number;
-  frames: Array<[string, { x: number; y: number; w: number; h: number }]>;
+  frames: Array<[string, { x: number; y: number; w: number; h: number; ox: number; oy: number }]>;
   pixels: ArrayBuffer;
 }
 

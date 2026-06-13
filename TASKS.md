@@ -12,6 +12,65 @@
 
 ## Open
 
+- [ ] **+30d skip vs incidents (noticed at Wave 9 gate):** now that
+      weather incidents fire every week or two, a +30d (and often +7d)
+      skip halts at the first storm/incident (bad news stops a skip —
+      intended safety). So the long jumps rarely complete their full
+      span. Decide: keep as-is (halt-on-crisis is good), OR only halt on
+      MAJOR incidents, OR report "skipped 8 of 30 days — storm hit". Low
+      priority tuning.
+
+- [x] **Wave 9 landmarks + Heathrow (agent lane, integrated by main
+      after the lane stalled post-completion).** Missing landmarks added
+      (Wembley, O2, Crystal Palace, Alexandra Palace, ExCeL, Kew, BT
+      Tower, real Gherkin) with the warm specular GLEAM on heroes;
+      bespoke concrete HEATHROW (twin runways + terminal island, planes
+      on the real runways); the Heathrow PV+BESS special application.
+      SAVE_VERSION 10→11. VERIFIED: 434 lane tests + main's rebuild-grace
+      tests = 436 green; tsc/eslint/build clean; Heathrow + heroes +
+      sprite previews inspected. (Olympic Park cluster + per-city assets
+      remain for a follow-up.)
+
+- [ ] **Olympic Park, Stratford (owner, 2026-06-13 09:26): "Id like
+      london to have the Olympic park in london with the stadium
+      velodrome arcelormittal and westfield."** Add the Queen Elizabeth
+      Olympic Park as a recognisable landmark cluster at its true
+      position (Stratford, east London, north bank near the Lower Lea
+      valley): **London/Olympic Stadium** (bowl + lighting masts),
+      **Lee Valley VeloPark velodrome** (the curved pringle roof),
+      **ArcelorMittal Orbit** (the red twisting helter-skelter tower —
+      a glass/steel hero with the gleam), and **Westfield Stratford
+      City** (big retail mass). Bespoke art-is-code sprites, lofi style;
+      true relative placement + tile reservations like the other
+      landmark precincts. Folds into the Wave 9 landmark work (added at
+      integration — the running lane's scope is fixed) or a follow-up.
+
+- [x] **Rebuild grace: CI/CML clock + constraint payments (owner,
+      2026-06-13 09:15).** Two related asks; implement at Wave 9
+      integration (tick.ts is lane-locked right now).
+  - [x] CI/CML CLOCK STARTS AFTER 3 MONTHS (owner: "the clock on ci/cml
+        should only start after 3 months"): suppress reliability-KPI
+        (CI/CML) accrual for the first ~3 game-months (90 days) of a
+        london game — you're rebuilding the vanished grid, the regulator
+        gives breathing room before reliability scoring bites. Gate
+        updateReliability / the CI-CML accumulation (regulation/kpis.ts,
+        called from tick.ts) on simTimeMin >= 3 months; RIIO report card
+        ignores pre-grace interruptions. Same rebuild-grace philosophy
+        as the day-0 group-litigation fix already shipped.
+  - [x] CONSTRAINT PAYMENTS feel harsh early (owner: "seems a bit harsh
+        to have to pay for turn down when theres no grid to start").
+        Model is CORRECT (firm-connection curtailment = a real GB
+        constraint payment; distinct from a flexibility service you
+        procure, and from flexible-connection curtailment which is
+        free). But apply the SAME 3-month rebuild grace: waive/suppress
+        firm-curtailment constraint payments during the initial rebuild
+        window so the inherited chaos isn't billed; after the grace the
+        real mechanic applies (the nudge not to over-procure firm gen
+        where the wires/demand can't absorb it). Also: make the FIRM-vs-
+        flex choice louder at connection time ("firm + curtailment =
+        constraint payments; flexible curtailment is free") — the
+        connection study already hints this; surface it on the bid/award.
+
 - [x] **GAME FEELS DEAD: no weather incidents, no new applications, bad
       frequency model (owner, 2026-06-13 05:33). VERIFIED.** Root cause of
       the owner's "dead" repro: rngState was NOT persisted across the
@@ -871,6 +930,37 @@
 - [ ] Car parks gain EV charging load (flagged "in future" by owner).
 
 - [ ] Town evolution: densification of existing areas (only edge infill today).
+
+### Wave 9 — MISSING LANDMARKS + LANDMARK GLEAM + BESPOKE HEATHROW + Heathrow PV/BESS (owner, 2026-06-13)
+- [ ] **Missing landmarks (owner: "I still think many are missing").**
+      Add the heroes map-overhaul §5 identified at true relative positions
+      as bespoke art-is-code sprites in the ink-contour style with proper
+      multi-tile reservations: Wembley arch, the O2/Dome (Greenwich
+      peninsula), Crystal Palace mast, Alexandra Palace, ExCeL/Royal Docks,
+      Kew Palm House, BT Tower; and give the Gherkin a real LANDMARK id.
+      Register in NAMED_PLACES + the landmark sprite/atlas path. ~6-8 heroes.
+- [ ] **Landmark gleam (owner: "The landmarks dont pop as hard. Can they
+      perhaps have a special gleam").** A warm specular highlight (sunset
+      gold ~#ffe6b0) baked on the hero sprites + a soft bloom that pulses
+      with the day/night glow on the EXISTING bloom layer (a landmarkGleam
+      pass on MapRenderer.bloomG; coordinate with grade.ts), plus a
+      travelling glint on glass heroes. Reads desktop + phone-landscape,
+      survives the softened day/night grade.
+- [ ] **Bespoke Heathrow (owner: "Heathrow looks terrible… its all
+      concrete… specially design heathrow").** A bespoke multi-tile
+      concrete-airport stamp: terminal island (terminals, aprons, taxiways,
+      satellite piers, control tower, cargo sheds, MSCPs, perimeter road,
+      parked aircraft) between two parallel E-W runways; londonMap.ts
+      reservation extends/replaces the west AIRPORTS area; air layer keeps
+      the real runways.
+- [ ] **Heathrow PV+BESS opportunity (owner: "make opportunity
+      specifically for heathrow to get a big pv and bess installation
+      application at random point in the game").** A bespoke seeded-RNG
+      special connection: at a deterministic point Heathrow raises a BIG
+      combined PV + BESS scheme on/beside the airport estate, flagged as
+      the Heathrow scheme, sited at the reservation, handled through the
+      normal firm/flex + connection-study flow, surfaced on the news
+      banner. Deterministic, once per game.
 
 ## Done (chronological, latest first)
 
