@@ -12,31 +12,25 @@
 
 ## Open
 
-- [ ] **MOBILE LANDSCAPE LAYOUT OVERHAUL (owner, 2026-06-13 20:42, with a
-      real iPhone 14/16 Pro Max landscape screenshot). The overlap is
-      "really horrid" — be FAR more critical of mobile design/layout.**
-  - [ ] Build an ACCURATE phone-landscape repro to iterate against: real
-        Pro Max landscape viewport + iOS safe-area insets, screenshot and
-        critique HARD before claiming mobile works (design-gate doctrine).
-  - [ ] **Top-centre collision**: the freq/price ticker (48.48 Hz · £/MWh ·
-        g/kWh) overlaps the "BUILDING Capacitor bank" label; the news
-        ticker runs along the very top too. De-conflict the top band.
-  - [ ] **"BUILDING X" label** should sit ABOVE the build pane (palette),
-        not float top-centre over the ticker.
-  - [ ] **Right rail**: the camera-bookmark (fave/star) + photo-mode icons
-        COVER the right-side HUD panel buttons. Separate/stack them so
-        nothing overlaps.
-  - [ ] **Bottom bar**: the "map N:.." button covers the date. Fix the
-        bottom-bar layout so date + clock + speed + skip + actions all fit
-        without overlap.
-  - [ ] **Fat side margins on iOS 16 Pro Max** — intentional? Audit
-        viewport-fit=cover + env(safe-area-inset-*) so the map fills the
-        screen and chrome respects the notch/home-indicator (no dead bands).
-  - [ ] **ASSET ENCYCLOPEDIA (new feature)**: the player needs to know what
-        each asset IS. An expandable detail panel giving a plain-English
-        breakdown + imagery (e.g. what a capacitor bank is, what it does,
-        when to use it) so the user can identify each build option. Wire it
-        from the palette / inspector.
+- [x] **MOBILE LANDSCAPE LAYOUT OVERHAUL (owner, 2026-06-13 20:42, real
+      Pro Max landscape screenshot).** — DONE (PR #42): accurate Pro Max +
+      safe-area repro (`e2e/mobileaudit.helper.spec.ts`); de-conflicted the
+      top band (BUILDING label → top-left by the rail); fave/photo +
+      minimap are desktop-only (were covering the right panel / the date);
+      `viewport-fit=cover` + `--sai-*` safe-area vars on every edge element
+      (the fat margins were the whole viewport being inset). Verified on the
+      repro at desktop + Pro Max landscape.
+- [x] **ASSET ENCYCLOPEDIA** — DONE (PR #43): `assetGuide.ts` (every build
+      option, GB-accurate what/does/when + live-from-catalog stats) +
+      `AssetGuide.tsx` browsable dusk modal with the code-drawn icons; ⓘ
+      entry points in the palette + mobile rail, deep-linking the armed
+      tool. Design-gated (desktop index + expanded capbank + phone).
+- [x] **m5 BILL CLARITY** — DONE (PR #44): the network (DUoS) charge — the
+      bit the operator controls + the report cards grade — is now a
+      prominent bordered chip distinct from the (mostly-wholesale-energy)
+      total headline, so the £-total no longer reads as the score.
+      STILL OPEN (owner steer): whether the TOTAL itself is too high for a
+      tiny town is a sim-tuning question, not retuned blind.
 
 - [ ] **FAVOUR LOGGING IN (owner, 2026-06-13 14:28): with ranks +
       city unlocks, login matters more.** Direction: GUEST play stays
