@@ -61,6 +61,9 @@ function liveColour(state: GameState, rng: Rng): string | undefined {
 
 /** Maybe push one ambient headline this tick. */
 export function maybeAmbientNews(state: GameState, rng: Rng, dtMin: number): void {
+  // tutorial missions stay quiet: ambient colour/news would drown a
+  // beginner's lesson (progressive-disclosure doctrine). Sandbox only.
+  if (state.scenarioId !== 'london') return;
   if (!rng.chance(dtMin / (NEWS_MEAN_DAYS * 1440))) return;
   // year one carries the mystery: every few headlines, the inquiry mutters
   const storyTurn = inRebuildYear(state.simTimeMin) && rng.chance(0.25);

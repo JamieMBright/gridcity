@@ -18,6 +18,9 @@ import type { ReinforcementPlan } from './planner';
 import type { ConnectionStudy } from './study';
 import type { GameEvent, GrowthRecord, SaveData } from './state';
 import type { BranchView } from './tick';
+import type { OrgView } from './events/directorates';
+import type { SafetyView } from './reliability/safety';
+import type { Claim } from './events/litigation';
 
 export type SimSpeed = 0 | 1 | 4 | 16;
 
@@ -187,6 +190,14 @@ export interface SimSnapshot {
   /** Named-storm forecast read off the weather regime pre-roll
    *  (reliability/stormprep.ts; etaMin = game-minutes to landfall). */
   stormForecast?: Array<{ name: string; etaMin: number; severity: number }> | undefined;
+  /** The network business (#53): directorate dials, pay/safety
+   *  investment, engagement scores and the £/yr cost. */
+  org: OrgView;
+  /** H&S (#55): LTI/VSI per-year rates + safety-engagement, for the KPI
+   *  dashboard's safety rows. */
+  safety: SafetyView;
+  /** Litigation (#54): open claims for the inbox. */
+  claims: Claim[];
   /** Early-game goal ladder: the current goal, or undefined once the
    *  ladder is complete or dismissed. */
   goal?:

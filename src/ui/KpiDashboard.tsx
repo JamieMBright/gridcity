@@ -101,8 +101,82 @@ export function KpiDashboard() {
               </td>
               <td style={{ textAlign: 'right', color: theme.slate }}>—</td>
             </tr>
+            {/* H&S (#55): RIDDOR-grounded LTI/VSI rates + the safety
+                culture / engagement score. LTI target is 0; ANY is awful. */}
+            <tr style={{ lineHeight: 1.8 }}>
+              <td title="Lost-time injuries per game-year (RIDDOR over-7-day). Target 0; under 5 is tolerable but any is awful.">
+                lost-time injuries /yr
+              </td>
+              <td
+                style={{
+                  textAlign: 'right',
+                  color:
+                    snapshot.safety.ltiPerYear < 0.5
+                      ? theme.ok
+                      : snapshot.safety.ltiPerYear < 5
+                        ? theme.warn
+                        : theme.danger,
+                }}
+              >
+                {snapshot.safety.ltiPerYear.toFixed(1)}
+              </td>
+              <td style={{ textAlign: 'right', color: theme.slate }}>0</td>
+            </tr>
+            <tr style={{ lineHeight: 1.8 }}>
+              <td title="Very serious incidents per game-year — high-potential near-misses (RIDDOR dangerous occurrences). Nobody struck, but they could have been.">
+                very serious incidents /yr
+              </td>
+              <td style={{ textAlign: 'right', color: theme.slate }}>
+                {snapshot.safety.vsiPerYear.toFixed(1)}
+              </td>
+              <td style={{ textAlign: 'right', color: theme.slate }}>—</td>
+            </tr>
+            <tr style={{ lineHeight: 1.8 }}>
+              <td title="Safety culture, surfaced as an employee-engagement score. A genuinely good safety culture surveys ~90%.">
+                safety culture (%)
+              </td>
+              <td
+                style={{
+                  textAlign: 'right',
+                  color:
+                    snapshot.safety.engagement >= 80
+                      ? theme.ok
+                      : snapshot.safety.engagement >= 60
+                        ? theme.warn
+                        : theme.danger,
+                }}
+              >
+                {snapshot.safety.engagement.toFixed(0)}
+              </td>
+              <td style={{ textAlign: 'right', color: theme.slate }}>90</td>
+            </tr>
+            <tr style={{ lineHeight: 1.8 }}>
+              <td title="Workforce engagement from pay & benefits. Drives restoration speed, connection cadence and innovation.">
+                employee engagement (%)
+              </td>
+              <td
+                style={{
+                  textAlign: 'right',
+                  color:
+                    snapshot.org.engagement >= 80
+                      ? theme.ok
+                      : snapshot.org.engagement >= 60
+                        ? theme.warn
+                        : theme.danger,
+                }}
+              >
+                {snapshot.org.engagement.toFixed(0)}
+              </td>
+              <td style={{ textAlign: 'right', color: theme.slate }}>—</td>
+            </tr>
           </tbody>
         </table>
+        {snapshot.safety.noticeDaysLeft !== undefined && (
+          <div style={{ marginTop: 8, fontSize: 11, color: theme.danger }}>
+            ⚠ HSE improvement notice open — lift the safety programme within{' '}
+            {snapshot.safety.noticeDaysLeft.toFixed(0)} days or face a fine
+          </div>
+        )}
         {r.lastReport && (
           <div
             style={{

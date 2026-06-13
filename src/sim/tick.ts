@@ -45,9 +45,26 @@ import {
   smartChargingCostK,
 } from './customers/smartCharging';
 import { touSatisfactionOffset } from './events/innovation';
-import { applyMaintenanceWindows, maintRateYrK } from './reliability/ageing';
+import { applyMaintenanceWindows, maintRateYrK, networkHealthPct } from './reliability/ageing';
 import { growVegetation, isStorm, rollFaults } from './reliability/faults';
 import { stormPrepYrK } from './reliability/stormprep';
+import { hseFineYrK, rolloverSafetyPeriod, stepSafety } from './reliability/safety';
+import {
+  connectionCadenceMul,
+  earlyWarnFrac,
+  fleetSpeedMul,
+  innovationSuccessMul,
+  orgYrK,
+  riioCompositeDelta,
+  satisfactionBonus,
+  vegGrowthMul,
+} from './events/directorates';
+import {
+  claimsYrK,
+  maybeSeedGroupClaim,
+  seedInjuryClaim,
+  stepLitigation,
+} from './events/litigation';
 import { stepFleet, syncVans } from './fleet/fleet';
 import {
   assetCapexK,
@@ -58,6 +75,7 @@ import {
 import { updateReliability } from './regulation/kpis';
 import {
   closePeriod,
+  gradeOf,
   newPeriod,
   nextTargets,
   PERIOD_MIN,
@@ -347,8 +365,12 @@ export function solveTick(
       state.lineVeg,
       state.assets.values(),
       derived.routeVeg,
+      // proactive tree maintenance (#53 Asset Management × engagement):
+      // a resourced, engaged asset team trims ahead of the season, so
+      // overgrowth creeps slower (fewer tree faults)
       (VEG_POLICY[state.vegPolicy]?.growthMul ?? 1) *
-        (state.tech.droneVeg ? DRONE_VEG_GROWTH_MUL : 1),
+        (state.tech.droneVeg ? DRONE_VEG_GROWTH_MUL : 1) *
+        vegGrowthMul(state.org),
       dtMin,
     );
 
@@ -405,7 +427,16 @@ export function solveTick(
         (state.simTimeMin < (state.surgeUntilMin ?? 0) ? (state.surgeVans ?? 0) : 0),
       state.assets.values(),
     );
-    const fleet = stepFleet(state.vans, state.jobs, state.assets.values(), dtMin);
+    // faster fault response (#53 Network Operations × engagement): an
+    // engaged, well-staffed control room drives and repairs faster, so
+    // faults clear sooner (lower CML). Scaling the fleet step's dtMin
+    // speeds travel AND repair proportionally — without touching fleet.ts.
+    const fleet = stepFleet(
+      state.vans,
+      state.jobs,
+      state.assets.values(),
+      dtMin * fleetSpeedMul(state.org),
+    );
     for (const r of fleet.restored) {
       state.outages.delete(r.branchId);
       state.outageCause.delete(r.branchId);
@@ -428,10 +459,15 @@ export function solveTick(
       assetAtTile(state.assets.values(), x, y) !== undefined ||
       state.loadSites.some((l) => l.x === x && l.y === y) ||
       state.applications.some((a) => a.status === 'open' && a.x === x && a.y === y);
+    // faster application cadence + more opportunities (#53 Connections ×
+    // engagement): a staffed, engaged team turns offers around quicker,
+    // so the pipeline flows faster (scaling dtMin lifts the arrival rate
+    // without changing the RNG draw count — one chance() either way)
+    const cadence = connectionCadenceMul(state.org);
     const app = maybeSpawnApplication(
       ctx.map,
       rng,
-      dtMin,
+      dtMin * cadence,
       state.simTimeMin,
       connectedCustomers,
       state.nextAppId,
@@ -461,7 +497,7 @@ export function solveTick(
 
     const pitch = maybeSpawnPitch(
       rng,
-      dtMin,
+      dtMin * cadence,
       state.simTimeMin,
       state.tech,
       state.pitches,
@@ -483,7 +519,9 @@ export function solveTick(
         p.completesAtMin !== undefined &&
         state.simTimeMin >= p.completesAtMin
       ) {
-        if (rng.chance(p.successPct / 100)) {
+        // bigger innovation benefit (#53 engagement): engaged teams
+        // deliver projects more reliably (the odds lift, clamped ≤ 0.99)
+        if (rng.chance(Math.min(0.99, (p.successPct / 100) * innovationSuccessMul(state.org)))) {
           p.status = 'succeeded';
           state.tech[p.tech] = true;
           if (p.tech === 'dlr') state.assetsVersion++; // re-derive ratings
@@ -493,6 +531,18 @@ export function solveTick(
           pushEvent(state, 'bad', `${p.title}: the project failed`);
         }
       }
+    }
+
+    // H&S incidents (#55) and litigation (#54) — gated to the live London
+    // game: tutorial missions stay free of suits and injuries (beginners
+    // must not get sued or hurt while learning). Both roll off `rng`, so
+    // they ride the seeded stream like every other event here.
+    if (state.scenarioId === 'london') {
+      const healthForSafety = networkHealthPct(state);
+      const incident = stepSafety(state, rng, dtMin, healthForSafety, isStorm(state.weather.wind));
+      // an LTI seeds a personal-injury claim (#54 ← #55)
+      if (incident.lti) seedInjuryClaim(state, incident.lti.cause);
+      stepLitigation(state, rng, dtMin, derived.blight, (cid) => councilCoord(ctx, cid));
     }
   }
 
@@ -504,6 +554,15 @@ export function solveTick(
         pushEvent(state, 'info', `${GENS[a.gen].name} commissioned — first power`, a.x, a.y);
       }
     }
+
+    // earlier overload early-warnings (#53 Asset Management × engagement):
+    // a resourced, engaged asset team spots a transformer creeping toward
+    // its rating sooner. Fired at most once a game-day (the day-boundary
+    // gate dedupes without per-sub state) so an under-pressure catchment
+    // surfaces before it auto-reinforces or trips.
+    const warnFrac = earlyWarnFrac(state.org);
+    const dayBoundary =
+      Math.floor(state.simTimeMin / 1440) > Math.floor((state.simTimeMin - dtMin) / 1440);
 
     // auto-reinforcement: a substation running hot against its fitted
     // transformer steps up to the next MVA size (capex lands on bills)
@@ -522,6 +581,19 @@ export function solveTick(
           state,
           'warn',
           `reinforcement: ${SUBS[a.sub].name.split(' (')[0]} uprated to ${next} MVA`,
+          a.x,
+          a.y,
+        );
+      } else if (
+        dayBoundary &&
+        next !== undefined &&
+        peak > warnFrac * mva &&
+        peak <= SUB_UPGRADE_AT * mva
+      ) {
+        pushEvent(
+          state,
+          'warn',
+          `early warning: ${SUBS[a.sub].name.split(' (')[0]} is at ${Math.round((peak / mva) * 100)}% of its ${mva} MVA — reinforce before it bites`,
           a.x,
           a.y,
         );
@@ -608,6 +680,36 @@ export function solveTick(
       servedCustomers += ctx.map.customers[tile] ?? 0;
     }
   }
+  // high-water mark of customers ever simultaneously served (transient)
+  const everServed = Math.max(state.everServedCustomers ?? 0, servedCustomers);
+  state.everServedCustomers = everServed;
+
+  if (state.scenarioId === 'london' && dtMin > 0) {
+    // group litigation (#54): customer-minutes lost in the CURRENT
+    // continuous mass-outage episode. A group action is a LOSS from a
+    // grid you actually ran — gated on having energized a real base
+    // (everServed), so the day-0 blank grid you're rebuilding and the
+    // seeded-but-unconnected iDNO estates never trigger it. Once the
+    // accumulator clears (few served customers are off) it resets, so
+    // only a genuinely prolonged mass outage seeds a group action.
+    const GROUP_MIN_EVER_SERVED = 5_000; // you've run a town before suing applies
+    const darkServed = Math.max(0, everServed - servedCustomers);
+    const GROUP_RESET_CUSTOMERS = 200; // episode "over" below this many lost
+    if (everServed >= GROUP_MIN_EVER_SERVED && darkServed >= GROUP_RESET_CUSTOMERS) {
+      let worst = { x: 0, y: 0, c: 0 };
+      for (const tile of state.offTiles) {
+        if (!derived.service.subOfTile.has(tile)) continue;
+        const c = ctx.map.customers[tile] ?? 0;
+        if (c > worst.c) worst = { x: tile % ctx.map.width, y: Math.floor(tile / ctx.map.width), c };
+      }
+      state.groupOutageCustMin = (state.groupOutageCustMin ?? 0) + darkServed * dtMin;
+      if (maybeSeedGroupClaim(state, state.groupOutageCustMin, worst.x, worst.y)) {
+        state.groupOutageCustMin = 0; // a claim is filed: don't re-file this episode
+      }
+    } else {
+      state.groupOutageCustMin = undefined;
+    }
+  }
 
   // councils: adoption + satisfaction (and accepted-connection progress)
   const { satisfactionAvg, smartChargingYrK } = stepCouncils(
@@ -661,11 +763,17 @@ export function solveTick(
     flexYrK: state.flexYrK + smartChargingYrK,
     constraintYrK: state.constraintYrK,
     // storm-prep + maintenance/replacement spend ride the constraint/
-    // damages line (each decays in its own module)
+    // damages line (each decays in its own module). The network business
+    // dials (#53 directorate staffing + pay + safety, orgYrK), litigation
+    // settlements (#54 claimsYrK) and HSE fines (#55 hseFineYrK) ride the
+    // same line — all spend comes off the bill, bill.ts untouched.
     penaltyYrK:
       overdue * LATE_PENALTY_K_PER_DAY * 365 +
       stormPrepYrK(state, dtMin) +
-      maintRateYrK(state, dtMin),
+      maintRateYrK(state, dtMin) +
+      orgYrK(state.org) +
+      claimsYrK(state, dtMin) +
+      hseFineYrK(state, dtMin),
     levyPct: state.levyPct,
   });
 
@@ -692,7 +800,20 @@ export function solveTick(
     if (state.simTimeMin >= p.startMin + PERIOD_MIN) {
       const actuals = currentPeriodActuals(state);
       const card = closePeriod(p, actuals);
+      // #53 Regulation & Finance writes better submissions (a small
+      // composite nudge); #55 safety performance bites the rating — each
+      // LTI this period dents it (no deaths, ever — but injuries cost).
+      const ltiThisPeriod = state.safety
+        ? state.safety.ltiTotal - state.safety.ltiPeriodStart
+        : 0;
+      const adjusted = Math.max(
+        0,
+        Math.min(100, card.composite + riioCompositeDelta(state.org) - Math.min(15, 3 * ltiThisPeriod)),
+      );
+      card.composite = adjusted;
+      card.grade = gradeOf(adjusted);
       state.lastReport = card;
+      rolloverSafetyPeriod(state);
       pushEvent(
         state,
         card.composite >= 55 ? 'info' : 'bad',
@@ -722,6 +843,17 @@ export function solveTick(
     freqHz,
     satisfactionAvg,
   };
+}
+
+/** A representative map tile for a council (its first land tile) — the
+ *  jump-to coordinate for a wayleave/blight claim. Scans once per claim
+ *  roll (rare), so the linear search is fine. */
+function councilCoord(ctx: SimContext, councilId: number): { x: number; y: number } | undefined {
+  const { map } = ctx;
+  for (let i = 0; i < map.council.length; i++) {
+    if (map.council[i] === councilId) return { x: i % map.width, y: Math.floor(i / map.width) };
+  }
+  return undefined;
 }
 
 /** Adoption + satisfaction per council; also marks accepted connections
@@ -796,7 +928,10 @@ function stepCouncils(
       // popular (#18); the ToU launch grumble fades to nothing (#24)
       if (target > 0) {
         if (cs.smartCharging === true) target += SMART_CHARGE_SAT_BONUS;
-        target = Math.min(100, Math.max(0, target + touOffset));
+        // satisfaction recovery (#53 Customer Service × engagement): a
+        // resourced, engaged customer team lifts the mood and wins trust
+        // back faster after an outage
+        target = Math.min(100, Math.max(0, target + touOffset + satisfactionBonus(state.org)));
       }
       stepSatisfaction(cs, target, dtMin);
       const before = { ev: cs.ev, hp: cs.hp, pv: cs.pv };

@@ -67,6 +67,7 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
         }
       : {};
 
+  const claims = snapshot.claims ?? [];
   const apps = snapshot.inbox.applications.filter((a) => a.status === 'open');
   const overdue = snapshot.inbox.applications.filter(
     (a) =>
@@ -77,7 +78,7 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   const pitches = snapshot.inbox.pitches.filter((p) => p.status === 'open' || p.status === 'funded');
   const tenders = snapshot.inbox.tenders.filter((t) => t.status === 'open');
   const count =
-    apps.length + tenders.length + pitches.filter((p) => p.status === 'open').length;
+    apps.length + tenders.length + claims.length + pitches.filter((p) => p.status === 'open').length;
   if (count === 0 && overdue.length === 0 && !open) return null;
 
   // CfD allocation rounds (#14): tenders swept into a round (Tender.roundId,
@@ -179,6 +180,7 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
 
   return (
     <div
+      data-tour="inbox"
       style={{
         ...panelStyle,
         position: 'absolute',
@@ -211,9 +213,51 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
       </div>
       {open && (
         <>
-          {apps.length + tenders.length + pitches.length + overdue.length === 0 && (
+          {apps.length + tenders.length + pitches.length + overdue.length + claims.length === 0 && (
             <div style={{ color: theme.slate, fontSize: 11 }}>nothing waiting</div>
           )}
+          {/* litigation (#54): each claim offers settle / fight / remediate */}
+          {claims.length > 0 && sectionHeader('CLAIMS & SUITS', 'claims-h')}
+          {claims.map((c) => (
+            <div key={`c${c.id}`} style={{ marginTop: 6 }}>
+              <div
+                style={{ color: theme.danger, cursor: c.x !== undefined ? 'pointer' : 'default' }}
+                onClick={() => c.x !== undefined && c.y !== undefined && requestPan(c.x, c.y)}
+              >
+                ⚖ {c.title}
+              </div>
+              <div style={{ color: theme.slate, fontSize: 11, lineHeight: 1.4 }}>{c.blurb}</div>
+              <div style={{ display: 'flex', gap: 4, marginTop: 3, flexWrap: 'wrap' }}>
+                <button
+                  style={btn(theme.gold)}
+                  title="Pay now — fast, certain, a small reputation hit"
+                  onClick={() =>
+                    sendCommand({ type: 'claimResponse', claimId: c.id, response: 'settle' })
+                  }
+                >
+                  settle {fmtMoneyK(c.settleK)}
+                </button>
+                <button
+                  style={btn(theme.orangeSoft)}
+                  title="Defend it in court — legal spend, then an uncertain outcome (better odds with safety/legal funding)"
+                  onClick={() =>
+                    sendCommand({ type: 'claimResponse', claimId: c.id, response: 'fight' })
+                  }
+                >
+                  fight {fmtMoneyK(c.fightK)}
+                </button>
+                <button
+                  style={btn(theme.ok)}
+                  title="Fix the underlying cause — addresses the grievance"
+                  onClick={() =>
+                    sendCommand({ type: 'claimResponse', claimId: c.id, response: 'remediate' })
+                  }
+                >
+                  {c.remediateK > 0 ? `remediate ${fmtMoneyK(c.remediateK)}` : 'put it right'}
+                </button>
+              </div>
+            </div>
+          ))}
           {roundIds.map((r) => {
             // round members sorted cheapest-first by their best bid
             const members = tenders

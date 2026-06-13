@@ -7,6 +7,7 @@ import { useAppStore, type Tool } from '../app/store';
 import { requestForecast, sendCommand, setWatch } from '../app/workerBridge';
 import { assetAtTile, checkBuild, pylonTilesOf, siteErrorAt, type BuildSpec } from '../sim/commands';
 import { priceLine, pylonSiteOk } from '../sim/cost';
+import { mapBounds, missionOf } from '../sim/scenario/missions';
 import { ANNUITY_FACTOR, DEPOT, GENS, LINES, SUBS } from '../sim/catalog';
 import type { LineAsset, PlacedAsset } from '../sim/assets';
 import { assetLevels } from '../sim/assets';
@@ -258,7 +259,24 @@ export function MapView() {
     };
     void renderer.init(host, getLondonMap()).then(() => {
       // StrictMode double-mounts: only the surviving renderer gets the hook
-      if (rendererRef.current === renderer) installTestHook(renderer);
+      if (rendererRef.current !== renderer) return;
+      installTestHook(renderer);
+      // THE mission-camera fix: a campaign mission centres + zoom-FITS the
+      // tiny mission map and CLAMPS pan/zoom to it, so the village/ridge
+      // can never sit off-screen. Sandbox (london) keeps the free camera.
+      const mission = missionOf(scenarioId);
+      if (mission) {
+        const map = getLondonMap();
+        // reserve room at the top for the mission step strip so the map
+        // (and the tiles the player must tap) sit BELOW it, never hidden
+        renderer.lockToBounds(mapBounds(map), 28, 104);
+        // the fit already frames the whole tiny map; if the current step
+        // declares a focus, glide to it now that init has resolved
+        const focus = mission.steps[useAppStore.getState().tutorialStep ?? 0]?.focus;
+        if (focus) renderer.focusTile(focus.x, focus.y);
+      } else {
+        renderer.lockToBounds(undefined);
+      }
     });
     return () => {
       rendererRef.current = undefined;
@@ -323,6 +341,17 @@ export function MapView() {
   useEffect(() => {
     if (panTarget) rendererRef.current?.panTo(panTarget.x, panTarget.y);
   }, [panTarget]);
+
+  // mission steps may declare a focus point — glide the (clamped) camera
+  // there as each step opens so the teaching tiles are always centred
+  const tutorialStep = useAppStore((s) => s.tutorialStep);
+  const hasSnapshot = snapshot !== undefined;
+  useEffect(() => {
+    const mission = missionOf(scenarioId);
+    if (!mission || tutorialStep === undefined) return;
+    const focus = mission.steps[tutorialStep]?.focus;
+    if (focus) rendererRef.current?.focusTile(focus.x, focus.y);
+  }, [tutorialStep, scenarioId, hasSnapshot]);
 
   // grid-balance ring fence
   const highlightCouncil = useAppStore((s) => s.highlightCouncil);
@@ -509,6 +538,7 @@ export function MapView() {
   return (
     <div
       ref={hostRef}
+      data-tour="map"
       style={{ position: 'absolute', inset: 0, overflow: 'hidden', cursor: 'grab' }}
     />
   );

@@ -7,6 +7,9 @@ import { buildDemandField, type DemandField } from './map/demand';
 import { newWeather, type WeatherState } from './events/weather';
 import type { Application } from './events/applications';
 import { newDevMood, nextRoundOpensMin, type Tender } from './events/developers';
+import type { OrgState } from './events/directorates';
+import type { Claim } from './events/litigation';
+import type { SafetyLog } from './reliability/safety';
 import { newTech, type Pitch, type TechState } from './events/innovation';
 import type { CouncilState } from './customers/adoption';
 import type { RepairJob, Van } from './fleet/fleet';
@@ -146,6 +149,28 @@ export interface GameState {
    *  stormPrepYrK's exact sibling (decays in reliability/ageing.ts and
    *  rides the same penaltyYrK bill input). */
   maintYrK?: number | undefined;
+  /** The network business (#53): directorate staffing + pay/benefits +
+   *  safety-programme dials (events/directorates.ts). Lazily created on
+   *  first dial touch — absent leaves every mechanic neutral. */
+  org?: OrgState | undefined;
+  /** H&S incident log (#55): RIDDOR-grounded LTI/VSI counters, the HSE
+   *  improvement notice + fine rate (reliability/safety.ts). */
+  safety?: SafetyLog | undefined;
+  /** Litigation (#54): open + resolved claims (events/litigation.ts). */
+  claims?: Claim[] | undefined;
+  /** Rolling annualized claims/settlements spend, £k/yr — stormPrepYrK's
+   *  sibling, rides the same penaltyYrK bill input. */
+  claimsYrK?: number | undefined;
+  /** Litigation (#54): customer-minutes lost in the CURRENT continuous
+   *  mass-outage episode (resets when supply largely restores) — crosses
+   *  a threshold to seed a group claim. Additive optional. */
+  groupOutageCustMin?: number | undefined;
+  /** High-water mark of customers ever simultaneously served (transient,
+   *  not serialized — self-heals in one tick on load). A group action is
+   *  a LOSS from a served grid, so this gates out the day-0 blank-grid
+   *  rebuild and the seeded-but-unconnected iDNO estates: you aren't sued
+   *  for the network that vanished, only for supply you actually lost. */
+  everServedCustomers?: number | undefined;
 }
 
 /** One scheduled maintenance night (#16): `branchId` goes out as a
@@ -452,6 +477,16 @@ export interface SaveData {
   maintenance?: MaintenanceWindow[];
   /** Rolling maintenance/replacement spend, £k/yr (#15/#16, additive). */
   maintYrK?: number;
+  /** The network business dials (#53, additive). */
+  org?: OrgState;
+  /** H&S incident log (#55, additive). */
+  safety?: SafetyLog;
+  /** Litigation claims (#54, additive). */
+  claims?: Claim[];
+  /** Rolling claims/settlements spend, £k/yr (#54, additive). */
+  claimsYrK?: number;
+  /** Current mass-outage episode customer-minutes (#54, additive). */
+  groupOutageCustMin?: number;
 }
 
 export function serialize(s: GameState): SaveData {
@@ -520,6 +555,22 @@ export function serialize(s: GameState): SaveData {
       ? { maintenance: s.maintenance.map((m) => ({ ...m })) }
       : {}),
     ...(s.maintYrK !== undefined ? { maintYrK: s.maintYrK } : {}),
+    // the network business / H&S / litigation (#53/#54/#55): serialized
+    // only once the player engages them, so untouched saves stay
+    // byte-identical to pre-feature ones
+    ...(s.org ? { org: { dirs: { ...s.org.dirs }, pay: s.org.pay, safety: s.org.safety } } : {}),
+    ...(s.safety
+      ? {
+          safety: {
+            ...s.safety,
+            entries: s.safety.entries.map((e) => ({ ...e })),
+            ...(s.safety.notice ? { notice: { ...s.safety.notice } } : {}),
+          },
+        }
+      : {}),
+    ...(s.claims && s.claims.length > 0 ? { claims: s.claims.map((c) => ({ ...c })) } : {}),
+    ...(s.claimsYrK !== undefined ? { claimsYrK: s.claimsYrK } : {}),
+    ...(s.groupOutageCustMin !== undefined ? { groupOutageCustMin: s.groupOutageCustMin } : {}),
     // scenario tag only when off the default: london saves stay
     // byte-identical to pre-campaign ones
     ...(s.scenarioId !== 'london' ? { scenarioId: s.scenarioId } : {}),
@@ -600,6 +651,21 @@ export function deserialize(d: SaveData): GameState {
     stormPrepYrK: d.stormPrepYrK,
     maintenance: d.maintenance?.map((m) => ({ ...m })),
     maintYrK: d.maintYrK,
+    // #53/#54/#55 — additive: absent fields hydrate to neutral (no org,
+    // no incidents, no claims), so pre-feature saves load unchanged
+    org: d.org
+      ? { dirs: { ...d.org.dirs }, pay: d.org.pay, safety: d.org.safety }
+      : undefined,
+    safety: d.safety
+      ? {
+          ...d.safety,
+          entries: (d.safety.entries ?? []).map((e) => ({ ...e })),
+          notice: d.safety.notice ? { ...d.safety.notice } : undefined,
+        }
+      : undefined,
+    claims: d.claims?.map((c) => ({ ...c })),
+    claimsYrK: d.claimsYrK,
+    groupOutageCustMin: d.groupOutageCustMin,
   };
 }
 

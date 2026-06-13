@@ -18,6 +18,13 @@ import { CONNECT_DAYS, GEN_OF_KIND } from './events/applications';
 import { FARM_MW_PER_TILE } from './catalog';
 import { farmClaimTiles, farmFitMW, farmTileOrder, isFarmGen } from './farms';
 import { applyConvertToH2 } from './market/hydrogen';
+import {
+  applySetDirectorate,
+  applySetPay,
+  applySetSafetyProgramme,
+  type Directorate,
+} from './events/directorates';
+import { applyClaimResponse, type ClaimResponse } from './events/litigation';
 import { applyReplaceAsset, applyScheduleMaintenance } from './reliability/ageing';
 import { applyStormPrep } from './reliability/stormprep';
 import { applySetSmartCharging } from './customers/smartCharging';
@@ -93,6 +100,17 @@ export type Command =
    *  electrolyser fleet's H₂ store first (carbon 0), falls back to gas
    *  when the tanks run dry. Logic lives in market/hydrogen.ts. */
   | { type: 'convertToH2'; assetId: number }
+  /** Set a directorate's staffing dial (ROADMAP #53): 0–4 FTE level. The
+   *  £/yr cost rides the bill; the buff feeds its real mechanic. Logic in
+   *  events/directorates.ts. */
+  | { type: 'setDirectorate'; directorate: Directorate; level: number }
+  /** Set the pay & benefits / employee-engagement investment (#53). */
+  | { type: 'setPay'; level: number }
+  /** Set the H&S safety-programme investment (#55, the culture dial). */
+  | { type: 'setSafetyProgramme'; level: number }
+  /** Respond to a litigation claim (ROADMAP #54): settle, fight or
+   *  remediate. Logic lives in events/litigation.ts. */
+  | { type: 'claimResponse'; claimId: number; response: ClaimResponse }
   /** Handled by the worker via its snapshot stacks. */
   | { type: 'undo' }
   | { type: 'redo' };
@@ -811,6 +829,18 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
 
     case 'convertToH2':
       return applyConvertToH2(state, cmd.assetId);
+
+    case 'setDirectorate':
+      return applySetDirectorate(state, cmd.directorate, cmd.level);
+
+    case 'setPay':
+      return applySetPay(state, cmd.level);
+
+    case 'setSafetyProgramme':
+      return applySetSafetyProgramme(state, cmd.level);
+
+    case 'claimResponse':
+      return applyClaimResponse(state, cmd.claimId, cmd.response);
 
     case 'undo':
     case 'redo':

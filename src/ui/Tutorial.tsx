@@ -1,8 +1,9 @@
-// Scripted first steps — the London tutorial strip AND the campaign
-// missions' guided steps (one component, two sources). Each step either
-// auto-advances when the sim shows it's done, or waits for "next".
-// Skippable at any point. Mission wins additionally raise the victory
-// card (next mission / back to menu).
+// The campaign missions' guided step strip + victory card. The campaign
+// IS the tutorial now — the old standalone London step strip is retired
+// (sandbox new game starts clean; the start menu's "tutorial" launches
+// mission 1). Each step auto-advances when the sim shows it's done, or
+// waits for "next"; skippable at any point. A refused siting click shows
+// its reason loudly right under the strip.
 
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../app/store';
@@ -15,36 +16,6 @@ import {
   type MissionUiView,
 } from '../sim/scenario/missions';
 import { panelStyle, theme } from './theme';
-
-const STEPS: MissionStep[] = [
-  {
-    text: 'Welcome, operator. London is dark — every cold blue tile is a neighbourhood waiting for power. Drag to pan, scroll to zoom.',
-  },
-  {
-    text: 'First, generation — but you are a network operator, not a power company. Pick GAS CCGT (hotkey 1) and designate a site on open land away from homes — the map shades green where it can go, red where it cannot. That opens a tender: developers bid in your INBOX, and the moment you award one their plant appears, online and waiting for your wires.',
-    // seeded existing plants don't count: the player must open a tender
-    done: (s) => s.inbox.tenders.length > 0,
-  },
-  {
-    text: 'Now a GRID SUBSTATION (132/33 kV) near the area you want to serve.',
-    done: (s) => s.assets.some((a) => a.kind === 'sub' && a.sub === 'grid' && !a.idno),
-  },
-  {
-    text: 'Wire them up: choose the 132 KV LINE, click the plant, then the substation.',
-    done: (s) => s.assets.some((a) => a.kind === 'line' && a.level === 132),
-  },
-  {
-    text: 'Last hop: place a DISTRIBUTION SUBSTATION among homes (watch its service ring), and run a 33 KV LINE to it — wooden poles march along the route. Homes light up the moment power reaches them — watch the chevrons ride your new line.',
-    done: (s) => s.assets.some((a) => a.kind === 'line' && a.level === 33),
-  },
-  {
-    text: "You're live — and the bill panel is now counting. Faults will come: build a FIELD DEPOT so your vans have somewhere to roll from.",
-    done: (s) => s.assets.some((a) => a.kind === 'depot'),
-  },
-  {
-    text: "That's the job: connect the city, watch the inbox for connection applications and innovation pitches, mind the trees, and keep the regulator smiling — your RIIO report card lands every 5 years. Good luck.",
-  },
-];
 
 const btnStyle: React.CSSProperties = {
   padding: '3px 14px',
@@ -80,6 +51,10 @@ function StepStrip({
 }) {
   const step = useAppStore((s) => s.tutorialStep);
   const setStep = useAppStore((s) => s.setTutorialStep);
+  // loud refusals: a siting click the sim rejects sets this toast — we
+  // surface the reason prominently right under the strip, not just as the
+  // small corner toast that's easy to miss mid-lesson.
+  const toast = useAppStore((s) => s.toast);
 
   const current = step !== undefined ? steps[step] : undefined;
 
@@ -107,13 +82,35 @@ function StepStrip({
         padding: '10px 14px',
         border: `1px solid ${theme.orange}`,
         zIndex: 5,
+        // taps PASS THROUGH the strip to the map underneath (the camera
+        // fit can put a teaching tile beneath the strip on a phone) —
+        // only the buttons below re-arm pointer events
+        pointerEvents: 'none',
       }}
     >
       <div style={{ color: theme.orange, fontSize: 10, letterSpacing: '0.12em' }}>
         {header} {step + 1}/{steps.length}
       </div>
       <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 4 }}>{current.text}</div>
-      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+      {toast && (
+        <div
+          role="alert"
+          style={{
+            marginTop: 8,
+            padding: '6px 10px',
+            borderRadius: 6,
+            background: 'rgba(224, 105, 122, 0.16)',
+            border: `1px solid ${theme.danger}`,
+            color: theme.danger,
+            fontSize: 12,
+            lineHeight: 1.4,
+            fontWeight: 600,
+          }}
+        >
+          ⚠ can’t do that here — {toast}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8, marginTop: 8, pointerEvents: 'auto' }}>
         {!current.done && (
           <button onClick={() => setStep(last ? undefined : step + 1)} style={btnStyle}>
             {last ? 'play' : 'next'}
@@ -228,18 +225,20 @@ export function Tutorial() {
   const headroom = useAppStore((s) => s.headroom);
 
   if (menuOpen) return null;
+  // the campaign IS the tutorial: the step strip only ever runs on a
+  // mission scenario. Sandbox (london) gets no auto step strip.
   const mission = missionOf(scenarioId);
-  const missionIx = mission ? `MISSION · ${mission.name.toUpperCase()} · STEP` : 'TUTORIAL';
+  if (!mission) return null;
 
   return (
     <>
       <StepStrip
-        steps={mission ? mission.steps : STEPS}
-        header={missionIx}
+        steps={mission.steps}
+        header={`MISSION · ${mission.name.toUpperCase()} · STEP`}
         snapshot={snapshot}
         ui={{ studies, headroom }}
       />
-      {mission && <MissionVictory scenarioId={scenarioId} />}
+      <MissionVictory scenarioId={scenarioId} />
     </>
   );
 }

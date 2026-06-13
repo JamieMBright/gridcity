@@ -11,12 +11,16 @@
 import {
   M1_VILLAGE,
   M1_WIND,
+  M2_VILLAGE,
   M2_WINDSITE,
   M3_PLANT,
   M3_SUB,
+  M3_TOWN,
   M4_APPLICANT,
   M4_PLANT,
   M4_SUB,
+  M4_TOWN,
+  M5_TOWN,
   M5_WIND,
 } from '../../data/missions';
 import { getScenario } from '../../data/cityRegistry';
@@ -74,10 +78,27 @@ export interface MissionUiView {
   headroom: boolean;
 }
 
+/** Progressive-disclosure unlocks (game-design-core: reveal a mechanic
+ *  only once the player needs it). The UI filters the build palette + HUD
+ *  to the CUMULATIVE union of unlocks up to and including the current
+ *  step; the sim is untouched. Tools use catalog ids:
+ *    `gen:windOnshore`, `sub:dist`, `line:33`, `depot`, `inspect`,
+ *    `demolish`.
+ *  HUD surfaces use `hud:` keys the buttons/chips opt into:
+ *    `hud:inbox`, `hud:bill`, `hud:fleet`, `hud:alerts`, `hud:kpi`,
+ *    `hud:balance`, `hud:headroom`, `hud:n1`, `hud:forecast`,
+ *    `hud:grid`, `hud:goal`. */
+export type Unlock = string;
+
 export interface MissionStep {
   text: string;
   /** Auto-advance condition; omit for a manual "next". */
   done?: (s: SimSnapshot, ui: MissionUiView) => boolean;
+  /** Tools / HUD surfaces this step ADDS (cumulative — see Unlock). */
+  unlocks?: Unlock[];
+  /** Camera glides to centre this tile when the step opens (clamped to
+   *  the mission bounds). */
+  focus?: { x: number; y: number };
 }
 
 export interface Mission {
@@ -95,6 +116,25 @@ export interface Mission {
    *  constraint payments on a 100 MW plant serving a hamlet don't swamp
    *  the tutorial bill (firm-vs-flex is mission 4's lesson). */
   flexTenders?: boolean;
+  /** Tools / HUD surfaces available from step 1 (before any step adds
+   *  its own). `inspect` is always available. */
+  baseUnlocks?: Unlock[];
+}
+
+/** Always-on regardless of mission (you can always look + undo a misplace). */
+const ALWAYS_UNLOCKED: ReadonlySet<Unlock> = new Set(['inspect', 'demolish']);
+
+/** The cumulative set of unlocks available at `stepIx` (inclusive). When
+ *  `stepIx` is undefined (mission over / strip skipped) everything the
+ *  mission ever teaches is unlocked, so a player can keep building. */
+export function missionUnlocks(m: Mission, stepIx: number | undefined): Set<Unlock> {
+  const out = new Set<Unlock>(ALWAYS_UNLOCKED);
+  for (const u of m.baseUnlocks ?? []) out.add(u);
+  const upTo = stepIx === undefined ? m.steps.length - 1 : stepIx;
+  for (let i = 0; i <= upTo && i < m.steps.length; i++) {
+    for (const u of m.steps[i]?.unlocks ?? []) out.add(u);
+  }
+  return out;
 }
 
 // --- predicate helpers --------------------------------------------------------
@@ -252,6 +292,7 @@ export const MISSIONS: Mission[] = [
         text:
           'Alderbrook has never had mains power. Your whole job in one village: ' +
           'generation → wire → substation → lit homes. Drag to pan, scroll to zoom.',
+        focus: M1_VILLAGE,
       },
       {
         text:
@@ -259,24 +300,30 @@ export const MISSIONS: Mission[] = [
           'developers build on them. Pick ONSHORE WIND and click open land on the ' +
           'breezy western ridge (the map shades green where it can go). That opens a tender.',
         done: (s) => s.inbox.tenders.length > 0,
+        unlocks: ['gen:windOnshore'],
+        focus: M1_WIND,
       },
       {
         text:
           'Developers are pricing the site — run time forward (▶▶▶) and watch the INBOX. ' +
           'When a bid lands, AWARD it: the turbines appear, spinning and waiting for your wires.',
         done: (s) => s.inbox.tenders.some((t) => t.status === 'awarded'),
+        unlocks: ['hud:inbox'],
       },
       {
         text:
           'Homes connect through a DISTRIBUTION SUBSTATION (33 kV/LV). Place one among ' +
           'the village houses — its service ring must cover them.',
         done: (s) => s.assets.some((a) => a.kind === 'sub' && a.sub === 'dist' && !a.idno),
+        unlocks: ['sub:dist'],
+        focus: M1_VILLAGE,
       },
       {
         text:
           'Last hop: arm the 33 KV LINE, click the wind farm, then the substation — ' +
           'wooden poles march the route and the chevrons start to flow.',
         done: (s) => hasLine(s, 33) && s.stats.servedCustomers > 0,
+        unlocks: ['line:33'],
       },
       {
         text:
@@ -296,12 +343,15 @@ export const MISSIONS: Mission[] = [
         text:
           'Saltmarsh: the village is here, the wind is 40 km east, OFFSHORE. ' +
           'Distance is what voltage is for — this is the step-up lesson.',
+        focus: M2_VILLAGE,
       },
       {
         text:
           'Designate OFFSHORE WIND on the surveyed estuary zone in the far east ' +
           '(only those tiles shade green), then award a bid from the INBOX (▶▶▶ helps).',
         done: (s) => s.inbox.tenders.some((t) => t.status === 'awarded'),
+        unlocks: ['gen:windOffshore', 'hud:inbox'],
+        focus: M2_WINDSITE,
       },
       {
         text:
@@ -309,16 +359,21 @@ export const MISSIONS: Mission[] = [
           'line needs a matching BAY at both ends. Place a GRID SUBSTATION (132/33 kV) ' +
           'beside the village: it owns both bays and steps the voltage down.',
         done: (s) => s.assets.some((a) => a.kind === 'sub' && a.sub === 'grid' && !a.idno),
+        unlocks: ['sub:grid'],
+        focus: M2_VILLAGE,
       },
       {
         text: 'Run the 132 KV LINE from the wind farm to the grid substation — big pylons this time.',
         done: (s) => hasLine(s, 132),
+        unlocks: ['line:132'],
       },
       {
         text:
           'Finish locally: DISTRIBUTION SUBSTATION among the homes, 33 KV LINE from the ' +
           'grid substation to it. 132 kV travels, 33 kV delivers.',
         done: (s) => s.stats.servedCustomers > 0,
+        unlocks: ['sub:dist', 'line:33'],
+        focus: M2_VILLAGE,
       },
       { text: 'Light every home via the 132 kV link to complete Step Up.' },
     ],
@@ -330,23 +385,28 @@ export const MISSIONS: Mission[] = [
   mission('m3-storm', {
     seed: (state, ctx) => seedNetwork(state, ctx, 'biomass', M3_PLANT, M3_SUB),
     script: stormScript,
+    baseUnlocks: ['hud:alerts'],
     steps: [
       {
         text:
           'Thornwood Vale is already wired — through ten miles of woodland. Trees and ' +
           'overhead lines are old enemies, and a storm is forming out in the Atlantic.',
+        focus: M3_TOWN,
       },
       {
         text:
           'Faults need crews and crews need a home: build a FIELD DEPOT near the line. ' +
           'Your two vans appear there the moment it exists.',
         done: (s) => s.assets.some((a) => a.kind === 'depot'),
+        unlocks: ['depot'],
+        focus: { x: 18, y: 11 },
       },
       {
         text:
           'Open the FLEET panel and set a VEGETATION programme — reactive at least. ' +
           'Untrimmed woodland is where storm faults breed.',
         done: (s) => s.fleet.vegPolicy > 0,
+        unlocks: ['hud:fleet'],
       },
       {
         text:
@@ -388,17 +448,21 @@ export const MISSIONS: Mission[] = [
         M4_APPLICANT.y,
       );
     },
+    baseUnlocks: ['hud:inbox'],
     steps: [
       {
         text:
           'Watermead is served and quiet — until the INBOX pings: Eastbox Compute want ' +
           '12 MW on the far side of the parish. Connections are the day job.',
+        focus: M4_TOWN,
       },
       {
         text:
           'Never promise blind. Open the INBOX and RUN A CONNECTION STUDY on the ' +
           'application — it tells you what the network can host before you sign.',
         done: (_s, ui) => ui.studies > 0,
+        unlocks: ['hud:study'],
+        focus: M4_APPLICANT,
       },
       {
         text:
@@ -413,6 +477,8 @@ export const MISSIONS: Mission[] = [
           'damages). Place a DISTRIBUTION SUBSTATION whose ring covers their site and run ' +
           '33 kV back to your network — without overloading anything.',
         done: (s) => s.inbox.applications.some((a) => a.status === 'connected'),
+        unlocks: ['sub:dist', 'line:33', 'hud:headroom'],
+        focus: M4_APPLICANT,
       },
       { text: 'Keep the whole parish on supply with no overloads to complete The Inbox.' },
     ],
@@ -424,12 +490,14 @@ export const MISSIONS: Mission[] = [
 
   mission('m5-bill', {
     flexTenders: true,
+    baseUnlocks: ['hud:bill', 'hud:inbox'],
     steps: [
       {
         text:
           'Pennyford reads its bills line by line. Capital is unlimited — but every pound ' +
           `you spend lands on customers. Serve the whole town with network charges at or ` +
           `under £${M5_DUOS_TARGET} per household per year.`,
+        focus: M5_TOWN,
       },
       {
         text:
@@ -439,6 +507,7 @@ export const MISSIONS: Mission[] = [
       {
         text: 'Toggle HEADROOM (▦ / H) to see spare capacity per corridor. Right-sized kit is cheap kit.',
         done: (_s, ui) => ui.headroom,
+        unlocks: ['hud:headroom'],
       },
       {
         text:
@@ -446,6 +515,8 @@ export const MISSIONS: Mission[] = [
           'town, short 33 kV runs. No grid substations, no gold-plate — the town is small.',
         done: (s) =>
           s.stats.totalCustomers > 0 && s.stats.servedCustomers >= s.stats.totalCustomers,
+        unlocks: ['gen:windOnshore', 'sub:dist', 'line:33'],
+        focus: M5_WIND,
       },
       {
         text: `Hold it there: every home served AND network £/home ≤ £${M5_DUOS_TARGET}. Demolish anything gold-plated — refunds are instant.`,
@@ -463,6 +534,17 @@ export const MISSIONS: Mission[] = [
 
 export function missionOf(scenarioId: string | undefined): Mission | undefined {
   return MISSIONS.find((m) => m.id === scenarioId);
+}
+
+/** Full-map tile bounds for the camera fit/clamp (mission maps are sized
+ *  so the whole lesson fits one screen, so the bounds ARE the map). */
+export function mapBounds(map: { width: number; height: number }): {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+} {
+  return { x0: 0, y0: 0, x1: map.width - 1, y1: map.height - 1 };
 }
 
 /** The mission after this one (campaign order), if any. */

@@ -88,6 +88,11 @@ interface AppState {
    *  its map off this. */
   scenarioId: string;
   kpiOpen: boolean;
+  /** The network-business panel (directorates + pay + safety, #53). */
+  directoratesOpen: boolean;
+  /** The HUD coach-mark tour is running (spotlight walkthrough). */
+  tourActive: boolean;
+  setTourActive: (on: boolean) => void;
   setWorkerStatus: (status: WorkerStatus, error?: string) => void;
   setSnapshot: (snapshot: SimSnapshot) => void;
   setHoveredTile: (tile: TileHover | undefined) => void;
@@ -119,6 +124,7 @@ interface AppState {
    *  old map's assets must never draw over the new map). */
   setScenarioId: (id: string) => void;
   setKpiOpen: (open: boolean) => void;
+  setDirectoratesOpen: (open: boolean) => void;
   /** A time-skip is running on the worker (disables the HUD skip buttons
    *  until its final snapshot lands). */
   skipping: boolean;
@@ -161,6 +167,9 @@ export const useAppStore = create<AppState>((set) => ({
   tutorialStep: undefined,
   scenarioId: 'london',
   kpiOpen: false,
+  directoratesOpen: false,
+  tourActive: false,
+  setTourActive: (tourActive) => set({ tourActive }),
   setWorkerStatus: (workerStatus, workerError) => set({ workerStatus, workerError }),
   setSnapshot: (snapshot) => {
     for (const b of snapshot.branches) {
@@ -222,6 +231,7 @@ export const useAppStore = create<AppState>((set) => ({
           },
     ),
   setKpiOpen: (kpiOpen) => set({ kpiOpen }),
+  setDirectoratesOpen: (directoratesOpen) => set({ directoratesOpen }),
   skipping: false,
   setSkipping: (skipping) => set({ skipping }),
 }));
