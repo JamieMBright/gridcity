@@ -47,18 +47,22 @@ test.describe('start menu, tutorial, KPI dashboard', () => {
       .toBe(0); // nothing of the player's yet
   });
 
-  test('tutorial launches campaign mission 1 (the campaign IS the tutorial)', async ({ page }) => {
+  test('tutorials → lessons page → First Light launches mission 1', async ({ page }) => {
     await waitReady(page);
-    await clickButton(page, 'tutorial');
-    // the menu closes straight into First Light — no standalone London strip
+    // "tutorials" opens the LESSONS PAGE (the campaign IS the tutorial)
+    await clickButton(page, 'tutorials');
+    await expect.poll(() => store<boolean>(page, '(s) => s.lessonsOpen')).toBe(true);
+    // launch the first lesson — the menu closes straight into First Light
+    await clickButton(page, /1\. First Light/);
     await expect.poll(() => store<boolean>(page, '(s) => s.menuOpen')).toBe(false);
     await expect
       .poll(() => store<string>(page, '(s) => s.snapshot?.scenarioId'), { timeout: 20_000 })
       .toBe('m1-first-light');
     await expect(page.getByText(/FIRST LIGHT/)).toBeVisible();
-    // the mission's step strip drives the lesson; skip dismisses it
-    await clickButton(page, 'skip tutorial');
-    await expect.poll(() => store<boolean>(page, '(s) => s.tutorialStep === undefined')).toBe(true);
+    // the mission's step strip drives the lesson — step 0 is up, and there
+    // is NO "skip tutorial" escape (back/next nav only)
+    await expect.poll(() => store<number | undefined>(page, '(s) => s.tutorialStep')).toBe(0);
+    await expect(page.getByRole('button', { name: 'skip tutorial' })).toHaveCount(0);
   });
 
   test('sandbox new game starts clean — no auto tutorial strip', async ({ page }) => {

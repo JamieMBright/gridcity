@@ -99,6 +99,13 @@ export interface MissionStep {
   /** Camera glides to centre this tile when the step opens (clamped to
    *  the mission bounds). */
   focus?: { x: number; y: number };
+  /** Guided-play SPOTLIGHT: darken the screen except the UI element with
+   *  this `data-spot`/`data-tour` key (e.g. 'gen:windOnshore', 'sub:dist',
+   *  'line:33', 'inbox', 'bill', 'hud:headroom', 'hud:fleet'). The tutorial
+   *  strip (Tutorial.tsx) measures the mounted element and rings it. Omit
+   *  for steps whose action is on the map (the renderer shades valid land
+   *  green already). */
+  spot?: string;
 }
 
 export interface Mission {
@@ -302,6 +309,7 @@ export const MISSIONS: Mission[] = [
         done: (s) => s.inbox.tenders.length > 0,
         unlocks: ['gen:windOnshore'],
         focus: M1_WIND,
+        spot: 'gen:windOnshore',
       },
       {
         text:
@@ -309,6 +317,7 @@ export const MISSIONS: Mission[] = [
           'When a bid lands, AWARD it: the turbines appear, spinning and waiting for your wires.',
         done: (s) => s.inbox.tenders.some((t) => t.status === 'awarded'),
         unlocks: ['hud:inbox'],
+        spot: 'inbox',
       },
       {
         text:
@@ -317,6 +326,7 @@ export const MISSIONS: Mission[] = [
         done: (s) => s.assets.some((a) => a.kind === 'sub' && a.sub === 'dist' && !a.idno),
         unlocks: ['sub:dist'],
         focus: M1_VILLAGE,
+        spot: 'sub:dist',
       },
       {
         text:
@@ -324,6 +334,7 @@ export const MISSIONS: Mission[] = [
           'wooden poles march the route and the chevrons start to flow.',
         done: (s) => hasLine(s, 33) && s.stats.servedCustomers > 0,
         unlocks: ['line:33'],
+        spot: 'line:33',
       },
       {
         text:
@@ -352,6 +363,7 @@ export const MISSIONS: Mission[] = [
         done: (s) => s.inbox.tenders.some((t) => t.status === 'awarded'),
         unlocks: ['gen:windOffshore', 'hud:inbox'],
         focus: M2_WINDSITE,
+        spot: 'gen:windOffshore',
       },
       {
         text:
@@ -361,11 +373,13 @@ export const MISSIONS: Mission[] = [
         done: (s) => s.assets.some((a) => a.kind === 'sub' && a.sub === 'grid' && !a.idno),
         unlocks: ['sub:grid'],
         focus: M2_VILLAGE,
+        spot: 'sub:grid',
       },
       {
         text: 'Run the 132 KV LINE from the wind farm to the grid substation — big pylons this time.',
         done: (s) => hasLine(s, 132),
         unlocks: ['line:132'],
+        spot: 'line:132',
       },
       {
         text:
@@ -374,6 +388,7 @@ export const MISSIONS: Mission[] = [
         done: (s) => s.stats.servedCustomers > 0,
         unlocks: ['sub:dist', 'line:33'],
         focus: M2_VILLAGE,
+        spot: 'sub:dist',
       },
       { text: 'Light every home via the 132 kV link to complete Step Up.' },
     ],
@@ -400,6 +415,7 @@ export const MISSIONS: Mission[] = [
         done: (s) => s.assets.some((a) => a.kind === 'depot'),
         unlocks: ['depot'],
         focus: { x: 18, y: 11 },
+        spot: 'depot',
       },
       {
         text:
@@ -407,6 +423,7 @@ export const MISSIONS: Mission[] = [
           'Untrimmed woodland is where storm faults breed.',
         done: (s) => s.fleet.vegPolicy > 0,
         unlocks: ['hud:fleet'],
+        spot: 'hud:fleet',
       },
       {
         text:
@@ -463,6 +480,7 @@ export const MISSIONS: Mission[] = [
         done: (_s, ui) => ui.studies > 0,
         unlocks: ['hud:study'],
         focus: M4_APPLICANT,
+        spot: 'inbox',
       },
       {
         text:
@@ -470,6 +488,7 @@ export const MISSIONS: Mission[] = [
           'curtail them. FLEXIBLE = you may curtail freely — that was the deal. ' +
           'Either works here; big loads usually want firm.',
         done: (s) => s.inbox.applications.some((a) => a.status === 'firm' || a.status === 'flex'),
+        spot: 'inbox',
       },
       {
         text:
@@ -479,6 +498,7 @@ export const MISSIONS: Mission[] = [
         done: (s) => s.inbox.applications.some((a) => a.status === 'connected'),
         unlocks: ['sub:dist', 'line:33', 'hud:headroom'],
         focus: M4_APPLICANT,
+        spot: 'sub:dist',
       },
       { text: 'Keep the whole parish on supply with no overloads to complete The Inbox.' },
     ],
@@ -503,11 +523,13 @@ export const MISSIONS: Mission[] = [
         text:
           'The BILL panel is the scoreboard: capex annuities, O&M, fleet, energy. The ' +
           '"network £/home" line is yours to control. Glance at it now — then keep it honest.',
+        spot: 'bill',
       },
       {
         text: 'Toggle HEADROOM (▦ / H) to see spare capacity per corridor. Right-sized kit is cheap kit.',
         done: (_s, ui) => ui.headroom,
         unlocks: ['hud:headroom'],
+        spot: 'hud:headroom',
       },
       {
         text:
@@ -517,6 +539,7 @@ export const MISSIONS: Mission[] = [
           s.stats.totalCustomers > 0 && s.stats.servedCustomers >= s.stats.totalCustomers,
         unlocks: ['gen:windOnshore', 'sub:dist', 'line:33'],
         focus: M5_WIND,
+        spot: 'gen:windOnshore',
       },
       {
         text: `Hold it there: every home served AND network £/home ≤ £${M5_DUOS_TARGET}. Demolish anything gold-plated — refunds are instant.`,

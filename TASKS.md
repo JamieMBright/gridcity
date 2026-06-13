@@ -34,21 +34,23 @@
 - [ ] **TUTORIAL OVERHAUL + PLAYTEST FLURRY 2 (owner, 2026-06-13 ~13:40,
       full 5-tutorial playthrough + screenshot). HUGE — spans several
       waves.**
-  - [ ] **Tutorials REPLACE campaign**: rename campaign→"tutorial",
-        delete the old london Tutorial strip. Clicking "tutorial" opens
-        a LESSONS PAGE listing every lesson, what it teaches, and a
-        0/1/2/3-STAR rating by how well it was completed. Many MORE
-        tutorials covering all mechanics (not just 5).
-  - [ ] **GUIDED-PLAY SPOTLIGHT (core, always-on theme)**: when telling
-        the player to click X, DARKEN everything else and HIGHLIGHT X;
-        after the click, highlight the suitable next targets (e.g.
-        suitable land to site wind). Same attention-drawing for events
-        (a bubble pops when awards/bids/alerts arrive). Applies beyond
-        tutorials.
-  - [ ] **During tutorials**: PREVENT unrelated applications spawning
-        (confusing); HIDE unnecessary overlays/HUD, introduce mechanics
-        progressively across lessons; NO "skip tutorial" option (the
-        tutorial is the only content) — remove the skip.
+  - [~] **Tutorials REPLACE campaign**: clicking "tutorials" opens a
+        LESSONS PAGE listing every lesson, what it teaches, lock state,
+        and a 0/1/2/3-STAR rating. — DONE (Wave 16): LessonsPage.tsx +
+        lessonProgress.ts (computeStars: completion + no-overload +
+        lean/under-target), StartMenu rewired, stars recorded at win in
+        workerBridge. STILL TODO: many MORE lessons beyond the 5.
+  - [~] **GUIDED-PLAY SPOTLIGHT (core)**: darken everything except the
+        step's target control and ring it. — DONE (Wave 16): Spotlight.tsx
+        (data-spot anchors on every palette button + inbox/bill/headroom/
+        fleet); MissionStep.spot drives it; pure-visual (clicks pass
+        through). STILL TODO: highlight suitable LAND after a click (needs
+        renderer tile projection); event bubbles on awards/bids/alerts.
+  - [~] **During tutorials**: NO "skip tutorial" option — DONE (Wave 16:
+        replaced with ◂back / next▸ step nav + a "finish tutorial ✓" on
+        the last tile; notes minimise to a recallable pill). STILL TODO:
+        PREVENT unrelated applications spawning; HIDE the templates/extra
+        HUD bits the lesson isn't using.
   - [ ] **T1 First Light** (onshore wind): spotlight the Onshore-wind
         button → then suitable land. Allow only ONE wind facility.
         CAPACITY PICKER: scroll / +– to set MW (don't force 100 MW for

@@ -7,7 +7,7 @@ import type { MapRenderer } from '../render/MapRenderer';
 import type { Command } from '../sim/commands';
 import { TERRAIN, ZONE } from '../sim/map/types';
 import { useAppStore } from './store';
-import { sendCommand } from './workerBridge';
+import { sendCommand, startMission } from './workerBridge';
 
 export interface EcTestApi {
   tileToScreen(x: number, y: number): { x: number; y: number };
@@ -18,6 +18,8 @@ export interface EcTestApi {
   openLand(count: number): Array<{ x: number; y: number }>;
   /** Drive the sim directly (build/demolish/speed …). */
   sendCommand(cmd: Command): void;
+  /** Launch a tutorial mission (swaps the map + rebuilds on its scenario). */
+  startMission(scenarioId: string): void;
   /** Pin the renderer's atmosphere (time-of-day grade / weather) for
    *  screenshots — render-only, the sim never sees it. No args clears. */
   setAtmosphere(
@@ -41,6 +43,7 @@ export function installTestHook(renderer: MapRenderer): void {
     setZoom: (scale) => renderer.setZoom(scale),
     getState: () => useAppStore.getState(),
     sendCommand: (cmd) => sendCommand(cmd),
+    startMission: (scenarioId) => startMission(scenarioId),
     setAtmosphere: (simTimeMin, weather) => renderer.overrideAtmosphere(simTimeMin, weather),
     openLand: (count) => {
       const out: Array<{ x: number; y: number }> = [];

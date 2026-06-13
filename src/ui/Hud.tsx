@@ -424,6 +424,7 @@ function HeadroomButton() {
   return (
     <button
       aria-label="headroom heatmap"
+      data-spot="hud:headroom"
       onClick={() => {
         setHeadroom(!on);
         setToast(on ? 'Headroom heatmap off' : 'Headroom heatmap on — corridors by spare capacity');

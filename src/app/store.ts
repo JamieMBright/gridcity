@@ -120,6 +120,9 @@ interface AppState {
   /** The HUD coach-mark tour is running (spotlight walkthrough). */
   tourActive: boolean;
   setTourActive: (on: boolean) => void;
+  /** The lessons page (tutorial curriculum + star ratings) is open. */
+  lessonsOpen: boolean;
+  setLessonsOpen: (open: boolean) => void;
   /** Hotkey cheat-sheet overlay open (#29). */
   helpOpen: boolean;
   setHelpOpen: (open: boolean) => void;
@@ -395,6 +398,8 @@ export const useAppStore = create<AppState>((set) => ({
   savesOpen: false,
   tourActive: false,
   setTourActive: (tourActive) => set({ tourActive }),
+  lessonsOpen: false,
+  setLessonsOpen: (lessonsOpen) => set({ lessonsOpen }),
   helpOpen: false,
   setHelpOpen: (helpOpen) => set({ helpOpen }),
   pasteTemplate: undefined,

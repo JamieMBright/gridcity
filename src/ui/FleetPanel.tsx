@@ -14,6 +14,7 @@ export function FleetPanel({ frame }: { frame?: React.CSSProperties } = {}) {
 
   return (
     <div
+      data-spot="hud:fleet"
       style={{
         ...panelStyle,
         position: 'absolute',

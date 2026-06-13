@@ -44,6 +44,16 @@ function sameTool(a: Tool, b: Tool): boolean {
   return true;
 }
 
+/** The tutorial-spotlight anchor key for a tool button — matches the
+ *  Unlock id convention the mission steps use (gen:windOnshore, sub:dist,
+ *  line:33, depot, inspect, demolish) so a step can highlight its button. */
+function spotKey(t: Tool): string {
+  if (t.t === 'gen') return `gen:${t.gen}`;
+  if (t.t === 'sub') return `sub:${t.sub}`;
+  if (t.t === 'line') return `line:${t.level}`;
+  return t.t;
+}
+
 function ToolButton({
   tool,
   label,
@@ -61,6 +71,7 @@ function ToolButton({
   const key = hotkeyLabel(tool);
   return (
     <button
+      data-spot={spotKey(tool)}
       onClick={() => setTool(active ? { t: 'inspect' } : tool)}
       style={{
         display: 'flex',
