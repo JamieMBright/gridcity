@@ -193,6 +193,18 @@ export type Ghost =
     }
   | { kind: 'endpoint'; x: number; y: number; level: VoltageLevel };
 
+/** A fade-in place name. `targetPx` is the on-screen px floor it holds at
+ *  any zoom; `priority` drives the overlap declutter; `village` labels fade
+ *  one band before towns; `cx/cy` is the world-pixel anchor for collisions. */
+interface MapLabel {
+  t: Text;
+  targetPx: number;
+  priority: number;
+  village: boolean;
+  cx: number;
+  cy: number;
+}
+
 interface RoutePath {
   kind: RouteClass;
   /** World-space samples. */
@@ -274,7 +286,13 @@ export class MapRenderer {
   private jobsG = new Graphics();
   private siteLayer = new Container();
   private labelLayer = new Container();
-  private labels: Array<{ t: Text; base: number }> = [];
+  // Each label carries its target ON-SCREEN px (UI: resolution-dependent
+  // sizing — the rendered height equals targetPx regardless of zoom), a
+  // declutter `priority` (LONDON > big towns > villages > named places),
+  // its world half-extent for collision boxes, and `villageBand` so the
+  // far view drops villages a zoom band before towns (progressive
+  // disclosure). `cx/cy` are the world-pixel anchor for overlap tests.
+  private labels: MapLabel[] = [];
   private levelG = new Graphics();
   private levelHighlight: VoltageLevel | undefined;
   /** 'headroom' re-colours every corridor by spare capacity. */
@@ -349,6 +367,13 @@ export class MapRenderer {
   private atmoTime = 12 * 60;
   private atmoWeather: WeatherLike = { cloud: 0.35, wind: 0.4 };
   private atmoOverride = false;
+  /** Sim-clock speed (0/1/4/16x). The living world (traffic, turbines,
+   *  power-flow dashes, aircraft) moves at this multiple of real time so
+   *  motion matches the clock — paused freezes it, 16x whirs (owner,
+   *  2026-06-13: "Animations should move as fast as the game clock speed
+   *  allows"). UI affordances (attention pins, label fades) and the grade
+   *  ease on real time regardless. */
+  private simSpeed = 1;
   private grade: SceneGrade | undefined;
   private gradeKey = '';
   private seasonNow: Season | undefined;
@@ -487,7 +512,15 @@ export class MapRenderer {
   /** Town / landmark names that fade in as the camera pulls out and hold
    *  a constant on-screen size — the map stops being anonymous. */
   private buildLabels(): void {
-    const add = (x: number, y: number, text: string, px: number, color: number): void => {
+    const add = (
+      x: number,
+      y: number,
+      text: string,
+      targetPx: number,
+      color: number,
+      priority: number,
+      village: boolean,
+    ): void => {
       const t = new Text({
         text,
         style: {
@@ -495,7 +528,10 @@ export class MapRenderer {
           fontSize: 64,
           fontWeight: '700',
           fill: color,
-          stroke: { color: 0x10162f, width: 8 },
+          // a fatter navy halo (width 8 → 11 baked at 64 px) so the cream
+          // text survives simultaneous-contrast over both the pale core and
+          // the green fields (Color: the halo neutralises the ground).
+          stroke: { color: 0x10162f, width: 11 },
           letterSpacing: 4,
         },
       });
@@ -503,14 +539,28 @@ export class MapRenderer {
       const c = this.tileCentre(x, y);
       t.position.set(c.x, c.y - 20 * RES);
       this.labelLayer.addChild(t);
-      this.labels.push({ t, base: px / 64 });
+      this.labels.push({ t, targetPx, priority, village, cx: c.x, cy: c.y });
     };
+    // UI screen-px floors (legible on a phone held landscape): LONDON 30,
+    // towns 20, villages 14, named places 13. Priority drives the collision
+    // declutter (LONDON highest, then towns by size, villages, named).
+    add(128, 78, 'LONDON', 30, 0xf4f1ea, 100, false);
     for (const town of TOWNS) {
-      add(town.x, town.y, town.name.toUpperCase(), town.kind === 'town' ? 15 : 10.5, 0xf4f1ea);
+      const isTown = town.kind === 'town';
+      add(
+        town.x,
+        town.y,
+        town.name.toUpperCase(),
+        isTown ? 20 : 14,
+        0xf4f1ea,
+        isTown ? 50 + town.r : 20,
+        !isTown,
+      );
     }
-    add(128, 78, 'LONDON', 22, 0xf4f1ea);
     for (const pl of NAMED_PLACES) {
-      add(pl.x, pl.y, pl.name, 9, 0xffd277);
+      // gold codes "transport/place" distinct from town names (also smaller,
+      // so it's not colour-alone).
+      add(pl.x, pl.y, pl.name, 13, 0xffd277, 10, false);
     }
   }
 
@@ -603,6 +653,12 @@ export class MapRenderer {
   }
 
   // --- atmosphere (#41 day/night grade · #42 rain & storms · #44 seasons) ----
+
+  /** Gate the living-world animation rate on the sim clock speed (0/1/4/
+   *  16x). Called from the snapshot effect alongside setAtmosphere. */
+  setSimSpeed(speed: number): void {
+    this.simSpeed = speed;
+  }
 
   /** Follow the sim clock + live weather (called per snapshot). */
   setAtmosphere(simTimeMin: number, weather: WeatherLike): void {
@@ -1425,23 +1481,69 @@ export class MapRenderer {
   private animate(dt: number): void {
     if (this.destroyed || !this.map) return;
     this.applyZoomBand();
-    this.stepVehicles(dt);
+    // the living world (traffic, turbines, flow dashes, aircraft) runs at
+    // the sim-clock speed so motion matches time: 0 freezes, 16x whirs.
+    const mdt = dt * this.simSpeed;
+    this.stepVehicles(mdt);
     this.stepWakes();
-    this.stepAir(dt);
-    this.stepRotors(dt);
-    this.stepFlow(dt);
+    this.stepAir(mdt);
+    this.stepRotors(mdt);
+    this.stepFlow(mdt);
     this.stepPulses(dt);
+    // atmosphere/grade easing + attention pins stay on real time (a paused
+    // game still settles the dusk wash and pulses its "look here" rings)
     this.stepAtmosphere(dt);
     this.bobPhase += dt;
     {
-      // labels: visible zoomed out, gone close in; constant screen size
+      // labels: visible zoomed out, gone close in, each held at a CONSTANT
+      // on-screen px floor. The layer rides the world scale `sc`, so a
+      // child scaled to k renders at 64·k·sc px on screen; solving for the
+      // target gives k = (targetPx/64)/sc — the old `*0.25` collapsed every
+      // label to a quarter of its asked size (towns ~3.75 px, illegible).
       const sc = this.world.scale.x;
       const alpha = Math.max(0, Math.min(1, (0.3 - sc) / 0.08));
       this.labelLayer.visible = alpha > 0.02;
       if (this.labelLayer.visible) {
         this.labelLayer.alpha = alpha;
         const inv = 1 / Math.max(sc, 1e-6);
-        for (const l of this.labels) l.t.scale.set(l.base * inv * 0.25);
+        // villages fade out one band before towns (progressive disclosure):
+        // at far zoom the country-scale view shows only LONDON + big towns,
+        // like the reference map. 0 at sc≤0.12, full by sc≥0.2.
+        const villageAlpha = Math.max(0, Math.min(1, (sc - 0.12) / 0.08));
+        // measured on-screen half-extents, for the overlap declutter
+        const boxes: Array<{ l: MapLabel; hw: number; hh: number; show: boolean }> = [];
+        for (const l of this.labels) {
+          const k = (l.targetPx / 64) * inv;
+          l.t.scale.set(k);
+          const base = l.village ? villageAlpha : 1;
+          l.t.alpha = base;
+          if (base <= 0.02) {
+            l.t.visible = false;
+            continue;
+          }
+          l.t.visible = true;
+          // world-px half-extents of the text box at this scale (t.width
+          // already includes the child scale and lives in world px)
+          boxes.push({ l, hw: l.t.width / 2, hh: l.t.height / 2, show: true });
+        }
+        // priority declutter: sort important-first, hide any lower box whose
+        // screen rect overlaps an already-shown higher one.
+        boxes.sort((a, b) => b.l.priority - a.l.priority);
+        for (let i = 0; i < boxes.length; i++) {
+          const bi = boxes[i]!;
+          for (let j = 0; j < i; j++) {
+            const bj = boxes[j]!;
+            if (!bj.show) continue;
+            if (
+              Math.abs(bi.l.cx - bj.l.cx) < bi.hw + bj.hw &&
+              Math.abs(bi.l.cy - bj.l.cy) < bi.hh + bj.hh
+            ) {
+              bi.show = false;
+              break;
+            }
+          }
+          if (!bi.show) bi.l.t.visible = false;
+        }
       }
     }
     for (const pin of this.jobPins) {

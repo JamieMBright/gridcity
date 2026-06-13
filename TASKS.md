@@ -125,12 +125,76 @@
         Wave 8 UI lane (after Wave 7 merges — Hud/MobileChrome/Palette
         just changed there).
 
-- [ ] **Map-edge rock walls (owner, 2026-06-13 04:48): "I don't
+- [x] **WAVE 8 UI LANE — bespoke icons · desktop collapse · dead mobile
+      icons · +7d/+30d skips · subtler day/night (owner, 2026-06-13).
+      VERIFIED.** Full `npx vitest run` (417 green incl. new icons +
+      rewritten skip tests), `npx tsc -b`/eslint/`npm run build` clean,
+      goals/app/controls/palette e2e green on a fresh server, screenshots
+      rendered + inspected (preview/w8-*.png).
+  - [x] BESPOKE ICONS — new `src/ui/icons.tsx`: one ink-contour SVG
+        pictographic language (1.6px round stroke on a 24-grid, currentColor
+        so the active-state navy flip carries through, legible to ~16px).
+        Substation, pylon, cable, the full generation family (plant/flame/
+        solar/onshore+offshore wind/tidal/nuclear/battery/coal/
+        interconnector/H₂/capacitor), sub tiers (BSP/grid/dist/pole/vault),
+        van/depot/demolish/inspect, balance scales, headroom, N-1 shield,
+        forecast hourglass, RIIO clipboard, directorates building, bill £,
+        inbox tray, alerts ledger, sound on/off, help, skip/skip-event,
+        undo/redo, collapse/expand/menu. Shared GEN_ICONS/SUB_ICONS
+        registries (unit-tested: every buildable tool has a glyph). Wired
+        across the HUD buttons, the BuildPalette tool rows, the collapsed
+        MobileChrome RAIL and the right-hand chip column — every emoji/
+        unicode glyph replaced (kV levels stay as coloured numeric badges).
+  - [x] DESKTOP COLLAPSE — additive `hudCollapsed` store flag (localStorage,
+        key `ec.hudCollapsed`). A collapse/expand chevron lives in the HUD
+        bottom bar (desktop-only; phones are always compact). Collapsed
+        desktop reuses the proven compact icon-rail + drawers (MobileChrome),
+        keeping the wordmark/search for orientation; `compact = isMobile ||
+        hudCollapsed` threads through App + Hud. Added a directorates chip
+        to MobileChrome so the company panel stays reachable when collapsed.
+  - [x] DEAD MOBILE ICONS — the "+ / square chart / egg timer" were the
+        three adjacent overlay TOGGLES in the compact bottom bar: N-1
+        security (`⛨`, font-rendered as a boxed plus), the headroom heatmap
+        (`▦`, the "square chart"), and the 5-year forecast (`⏳`, the
+        "egg timer"). They weren't truly dead — each toggles a real map
+        overlay — but at phone zoom the overlays are subtle and the glyphs
+        were cryptic, so they read as no-ops. FATE: kept + fixed — bespoke
+        legible glyphs (IconShield/IconHeadroom/IconHourglass), aria-labels,
+        and an explicit confirmation TOAST on every toggle so the feedback
+        is unmistakable.
+  - [x] +7d / +30d SKIPS — SkipTarget is now `'week'|'month'|'event'`;
+        skipTargetMin returns nowMin + 7/30·1440 (MAX_SKIP_TICKS lifted to
+        90k for the longer run). HUD/MobileChrome buttons read "⏭ 7d / 30d"
+        (bespoke skip glyph), event-skip kept on desktop. skip.test.ts +
+        goals.spec.ts rewritten: +7d advances ~a week / +30d ~a month, never
+        overshoots the wall, bad news still halts, paused stays paused.
+  - [x] DAY/NIGHT SUBTLETY — grade.ts: the global WASH swing is compressed
+        (night tint lifted 0x757db4→0xb9b2cc, day pulled back from near-white
+        to 0xf6ecdc; the dusk/sunset tints stay a warm neutral) so it no
+        longer flashes; the full time-of-day READ now rides the WINDOW GLOW
+        (still ramps 0→1, lifted dusk keys). Animation rate now tracks the
+        sim clock: MapRenderer gained `setSimSpeed(0/1/4/16)` and the
+        living-world steppers (vehicles, rotors, flow dashes, aircraft, wakes)
+        run on `dt·simSpeed` — paused freezes, 16x whirs — while the grade
+        ease and attention pins stay on real time. NOTE: my MapRenderer edit
+        is ONLY the animation-speed field + setter + the `mdt` gating in
+        animate(); I did not touch the map/terrain/label regions the MAP lane
+        owns (a transient stale-tsbuildinfo error from their concurrent label
+        edit cleared on a fresh `tsc -b`).
+
+- [x] **Map-edge rock walls (owner, 2026-06-13 04:48): "I don't
       understand why the edges of the map are rock walls. Just stick to
-      real towns."** The map boundary renders as rock/cliff walls —
-      remove; the edge should resolve into real terrain/towns (or a
-      soft fade), not an artificial rock rim. Folds into Wave 8 MAP
-      OVERHAUL (edge-of-world treatment in londonMap.ts/render).
+      real towns."** FIXED (Wave 8 MAP OVERHAUL flagship lane). Root
+      cause: the "Hills" block in londonMap.ts blanket-filled the whole
+      top/bottom map margin with `TERRAIN.hill` (rendered as the brown
+      `ground_moor` plateau — the rock wall). Replaced the blanket rim
+      with REAL upland masses only: a soft sine-ridge Chiltern band
+      hugging the NW corner and a North-Downs band along the southern
+      third, each with a ragged lower edge that dissolves into farmland,
+      and the extreme rim rows kept as ordinary countryside so the edge
+      resolves into fields/sea/towns (the screen-space dusk vignette
+      fades it). Unit-pinned: the outer rows are <20% hill. (EnvArt:
+      detail at the transition, calm in the mass.)
 
 - [ ] **MULTI-CITY FUTURE-PROOFING + RANK/PROGRESSION (owner, 2026-06-13
       04:48).** Big strategic feature — DESIGN/RESEARCH pass first.
@@ -163,21 +227,23 @@
 
 - [ ] **TERRAIN + PLANNING overhaul (owner, 2026-06-13 04:38, image:
       chequerboard farmland).** Two parts.
-  - [ ] TERRAIN ART/GENERATION (folds into Wave 8 MAP OVERHAUL; use
-        environment-art + color-theory skills): the countryside is a
-        4×4 patchwork of garish yellow/orange/brown squares — reads as
-        American farmland, not English green belt. Wants: ORGANIC,
-        natural terrain selection (less obviously random/gridded);
-        LESS lurid/yellow ("luteous") colours, held inside the lofi
-        sunset palette; LUSH forest where forest exists; LUSHER greens
-        for the Surrey Hills / AONB uplands; garden-grass green + more
-        CONCRETE around towns; really bring GREEN BELT + BROWNFIELD
-        vibes to life. Implies: break the 8×8/field-grid hashing into
-        organic enclosure shapes, retune the field/crop tint ramps
-        (desaturate the yellows), proper woodland masses, upland-green
-        zones, peri-urban concrete/scrub fringe, distinct brownfield
-        texture. Diagnose tileChooser.ts field hashing + the seasonal
-        field tints (beauty pass) + the density/zone field.
+  - [x] TERRAIN ART/GENERATION (Wave 8 MAP OVERHAUL flagship lane —
+        VERIFIED). The 4×4 chequerboard is gone: crop selection now
+        follows the map's ORGANIC variable-size enclosures (tileChooser
+        keys the crop off the per-field `variant` hash, not a rigid 4×4
+        `parcelOf` grid) and the mix is grass-led green-belt (mostly
+        pasture/meadow, a minority barley/rape/plough). Palette
+        DESATURATED into the English green-belt gamut (color-theory):
+        field `#e3b863`→`#c4b378`, rape `#e8d23f`→`#ccc06a` (the luteous
+        outliers), grass/grassDark lusher greens, the upland `moor`
+        `#a08c62` brown→lush green `#8a9a6a` (Surrey Hills / Chilterns
+        read as green hills, not rock); summer season tints pulled off
+        the parched American gold to a muted green sward. Forests/woodland
+        masses keep the existing blobs. (BROWNFIELD texture/flag for the
+        planning mechanic remains for the sim lane — a `brownfield`
+        palette token is seeded ready.) Drove by environment-art
+        (detail-at-the-transition, calm-in-the-mass) + color-theory
+        (desaturation/harmony onto the dusk ramp).
   - [ ] BROWNFIELD-FAVOURED PLANNING + APPEALS (sim mechanic): generation/
         demand applications should FAVOUR arriving on BROWNFIELD tiles
         (needs a brownfield texture/flag in the map model — ties to the
@@ -221,33 +287,66 @@
       reference images: real top-down London map + a game screenshot of
       "road madness").** Supersedes prior incremental road/map passes.
       The owner's asks, verbatim-sourced:
-  - [ ] Roads take up too much real estate — NARROW them; buildings must
-        sit UP AGAINST the roads ("London is all high street" — frontage
-        density, not set-back blocks with road moats).
-  - [ ] Roads zig-zag like crazy — re-lay them ALL.
-  - [ ] Method (owner-specified pipeline): start with the RIVER (improve
-        the Thames shape using the real reference at the same time) →
-        then MAJOR ROADS mapped like London actually has them (M25
-        orbital + the real radials), overlaid at true positions relative
-        to the river → then SMALLER roads → THEN seed towns + buildings
-        afterwards (so fabric hangs off the network, not vice-versa).
-  - [ ] Buildings too sparse — London is denser than the screenshot;
-        raise urban density, terraces/blocks fronting streets.
-  - [ ] Landmarks: don't pop hard enough — give them a SPECIAL GLEAM;
-        many are still MISSING — add them (audit the real London set).
-  - [ ] Town labels at zoomed-out view: font too small, ILLEGIBLE on
-        mobile — enlarge / legibility pass (game-ui-design doctrine).
-  - [ ] MUST leverage the installed design skills (environment-art for
-        density + visual hierarchy + composition, color-theory, game-ui-
-        design for labels/readability) — owner: "significant improvements
-        since using them."
+  - [x] Roads take up too much real estate — NARROWED + FRONTAGE model
+        (Wave 8 flagship). routeRibbons ROAD widths cut (street half
+        0.05→0.04 + Z3/Z4 fill-floors halved; arterial 0.09→0.075;
+        motorway Z3/Z4 floor dropped) AND the road-moat killed at the
+        source: local CITY streets now stamp ONLY `streetTouch` (never
+        the centre-clearing `RC.street`), so terraces KEEP fronting the
+        narrow carriageway and the grey gutters close to a thin seam of
+        building wall on both kerbs — the high-street wall (only country
+        LANES keep centre-clearing). VERIFIED on the cityloop/highstreet
+        crops: wall-to-wall fabric, no moats.
+  - [x] Roads zig-zag like crazy — re-laid. Stopped running the major
+        roads through `latticeThroughTowns` (the staircase source): the
+        M25/radials/Circulars now sweep as smooth real alignments (the
+        ribbon renderer rounds their corners) and only LOCAL lanes keep
+        the lattice. The radial bundle reads as a converging spider's web
+        (unit-pinned: ≥6 radials reach both centre and edge), no
+        staircase on the `radials.png` crop.
+  - [x] Method (owner pipeline) followed in order: RIVER (Thames re-cut:
+        deeper Isle of Dogs loop + peninsula, smoother Woolwich/Gallions
+        reach, wider estuary fan `2+14.5t²`→`2+18t²`) → MAJOR ROADS
+        (spider web, smooth) → SMALLER roads (narrow + frontage) →
+        DENSITY re-seed. SAVE_VERSION 9→10 (justified in isSaveData).
+  - [x] Buildings too sparse — DENSER. Density field widened (`RMAX`
+        46→60, base 1.09→1.16, thresholds 0.62/0.46/0.30→0.58/0.42/0.26)
+        and the hole-punching noise CENTRE-WEIGHTED to near-zero in the
+        core (calm mass) and ragged only at the green-belt edge. The
+        focal mass now fills the inner third wall-to-wall (customers
+        ~527k, unit-pinned dense inner core); terraces/blocks front the
+        streets. (EnvArt density + 60-30-10 value hierarchy.)
+  - [~] Landmarks GLEAM + missing landmarks — DEFERRED to a later wave
+        (explicitly OUT of this lane's scope per the lane brief, with
+        Heathrow + per-city assets + multi-city). Geometry/density/
+        terrain/labels/edges shipped; landmark hero treatment is the
+        next map wave.
+  - [x] Town labels ILLEGIBLE on mobile — FIXED (game-ui-design). Killed
+        the `*0.25` scale bug (towns rendered at ~3.75 screen px); labels
+        now hold a screen-px FLOOR at any zoom (LONDON 30, towns 20,
+        villages 14, named 13), a fatter navy halo (stroke 8→11) for
+        simultaneous-contrast over pale core vs green fields, priority
+        COLLISION declutter, and villages fade one band before towns
+        (progressive disclosure). VERIFIED via Playwright shots at
+        desktop (1280×800) + phone-landscape (844×390):
+        preview/labels-{far,mid}-{desktop,mobile}.png.
+  - [x] Leveraged the design skills — environment-art (density,
+        visual hierarchy, leading lines, detail-at-transition),
+        color-theory (terrain desaturation + dusk harmony), game-ui-design
+        (label readable-at-size + declutter). Cited per change in the
+        report.
   - [x] DESIGN PASS launched (read-only doc, runs alongside Wave 7):
         docs/map-overhaul.md — analyse both reference images + the
         current londonMap.ts generation + render pipeline; produce the
         river→roads→minor→density→landmarks→labels build plan with real
         road/landmark inventories and phased, previewable steps.
-  - [ ] IMPLEMENTATION = Wave 8 flagship (after Wave 7 frees MapRenderer/
-        render; SAVE_VERSION bump expected — map geometry changes).
+  - [x] IMPLEMENTATION = Wave 8 flagship — DONE for the geometry/density/
+        terrain/labels/edges package (river, spider-web roads, narrow +
+        frontage streets, denser fabric, organic green-belt terrain,
+        no-rock-wall edges, legible labels). SAVE_VERSION 9→10. Full
+        vitest green, tsc/eslint/build clean, build/undo/app e2e green on
+        a fresh server. Landmarks-gleam + Heathrow + multi-city remain
+        for later waves.
 
 - [x] **URGENT mobile blocker — operator popup (owner, 2026-06-13
       04:01/04:04): "cannot play game on mobile … cannot close the
@@ -774,6 +873,62 @@
 - [ ] Town evolution: densification of existing areas (only edge infill today).
 
 ## Done (chronological, latest first)
+
+### Wave 8 flagship — MAP OVERHAUL (river · spider-web roads · frontage · density · terrain · edges · labels)
+- [x] **Map overhaul geometry/density/terrain/labels/edges package
+      (Wave 8 flagship lane, owner 2026-06-13). VERIFIED.** Built to
+      docs/map-overhaul.md in the owner's pipeline order. (Landmarks-gleam,
+      Heathrow, per-city assets, multi-city were OUT of this lane.)
+  - [x] PHASE 1 RIVER — Thames re-cut in londonMap.ts `RIVER_PTS`: deeper
+        Isle of Dogs loop (bottom to y≈99, peninsula tip back to y=84),
+        smoother Woolwich/Gallions S-reach, broader estuary fan
+        (`riverHalfWidth` ceiling `2+14.5t²`→`2+18t²`, centreline held
+        lower). Riverside landmarks/bridges re-verified on the new spline.
+  - [x] PHASE 2 MAJOR ROADS — stopped lattice-snapping the M25/radials/
+        Circulars (the staircase source); they now sweep as smooth real
+        alignments (the ribbon renderer rounds corners), only local LANES
+        keep the lattice. The North/South Circular re-anchored east of the
+        deepened loop (x=145 crossing); the south-bank A2 + both embankment
+        arterials kept clear of the loop. Reads as a converging spider web.
+  - [x] PHASE 3 MINOR ROADS + FRONTAGE — narrowed routeRibbons ROAD widths
+        (street 0.05→0.04 + halved Z3/Z4 floors, arterial 0.09→0.075,
+        motorway Z3/Z4 floor dropped) AND killed the road-moat: city
+        streets stamp only `streetTouch` (never the centre-clearing
+        `RC.street`), so terraces front the kerb wall-to-wall (lanes keep
+        centre-clearing). High-street wall confirmed on the crops.
+  - [x] PHASE 4 DENSITY — `RMAX` 46→60, base 1.09→1.16, thresholds
+        0.62/0.46/0.30→0.58/0.42/0.26, hole-punching noise CENTRE-WEIGHTED
+        (calm core, ragged green-belt edge). Inner third fills wall-to-wall
+        (~527k customers, unit-pinned dense core).
+  - [x] PHASE 5 TERRAIN — organic enclosures (crop keyed off the variable
+        field-cell variant, not a 4×4 grid; grass-led green-belt mix),
+        palette desaturated into the English gamut (field/rape de-luted,
+        moor brown→lush green, summer tints off the parched gold).
+  - [x] PHASE 7 EDGES — removed the rock-wall rim (the blanket top/bottom
+        `TERRAIN.hill` fill); uplands are now narrow real Chiltern/North-
+        Downs ridges and the rim resolves into countryside/sea.
+  - [x] PHASE 6 LABELS — killed the `*0.25` scale bug; screen-px floors
+        (LONDON 30/towns 20/villages 14/named 13), fatter navy halo
+        (8→11), priority collision declutter, villages fade a band before
+        towns. Legible at phone-landscape.
+  - [x] SAVE_VERSION 9→10 (state.ts) + isSaveData justification: map
+        geometry (river/roads/density) moves tile land/water/road/zone
+        indices, so v9 assets can sit on what is now water/road/protected.
+  - [x] VERIFIED: tests/londonMap.test.ts +3 invariants (no rock-wall rim,
+        dense inner core, radials converge as a web) + updated Circular
+        bridge column; full `npx vitest run` 420/420 (applications cadence
+        test given explicit 30s headroom — denser map sim); `npx tsc -b`,
+        `npx eslint src tests e2e tools`, `npm run build` clean.
+        build/undo/app e2e green on a fresh server (single-worker 11 pass
+        + 1 flaky-retry-green; the prior 2-worker timeouts were render
+        contention from the denser scene, not logic — sim ticks measured
+        fast: 30 game-days in 0.7s, clock advances 3877 sim-min in 8s in an
+        isolated browser repro). Upland bands tightened to trim the hill
+        sprite budget. IMAGES INSPECTED at the doc's audit coords:
+        preview/p4_wholemap, p2_radials, p1_estuary, p3_central,
+        p3_highstreet, final_cityloop, p7_wholemap (web reads, dense
+        high-street frontage, organic green-belt, no rock rim) + labels via
+        Playwright preview/labels-{far,mid}-{desktop,mobile}.png.
 
 ### Wave 7 flagship — TUTORIAL OVERHAUL (campaign IS the tutorial)
 - [x] **Campaign = tutorial · mission camera lock · progressive

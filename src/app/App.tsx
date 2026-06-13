@@ -203,6 +203,10 @@ export function App() {
   }, []);
   useKeyboard();
   const isMobile = useIsMobile();
+  const hudCollapsed = useAppStore((s) => s.hudCollapsed);
+  // compact = the icon-rail look. Mobile is always compact; desktop opts
+  // in via the collapse toggle (owner: cleaner look on desktop too).
+  const compact = isMobile || hudCollapsed;
   const menuOpen = useAppStore((s) => s.menuOpen);
   // campaign missions hide the London-specific chrome (place search)
   const inMission = useAppStore((s) => s.scenarioId !== 'london');
@@ -217,8 +221,14 @@ export function App() {
           (render/grade.ts, #41): they follow the sim clock and weather,
           so the old static CSS washes came out. */}
       {!menuOpen &&
-        (isMobile ? (
-          <MobileChrome />
+        (compact ? (
+          <>
+            {/* desktop collapse reuses the proven compact icon-rail +
+                drawers; the wordmark/search stay on desktop for orientation */}
+            {!isMobile && <Wordmark />}
+            {!isMobile && !inMission && <SearchBox />}
+            <MobileChrome />
+          </>
         ) : (
           <>
             <Wordmark />
@@ -232,7 +242,7 @@ export function App() {
             <StatusBar />
           </>
         ))}
-      {!menuOpen && <Hud compact={isMobile} />}
+      {!menuOpen && <Hud compact={compact} />}
       <Toast />
       <Tutorial />
       {!menuOpen && <BalancePanel />}

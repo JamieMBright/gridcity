@@ -129,6 +129,28 @@ interface AppState {
    *  until its final snapshot lands). */
   skipping: boolean;
   setSkipping: (skipping: boolean) => void;
+  /** Collapse the desktop HUD/palette to the compact icon-rail look
+   *  (owner: "allow collapses to happen on desktop mode too for a cleaner
+   *  look"). Persisted to localStorage. Mobile is always compact and
+   *  ignores this flag. */
+  hudCollapsed: boolean;
+  setHudCollapsed: (collapsed: boolean) => void;
+}
+
+const COLLAPSE_KEY = 'ec.hudCollapsed';
+function loadCollapsed(): boolean {
+  try {
+    return localStorage.getItem(COLLAPSE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+function saveCollapsed(on: boolean): void {
+  try {
+    localStorage.setItem(COLLAPSE_KEY, on ? '1' : '0');
+  } catch {
+    /* private mode / SSR — collapse just won't persist */
+  }
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -234,4 +256,9 @@ export const useAppStore = create<AppState>((set) => ({
   setDirectoratesOpen: (directoratesOpen) => set({ directoratesOpen }),
   skipping: false,
   setSkipping: (skipping) => set({ skipping }),
+  hudCollapsed: loadCollapsed(),
+  setHudCollapsed: (hudCollapsed) => {
+    saveCollapsed(hudCollapsed);
+    set({ hudCollapsed });
+  },
 }));

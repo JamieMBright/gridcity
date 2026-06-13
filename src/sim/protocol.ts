@@ -47,23 +47,24 @@ export const TICKS_PER_SECOND = 4;
 
 // --- time-skip ---------------------------------------------------------------
 
-/** Skip destinations: next evening peak / next morning / next notable event. */
-export type SkipTarget = 'peak' | 'morning' | 'event';
+/** Skip destinations: +7 game-days, +30 game-days, or the next notable
+ *  event (a short fast-forward that expects to stop the moment something
+ *  happens). */
+export type SkipTarget = 'week' | 'month' | 'event';
 
 /** Hard wall-time safety cap on a single skip, ticks. */
-export const MAX_SKIP_TICKS = 20_000;
+export const MAX_SKIP_TICKS = 90_000;
 
 /** Longest an event-skip fast-forwards before giving up, game-minutes. */
 export const SKIP_EVENT_MAX_MIN = 7 * 1440;
 
-/** The game-minute a skip aims for: the NEXT 18:00 ('peak') / 06:00
- *  ('morning'), or now + 7 game-days for an event-skip (which expects to
- *  stop early the moment something happens). */
+/** The game-minute a skip aims for: now + 7 game-days ('week') / 30
+ *  game-days ('month'), or now + 7 game-days for an event-skip (which
+ *  expects to stop early the moment something happens). All three keep the
+ *  bad-news-stops-the-skip safety. */
 export function skipTargetMin(nowMin: number, to: SkipTarget): number {
   if (to === 'event') return nowMin + SKIP_EVENT_MAX_MIN;
-  const targetOfDay = to === 'peak' ? 18 * 60 : 6 * 60;
-  const ahead = (targetOfDay - (nowMin % 1440) + 1440) % 1440;
-  return nowMin + (ahead === 0 ? 1440 : ahead);
+  return nowMin + (to === 'week' ? 7 : 30) * 1440;
 }
 
 /** Speed for the next skip tick: as fast as possible without overshooting.
@@ -234,7 +235,7 @@ export type MainToWorker =
   /** Ring-main assist: the cheapest line closing a service sub's radial
    *  into a loop (answered with a one-option 'plan'). */
   | { type: 'proposeLoop'; subId: number }
-  /** Fast-forward to the next evening peak / morning / notable event. */
+  /** Fast-forward +7 / +30 game-days, or to the next notable event. */
   | { type: 'skip'; to: SkipTarget }
   /** Dismiss the early-game goal ladder for good (veterans). */
   | { type: 'skipGoals' }

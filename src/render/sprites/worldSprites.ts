@@ -101,11 +101,12 @@ export function groundParkTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
-/** Rapeseed in bloom: the violently yellow parcel every spring drive knows. */
+/** Rapeseed flower — dusted down from the garish yellow into the muted
+ *  green-belt gamut (owner: less luteous). */
 export function groundRapeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 8443 + 9);
-  const rape = hex('#e8d23f');
+  const rape = COLORS.rape;
   iso.floor(rape, darken(rape, 0.12));
   // blossom froth: lighter daubs over the bloom
   for (let i = 0; i < 5; i++) {

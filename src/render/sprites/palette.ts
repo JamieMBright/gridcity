@@ -5,15 +5,20 @@
 import { hex, type RGBA } from './raster';
 
 export const COLORS = {
-  // nature
-  grass: hex('#8fb35c'),
-  grassDark: hex('#79a04e'),
-  field: hex('#e3b863'),
-  fieldDark: hex('#cda052'),
-  moor: hex('#a08c62'),
-  treeGreen: hex('#5f9e4e'),
-  treeDeep: hex('#47833f'),
-  treeLime: hex('#7cb35a'),
+  // nature — English green-belt gamut, desaturated to sit inside the lofi
+  // dusk light (owner: "less luteous colours… lusher greens for surrey
+  // hills… garden grass green… green belt brownfield vibes"). Crops read as
+  // muted barley/pasture, never the garish American-farmland yellow.
+  grass: hex('#86a958'),
+  grassDark: hex('#6f9249'),
+  field: hex('#c4b378'), // ripe barley, muted — was a luteous #e3b863
+  fieldDark: hex('#ad9c64'),
+  rape: hex('#ccc06a'), // oilseed flower, dusted down from neon yellow
+  moor: hex('#8a9a6a'), // upland sward: lush green, not rock-brown
+  brownfield: hex('#9a9484'), // scrubby concrete-grey green-belt fringe
+  treeGreen: hex('#4f9446'),
+  treeDeep: hex('#3c7a38'),
+  treeLime: hex('#6fab52'),
   trunk: hex('#6f4a33'),
   sand: hex('#e8cf9e'),
 

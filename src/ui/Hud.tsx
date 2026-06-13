@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../app/store';
+import { useIsMobile } from '../app/useIsMobile';
 import { requestSkip, sendCommand, setSimSpeed, skipGoalLadder } from '../app/workerBridge';
 import { getAudioSettings, updateAudioSettings } from '../audio/audio';
 import { pushSettings } from '../online/cloud';
@@ -8,6 +9,24 @@ import { ALLOWANCE_Y1_K, inRebuildYear } from '../sim/scenario/story';
 import { assetCapexK } from '../sim/regulation/bill';
 import { fmtMoneyK, panelStyle, theme } from './theme';
 import { useUnlockGate } from './unlocks';
+import {
+  IconBolt,
+  IconBuilding,
+  IconCollapse,
+  IconExpand,
+  IconHeadroom,
+  IconHelp,
+  IconHourglass,
+  IconRedo,
+  IconReport,
+  IconScales,
+  IconShield,
+  IconSkip,
+  IconSkipEvent,
+  IconSoundOff,
+  IconSoundOn,
+  IconUndo,
+} from './icons';
 
 function formatGameClock(simTimeMin: number): string {
   const day = Math.floor(simTimeMin / (24 * 60)) + 1;
@@ -17,6 +36,9 @@ function formatGameClock(simTimeMin: number): string {
   return `day ${day} · ${h}:${m}`;
 }
 
+// Transport-control glyphs: conventional pause/play triangles (not emoji),
+// and the e2e controls gate clicks them by their exact glyph text — so the
+// glyph stays the accessible name (no aria-label override here).
 const SPEEDS: Array<{ speed: SimSpeed; label: string }> = [
   { speed: 0, label: '⏸' },
   { speed: 1, label: '▶' },
@@ -204,11 +226,15 @@ function MarketTicker() {
   );
 }
 
-/** Time-skip buttons beside the speed controls: fast-forward to the
- *  evening peak, the morning, or (desktop) the next notable event. */
+/** Time-skip buttons beside the speed controls: fast-forward a fixed
+ *  +7 / +30 game-days, or (desktop) to the next notable event. Bad news
+ *  always halts the skip. */
 function SkipButtons({ compact }: { compact: boolean }) {
   const skipping = useAppStore((s) => s.skipping);
   const btn: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 3,
     padding: '3px 7px',
     borderRadius: 5,
     border: `1px solid ${theme.navyLight}`,
@@ -222,32 +248,34 @@ function SkipButtons({ compact }: { compact: boolean }) {
   return (
     <span style={{ display: 'flex', gap: 2 }}>
       <button
-        aria-label="skip to 18:00"
-        title="Fast-forward to the evening peak (18:00). Bad news stops the skip."
+        aria-label="skip 7 days"
+        title="Fast-forward 7 game-days. Bad news stops the skip."
         style={btn}
         disabled={skipping}
-        onClick={() => requestSkip('peak')}
+        onClick={() => requestSkip('week')}
       >
-        ⇥18:00
+        <IconSkip size={12} />
+        7d
       </button>
       <button
-        aria-label="skip to 06:00"
-        title="Fast-forward to the morning (06:00). Bad news stops the skip."
+        aria-label="skip 30 days"
+        title="Fast-forward 30 game-days. Bad news stops the skip."
         style={btn}
         disabled={skipping}
-        onClick={() => requestSkip('morning')}
+        onClick={() => requestSkip('month')}
       >
-        ⇥06:00
+        <IconSkip size={12} />
+        30d
       </button>
       {!compact && (
         <button
           aria-label="fast-forward to the coming event"
           title="Fast-forward until something happens (max 7 game-days)."
-          style={btn}
+          style={{ ...btn, padding: '3px 6px' }}
           disabled={skipping}
           onClick={() => requestSkip('event')}
         >
-          ⇥!
+          <IconSkipEvent size={13} />
         </button>
       )}
     </span>
@@ -288,7 +316,10 @@ function GoalChip() {
 function UndoRedo() {
   const snapshot = useAppStore((s) => s.snapshot);
   const btn = (enabled: boolean): React.CSSProperties => ({
-    padding: '3px 8px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '4px 8px',
     borderRadius: 5,
     border: `1px solid ${theme.navyLight}`,
     background: 'transparent',
@@ -309,7 +340,7 @@ function UndoRedo() {
         disabled={!undoOk}
         onClick={() => sendCommand({ type: 'undo' })}
       >
-        ↶
+        <IconUndo size={14} />
       </button>
       <button
         aria-label="redo"
@@ -318,7 +349,7 @@ function UndoRedo() {
         disabled={!redoOk}
         onClick={() => sendCommand({ type: 'redo' })}
       >
-        ↷
+        <IconRedo size={14} />
       </button>
     </span>
   );
@@ -330,10 +361,14 @@ function BalanceButton() {
   return (
     <button
       data-tour="balance"
+      aria-label="grid balance"
       onClick={() => setOpen(!open)}
       title="Grid balance: demand vs supply, whole map + per council (B)"
       style={{
-        padding: '3px 10px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '4px 9px',
         borderRadius: 5,
         border: `1px solid ${open ? theme.orange : theme.navyLight}`,
         background: open ? theme.orange : 'transparent',
@@ -343,7 +378,7 @@ function BalanceButton() {
         cursor: 'pointer',
       }}
     >
-      ⚖
+      <IconScales size={15} />
     </button>
   );
 }
@@ -351,12 +386,20 @@ function BalanceButton() {
 function HeadroomButton() {
   const on = useAppStore((s) => s.headroom);
   const setHeadroom = useAppStore((s) => s.setHeadroom);
+  const setToast = useAppStore((s) => s.setToast);
   return (
     <button
-      onClick={() => setHeadroom(!on)}
+      aria-label="headroom heatmap"
+      onClick={() => {
+        setHeadroom(!on);
+        setToast(on ? 'Headroom heatmap off' : 'Headroom heatmap on — corridors by spare capacity');
+      }}
       title="Headroom heatmap: corridors coloured by spare capacity (H)"
       style={{
-        padding: '3px 8px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '4px 8px',
         borderRadius: 5,
         border: `1px solid ${on ? theme.orange : theme.navyLight}`,
         background: on ? theme.orange : 'transparent',
@@ -366,7 +409,7 @@ function HeadroomButton() {
         cursor: 'pointer',
       }}
     >
-      ▦
+      <IconHeadroom size={15} />
     </button>
   );
 }
@@ -374,12 +417,20 @@ function HeadroomButton() {
 function N1Button() {
   const on = useAppStore((s) => s.n1);
   const setN1 = useAppStore((s) => s.setN1);
+  const setToast = useAppStore((s) => s.setToast);
   return (
     <button
-      onClick={() => setN1(!on)}
+      aria-label="N-1 security"
+      onClick={() => {
+        setN1(!on);
+        setToast(on ? 'N-1 security rings off' : 'N-1 security on — green survives any single failure');
+      }}
       title="N-1 security: green catchments survive any single failure (N)"
       style={{
-        padding: '3px 8px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '4px 8px',
         borderRadius: 5,
         border: `1px solid ${on ? theme.orange : theme.navyLight}`,
         background: on ? theme.orange : 'transparent',
@@ -389,7 +440,7 @@ function N1Button() {
         cursor: 'pointer',
       }}
     >
-      ⛨
+      <IconShield size={15} />
     </button>
   );
 }
@@ -397,12 +448,20 @@ function N1Button() {
 function ForecastButton() {
   const on = useAppStore((s) => s.forecastOn);
   const setOn = useAppStore((s) => s.setForecastOn);
+  const setToast = useAppStore((s) => s.setToast);
   return (
     <button
-      onClick={() => setOn(!on)}
+      aria-label="demand forecast"
+      onClick={() => {
+        setOn(!on);
+        setToast(on ? '5-year forecast off' : '5-year forecast on — years until each transformer overloads');
+      }}
       title="5-year demand forecast: catchments tinted by years until their transformer runs out of road (F)"
       style={{
-        padding: '3px 8px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '4px 8px',
         borderRadius: 5,
         border: `1px solid ${on ? theme.orange : theme.navyLight}`,
         background: on ? theme.orange : 'transparent',
@@ -412,7 +471,7 @@ function ForecastButton() {
         cursor: 'pointer',
       }}
     >
-      ⏳
+      <IconHourglass size={15} />
     </button>
   );
 }
@@ -426,16 +485,22 @@ function RiioButton() {
       onClick={() => setKpiOpen(!kpiOpen)}
       title="Regulatory KPIs and report card (K)"
       style={{
-        padding: '3px 10px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '4px 9px',
         borderRadius: 5,
         border: `1px solid ${kpiOpen ? theme.orange : theme.navyLight}`,
         background: kpiOpen ? theme.orange : 'transparent',
         color: kpiOpen ? theme.navy : theme.slate,
         fontFamily: theme.font,
         fontSize: 12,
+        fontWeight: 700,
+        letterSpacing: '0.04em',
         cursor: 'pointer',
       }}
     >
+      <IconReport size={14} />
       RIIO
     </button>
   );
@@ -450,7 +515,10 @@ function CompanyButton() {
       onClick={() => setOpen(!open)}
       title="The network business: directorates, pay & H&S (C)"
       style={{
-        padding: '3px 8px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '4px 8px',
         borderRadius: 5,
         border: `1px solid ${open ? theme.orange : theme.navyLight}`,
         background: open ? theme.orange : 'transparent',
@@ -460,7 +528,7 @@ function CompanyButton() {
         cursor: 'pointer',
       }}
     >
-      🏢
+      <IconBuilding size={15} />
     </button>
   );
 }
@@ -475,7 +543,10 @@ function HelpButton() {
       onClick={() => setTourActive(true)}
       title="Tour the controls — a guided walkthrough of the HUD"
       style={{
-        padding: '3px 9px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '4px 8px',
         borderRadius: 5,
         border: `1px solid ${theme.navyLight}`,
         background: 'transparent',
@@ -485,7 +556,7 @@ function HelpButton() {
         cursor: 'pointer',
       }}
     >
-      ?
+      <IconHelp size={15} />
     </button>
   );
 }
@@ -502,7 +573,10 @@ function SoundButton() {
       }}
       title="Music & sound"
       style={{
-        padding: '3px 8px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '4px 8px',
         borderRadius: 5,
         border: `1px solid ${theme.navyLight}`,
         background: 'transparent',
@@ -512,7 +586,7 @@ function SoundButton() {
         cursor: 'pointer',
       }}
     >
-      {on ? '♪' : '♪̸'}
+      {on ? <IconSoundOn size={15} /> : <IconSoundOff size={15} />}
     </button>
   );
 }
@@ -587,10 +661,14 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
       <SoundButton />
       <HelpButton />
       <button
+        aria-label="grid view"
         onClick={() => setGridView(!gridView)}
         title="Grid view: dim the city, highlight the network (G)"
         style={{
-          padding: '3px 10px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 5,
+          padding: compact ? '4px 8px' : '4px 10px',
           borderRadius: 5,
           border: `1px solid ${gridView ? theme.orange : theme.navyLight}`,
           background: gridView ? theme.orange : 'transparent',
@@ -601,10 +679,48 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
           cursor: 'pointer',
         }}
       >
-        {compact ? '⚡' : '⚡ grid view'}
+        <IconBolt size={15} />
+        {!compact && 'grid view'}
       </button>
+      <CollapseToggle compact={compact} />
       {!compact && <GoalChip />}
     </div>
     </>
+  );
+}
+
+/** Toggle the whole HUD/palette between the full spread and the compact
+ *  icon rail (owner: cleaner look, on desktop too). On a phone the layout
+ *  is always compact, so the toggle is desktop-only. Persisted in the
+ *  store (localStorage). */
+function CollapseToggle({ compact }: { compact: boolean }) {
+  const collapsed = useAppStore((s) => s.hudCollapsed);
+  const setCollapsed = useAppStore((s) => s.setHudCollapsed);
+  const isMobile = useIsMobile();
+  if (isMobile) return null; // phones can't un-compact
+  return (
+    <button
+      aria-label={collapsed ? 'expand HUD' : 'collapse HUD'}
+      onClick={() => setCollapsed(!collapsed)}
+      title={
+        collapsed
+          ? 'Expand the HUD to the full desktop layout'
+          : 'Collapse the HUD to the compact icon rail'
+      }
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: compact ? '4px 6px' : '4px 8px',
+        borderRadius: 5,
+        border: `1px solid ${theme.navyLight}`,
+        background: 'transparent',
+        color: theme.slate,
+        fontFamily: theme.font,
+        cursor: 'pointer',
+      }}
+    >
+      {collapsed ? <IconExpand size={15} /> : <IconCollapse size={15} />}
+    </button>
   );
 }

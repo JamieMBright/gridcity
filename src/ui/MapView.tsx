@@ -303,6 +303,8 @@ export function MapView() {
       );
       // golden-hour grade + seasons + rain follow the sim clock/weather
       r?.setAtmosphere(snapshot.simTimeMin, snapshot.weather);
+      // living-world animation rate tracks the clock speed (0/1/4/16x)
+      r?.setSimSpeed(snapshot.speed);
     }
   }, [snapshot]);
 
