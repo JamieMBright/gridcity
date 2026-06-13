@@ -12,6 +12,25 @@
 
 ## Open
 
+- [ ] **FAVOUR LOGGING IN (owner, 2026-06-13 14:28): with ranks +
+      city unlocks, login matters more.** Direction: GUEST play stays
+      fully fine for LONDON sandbox + TUTORIALS (localStorage). But
+      PROGRESSION — rank/accolades/unlocked cities/per-city leaderboards
+      — needs an account, so favour signing in:
+  - [ ] Make login SOLID first (the "login didn't work" bug): the
+        Supabase Site-URL fix (already logged) + a styled auth callback
+        + verify the OTP/magic-link round-trip end to end.
+  - [ ] Gate progression behind (or strongly tied to) an account: rank,
+        accolades, city unlocks and cross-device sync require login;
+        guest can still play London + tutorials but sees their progress
+        is local-only with a clear, friendly "sign in to keep your rank
+        & unlock cities across devices" prompt at the right moments
+        (first rank-up, first city-unlock offer, period report card).
+  - [ ] Surface the BENEFIT prominently (start menu NETWORK ACCESS
+        block + an inline prompt), not a hard wall — never block the
+        core London/tutorial play. Aligns with docs/multi-city-and-rank.md
+        P5 (the `progression` Supabase table + guest→login merge).
+
 - [ ] **TUTORIAL OVERHAUL + PLAYTEST FLURRY 2 (owner, 2026-06-13 ~13:40,
       full 5-tutorial playthrough + screenshot). HUGE — spans several
       waves.**
