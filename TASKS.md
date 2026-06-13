@@ -12,6 +12,14 @@
 
 ## Open
 
+- [ ] **+30d skip vs incidents (noticed at Wave 9 gate):** now that
+      weather incidents fire every week or two, a +30d (and often +7d)
+      skip halts at the first storm/incident (bad news stops a skip —
+      intended safety). So the long jumps rarely complete their full
+      span. Decide: keep as-is (halt-on-crisis is good), OR only halt on
+      MAJOR incidents, OR report "skipped 8 of 30 days — storm hit". Low
+      priority tuning.
+
 - [x] **Wave 9 landmarks + Heathrow (agent lane, integrated by main
       after the lane stalled post-completion).** Missing landmarks added
       (Wembley, O2, Crystal Palace, Alexandra Palace, ExCeL, Kew, BT
