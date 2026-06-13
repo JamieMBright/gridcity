@@ -1455,9 +1455,10 @@ export class MapRenderer {
 
   tileToScreen(x: number, y: number): { x: number; y: number } {
     // a tile query can race a renderer (re)build (e.g. on a mission map
-    // swap): if the Pixi app isn't up yet, report off-screen rather than
-    // throw inside the caller's page.evaluate
-    if (!this.app?.canvas) return { x: -1, y: -1 };
+    // swap): guard on `renderer`, NOT `canvas` — Pixi v8 inits async and
+    // its `app.canvas` getter itself throws while `renderer` is null, so
+    // touching canvas to test it is the very crash we're avoiding
+    if (this.destroyed || !this.app?.renderer) return { x: -1, y: -1 };
     const c = this.tileCentre(x, y);
     const rect = this.app.canvas.getBoundingClientRect();
     return {
