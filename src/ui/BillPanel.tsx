@@ -40,6 +40,7 @@ export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
 
   return (
     <div
+      data-tour="bill"
       style={{
         ...panelStyle,
         position: 'absolute',

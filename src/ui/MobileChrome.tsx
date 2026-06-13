@@ -15,6 +15,7 @@ import { FleetPanel } from './FleetPanel';
 import { InboxPanel } from './InboxPanel';
 import { InfoPanel } from './InfoPanel';
 import { panelStyle, theme } from './theme';
+import { useUnlockGate } from './unlocks';
 
 interface RailItem {
   icon: string;
@@ -66,9 +67,13 @@ function BuildRail({ onExpand }: { onExpand: () => void }) {
   const tool = useAppStore((s) => s.tool);
   const setTool = useAppStore((s) => s.setTool);
   const ug = tool.t === 'line' && tool.build === 'underground';
+  const gate = useUnlockGate();
+  // on a mission, only the unlocked tools (inspect always available)
+  const items = RAIL.filter((item) => gate.tool(item.tool));
 
   return (
     <div
+      data-tour="palette"
       style={{
         ...panelStyle,
         position: 'absolute',
@@ -85,10 +90,12 @@ function BuildRail({ onExpand }: { onExpand: () => void }) {
         overscrollBehavior: 'contain',
       }}
     >
-      <button onClick={onExpand} style={railBtn(false)} aria-label="open build menu">
-        »
-      </button>
-      {RAIL.map((item) => {
+      {!gate.active && (
+        <button onClick={onExpand} style={railBtn(false)} aria-label="open build menu">
+          »
+        </button>
+      )}
+      {items.map((item) => {
         const active = railActive(tool, item.tool);
         const key = hotkeyLabel(item.tool);
         return (
@@ -158,16 +165,19 @@ function Chip({
   badge,
   onClick,
   label,
+  tour,
 }: {
   icon: string;
   active: boolean;
   badge?: number;
   onClick: () => void;
   label: string;
+  tour?: string;
 }) {
   return (
     <button
       aria-label={label}
+      data-tour={tour}
       onClick={onClick}
       style={{
         position: 'relative',
@@ -224,6 +234,8 @@ export function MobileChrome() {
   const tool = useAppStore((s) => s.tool);
   const kpiOpen = useAppStore((s) => s.kpiOpen);
   const setKpiOpen = useAppStore((s) => s.setKpiOpen);
+  const gate = useUnlockGate();
+  const show = (key: string): boolean => !gate.active || gate.has(key);
   const openApps =
     snapshot?.inbox.applications.filter((a) => a.status === 'open').length ?? 0;
   const openPitches = snapshot?.inbox.pitches.filter((p) => p.status === 'open').length ?? 0;
@@ -247,17 +259,28 @@ export function MobileChrome() {
           gap: 4,
         }}
       >
-        <Chip icon="💷" label="bill" active={sheet === 'bill'} onClick={() => toggle('bill')} />
-        <Chip icon="🚐" label="fleet" active={sheet === 'fleet'} onClick={() => toggle('fleet')} />
-        <Chip
-          icon="📨"
-          label="inbox"
-          active={sheet === 'inbox'}
-          badge={openApps + openPitches}
-          onClick={() => toggle('inbox')}
-        />
-        <Chip icon="📜" label="alerts" active={sheet === 'alerts'} onClick={() => toggle('alerts')} />
-        <Chip icon="📊" label="RIIO KPIs" active={kpiOpen} onClick={() => setKpiOpen(!kpiOpen)} />
+        {show('hud:bill') && (
+          <Chip icon="💷" label="bill" tour="bill" active={sheet === 'bill'} onClick={() => toggle('bill')} />
+        )}
+        {show('hud:fleet') && (
+          <Chip icon="🚐" label="fleet" active={sheet === 'fleet'} onClick={() => toggle('fleet')} />
+        )}
+        {show('hud:inbox') && (
+          <Chip
+            icon="📨"
+            label="inbox"
+            tour="inbox"
+            active={sheet === 'inbox'}
+            badge={openApps + openPitches}
+            onClick={() => toggle('inbox')}
+          />
+        )}
+        {show('hud:alerts') && (
+          <Chip icon="📜" label="alerts" active={sheet === 'alerts'} onClick={() => toggle('alerts')} />
+        )}
+        {show('hud:kpi') && (
+          <Chip icon="📊" label="RIIO KPIs" active={kpiOpen} onClick={() => setKpiOpen(!kpiOpen)} />
+        )}
       </div>
 
       {sheet !== undefined && (

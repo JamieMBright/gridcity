@@ -21,6 +21,9 @@ import {
 } from './protocol';
 import { networkHealthPct } from './reliability/ageing';
 import { forecastStorms } from './reliability/stormprep';
+import { safetyEngagement, safetyView } from './reliability/safety';
+import { orgView } from './events/directorates';
+import { openClaims } from './events/litigation';
 import { advanceGoals, GOALS, goalStatus, type GoalView } from './scenario/goals';
 import { advanceMission, missionOf, missionView } from './scenario/missions';
 import { securityKey, securityOf } from './security';
@@ -264,6 +267,9 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
       return [id, peak, a && a.kind === 'sub' ? subMva(a) : 0] as [number, number, number];
     }),
     stormForecast: forecastStorms(state),
+    org: orgView(state.org, safetyEngagement(state.org?.safety ?? 0)),
+    safety: safetyView(state),
+    claims: openClaims(state),
     goal: goalStatus(state.goalIndex ?? 0, view),
     riio: {
       index: state.period.index,

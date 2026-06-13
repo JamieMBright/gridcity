@@ -52,6 +52,7 @@ export function StartMenu() {
   const ready = useAppStore((s) => s.workerStatus === 'ready' && s.snapshot !== undefined);
   const setMenuOpen = useAppStore((s) => s.setMenuOpen);
   const setTutorialStep = useAppStore((s) => s.setTutorialStep);
+  const setTourActive = useAppStore((s) => s.setTourActive);
   const [foot, setFoot] = useState<'settings' | 'leaderboard' | 'credits' | undefined>(undefined);
   const [campaignOpen, setCampaignOpen] = useState(false);
   const [, force] = useState(0);
@@ -60,13 +61,17 @@ export function StartMenu() {
   const audio = getAudioSettings();
   const done = completedMissions();
 
-  const begin = (tutorial: boolean, fresh: boolean): void => {
+  // sandbox: continue a save (fresh=false) or start a clean new game
+  // (fresh=true). The London tutorial step strip is RETIRED — the campaign
+  // IS the tutorial now, so a sandbox new game opens clean (story + goal
+  // ladder only). 'tutorial' on the menu launches campaign mission 1.
+  const begin = (fresh: boolean): void => {
     startMusic();
     if (fresh) {
       newGameCommand();
-      if (!tutorial) sessionStorage.setItem('ec-story-pending', '1');
+      sessionStorage.setItem('ec-story-pending', '1');
     }
-    setTutorialStep(tutorial ? 0 : undefined);
+    setTutorialStep(undefined);
     setMenuOpen(false);
   };
 
@@ -76,6 +81,14 @@ export function StartMenu() {
     startMission(id);
     setTutorialStep(0);
     setMenuOpen(false);
+  };
+
+  // "tour the controls": open a sandbox (continue a save, else a fresh
+  // game) so the full HUD is mounted, then run the coach-mark spotlight.
+  const setTour = (_on: boolean): void => {
+    sessionStorage.removeItem(STORY_KEY); // the tour wants the HUD, not the letterbox
+    begin(!hasSave);
+    setTourActive(true);
   };
 
   return (
@@ -119,15 +132,18 @@ export function StartMenu() {
         {ready && (
           <>
             {hasSave && (
-              <button style={bigBtn(true)} onClick={() => begin(false, false)}>
+              <button style={bigBtn(true)} onClick={() => begin(false)}>
                 continue
               </button>
             )}
-            <button style={bigBtn(!hasSave)} onClick={() => begin(false, true)}>
+            <button style={bigBtn(!hasSave)} onClick={() => begin(true)}>
               <span style={{ color: hasSave ? theme.orange : undefined }}>⚡ </span>new game
             </button>
-            <button style={bigBtn(false)} onClick={() => begin(true, true)}>
+            <button style={bigBtn(false)} onClick={() => beginMission(MISSIONS[0]?.id ?? 'm1-first-light')}>
               <span style={{ color: theme.orange }}>📖 </span>tutorial
+            </button>
+            <button style={bigBtn(false)} onClick={() => setTour(true)}>
+              <span style={{ color: theme.orange }}>🧭 </span>tour the controls
             </button>
             <button style={bigBtn(false)} onClick={() => setCampaignOpen(!campaignOpen)}>
               <span style={{ color: theme.orange }}>🎓 </span>campaign

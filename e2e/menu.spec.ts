@@ -45,15 +45,34 @@ test.describe('start menu, tutorial, KPI dashboard', () => {
       .toBe(0); // nothing of the player's yet
   });
 
-  test('tutorial walks its first auto step', async ({ page }) => {
+  test('tutorial launches campaign mission 1 (the campaign IS the tutorial)', async ({ page }) => {
     await waitReady(page);
     await clickButton(page, 'tutorial');
-    await expect(page.getByText('TUTORIAL 1/7')).toBeVisible();
-    await clickButton(page, 'next');
-    await expect(page.getByText('TUTORIAL 2/7')).toBeVisible();
-    await expect(page.getByText(/First, generation/)).toBeVisible();
+    // the menu closes straight into First Light — no standalone London strip
+    await expect.poll(() => store<boolean>(page, '(s) => s.menuOpen')).toBe(false);
+    await expect
+      .poll(() => store<string>(page, '(s) => s.snapshot?.scenarioId'), { timeout: 20_000 })
+      .toBe('m1-first-light');
+    await expect(page.getByText(/FIRST LIGHT/)).toBeVisible();
+    // the mission's step strip drives the lesson; skip dismisses it
     await clickButton(page, 'skip tutorial');
     await expect.poll(() => store<boolean>(page, '(s) => s.tutorialStep === undefined')).toBe(true);
+  });
+
+  test('sandbox new game starts clean — no auto tutorial strip', async ({ page }) => {
+    await waitReady(page);
+    await clickButton(page, 'new game');
+    await expect.poll(() => store<boolean>(page, '(s) => s.menuOpen')).toBe(false);
+    // dismiss the story letterbox if present
+    const skip = page.getByRole('button', { name: 'skip', exact: true });
+    if ((await skip.count()) > 0) {
+      await skip.dispatchEvent('click');
+      const rebuild = page.getByRole('button', { name: 'rebuild it' });
+      if ((await rebuild.count()) > 0) await rebuild.dispatchEvent('click');
+    }
+    // no step strip, no mission
+    expect(await store<string>(page, '(s) => s.scenarioId')).toBe('london');
+    await expect(page.getByText(/MISSION ·/)).toHaveCount(0);
   });
 
   test('KPI dashboard opens via button and K, shows targets', async ({ page }) => {

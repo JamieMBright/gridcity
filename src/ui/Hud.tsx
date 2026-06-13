@@ -7,6 +7,7 @@ import type { SimSpeed } from '../sim/protocol';
 import { ALLOWANCE_Y1_K, inRebuildYear } from '../sim/scenario/story';
 import { assetCapexK } from '../sim/regulation/bill';
 import { fmtMoneyK, panelStyle, theme } from './theme';
+import { useUnlockGate } from './unlocks';
 
 function formatGameClock(simTimeMin: number): string {
   const day = Math.floor(simTimeMin / (24 * 60)) + 1;
@@ -323,6 +324,7 @@ function BalanceButton() {
   const setOpen = useAppStore((s) => s.setBalanceOpen);
   return (
     <button
+      data-tour="balance"
       onClick={() => setOpen(!open)}
       title="Grid balance: demand vs supply, whole map + per council (B)"
       style={{
@@ -415,6 +417,7 @@ function RiioButton() {
   const setKpiOpen = useAppStore((s) => s.setKpiOpen);
   return (
     <button
+      data-tour="kpi"
       onClick={() => setKpiOpen(!kpiOpen)}
       title="Regulatory KPIs and report card (K)"
       style={{
@@ -429,6 +432,55 @@ function RiioButton() {
       }}
     >
       RIIO
+    </button>
+  );
+}
+
+/** The network business: directorates, pay & benefits, H&S (#53/#55). */
+function CompanyButton() {
+  const open = useAppStore((s) => s.directoratesOpen);
+  const setOpen = useAppStore((s) => s.setDirectoratesOpen);
+  return (
+    <button
+      onClick={() => setOpen(!open)}
+      title="The network business: directorates, pay & H&S (C)"
+      style={{
+        padding: '3px 8px',
+        borderRadius: 5,
+        border: `1px solid ${open ? theme.orange : theme.navyLight}`,
+        background: open ? theme.orange : 'transparent',
+        color: open ? theme.navy : theme.slate,
+        fontFamily: theme.font,
+        fontSize: 12,
+        cursor: 'pointer',
+      }}
+    >
+      🏢
+    </button>
+  );
+}
+
+/** The ? affordance: launch the HUD coach-mark tour (ROADMAP #40). */
+function HelpButton() {
+  const setTourActive = useAppStore((s) => s.setTourActive);
+  return (
+    <button
+      data-tour="help"
+      aria-label="tour the controls"
+      onClick={() => setTourActive(true)}
+      title="Tour the controls — a guided walkthrough of the HUD"
+      style={{
+        padding: '3px 9px',
+        borderRadius: 5,
+        border: `1px solid ${theme.navyLight}`,
+        background: 'transparent',
+        color: theme.slate,
+        fontFamily: theme.font,
+        fontSize: 12,
+        cursor: 'pointer',
+      }}
+    >
+      ?
     </button>
   );
 }
@@ -464,6 +516,10 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
   const snapshot = useAppStore((s) => s.snapshot);
   const gridView = useAppStore((s) => s.gridView);
   const setGridView = useAppStore((s) => s.setGridView);
+  const gate = useUnlockGate();
+  // progressive disclosure: on a mission, surface only the HUD buttons a
+  // mission teaches; the sandbox keeps the whole bar.
+  const show = (key: string): boolean => !gate.active || gate.has(key);
 
   return (
     <>
@@ -471,6 +527,7 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
     <MarketTicker />
     <StormBanner />
     <div
+      data-tour="clock"
       style={{
         ...panelStyle,
         position: 'absolute',
@@ -515,13 +572,15 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
       </span>
       <SkipButtons compact={compact} />
       <UndoRedo />
-      <AllowanceChip />
-      <BalanceButton />
-      <HeadroomButton />
-      <N1Button />
-      <ForecastButton />
-      {!compact && <RiioButton />}
+      {show('hud:allowance') && <AllowanceChip />}
+      {show('hud:balance') && <BalanceButton />}
+      {show('hud:headroom') && <HeadroomButton />}
+      {show('hud:n1') && <N1Button />}
+      {show('hud:forecast') && <ForecastButton />}
+      {!compact && show('hud:kpi') && <RiioButton />}
+      {!compact && show('hud:kpi') && <CompanyButton />}
       <SoundButton />
+      <HelpButton />
       <button
         onClick={() => setGridView(!gridView)}
         title="Grid view: dim the city, highlight the network (G)"

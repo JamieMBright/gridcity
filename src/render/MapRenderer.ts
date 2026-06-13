@@ -44,6 +44,12 @@ import {
   type WakeBoat,
   type ZoomKey,
 } from './routeRibbons';
+import {
+  cameraFitFor,
+  clampCameraToBounds,
+  type CameraState,
+  type TileBounds,
+} from './cameraFit';
 import { emitShoreline } from './shoreline';
 import {
   mixRgb,
@@ -291,6 +297,12 @@ export class MapRenderer {
   private destroyed = false;
   private dragging = false;
   private dragTravel = 0;
+  /** When set (campaign missions), pan + zoom are clamped to these tile
+   *  bounds so the tiny mission map can never drift off-screen. */
+  private lockBounds: TileBounds | undefined;
+  /** Screen-px reserved at the top for the mission step strip: the fit
+   *  centres the map BELOW it so focus tiles never hide under the strip. */
+  private lockTopReservePx = 0;
   private lastPointer = { x: 0, y: 0 };
   private cityFilter = new ColorMatrixFilter();
   private assetSignature = '';
@@ -980,15 +992,91 @@ export class MapRenderer {
     this.world.x = cx - ((cx - this.world.x) / old) * next;
     this.world.y = cy - ((cy - this.world.y) / old) * next;
     this.world.scale.set(next);
+    this.applyLockClamp();
   }
 
   panTo(x: number, y: number): void {
+    // app.screen throws once the renderer is gone / not yet inited; guard
+    // on the (safe) renderer field so a mission focus glide that fires
+    // before init resolves or after teardown is a no-op, not a crash.
+    if (this.destroyed || !this.app.renderer) return;
     const c = this.tileCentre(x, y);
     const s = this.world.scale.x;
     this.world.position.set(
       this.app.screen.width / 2 - c.x * s,
       this.app.screen.height / 2 - c.y * s,
     );
+    this.applyLockClamp();
+  }
+
+  private fitOpts(paddingPx: number): {
+    screenW: number;
+    screenH: number;
+    halfW: number;
+    halfH: number;
+    paddingPx: number;
+    topReservePx: number;
+    minZoom: number;
+    maxZoom: number;
+  } {
+    return {
+      screenW: this.app.screen.width,
+      screenH: this.app.screen.height,
+      halfW: HALF_W,
+      halfH: HALF_H,
+      paddingPx,
+      topReservePx: this.lockTopReservePx,
+      minZoom: MIN_ZOOM,
+      maxZoom: MAX_ZOOM,
+    };
+  }
+
+  /** Centre + zoom-FIT the camera on these tile bounds (THE mission-camera
+   *  fix), and clamp every subsequent pan/zoom to them. `topReservePx`
+   *  keeps the map clear of the top mission step strip. Pass undefined to
+   *  release the lock (sandbox). */
+  lockToBounds(bounds: TileBounds | undefined, paddingPx = 36, topReservePx = 0): void {
+    this.lockBounds = bounds;
+    this.lockTopReservePx = bounds ? topReservePx : 0;
+    if (!bounds || this.destroyed || !this.app.renderer) return;
+    const cam = cameraFitFor(bounds, this.fitOpts(paddingPx));
+    this.applyCamera(cam);
+  }
+
+  /** Glide the camera so a focus tile is framed, but never past the
+   *  locked bounds (mission steps pan to their teaching point). The tile
+   *  is centred within the usable band BELOW the reserved top strip, so
+   *  it never hides under it — for the player and the regression e2e. */
+  focusTile(x: number, y: number): void {
+    if (this.destroyed || !this.app.renderer) return;
+    const c = this.tileCentre(x, y);
+    const s = this.world.scale.x;
+    const bandMid = (this.lockTopReservePx + this.app.screen.height) / 2;
+    this.world.position.set(this.app.screen.width / 2 - c.x * s, bandMid - c.y * s);
+    this.applyLockClamp();
+  }
+
+  private applyCamera(cam: CameraState): void {
+    this.world.scale.set(cam.scale);
+    this.world.position.set(cam.x, cam.y);
+  }
+
+  /** Re-clamp the live camera to the active lock bounds, if any. */
+  private applyLockClamp(): void {
+    if (!this.lockBounds || this.destroyed || !this.app.renderer) return;
+    const clamped = clampCameraToBounds(
+      { scale: this.world.scale.x, x: this.world.x, y: this.world.y },
+      this.lockBounds,
+      {
+        screenW: this.app.screen.width,
+        screenH: this.app.screen.height,
+        halfW: HALF_W,
+        halfH: HALF_H,
+        paddingPx: 8,
+        topReservePx: this.lockTopReservePx,
+      },
+    );
+    this.applyCamera(clamped);
   }
 
   tileToScreen(x: number, y: number): { x: number; y: number } {
@@ -2152,6 +2240,7 @@ export class MapRenderer {
           this.world.x = mx - ((mx - this.world.x) / old) * next;
           this.world.y = my - ((my - this.world.y) / old) * next;
           this.world.scale.set(next);
+          this.applyLockClamp();
         }
         pinchDist = dist;
         return;
@@ -2161,6 +2250,7 @@ export class MapRenderer {
         this.world.y += e.clientY - this.lastPointer.y;
         this.dragTravel += Math.abs(e.clientX - this.lastPointer.x) + Math.abs(e.clientY - this.lastPointer.y);
         this.lastPointer = { x: e.clientX, y: e.clientY };
+        this.applyLockClamp();
       }
       this.onHover?.(this.tileFromClient(map, e.clientX, e.clientY));
     });
@@ -2178,6 +2268,7 @@ export class MapRenderer {
         this.world.x = px - ((px - this.world.x) / old) * next;
         this.world.y = py - ((py - this.world.y) / old) * next;
         this.world.scale.set(next);
+        this.applyLockClamp();
       },
       { passive: false },
     );

@@ -30,6 +30,9 @@ export interface Application {
   assetId?: number | undefined;
   /** Whether the late-connection event has been announced. */
   overdueNotified?: boolean | undefined;
+  /** Litigation (#54): a damages claim has been escalated for this overdue
+   *  connection (so it escalates at most once). */
+  claimed?: boolean | undefined;
 }
 
 export const GEN_OF_KIND: Partial<Record<AppKind, GenType>> = {

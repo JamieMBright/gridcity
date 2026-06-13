@@ -5,6 +5,8 @@ import { BillPanel } from '../ui/BillPanel';
 import { BuildPalette } from '../ui/BuildPalette';
 import { FleetPanel } from '../ui/FleetPanel';
 import { Hud } from '../ui/Hud';
+import { HudTour } from '../ui/HudTour';
+import { DirectoratesPanel } from '../ui/DirectoratesPanel';
 import { InboxPanel } from '../ui/InboxPanel';
 import { InfoPanel } from '../ui/InfoPanel';
 import { KpiDashboard } from '../ui/KpiDashboard';
@@ -20,6 +22,7 @@ import { playSfx } from '../audio/audio';
 import { HOTKEYS } from './hotkeys';
 import { useAppStore } from './store';
 import { useIsMobile } from './useIsMobile';
+import { useUnlockGate } from '../ui/unlocks';
 import { initWorker, sendCommand, setSimSpeed } from './workerBridge';
 
 function Wordmark() {
@@ -144,6 +147,8 @@ function useKeyboard(): void {
         s.setForecastOn(!s.forecastOn);
       } else if (key === 'k') {
         s.setKpiOpen(!s.kpiOpen);
+      } else if (key === 'c') {
+        s.setDirectoratesOpen(!s.directoratesOpen);
       } else if (key === 'u') {
         // flip overhead/underground on the armed line tool
         if (s.tool.t === 'line') {
@@ -201,6 +206,9 @@ export function App() {
   const menuOpen = useAppStore((s) => s.menuOpen);
   // campaign missions hide the London-specific chrome (place search)
   const inMission = useAppStore((s) => s.scenarioId !== 'london');
+  // progressive disclosure: a mission shows only the panels it teaches
+  const gate = useUnlockGate();
+  const showPanel = (key: string): boolean => !gate.active || gate.has(key);
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
@@ -217,10 +225,10 @@ export function App() {
             {!inMission && <SearchBox />}
             <BuildPalette />
             <InfoPanel />
-            <BillPanel />
-            <FleetPanel />
-            <InboxPanel />
-            <AlertsFeed />
+            {showPanel('hud:bill') && <BillPanel />}
+            {showPanel('hud:fleet') && <FleetPanel />}
+            {showPanel('hud:inbox') && <InboxPanel />}
+            {showPanel('hud:alerts') && <AlertsFeed />}
             <StatusBar />
           </>
         ))}
@@ -230,8 +238,10 @@ export function App() {
       {!menuOpen && <BalancePanel />}
       <StoryIntro />
       <KpiDashboard />
+      <DirectoratesPanel />
       <StartMenu />
       <RotatePrompt />
+      <HudTour />
     </div>
   );
 }

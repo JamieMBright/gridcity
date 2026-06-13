@@ -12,6 +12,130 @@
 
 ## Open
 
+- [ ] **Map-edge rock walls (owner, 2026-06-13 04:48): "I don't
+      understand why the edges of the map are rock walls. Just stick to
+      real towns."** The map boundary renders as rock/cliff walls —
+      remove; the edge should resolve into real terrain/towns (or a
+      soft fade), not an artificial rock rim. Folds into Wave 8 MAP
+      OVERHAUL (edge-of-world treatment in londonMap.ts/render).
+
+- [ ] **MULTI-CITY FUTURE-PROOFING + RANK/PROGRESSION (owner, 2026-06-13
+      04:48).** Big strategic feature — DESIGN/RESEARCH pass first.
+  - [ ] Future-proof city selection beyond London: Sydney, Paris, New
+        York, Hong Kong, Athens, Shanghai, Rio de Janeiro, Cairo, Dubai.
+        cityRegistry.ts already defines CityScenario for exactly this —
+        extend it with per-city POWER-SYSTEM config. RESEARCH the real
+        differences to model per city/country: weather/climate profiles,
+        planning-permission regimes, grid-OWNED vs market generation,
+        system FREQUENCY (50 vs 60 Hz), the REGULATOR (if any), and
+        VOLTAGE levels. Each becomes scenario data + tuning, ideally
+        without engine forks.
+  - [ ] Cities are UNLOCKED by the player — a benefit to logging in;
+        needs ACCOLADE/PROGRESSION persistence (Supabase: a new table /
+        profile fields for rank, milestones, unlocked cities).
+  - [ ] RANK SYSTEM: power-system-engineering JOB TITLES from junior
+        intern upward (have fun with the ladder); the player LEVELS UP
+        on milestones + efficiency-against-milestones; faster promotion
+        for better performance. At certain ranks the player gets an
+        OFFER (any time) to go fix another city's missing grid —
+        accepting unlocks that map. Tie progression to the existing
+        RIIO report-card / KPI scoring.
+  - [ ] DESIGN PASS launched (read-only, deep-research): produces
+        docs/multi-city-and-rank.md — researched per-city power-system
+        table, the CityScenario config extension, the rank ladder + job
+        titles, the milestone/efficiency promotion model, the city-
+        unlock offer mechanic, and the Supabase accolade/rank schema.
+  - [ ] IMPLEMENTATION = a later dedicated wave (after Wave 7/8); spans
+        cityRegistry + sim config + Supabase + UI + progression.
+
+- [ ] **TERRAIN + PLANNING overhaul (owner, 2026-06-13 04:38, image:
+      chequerboard farmland).** Two parts.
+  - [ ] TERRAIN ART/GENERATION (folds into Wave 8 MAP OVERHAUL; use
+        environment-art + color-theory skills): the countryside is a
+        4×4 patchwork of garish yellow/orange/brown squares — reads as
+        American farmland, not English green belt. Wants: ORGANIC,
+        natural terrain selection (less obviously random/gridded);
+        LESS lurid/yellow ("luteous") colours, held inside the lofi
+        sunset palette; LUSH forest where forest exists; LUSHER greens
+        for the Surrey Hills / AONB uplands; garden-grass green + more
+        CONCRETE around towns; really bring GREEN BELT + BROWNFIELD
+        vibes to life. Implies: break the 8×8/field-grid hashing into
+        organic enclosure shapes, retune the field/crop tint ramps
+        (desaturate the yellows), proper woodland masses, upland-green
+        zones, peri-urban concrete/scrub fringe, distinct brownfield
+        texture. Diagnose tileChooser.ts field hashing + the seasonal
+        field tints (beauty pass) + the density/zone field.
+  - [ ] BROWNFIELD-FAVOURED PLANNING + APPEALS (sim mechanic): generation/
+        demand applications should FAVOUR arriving on BROWNFIELD tiles
+        (needs a brownfield texture/flag in the map model — ties to the
+        terrain work). Some applications still target NON-brownfield —
+        but those do NOT instantly build: open a ~30-day APPEALS window
+        and simulate PLANNING decisions from the relevant COUNCIL
+        (approve / reject, weighted by council profile + land type +
+        conservation/green-belt status). Rejections + approvals + appeals
+        FEATURE ON THE NEWS BANNER feed ("Camford council rejects the
+        Estuary Sun array on green-belt grounds", etc.). Sim lane:
+        events/applications.ts + councils + the news/event stream —
+        coordinate with the running events lanes; lands Wave 8/9.
+
+- [ ] **HEATHROW — bespoke design + PV/BESS opportunity (owner,
+      2026-06-13 04:31, two images: in-game vs real top-down).**
+  - [ ] In-game Heathrow "looks terrible" — currently two flat grey
+        runway strips + one tiny building in open fields. Real Heathrow
+        (ref: /root/.claude/uploads/86f13754-c4ec-5876-8bb6-a28892eab497/
+        2fbb1823-IMG_2588.png) is a big CONCRETE complex: two parallel
+        E–W runways with a dense terminal ISLAND between them — terminals
+        (T2/T3/T5/T4), aprons, taxiways, satellite piers, control tower,
+        cargo sheds, multi-storey car parks, perimeter road, parked
+        aircraft; all tarmac/concrete, not grass. Build a bespoke multi-
+        tile Heathrow stamp (londonMap.ts reservation + a dedicated
+        concrete-airport sprite/tile family in render/sprites) that reads
+        like the real airport from the iso camera. Coordinate with the
+        air-layer (P7) so planes use the real runways. Folds into the
+        Wave 8 MAP OVERHAUL (Heathrow sits inside that geometry pass).
+  - [ ] SPECIAL OPPORTUNITY: at a random point in the game, Heathrow
+        raises a BIG combined PV + BESS connection application (airports
+        are doing exactly this) — a sizeable solar array + battery on the
+        airport estate, sited on/beside the Heathrow reservation. A
+        bespoke seeded-RNG event in events/applications.ts (deterministic
+        timing window), flagged as the Heathrow scheme, with the usual
+        firm/flex + connection-study handling. Coordinate timing with the
+        events lane (events/** is mid-edit by the Wave 7 H&S lane).
+  - [ ] Leverage the design skills (environment-art: concrete/tarmac
+        material read, density, the runway-terminal hierarchy).
+
+- [ ] **MAP / ROAD / DENSITY OVERHAUL (owner, 2026-06-13 04:26, two
+      reference images: real top-down London map + a game screenshot of
+      "road madness").** Supersedes prior incremental road/map passes.
+      The owner's asks, verbatim-sourced:
+  - [ ] Roads take up too much real estate — NARROW them; buildings must
+        sit UP AGAINST the roads ("London is all high street" — frontage
+        density, not set-back blocks with road moats).
+  - [ ] Roads zig-zag like crazy — re-lay them ALL.
+  - [ ] Method (owner-specified pipeline): start with the RIVER (improve
+        the Thames shape using the real reference at the same time) →
+        then MAJOR ROADS mapped like London actually has them (M25
+        orbital + the real radials), overlaid at true positions relative
+        to the river → then SMALLER roads → THEN seed towns + buildings
+        afterwards (so fabric hangs off the network, not vice-versa).
+  - [ ] Buildings too sparse — London is denser than the screenshot;
+        raise urban density, terraces/blocks fronting streets.
+  - [ ] Landmarks: don't pop hard enough — give them a SPECIAL GLEAM;
+        many are still MISSING — add them (audit the real London set).
+  - [ ] Town labels at zoomed-out view: font too small, ILLEGIBLE on
+        mobile — enlarge / legibility pass (game-ui-design doctrine).
+  - [ ] MUST leverage the installed design skills (environment-art for
+        density + visual hierarchy + composition, color-theory, game-ui-
+        design for labels/readability) — owner: "significant improvements
+        since using them."
+  - [x] DESIGN PASS launched (read-only doc, runs alongside Wave 7):
+        docs/map-overhaul.md — analyse both reference images + the
+        current londonMap.ts generation + render pipeline; produce the
+        river→roads→minor→density→landmarks→labels build plan with real
+        road/landmark inventories and phased, previewable steps.
+  - [ ] IMPLEMENTATION = Wave 8 flagship (after Wave 7 frees MapRenderer/
+        render; SAVE_VERSION bump expected — map geometry changes).
+
 - [x] **URGENT mobile blocker — operator popup (owner, 2026-06-13
       04:01/04:04): "cannot play game on mobile … cannot close the
       popup as the accept button is off screen" + "the dear operator
@@ -25,15 +149,18 @@
       e2e dismiss strings ("skip"/"rebuild it") preserved. Ships as a
       standalone hotfix PR ahead of Wave 7.
 
-- [ ] **H&S — full model (owner, 2026-06-13 03:58), expands ROADMAP #55
-      / Wave 7 safety lane**: a build-a-safety-culture system.
-  - [ ] CULTURE via INVESTMENT: invest in the H&S programme heavily
+- [x] **H&S — full model (owner, 2026-06-13 03:58), expands ROADMAP #55
+      / Wave 7 safety lane**: a build-a-safety-culture system. BUILT —
+      VERIFIED (see the lane ledger entry below).
+  - [x] CULTURE via INVESTMENT: invest in the H&S programme heavily
         (effectively unbounded) or not at all — the dial builds a
         safety culture surfaced as an EMPLOYEE ENGAGEMENT (safety)
         score that flirts ~90% when genuinely good. More invested →
         better culture → fewer incidents (monotone, with the same
         over-spend complacency plateau as pay/benefits below).
-  - [ ] TWO METRICS (RIDDOR-grounded): (1) LOST TIME INCIDENTS — target
+        (reliability/safety.ts safetyEngagement inverted-U peaking at
+        PAY_PEAK=5/90%; cultureRateMul quarters the incident rate.)
+  - [x] TWO METRICS (RIDDOR-grounded): (1) LOST TIME INCIDENTS — target
         0, <5 tolerable but any is awful — an employee injured and off
         the next day; cause mix: ELECTROCUTION (bad risk assessment /
         wrong PPE / wrong tools), FALL FROM HEIGHT (wrong equipment or
@@ -42,17 +169,24 @@
         their rate. (2) VERY SERIOUS INCIDENT (potential-to-harm near
         miss, nobody struck): handbrake-off van rolls clear, neutral
         miswired could-have-electrocuted, public-reported OHL sag with
-        no contact. NO DEATHS, ever — injuries only.
-  - [ ] REGULATOR: LTIs draw fines from the workplace H&S regulator
+        no contact. NO DEATHS, ever — injuries only. (LTI_CAUSES +
+        VSI_FLAVOUR; KpiDashboard LTI/VSI/culture/engagement rows;
+        no-death-path unit-proven.)
+  - [x] REGULATOR: LTIs draw fines from the workplace H&S regulator
         (research the GB body — HSE) onto the bill; sew the enforcement
         outcome in organically (improvement/prohibition notices,
-        investigation, repeat-offence escalation).
-  - [ ] Determinism: incidence off seeded RNG, rate driven by culture
+        investigation, repeat-offence escalation). (HSE improvement
+        notice with a 60-day deadline; un-met or repeat LTI → escalating
+        fine HSE_FINE_BASE_K × noticeCount, rides the bill's penalty
+        line via hseFineYrK.)
+  - [x] Determinism: incidence off seeded RNG, rate driven by culture
         score × asset health (ageing.ts) × storm-surge crew-hours ×
         live-work exposure. Unit-prove the gradient (more spend +
         healthier kit → measurably fewer LTI/VSI vs same-seed control).
+        (tests/safety.test.ts same-seed Monte Carlo: treated < control
+        for both LTI and VSI.)
 
-- [ ] **Workplace culture → performance (owner, 2026-06-13 03:58)**: a
+- [x] **Workplace culture → performance (owner, 2026-06-13 03:58)**: a
       pay-&-benefits / employee-engagement investment (health insurance,
       paid paternity, "you name it") that, more invested, lifts staff
       efficiency: faster fixes/restorations (lower CI/CML), shorter
@@ -62,42 +196,133 @@
       with a COMPLACENCY PLATEAU — overpaying inverts the benefit. All
       such spend comes off the bill. Sits beside #53 directorates (likely
       the staffing/engagement dials of the directorate model). Folded
-      into the running Wave 7 safety/directorates lane.
+      into the running Wave 7 safety/directorates lane. BUILT — the pay
+      dial's engagementBuff feeds fleet speed (faster restoration),
+      connection cadence (more opportunities), satisfaction recovery,
+      innovation odds, vegGrowthMul (proactive tree maintenance) and
+      earlyWarnFrac; the inverted-U peaks at PAY_PEAK then inverts.
+      VERIFIED in the lane ledger below.
 
-- [ ] **Campaign IS the tutorial + mission-1 wind step stalled (owner,
+- [x] **Wave 7 directorates / litigation / H&S lane (ROADMAP #53/#54/#55,
+      this prompt) — VERIFIED.** The network business, get sued, and the
+      full H&S model, built to the expanded owner spec, GB-grounded via
+      deep research (HSE + RIDDOR over-7-day LTI / dangerous-occurrence
+      VSI/HiPo, improvement notices + escalating fines, Bradley-curve
+      decaying safety culture, ~90% engagement ceiling, wayleave/blight/
+      GLO/liquidated-damages/PI litigation channels with settle-vs-defend,
+      inverted-U pay→performance):
+  - [x] **#53 Directorates + workplace culture** (events/directorates.ts):
+        six funded directorate staffing dials (0–4, neutral 1 = as today)
+        + a PAY & BENEFITS dial + a SAFETY PROGRAMME dial (0–PAY_MAX=10).
+        engagementScore is an INVERTED-U peaking at PAY_PEAK=5 (~92%) and
+        FALLING past it (complacency). orgYrK (directorate steps × £1.8m,
+        pay × £1.4m, safety × £0.9m) rides computeBill's penaltyYrK in
+        tick.ts (bill.ts untouched). At least THREE buffs wired to REAL
+        mechanics, not parallel systems: fleetSpeedMul scales the
+        stepFleet dtMin (faster restoration → lower CML), vegGrowthMul
+        scales growVegetation's growthMul (proactive tree maintenance),
+        connectionCadenceMul scales the application/tender/pitch spawn
+        dtMin (more opportunities), plus satisfactionBonus (recovery),
+        innovationSuccessMul (delivery odds) and earlyWarnFrac (earlier
+        overload early-warnings) + the RIIO composite nudge. New
+        DirectoratesPanel.tsx (segmented dials with the gold plateau
+        marker, live £/yr + both engagement scores). Defaults are
+        behaviour-neutral (every mul 1.0 at a fresh/undefined org).
+  - [x] **#54 Litigation** (events/litigation.ts): claims from wayleave/
+        nuisance (sustained pylon blight), injury (← an LTI), liquidated
+        damages (a firm connection overdue beyond DAMAGES_ESCALATE_DAYS
+        escalates ONCE), and group claims (a long mass outage past
+        GROUP_OUTAGE_CUSTMIN). Inbox section with settle / fight /
+        remediate — fight is one rng.chance() off a private seed⊕claim
+        stream (deterministic per seed, never perturbs the tick RNG)
+        against legalWinBase(org) + claim.strength (Safety & Compliance /
+        Regulation funding shifts the odds). Costs ride claimsYrK on the
+        bill's penalty line; resolution dents council satisfaction.
+  - [x] **#55 H&S — full owner model** (reliability/safety.ts): the
+        safety dial builds a culture surfaced as safetyEngagement (its
+        own inverted-U, ~90% at the sweet spot). LTI + VSI rolled off the
+        seeded RNG, rate = cultureRateMul × healthHazardMul(networkHealth)
+        × storm/surge × live-work exposure. HSE improvement notice with a
+        60-day deadline; un-met or a repeat LTI under an open notice →
+        escalating fine. KPI dashboard gains LTI/yr (target 0), VSI/yr,
+        safety-culture % and employee-engagement % rows. NO death path
+        (unit-proven — text never says died/killed/fatal).
+  - [x] All three serialize ADDITIVELY (no SAVE_VERSION bump): state.org/
+        safety/claims/claimsYrK/groupOutageCustMin only appear once the
+        player engages them; pre-feature saves hydrate to neutral. Event
+        streams (incidents/claims) GATED to scenarioId === 'london', so
+        tutorial missions stay free of suits and injuries.
+  - [x] VERIFIED: tests/directorates.test.ts (14), tests/safety.test.ts
+        (14), tests/litigation.test.ts (13) — dial costs ride the bill;
+        the pay/safety inverted-U (benefit rises then falls past the
+        plateau, ~90% ceiling); proactive veg + faster restoration buffs
+        measurably move their real mechanic vs same-seed control; claims
+        lifecycle (settle/fight/remediate → bill + satisfaction, fights
+        deterministic per seed, lost fight > settlement, better funding
+        raises win rate); damages escalation once per overdue connection;
+        group-claim dedupe; the safety gradient (more spend + healthier
+        kit → fewer LTI/VSI, same seed); HSE notice deadline + repeat
+        fine escalation; no-death path; save round-trip + pre-feature
+        hydration for all new state. Full `npx vitest run` 396/396 green
+        (no regressions alongside the concurrent lane); `npx tsc -b`,
+        `npx eslint src tests e2e tools`, `npm run build` clean; e2e
+        app+controls green on a fresh server. SCREENSHOTS inspected at
+        desktop (1280×800) AND phone-landscape (844×390):
+        preview/org-directorates-{desktop,mobile}.png (panel reads, dials
+        + gold plateau marker, 90%/92% engagement) and
+        preview/org-kpis-{desktop,mobile}.png (LTI/VSI/culture/engagement
+        rows render and read) via SHOTS=1 e2e/orgshots.helper.spec.ts.
+  - [~] HUD button + App.tsx mount for DirectoratesPanel handed to the
+        integrator (Hud.tsx and src/app/** are the concurrent lane's
+        files): exact JSX + insertion points in the lane report. The
+        component, store flag (directoratesOpen) and commands are all in
+        place — only the mount line and a HUD button remain.
+
+- [x] **Campaign IS the tutorial + mission-1 wind step stalled (owner,
       2026-06-13 00:22)**: "The campaign mode should be the tutorial
       really. The instruction was to [designate] onshore wind, but
       nothing happened when i did, and so i just had to skip tutorial."
-  - [ ] Restructure: the start-menu TUTORIAL entry launches campaign
-        mission 1 (First Light); retire the separate london tutorial
-        strip (sandbox new game starts clean, missions carry the
-        teaching). Campaign progress/locks unchanged.
-  - [ ] BUG repro + fix — ROOT CAUSE per owner follow-up (00:25): "the
-        tutorial wasn't locked/centred on the available bit of land" —
-        on mission start the CAMERA never fitted the tiny mission map,
-        so the village/ridge sat off-screen and wind clicks landed on
-        nothing useful. Fix: starting a mission centres + zoom-fits the
-        camera on the mission map and CLAMPS pan to its bounds; steps
-        may pan to their focus (step 2 → the western ridge). Also keep
-        the hardening: loud siting refusals, suitability shading
-        verified on mission maps. Regression e2e through the REAL tap
-        flow at phone-landscape (not sendCommand), asserting the
-        village is in view on mission start.
-  - [ ] Progressive disclosure (owner, 00:28: "Ideally there would only
-        be the minimum available things at that step. Eg only onshore
-        wind is available… Everything else is irrelevant until you've
-        actually learned about it"): missions declare per-step/mission
-        UNLOCKS — the palette shows only the allowed build types (m1:
-        onshore wind → dist sub → 33 kV line as the steps reach them),
-        HUD surfaces (balance/headroom/N-1/forecast/goal chip/bill/KPI
-        buttons) hidden until the mission that teaches them, ambient
-        news/event flow quieted on missions. Sandbox keeps the full
-        HUD.
-  - [ ] HUD TOUR option (owner: "a tour of the hud option as it is
-        complicated to use"): pulls ROADMAP #40 coach marks forward —
-        a guided spotlight walkthrough of the HUD (bill corner, clock/
-        speed, palette, inbox, balance, KPIs…), launchable from the
-        menu/help, dismissible, once-flagged in localStorage.
+      BUILT — VERIFIED (Wave 7 flagship tutorial lane; see lane ledger
+      entry below).
+  - [x] Restructure: the start-menu TUTORIAL entry launches campaign
+        mission 1 (First Light) directly (beginMission); the separate
+        london tutorial step strip is RETIRED — Tutorial.tsx is
+        mission-only, sandbox new game starts clean (story + goal
+        ladder, no auto strip). Campaign progress/locks unchanged.
+  - [x] BUG repro + fix — ROOT CAUSE (00:25): the CAMERA never fitted
+        the tiny mission map. FIX: pure unit-tested fit + pan-clamp
+        maths (src/render/cameraFit.ts) + MapRenderer.lockToBounds /
+        focusTile / applyLockClamp wired into pan/zoom/pinch/wheel;
+        MapView centres + zoom-FITS on the mission map on start and
+        CLAMPS to its bounds, with a TOP RESERVE so the map sits below
+        the step strip (the strip otherwise covered the ridge); steps
+        declare a focus the camera glides to (m1 step 2 → M1_WIND ridge,
+        step 4 → the village). Regression e2e drives the wind
+        designation through the REAL canvas tap path at 844×390 hasTouch
+        (rail tool → pointer tap on the ridge → tender opens) and
+        asserts BOTH village + ridge are on-screen AND the tap point is
+        the topmost canvas (clear of the strip/rail).
+  - [x] Progressive disclosure (00:28): per-step CUMULATIVE unlocks as
+        data on MissionStep/Mission (missions.ts; missionUnlocks)
+        consumed UI-side (src/ui/unlocks.ts useUnlockGate): BuildPalette
+        + MobileChrome rail show ONLY unlocked build tools (m1: onshore
+        wind → dist sub → 33 kV line as steps reach them; m2 offshore →
+        grid sub → 132 → 33; m3 depot+fleet, no gen tools); HUD buttons
+        (balance/headroom/N-1/forecast/KPI/allowance) + desktop panels
+        (bill/fleet/inbox/alerts) + mobile chips gated to the surfaces a
+        mission teaches; ambient news quieted on missions (one flagged
+        single-condition gate in events/news.ts). Sandbox keeps the full
+        HUD untouched.
+  - [x] HUD TOUR (pulls ROADMAP #40 forward, struck there):
+        src/ui/HudTour.tsx — guided spotlight bill → clock/speed/skip →
+        palette → inbox → balance → KPIs → map inspector, dim cutout
+        highlight per target + callout, next/skip, once-flag
+        ('ec-hud-tour-v1'), launchable from the start menu ("tour the
+        controls") and a ? affordance in the HUD; works phone-landscape
+        + desktop (live element-rect measurement follows the layout).
+  - [x] Loud refusals: a refused siting click during a mission shows the
+        reason prominently right under the step strip (Tutorial.tsx ⚠
+        banner off store.toast), not just the small corner toast.
 
 - [x] **LOFI BEAUTY PASS (owner, 2026-06-12 21:04): "I've empowered you
       with lots of design skills. I want you to use them all to make
@@ -436,6 +661,66 @@
 - [ ] Town evolution: densification of existing areas (only edge infill today).
 
 ## Done (chronological, latest first)
+
+### Wave 7 flagship — TUTORIAL OVERHAUL (campaign IS the tutorial)
+- [x] **Campaign = tutorial · mission camera lock · progressive
+      disclosure · HUD tour (this prompt; Wave 7 flagship tutorial
+      lane)** — VERIFIED.
+  - [x] Campaign = the tutorial: start-menu "tutorial" → mission 1
+        (First Light) directly (StartMenu beginMission); the standalone
+        london step strip RETIRED (Tutorial.tsx mission-only; sandbox
+        new game opens clean — story + goal ladder, no auto strip).
+  - [x] Mission camera lock (THE bug): new src/render/cameraFit.ts —
+        pure, unit-tested fit + pan-clamp + top-reserve maths (worldBox
+        of the iso projection; centre + zoom-FIT; clamp every pan so the
+        tiny map never drifts off-screen; reserve top px for the step
+        strip). MapRenderer gained lockToBounds / focusTile /
+        applyLockClamp (guarded on app.renderer so a focus glide that
+        fires before init resolves or after teardown is a no-op, not a
+        crash) wired into drag/pinch/wheel/setZoom. MapView centres +
+        FITS on mission start (reserve 104 px) and glides to each step's
+        declared focus (m1 step2 → M1_WIND ridge, step4 → village).
+  - [x] Progressive disclosure: Unlock data on MissionStep/Mission
+        (cumulative per step; missionUnlocks) + src/ui/unlocks.ts
+        useUnlockGate; BuildPalette + MobileChrome rail show only
+        unlocked build tools; Hud buttons + App desktop panels + mobile
+        chips gated to taught surfaces; ambient news quieted on missions
+        via ONE flagged single-condition gate in events/news.ts.
+        Sandbox keeps the full HUD.
+  - [x] HUD tour (ROADMAP #40, struck): src/ui/HudTour.tsx spotlight
+        walkthrough (bill → clock/speed/skip → palette → inbox →
+        balance → KPIs → inspector), dim cutout + callout, next/skip,
+        once-flag, ? affordance + start-menu launch, phone-landscape +
+        desktop.
+  - [x] Loud mission refusals: ⚠ banner under the step strip
+        (Tutorial.tsx off store.toast).
+  - [x] FLAGGED shared-file edits for the concurrent safety/events lane
+        to integrate: (1) events/news.ts — one early-return
+        `if (state.scenarioId !== 'london') return;` at the top of
+        maybeAmbientNews (mission news gate); (2) InboxPanel.tsx — one
+        additive `data-tour="inbox"` attribute on the panel root (HUD
+        tour spotlight target). Both single, tightly-anchored, additive;
+        neither touches their logic.
+  - [x] VERIFIED: tests/cameraFit.test.ts (8 — worldBox margins, every
+        m1 tile + the village in the 844×390 viewport on start, band
+        centring, zoom clamp, top-reserve clears the strip, pan-clamp
+        re-centres a shoved camera / holds edges when zoomed in) +
+        tests/missions.test.ts extended (per-step cumulative unlocks for
+        m1/m2/m3, no untaught gen tools ever unlock, mapBounds spans the
+        tiny map, village+ridge within bounds). Full `npx vitest run`
+        355 green (the concurrent safety lane's files type-error under
+        exactOptionalPropertyTypes — theirs, not mine; tests pass).
+        tsc/eslint/vite build clean for my files (whole-repo `tsc -b`
+        and `npm run build` blocked only by the other lane's in-tree
+        type errors in safety.ts/litigation.ts/state.ts/tick.ts). e2e
+        campaign.spec rewritten to the REAL UI path at 844×390 hasTouch
+        (menu "tutorial" → mission 1; camera-fit asserts village+ridge
+        on-screen; progressive palette shows only Onshore wind at the
+        wind step; rail tap → ridge tap → tender; award → wires →
+        victory + campaign record) + HUD-tour smoke + accordion +
+        rotate-prompt; menu.spec updated (tutorial launches m1, sandbox
+        clean). Screenshots inspected (mission1 desktop+phone, tour
+        overlay).
 
 ### Wave 3 + Wave 4 of the roadmap campaign (PR #21 merged; Wave 4 → PR #22)
 Wave-lane ledger entries swept from Open on 2026-06-12 22:11:

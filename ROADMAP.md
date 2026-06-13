@@ -589,7 +589,7 @@ day (re-fires after); ticker skips acknowledged.
 localStorage); AlertsFeed + ticker filter.
 **Verify.** Unit: snooze re-arms after a day; e2e ack hides row.
 
-### 40. First-use panel coach marks
+### ~~40. First-use panel coach marks~~ — SHIPPED (Wave 7 tutorial lane, pulled forward as the HUD tour)
 **What/Why.** Balance, studies, RIIO arrive unexplained; one-time
 30-word coach marks raise feature discovery massively.
 **Design.** First open of each panel shows a dismissable callout ("This
@@ -598,6 +598,13 @@ it."); never again after dismiss.
 **Build.** localStorage seen-set; small Coach component wrapped around
 panels.
 **Verify.** e2e: shows once, not twice.
+**SHIPPED as** a guided HUD coach-mark TOUR (src/ui/HudTour.tsx): a
+spotlight stepping bill → clock/speed/skip → palette → inbox → balance
+→ KPIs → map inspector, with a dim cutout highlight per target + a
+callout, next/skip, once-flagged in localStorage ('ec-hud-tour-v1'),
+launchable from the start menu ("tour the controls") and the HUD ?
+affordance, working at phone-landscape + desktop (it measures live
+element rects, so it follows whichever layout is mounted).
 
 ---
 
@@ -776,7 +783,7 @@ setSelected.
 curtailment attribution matches recordCurtailed order. e2e: tap
 constraints → rows render, jump-to pans.
 
-### 53. The network business: directorates — Tier 2
+### ~~53. The network business: directorates — Tier 2~~ — SHIPPED (Wave 7 directorates/litigation/H&S lane; summary in TASKS.md)
 **What/Why.** A real DNO is an organisation, not a cursor: Connections,
 Asset Management, Field Operations, Control Room, Regulation, Safety,
 Finance. Representing the business gives every existing system a face,
@@ -805,7 +812,7 @@ the innovation-pitch machinery.
 travel time at max, never below floor); bill line reconciles; defaults
 are behaviour-neutral vs today.
 
-### 54. Get sued: litigation — Tier 2
+### ~~54. Get sued: litigation — Tier 2~~ — SHIPPED (Wave 7 directorates/litigation/H&S lane; summary in TASKS.md)
 **What/Why.** "Let's get sued." Consequence with a paper trail:
 prolonged outages, breached connection offers, blighted property, a
 storm mishandled — in the real world these end in claims. Litigation
@@ -830,7 +837,7 @@ modifier (works standalone with a constant before 53 lands).
 defend/lose paths price correctly and are undo-safe; no claims under
 clean operation (seeded).
 
-### 55. H&S incidents — Tier 2
+### ~~55. H&S incidents — Tier 2~~ — SHIPPED (Wave 7 directorates/litigation/H&S lane; full owner model — see TASKS.md)
 **What/Why.** "H&S incidents to minimise" — the most serious metric a
 real utility runs on. Live wires, storm work at height, the public near
 damaged kit: safety performance belongs next to CML, and it gives storm

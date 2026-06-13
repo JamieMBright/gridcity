@@ -11,6 +11,7 @@ import {
 } from '../sim/catalog';
 import type { VoltageLevel } from '../sim/grid/types';
 import { fmtMoneyK, panelStyle, theme } from './theme';
+import { useUnlockGate } from './unlocks';
 
 function sameTool(a: Tool, b: Tool): boolean {
   if (a.t !== b.t) return false;
@@ -156,9 +157,18 @@ export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
   const setTool = useAppStore((s) => s.setTool);
   const ghost = useAppStore((s) => s.ghostInfo);
   const build: LineBuild = tool.t === 'line' ? tool.build : 'overhead';
+  const gate = useUnlockGate();
+
+  // progressive disclosure: on a mission, show only the tools the steps
+  // have unlocked so far (game-design-core — irrelevant until learned)
+  const gens = GEN_ORDER.filter((g) => gate.tool({ t: 'gen', gen: g }));
+  const subs = SUB_ORDER.filter((s) => gate.tool({ t: 'sub', sub: s }));
+  const levels = LEVELS.filter((lv) => gate.tool({ t: 'line', level: lv, build }));
+  const showDepot = gate.tool({ t: 'depot' });
 
   return (
     <div
+      data-tour="palette"
       style={{
         ...panelStyle,
         position: 'absolute',
@@ -172,64 +182,72 @@ export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
         ...frame,
       }}
     >
-      <Section title="Generation">
-        {GEN_ORDER.map((g) => (
-          <ToolButton
-            key={g}
-            tool={{ t: 'gen', gen: g }}
-            label={GENS[g].name}
-            cost={fmtMoneyK(GENS[g].capexK)}
-          />
-        ))}
-      </Section>
-      <Section title="Substations">
-        {SUB_ORDER.map((s) => (
-          <ToolButton
-            key={s}
-            tool={{ t: 'sub', sub: s }}
-            label={SUBS[s].name.split(' (')[0] ?? s}
-            cost={fmtMoneyK(SUBS[s].capexK)}
-          />
-        ))}
-        <AutoConnectToggle />
-      </Section>
-      <Section title="Lines & cables">
-        <div style={{ display: 'flex', gap: 4, margin: '0 9px 6px' }}>
-          {(['overhead', 'underground'] as const).map((b) => (
-            <button
-              key={b}
-              onClick={() => {
-                if (tool.t === 'line') setTool({ ...tool, build: b, fromAssetId: undefined });
-                else setTool({ t: 'line', level: 132, build: b });
-              }}
-              style={{
-                flex: 1,
-                padding: '3px 0',
-                borderRadius: 5,
-                border: `1px solid ${theme.navyLight}`,
-                background: build === b ? theme.navyLight : 'transparent',
-                color: build === b ? theme.gold : theme.slate,
-                fontFamily: theme.font,
-                fontSize: 11,
-                cursor: 'pointer',
-              }}
-            >
-              {b === 'overhead' ? 'overhead' : 'underground'}
-            </button>
+      {gens.length > 0 && (
+        <Section title="Generation">
+          {gens.map((g) => (
+            <ToolButton
+              key={g}
+              tool={{ t: 'gen', gen: g }}
+              label={GENS[g].name}
+              cost={fmtMoneyK(GENS[g].capexK)}
+            />
           ))}
-        </div>
-        {LEVELS.map((lv) => (
-          <ToolButton
-            key={lv}
-            tool={{ t: 'line', level: lv, build }}
-            label={`${lv} kV ${build === 'underground' ? 'cable' : 'line'}`}
-            cost={`${fmtMoneyK(LINES[lv].capexKPerTile[build])}/km`}
-          />
-        ))}
-      </Section>
-      <Section title="Operations">
-        <ToolButton tool={{ t: 'depot' }} label="Field depot" cost={fmtMoneyK(DEPOT.capexK)} />
-      </Section>
+        </Section>
+      )}
+      {subs.length > 0 && (
+        <Section title="Substations">
+          {subs.map((s) => (
+            <ToolButton
+              key={s}
+              tool={{ t: 'sub', sub: s }}
+              label={SUBS[s].name.split(' (')[0] ?? s}
+              cost={fmtMoneyK(SUBS[s].capexK)}
+            />
+          ))}
+          <AutoConnectToggle />
+        </Section>
+      )}
+      {levels.length > 0 && (
+        <Section title="Lines & cables">
+          <div style={{ display: 'flex', gap: 4, margin: '0 9px 6px' }}>
+            {(['overhead', 'underground'] as const).map((b) => (
+              <button
+                key={b}
+                onClick={() => {
+                  if (tool.t === 'line') setTool({ ...tool, build: b, fromAssetId: undefined });
+                  else setTool({ t: 'line', level: levels[0] ?? 132, build: b });
+                }}
+                style={{
+                  flex: 1,
+                  padding: '3px 0',
+                  borderRadius: 5,
+                  border: `1px solid ${theme.navyLight}`,
+                  background: build === b ? theme.navyLight : 'transparent',
+                  color: build === b ? theme.gold : theme.slate,
+                  fontFamily: theme.font,
+                  fontSize: 11,
+                  cursor: 'pointer',
+                }}
+              >
+                {b === 'overhead' ? 'overhead' : 'underground'}
+              </button>
+            ))}
+          </div>
+          {levels.map((lv) => (
+            <ToolButton
+              key={lv}
+              tool={{ t: 'line', level: lv, build }}
+              label={`${lv} kV ${build === 'underground' ? 'cable' : 'line'}`}
+              cost={`${fmtMoneyK(LINES[lv].capexKPerTile[build])}/km`}
+            />
+          ))}
+        </Section>
+      )}
+      {showDepot && (
+        <Section title="Operations">
+          <ToolButton tool={{ t: 'depot' }} label="Field depot" cost={fmtMoneyK(DEPOT.capexK)} />
+        </Section>
+      )}
       <Section title="Tools">
         <ToolButton tool={{ t: 'inspect' }} label="Inspect" />
         <ToolButton tool={{ t: 'demolish' }} label="Demolish" />

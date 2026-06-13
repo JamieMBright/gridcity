@@ -12,7 +12,9 @@ import { NO_COUNCIL, TERRAIN } from '../src/sim/map/types';
 import {
   advanceMission,
   M5_DUOS_TARGET,
+  mapBounds,
   missionOf,
+  missionUnlocks,
   MISSIONS,
   missionView,
   nextMission,
@@ -78,6 +80,94 @@ describe('mission maps', () => {
       expect(m.steps.length).toBeGreaterThanOrEqual(4);
       expect(m.winText.length).toBeGreaterThan(20);
       expect(typeof m.win).toBe('function');
+    }
+  });
+});
+
+describe('progressive disclosure: per-step cumulative unlocks', () => {
+  it('mission 1 reveals exactly the tools the steps reach, in order', () => {
+    const m1 = missionOf('m1-first-light');
+    expect(m1).toBeDefined();
+    if (!m1) return;
+    // step 0 (intro): only the always-on tools, no build kit yet
+    const s0 = missionUnlocks(m1, 0);
+    expect(s0.has('inspect')).toBe(true);
+    expect(s0.has('gen:windOnshore')).toBe(false);
+    // step 1 unlocks onshore wind — and ONLY onshore wind among gens
+    const s1 = missionUnlocks(m1, 1);
+    expect(s1.has('gen:windOnshore')).toBe(true);
+    expect(s1.has('gen:gasCCGT')).toBe(false);
+    expect(s1.has('gen:nuclear')).toBe(false);
+    expect(s1.has('sub:dist')).toBe(false);
+    expect(s1.has('line:33')).toBe(false);
+    // step 2 adds the inbox HUD surface (award the bid)
+    expect(missionUnlocks(m1, 2).has('hud:inbox')).toBe(true);
+    // step 3 adds the distribution substation, cumulatively
+    const s3 = missionUnlocks(m1, 3);
+    expect(s3.has('gen:windOnshore')).toBe(true);
+    expect(s3.has('sub:dist')).toBe(true);
+    expect(s3.has('sub:grid')).toBe(false);
+    expect(s3.has('line:33')).toBe(false);
+    // step 4 adds the 33 kV line; the full set is now available
+    const s4 = missionUnlocks(m1, 4);
+    expect(s4.has('line:33')).toBe(true);
+    // a finished strip (undefined step) keeps everything unlocked
+    const done = missionUnlocks(m1, undefined);
+    expect(done.has('line:33')).toBe(true);
+    expect(done.has('sub:dist')).toBe(true);
+  });
+
+  it('every mission only ever unlocks tools it actually teaches in its steps', () => {
+    for (const m of MISSIONS) {
+      const all = missionUnlocks(m, undefined);
+      // demolish + inspect are always-on; never gas/coal/nuclear in a
+      // tutorial that doesn't mention them
+      expect(all.has('inspect')).toBe(true);
+      expect(all.has('demolish')).toBe(true);
+      expect(all.has('gen:coal')).toBe(false);
+      expect(all.has('gen:nuclear')).toBe(false);
+      expect(all.has('gen:interconnector')).toBe(false);
+    }
+  });
+
+  it('mission 2 teaches the step-up chain: offshore wind, grid sub, 132 then 33', () => {
+    const m2 = missionOf('m2-step-up');
+    if (!m2) return;
+    expect(missionUnlocks(m2, 1).has('gen:windOffshore')).toBe(true);
+    expect(missionUnlocks(m2, 2).has('sub:grid')).toBe(true);
+    expect(missionUnlocks(m2, 3).has('line:132')).toBe(true);
+    const end = missionUnlocks(m2, undefined);
+    expect(end.has('line:33')).toBe(true);
+    expect(end.has('sub:dist')).toBe(true);
+  });
+
+  it('mission 3 teaches the depot + fleet without any generation tools', () => {
+    const m3 = missionOf('m3-storm');
+    if (!m3) return;
+    const end = missionUnlocks(m3, undefined);
+    expect(end.has('depot')).toBe(true);
+    expect(end.has('hud:fleet')).toBe(true);
+    expect(end.has('gen:windOnshore')).toBe(false);
+  });
+});
+
+describe('mission camera bounds', () => {
+  it('mapBounds spans the whole (tiny) mission map', () => {
+    for (const sc of CITY_SCENARIOS.filter((s) => s.mission)) {
+      const map = sc.build();
+      const b = mapBounds(map);
+      expect(b).toEqual({ x0: 0, y0: 0, x1: map.width - 1, y1: map.height - 1 });
+    }
+  });
+
+  it('the m1 village + ridge sit within the mission bounds', () => {
+    const map = getScenario('m1-first-light').build();
+    const b = mapBounds(map);
+    for (const p of [M1_VILLAGE, M1_WIND]) {
+      expect(p.x).toBeGreaterThanOrEqual(b.x0);
+      expect(p.x).toBeLessThanOrEqual(b.x1);
+      expect(p.y).toBeGreaterThanOrEqual(b.y0);
+      expect(p.y).toBeLessThanOrEqual(b.y1);
     }
   });
 });
