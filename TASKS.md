@@ -12,6 +12,58 @@
 
 ## Open
 
+- [x] **URGENT mobile blocker — operator popup (owner, 2026-06-13
+      04:01/04:04): "cannot play game on mobile … cannot close the
+      popup as the accept button is off screen" + "the dear operator
+      message is unnecessary and should be woven into the opening
+      story."** FIXED (hotfix): StoryIntro overlay is now top-aligned
+      + scrollable (padding + overflowY auto) so "rebuild it" is always
+      reachable at phone-landscape; the separate cream Ofgem-LETTER
+      card is removed — the mandate (year-1 allowance + CML target) is
+      woven into the final story BEAT ("Your mandate") as flowing prose
+      with a compact allowance/CML strip. story.ts beat 3 rewritten;
+      e2e dismiss strings ("skip"/"rebuild it") preserved. Ships as a
+      standalone hotfix PR ahead of Wave 7.
+
+- [ ] **H&S — full model (owner, 2026-06-13 03:58), expands ROADMAP #55
+      / Wave 7 safety lane**: a build-a-safety-culture system.
+  - [ ] CULTURE via INVESTMENT: invest in the H&S programme heavily
+        (effectively unbounded) or not at all — the dial builds a
+        safety culture surfaced as an EMPLOYEE ENGAGEMENT (safety)
+        score that flirts ~90% when genuinely good. More invested →
+        better culture → fewer incidents (monotone, with the same
+        over-spend complacency plateau as pay/benefits below).
+  - [ ] TWO METRICS (RIDDOR-grounded): (1) LOST TIME INCIDENTS — target
+        0, <5 tolerable but any is awful — an employee injured and off
+        the next day; cause mix: ELECTROCUTION (bad risk assessment /
+        wrong PPE / wrong tools), FALL FROM HEIGHT (wrong equipment or
+        design), ROAD TRAFFIC, EXCAVATION/CONSTRUCTION (machinery,
+        falling, trench), SLIP/TRIP/FALL. Underspend in culture raises
+        their rate. (2) VERY SERIOUS INCIDENT (potential-to-harm near
+        miss, nobody struck): handbrake-off van rolls clear, neutral
+        miswired could-have-electrocuted, public-reported OHL sag with
+        no contact. NO DEATHS, ever — injuries only.
+  - [ ] REGULATOR: LTIs draw fines from the workplace H&S regulator
+        (research the GB body — HSE) onto the bill; sew the enforcement
+        outcome in organically (improvement/prohibition notices,
+        investigation, repeat-offence escalation).
+  - [ ] Determinism: incidence off seeded RNG, rate driven by culture
+        score × asset health (ageing.ts) × storm-surge crew-hours ×
+        live-work exposure. Unit-prove the gradient (more spend +
+        healthier kit → measurably fewer LTI/VSI vs same-seed control).
+
+- [ ] **Workplace culture → performance (owner, 2026-06-13 03:58)**: a
+      pay-&-benefits / employee-engagement investment (health insurance,
+      paid paternity, "you name it") that, more invested, lifts staff
+      efficiency: faster fixes/restorations (lower CI/CML), shorter
+      application/connection times, bigger innovation benefit + more
+      opportunities, earlier overload early-warnings, proactive tree
+      maintenance, faster fault response. Costs more for better outcomes
+      with a COMPLACENCY PLATEAU — overpaying inverts the benefit. All
+      such spend comes off the bill. Sits beside #53 directorates (likely
+      the staffing/engagement dials of the directorate model). Folded
+      into the running Wave 7 safety/directorates lane.
+
 - [ ] **Campaign IS the tutorial + mission-1 wind step stalled (owner,
       2026-06-13 00:22)**: "The campaign mode should be the tutorial
       really. The instruction was to [designate] onshore wind, but
