@@ -12,6 +12,33 @@
 
 ## Open
 
+- [ ] **GAME FEELS DEAD: no weather incidents, no new applications, bad
+      frequency model (owner, 2026-06-13 05:33).** Confirmed via repro:
+      0 new applications over 30 game-days (stuck at the seeded 3), and
+      weather stuck in 'mild' the whole time (no storms/heatwaves/floods).
+  - [ ] WEATHER INCIDENTS: owner has "left the game going some time and
+        havent seen any of the incidents… like hurricane or heavy rain
+        floods or heatwaves." Make the regime machine actually cycle and
+        fire NAMED disaster incidents — hurricane/severe storm, heavy
+        rain + FLOODS, HEATWAVES — with real consequences (fault
+        clusters, demand spikes, flood damage) and news-banner coverage.
+        (Beauty pass added rain/storm VISUALS; this is the EVENTS.) Check
+        stepWeather (events/weather.ts) regime turnover + whether
+        rngState persists per tick.
+  - [ ] APPLICATION CADENCE: owner "no new applications dripped through
+        should be getting … a new gen application and demand application
+        a week." Guarantee ~1 GEN + ~1 DEMAND connection application per
+        game-week (seeded/deterministic), not gated behind a served base.
+        Spawn site tick.ts ~478; baseline scaled by directorate
+        connectionCadenceMul.
+  - [ ] FREQUENCY MODEL: owner "the frequency of the grid doesnt really
+        make sense. Especially at start where there is no frequency cos
+        all unelectrified. It should be the average of all electrified
+        areas." Replace the global Math.max(47.5, 50-1.5*deficit) with a
+        load-weighted average over ELECTRIFIED islands; show N/A (or
+        steady 50.00) when nothing is energized. Surface correctly on the
+        HUD freq readout.
+
 - [ ] **Day/night flashing + animation pacing (owner, 2026-06-13
       05:10): "Animations should move as fast as the game clock speed
       allows. Its a bit disturbing the flashing day night cycle. Wonder
