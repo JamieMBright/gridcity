@@ -76,6 +76,7 @@ const EDIT_GROUP: Group = {
     { keys: ['drag'], label: 'Pan the map' },
     { keys: ['scroll', 'pinch'], label: 'Zoom' },
     { keys: ['U'], label: 'Toggle overhead / underground (line tool)' },
+    { keys: ['A'], label: 'Toggle auto-connect on placement' },
     { keys: ['Space'], label: 'Pause / resume the clock' },
     { keys: ['Ctrl', 'Z'], label: 'Undo' },
     { keys: ['Ctrl', 'Y'], label: 'Redo' },

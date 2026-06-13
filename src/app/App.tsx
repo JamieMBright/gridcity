@@ -184,6 +184,9 @@ function useKeyboard(): void {
         s.setKpiOpen(!s.kpiOpen);
       } else if (key === 'c') {
         s.setDirectoratesOpen(!s.directoratesOpen);
+      } else if (key === 'a') {
+        // toggle auto-connect-on-placement (the build-palette setting)
+        s.setAutoConnect(!s.autoConnect);
       } else if (key === 'u') {
         // flip overhead/underground on the armed line tool
         if (s.tool.t === 'line') {
