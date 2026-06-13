@@ -12,6 +12,34 @@
 
 ## Open
 
+- [ ] **Day/night flashing + animation pacing (owner, 2026-06-13
+      05:10): "Animations should move as fast as the game clock speed
+      allows. Its a bit disturbing the flashing day night cycle. Wonder
+      if we can make the change more subtle and its mostly done in the
+      lights of the buildings."** Render/beauty tweak: (a) drive sprite
+      animation rates off the game-clock SPEED (0/1/4/16x) so motion
+      matches time; (b) make the day/night GRADE transition far subtler
+      — slower, gentler tint swing — and carry the time-of-day read
+      mostly in BUILDING LIGHTS (windows warming at dusk) rather than a
+      big global wash that "flashes". Tune the grade.ts ramp + glow
+      layer from the beauty pass.
+
+- [ ] **Dead mobile bottom-bar icons (owner, 2026-06-13 05:10): "On
+      mobile, theres icons in the bottom bar that dont seem to do
+      anything. A plus sign, a square chart and an egg timer."** Audit
+      MobileChrome bottom bar — the +, chart and timer (egg-timer =
+      likely the event-skip / time control) either do nothing or have
+      no affordance feedback. Remove or wire them. Folds into the
+      bespoke-icons + collapsible-chrome Wave 8 UI lane.
+
+- [ ] **Replace 06:00/18:00 skips with +7d / +30d (owner, 2026-06-13
+      05:10): "We can also remove the 6:00 and 18:00 jumps. Instead
+      have +7d +30d."** Replace SkipTarget 'peak'/'morning' buttons with
+      fixed-duration jumps (+7 game-days, +30 game-days); keep the
+      bad-news-stops-the-skip behaviour (now that day-0 spurious claims
+      are fixed). Update skipTargetMin + the SkipButtons + e2e
+      goals.spec to the new controls. Wave 8 UI lane.
+
 - [ ] **PER-CITY ASSET PACKS + richer building stock (owner, 2026-06-13
       05:05): "For the new cities, we will need fresh assets for
       landmarks and housing and building stock etc. id love a much
