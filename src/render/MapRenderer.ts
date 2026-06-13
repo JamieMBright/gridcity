@@ -61,6 +61,7 @@ import {
   type WeatherLike,
 } from './grade';
 import { CELL_H, CELL_W, FLOOR_H, RES } from './sprites/iso';
+import { levelPalette, type CbMode } from '../ui/cbPalette';
 import { WIND_HUBS, windHubOffset } from './sprites/networkSprites';
 import { groundSpriteFor, structureSpriteFor } from './tileChooser';
 
@@ -305,6 +306,9 @@ export class MapRenderer {
   private selG = new Graphics();
   private councilG = new Graphics();
   private lastAssets: PlacedAsset[] = [];
+  /** Last frame's branch views — cached so a cbMode swap can redraw lines
+   *  without waiting for the next snapshot. */
+  private lastBranches: BranchView[] = [];
   private vanSprites = new Map<number, Sprite>();
   private ghostG = new Graphics();
   private ghostSprite: Sprite | undefined;
@@ -332,6 +336,20 @@ export class MapRenderer {
   private prevCoverage: Uint8Array | undefined;
   private map: CityMap | undefined;
   private growthApplied = 0;
+
+  // --- colour-blind palette (#32) --------------------------------------------
+  // The voltage-level + overload + heatmap colours used by the DYNAMIC
+  // drawing passes (lines, catchments, rings, ghosts) read these instance
+  // fields, so flipping cbMode re-themes the network in place. The exported
+  // LEVEL_COLOR constant stays the default (legends / static contexts).
+  private levelColor: Record<VoltageLevel, number> = { ...LEVEL_COLOR };
+  private overloadColor = OVERLOAD_COLOR;
+  /** Loading heatmap endpoints (lo=spare/green, hi=full/red). */
+  private heatLo = { r: 0x7b, g: 0xc4, b: 0x7f };
+  private heatHi = { r: 0xe0, g: 0x69, b: 0x7a };
+  private okColor = 0x7bc47f;
+  private dangerColor = 0xe0697a;
+  private warnColor = 0xf5c469;
 
   private sitePins: Array<{ ring: Graphics; body: Container; phase: number }> = [];
   private jobLayer = new Container();
@@ -620,7 +638,7 @@ export class MapRenderer {
         const row = this.forecastRows.find((f) => f.subId === id);
         if (row) {
           const y = row.yearsToOverload;
-          const color = y <= 1 ? 0xe0697a : y <= 3 ? 0xf5c469 : y >= 99 ? 0x5b6378 : 0x7bc47f;
+          const color = y <= 1 ? this.dangerColor : y <= 3 ? this.warnColor : y >= 99 ? 0x5b6378 : this.okColor;
           this.tileCircle(this.catchmentG, a.x, a.y, r);
           this.catchmentG.fill({ color, alpha: 0.16 });
           this.tileCircle(this.catchmentG, a.x, a.y, r);
@@ -630,7 +648,10 @@ export class MapRenderer {
       if (this.overlayMode === 'headroom' && mva > 0) {
         const t = Math.max(0, Math.min(1, peak / mva));
         const lerp = (a0: number, b0: number): number => Math.round(a0 + (b0 - a0) * t);
-        const color = (lerp(0x7b, 0xe0) << 16) | (lerp(0xc4, 0x69) << 8) | lerp(0x7f, 0x7a);
+        const lo = this.heatLo;
+        const hi = this.heatHi;
+        const color =
+          (lerp(lo.r, hi.r) << 16) | (lerp(lo.g, hi.g) << 8) | lerp(lo.b, hi.b);
         this.tileCircle(this.catchmentG, a.x, a.y, r);
         this.catchmentG.fill({ color, alpha: 0.16 });
         this.tileCircle(this.catchmentG, a.x, a.y, r);
@@ -639,7 +660,7 @@ export class MapRenderer {
       if (this.n1Mode) {
         const secure = this.security.get(id);
         if (secure === undefined) continue;
-        const color = secure ? 0x7bc47f : 0xe0697a;
+        const color = secure ? this.okColor : this.dangerColor;
         this.tileCircle(this.catchmentG, a.x, a.y, r * 0.92);
         this.catchmentG.stroke({ color, width: 3 * RES, alpha: 0.9 });
       }
@@ -657,6 +678,96 @@ export class MapRenderer {
     }
     if (!on) this.gradeKey = ''; // re-apply the grade next frame
     this.applyVehicleVisibility();
+  }
+
+  /** Colour-blind mode (#32): swap the network/heatmap palette and redraw
+   *  the dynamic passes in place. Idempotent; cheap (a few Graphics
+   *  rebuilds, no atlas churn). Status colours pair with shape/value too
+   *  (the UI legend draws the same swatches), so this is hue-as-bonus. */
+  private cbMode: CbMode = 'off';
+  setCbMode(mode: CbMode): void {
+    if (mode === this.cbMode) return;
+    this.cbMode = mode;
+    const lv = levelPalette(mode);
+    this.levelColor = { 400: lv[400], 132: lv[132], 33: lv[33] };
+    this.overloadColor = lv.overload;
+    if (mode === 'off') {
+      this.heatLo = { r: 0x7b, g: 0xc4, b: 0x7f };
+      this.heatHi = { r: 0xe0, g: 0x69, b: 0x7a };
+      this.okColor = 0x7bc47f;
+      this.warnColor = 0xf5c469;
+      this.dangerColor = 0xe0697a;
+    } else {
+      this.heatLo = rgbOf(lv[132]); // teal/green = spare
+      this.heatHi = rgbOf(lv.overload); // magenta/black = full
+      this.okColor = lv[132];
+      this.warnColor = lv[33];
+      this.dangerColor = lv.overload;
+    }
+    // redraw everything that bakes a palette colour
+    this.drawLevelHighlight();
+    this.drawCatchments();
+    if (this.lastAssets.length > 0) {
+      // rebuild lines/rings against the cached last frame
+      const byId = new Map<number, PlacedAsset>();
+      for (const a of this.lastAssets) byId.set(a.id, a);
+      this.drawLines(this.lastAssets, this.lastBranches, byId);
+      this.drawSubRings(this.lastAssets);
+    }
+  }
+
+  // --- minimap accessor (#26, FLAGGED read-only) -----------------------------
+  // The corner minimap (src/ui/Minimap.tsx) is a lightweight DOM canvas, NOT
+  // a second Pixi app. It needs three read-only facts the renderer already
+  // owns: the map size, the world-space tile→pixel transform, and the
+  // current visible tile rectangle (so it can draw the viewport box and
+  // convert a minimap click back to a pan target). This is the ONLY public
+  // read accessor the minimap added; it restructures nothing.
+  getMinimapView(): {
+    width: number;
+    height: number;
+    /** Visible tile-space rectangle (clamped to the map), for the box. */
+    view: { x0: number; y0: number; x1: number; y1: number };
+  } | undefined {
+    const map = this.map;
+    if (!map || this.destroyed || !this.app.renderer) return undefined;
+    // invert tileFromClient at the four screen corners to get the tile
+    // bounds currently on screen
+    const w = this.app.screen.width;
+    const h = this.app.screen.height;
+    const corners = [
+      [0, 0],
+      [w, 0],
+      [0, h],
+      [w, h],
+    ];
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const [sx, sy] of corners) {
+      const wx = ((sx ?? 0) - this.world.x) / this.world.scale.x;
+      const wy = ((sy ?? 0) - this.world.y) / this.world.scale.y;
+      const u = wx / HALF_W;
+      const t = wy / HALF_H;
+      const tx = (u + t) / 2;
+      const ty = (t - u) / 2;
+      minX = Math.min(minX, tx);
+      minY = Math.min(minY, ty);
+      maxX = Math.max(maxX, tx);
+      maxY = Math.max(maxY, ty);
+    }
+    const clamp = (v: number, hi: number): number => Math.max(0, Math.min(hi, v));
+    return {
+      width: map.width,
+      height: map.height,
+      view: {
+        x0: clamp(minX, map.width),
+        y0: clamp(minY, map.height),
+        x1: clamp(maxX, map.width),
+        y1: clamp(maxY, map.height),
+      },
+    };
   }
 
   /** World-fabric layers that take the time-of-day tint. The network
@@ -1002,9 +1113,9 @@ export class MapRenderer {
       if (a.kind === 'line') continue;
       if (!assetLevels(a).includes(level)) continue;
       this.diamond(this.levelG, a.x, a.y, 1.15);
-      this.levelG.stroke({ color: LEVEL_COLOR[level], width: 2.6 * RES, alpha: 0.95 });
+      this.levelG.stroke({ color: this.levelColor[level], width: 2.6 * RES, alpha: 0.95 });
       this.diamond(this.levelG, a.x, a.y, 1.45);
-      this.levelG.stroke({ color: LEVEL_COLOR[level], width: 1.2 * RES, alpha: 0.4 });
+      this.levelG.stroke({ color: this.levelColor[level], width: 1.2 * RES, alpha: 0.4 });
     }
   }
 
@@ -1103,6 +1214,7 @@ export class MapRenderer {
     const mwOf = new Map(genMW);
 
     this.lastAssets = assets;
+    this.lastBranches = branches;
     this.lastSimTimeMin = simTimeMin;
     if (this.levelHighlight !== undefined) this.drawLevelHighlight();
     // conversions keep the asset id but change its look: bake the bits
@@ -2014,9 +2126,9 @@ export class MapRenderer {
       for (let dy = 0; dy < fh; dy++) {
         for (let dx = 0; dx < fw; dx++) {
           this.diamond(this.ghostG, ghost.x + dx, ghost.y + dy, 1.0);
-          this.ghostG.fill({ color: ok ? 0x7bc47f : 0xe0697a, alpha: 0.3 });
+          this.ghostG.fill({ color: ok ? this.okColor : this.dangerColor, alpha: 0.3 });
           this.diamond(this.ghostG, ghost.x + dx, ghost.y + dy, 1.0);
-          this.ghostG.stroke({ color: ok ? 0x7bc47f : 0xe0697a, width: 2 * RES, alpha: 0.9 });
+          this.ghostG.stroke({ color: ok ? this.okColor : this.dangerColor, width: 2 * RES, alpha: 0.9 });
         }
       }
       if (ghost.radius !== undefined && ok) {
@@ -2038,7 +2150,7 @@ export class MapRenderer {
     } else if (ghost.kind === 'line') {
       const a = this.tileCentre(ghost.ax, ghost.ay);
       const b = this.tileCentre(ghost.bx, ghost.by);
-      const color = ghost.ok ? LEVEL_COLOR[ghost.level] : 0xe0697a;
+      const color = ghost.ok ? this.levelColor[ghost.level] : this.dangerColor;
       this.ghostG.moveTo(a.x, a.y - 8 * RES).lineTo(b.x, b.y - 8 * RES);
       this.ghostG.stroke({ color, width: LEVEL_WIDTH[ghost.level], alpha: 0.55 });
       const map = this.map;
@@ -2054,7 +2166,7 @@ export class MapRenderer {
       this.ghostG.stroke({ color, width: 2 * RES, alpha: 0.8 });
     } else {
       this.diamond(this.ghostG, ghost.x, ghost.y, 0.8);
-      this.ghostG.stroke({ color: LEVEL_COLOR[ghost.level], width: 3 * RES, alpha: 1 });
+      this.ghostG.stroke({ color: this.levelColor[ghost.level], width: 3 * RES, alpha: 1 });
     }
   }
 
@@ -2187,7 +2299,7 @@ export class MapRenderer {
         if (level === undefined) continue;
         // highest voltage outermost; every ring clears the whole plot
         this.diamond(this.subRingsG, cx, cy, base + (levels.length - 1 - i) * 0.22);
-        this.subRingsG.stroke({ color: LEVEL_COLOR[level], width: 1.8 * RES, alpha: 0.75 });
+        this.subRingsG.stroke({ color: this.levelColor[level], width: 1.8 * RES, alpha: 0.75 });
       }
     }
   }
@@ -2211,14 +2323,14 @@ export class MapRenderer {
       const view = flowOf.get(a.id);
       const tripped = view?.outMin !== undefined;
       const loading = view ? Math.abs(view.flowMW) / Math.max(1e-6, view.ratingMW) : 0;
-      let color = tripped ? 0x4c4a5c : loading > 0.9 ? OVERLOAD_COLOR : LEVEL_COLOR[a.level];
+      let color = tripped ? 0x4c4a5c : loading > 0.9 ? this.overloadColor : this.levelColor[a.level];
       let width = LEVEL_WIDTH[a.level];
       if (this.overlayMode === 'headroom' && !tripped) {
         // spare capacity reads as colour: green = lots, red = none
         const t = Math.max(0, Math.min(1, loading));
         const lerp = (a0: number, b0: number): number => Math.round(a0 + (b0 - a0) * t);
-        const g = { r: 0x7b, g: 0xc4, b: 0x7f };
-        const r = { r: 0xe0, g: 0x69, b: 0x7a };
+        const g = this.heatLo;
+        const r = this.heatHi;
         color = (lerp(g.r, r.r) << 16) | (lerp(g.g, r.g) << 8) | lerp(g.b, r.b);
         width = width * 1.5;
       }
@@ -2521,6 +2633,11 @@ export class MapRenderer {
     this.bandCache.clear();
     if (this.app.renderer) this.app.destroy(true);
   }
+}
+
+/** 0xRRGGBB → component object (for the heatmap lerp). */
+function rgbOf(n: number): { r: number; g: number; b: number } {
+  return { r: (n >> 16) & 0xff, g: (n >> 8) & 0xff, b: n & 0xff };
 }
 
 /** Accumulate consecutive same-style ribbon polys into one Graphics fill

@@ -13,6 +13,7 @@ import {
   type Zone,
 } from '../src/sim/map/types';
 import { newGame, type GameState, type SimContext } from '../src/sim/state';
+import { LONDON_PROFILE } from '../src/sim/powerProfile';
 
 export function makeTestMap(width: number, height: number): CityMap {
   const n = width * height;
@@ -37,7 +38,7 @@ export function setZone(map: CityMap, x: number, y: number, zone: Zone): void {
 }
 
 export function makeContext(map: CityMap): SimContext {
-  return { map, demand: buildDemandField(map) };
+  return { map, demand: buildDemandField(map), profile: LONDON_PROFILE };
 }
 
 export function mustApply(state: GameState, map: CityMap, cmd: Command): number {

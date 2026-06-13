@@ -57,6 +57,17 @@ export const headingStyle: React.CSSProperties = {
   textTransform: 'uppercase',
 };
 
+// --- colour-blind-aware status colours (#32) ---------------------------------
+// theme.ok/warn/danger stay the golden-hour defaults; components that want
+// to honour the player's colour-blind mode read them through statusColors()
+// instead, which swaps in a deficiency-safe triplet. Re-exported from
+// cbPalette so theme.ts stays the one import for chrome colour.
+import { statusPalette, type CbMode } from './cbPalette';
+
+export function statusColors(mode: CbMode): { ok: string; warn: string; danger: string } {
+  return statusPalette(mode);
+}
+
 export function fmtMoneyK(k: number): string {
   if (k >= 1_000_000) return `£${(k / 1_000_000).toFixed(2)}bn`;
   if (k >= 1_000) return `£${(k / 1_000).toFixed(1)}m`;

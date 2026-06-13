@@ -37,6 +37,7 @@ import {
   windFactor,
   type WeatherState,
 } from '../events/weather';
+import { LONDON_PROFILE, type PowerSystemProfile, type WeatherProfile } from '../powerProfile';
 import type { SubLoad } from '../service';
 
 /** Merit-order cost assigned to battery discharge (displaces gas only). */
@@ -108,6 +109,13 @@ export interface DispatchInputs {
   /** Game-minutes this tick advances (0 = paused re-solve, no SoC drift). */
   dtMin: number;
   tech: TechFlags;
+  /** Active scenario weather profile (season/sun/regimes). Optional;
+   *  defaults to GB so omitting it is bit-identical to the pre-seam
+   *  dispatch. */
+  weatherProfile?: WeatherProfile;
+  /** Active scenario power profile (frequency droop). Optional; defaults
+   *  to GB. */
+  power?: PowerSystemProfile;
 }
 
 export interface DispatchResult {
@@ -182,9 +190,10 @@ export function underConstruction(
 function availability(a: PlacedAsset & { kind: 'gen' }, inp: DispatchInputs): number {
   // a.mw = awarded land-capped capacity (farm-scaled plant); else catalog
   const capMW = a.mw ?? GENS[a.gen].capacityMW;
+  const wp = inp.weatherProfile ?? LONDON_PROFILE.weather;
   switch (a.gen) {
     case 'solarFarm':
-      return capMW * sunFactor(inp.simTimeMin, inp.weather);
+      return capMW * sunFactor(inp.simTimeMin, inp.weather, wp);
     case 'windOnshore':
       return capMW * windFactor(inp.weather, false);
     case 'windOffshore':
@@ -219,12 +228,15 @@ export function runDispatch(
       : h2PoolMWh > 1e-9
         ? Number.POSITIVE_INFINITY // paused re-solve: no drain, assume covered
         : 0;
+  const wp = inp.weatherProfile ?? LONDON_PROFILE.weather;
+  const pp = inp.power ?? LONDON_PROFILE.power;
   // heatwave cooling load lifts the domestic shape (AC/fridges/fans)
-  const fDom = domesticProfile(inp.simTimeMin) * (1 + coolingFactor(inp.simTimeMin, inp.weather));
+  const fDom =
+    domesticProfile(inp.simTimeMin, wp) * (1 + coolingFactor(inp.simTimeMin, inp.weather, wp));
   const fProc = processProfile(inp.simTimeMin);
   const fEv = evProfile(inp.simTimeMin, inp.tech.smartEv);
-  const fHp = hpProfile(inp.simTimeMin, inp.weather.cloud);
-  const fSun = sunFactor(inp.simTimeMin, inp.weather);
+  const fHp = hpProfile(inp.simTimeMin, inp.weather.cloud, wp);
+  const fSun = sunFactor(inp.simTimeMin, inp.weather, wp);
 
   interface SubNow {
     id: number;
@@ -376,7 +388,7 @@ export function runDispatch(
       if (gi === undefined) continue;
       // heatwave robs transformers of cooling margin → derated rating,
       // so a hot-day catchment overloads sooner (cappedNowMW bites earlier)
-      const rating = subMva(a) * thermalDerate(inp.simTimeMin, inp.weather);
+      const rating = subMva(a) * thermalDerate(inp.simTimeMin, inp.weather, wp);
       let shavedMW = 0;
       let effective = loadNowMW;
       if (inp.tech.flexMarket && loadNowMW > rating) {
@@ -569,7 +581,7 @@ export function runDispatch(
     // meet) drags it below nominal; spare capacity nudges it a touch over.
     // It votes into the HUD's load-weighted system frequency (frequency.ts).
     if (demand > 0) {
-      freqSamples.push({ loadMW: demand, hz: islandFrequencyHz(1 - consFrac) });
+      freqSamples.push({ loadMW: demand, hz: islandFrequencyHz(1 - consFrac, pp) });
     }
 
     let remaining = target;

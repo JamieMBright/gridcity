@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { setActiveScenario } from '../data/cityRegistry';
 import { getLondonMap } from '../data/londonMap';
 import { MapRenderer, type Ghost, type TileHover } from '../render/MapRenderer';
+import { setActiveRenderer } from '../render/rendererRegistry';
 import { installTestHook } from '../app/testHook';
 import { useAppStore, type Tool } from '../app/store';
 import { requestForecast, sendCommand, setWatch } from '../app/workerBridge';
@@ -241,6 +242,7 @@ export function MapView() {
     setActiveScenario(scenarioId);
     const renderer = new MapRenderer();
     rendererRef.current = renderer;
+    setActiveRenderer(renderer); // publish for the corner minimap (#26)
     renderer.onHover = (tile) => useAppStore.getState().setHoveredTile(tile);
     renderer.onTileClick = (tile) => handleTileClick(tile);
     renderer.onSiteClick = (site) => useAppStore.getState().requestInboxFocus(site.x, site.y);
@@ -280,6 +282,7 @@ export function MapView() {
     });
     return () => {
       rendererRef.current = undefined;
+      setActiveRenderer(undefined);
       renderer.destroy();
     };
   }, [scenarioId]);
@@ -338,6 +341,12 @@ export function MapView() {
   useEffect(() => {
     rendererRef.current?.setGridView(gridView);
   }, [gridView]);
+
+  // colour-blind palette swap (#32): re-theme the network/heatmap in place
+  const cbMode = useAppStore((s) => s.cbMode);
+  useEffect(() => {
+    rendererRef.current?.setCbMode(cbMode);
+  }, [cbMode, scenarioId]);
 
   const panTarget = useAppStore((s) => s.panTarget);
   useEffect(() => {

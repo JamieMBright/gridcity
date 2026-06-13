@@ -12,6 +12,122 @@
 
 ## Open
 
+- [ ] **PLAYTEST FLURRY (owner, 2026-06-13 12:23, far-zoom screenshot).
+      Process habit added to CLAUDE.md: screenshot at multiple zooms +
+      per-landmark close-ups, critique honestly, BEFORE shipping.**
+  - [ ] SIGNAGE: landmark labels (yellow: Heathrow/Wembley/Kew/BT Tower/
+        O2/Alexandra Palace) must NOT show at far/top zoom — only town
+        labels. They clutter the overview. Gate landmark labels to
+        closer zoom bands; keep towns at far zoom.
+  - [ ] GLEAM is wrong: "looks like electricity" — the owner meant make
+        the landmark COLOURS POP (richer saturation / contrast / a
+        tasteful rim-light), NOT a lightning/electric glint. Replace the
+        electric gleam with a colour-pop treatment.
+  - [ ] LANDMARK SCALE: landmarks are tiny/buried. The O2 / Millennium
+        Dome is HUGE in reality; the Olympic Stadium is huge — both read
+        as dots. Take a zoomed-in screengrab of EACH landmark, compare
+        to the real thing, and SIZE THEM UP (multi-tile, dominant). O2
+        and stadium especially.
+  - [ ] STARTING ZOOM should be very far out (open on the whole-region
+        overview).
+  - [ ] BUILD LABEL: tapping a build tool should show an on-screen
+        indicator of what you're about to build (e.g. "Building: Grid
+        substation").
+  - [ ] The EXPAND (») option on the build palette should be FROZEN /
+        accessible at all zoom levels (it currently isn't reachable from
+        some states).
+  - [ ] METRICS FROZEN 3 MONTHS: the rebuild grace exists (CI/CML +
+        constraints suspended) — make it CLEAR in the OPENING MESSAGE
+        that all metrics are frozen for the first 3 months.
+  - [ ] OPENING SCRIPT: fix the nonsense "the letter ends" phrasing
+        (introduced in my mobile hotfix) and TRIM the story to TWO PAGES
+        MAX — it's too verbose.
+  - [ ] NOTHING PRE-EXISTING ON THE MAP: remove ALL seeded generation /
+        ECR / existing plants (estuary CCGTs, Lea plant, Essex solar,
+        etc.) — "all of it vanished in the vanishing." seedScenario
+        seeds no generation. (Decide iDNO estate subs: they're customer
+        demand sites awaiting connection — likely keep as demand, but
+        their grid link vanished; confirm against "nothing pre-existing".)
+        Update e2e baselines that assume seeded gens.
+
+- [x] **REVERT the new node logo (owner, 2026-06-13 12:06): "I like the
+      existing wording on ElectriCity. The new logo is kinda trash.
+      Revert those changes."** Restore the OLD ElectriCity branding:
+      the ELECTRI(orange)/CITY(slate) wordmark + the old pylon-bolt
+      logo.svg/logotype.png. Surgical revert (keep the brownfield work
+      and everything since b8d50d1): delete src/ui/Logo.tsx, tools/
+      genIcons.mjs, tools/rasterize.mjs, docs/logo-concept.md; App.tsx
+      Wordmark back to the old <img logo.svg> + ELECTRI/CITY spans;
+      StartMenu hero back to <img logo.svg> + <img logotype.png>;
+      checkout the old public/{logo.svg,icon.svg,apple-touch-icon.png,
+      icon-512.png,logotype.png} from d061cf8; revert e2e/app.spec.ts
+      Electri/City → ELECTRI/CITY. ATOMIC at Wave 12 integration (App.tsx
+      currently imports the new LogoMark; the running UX lane is editing
+      App.tsx — can't half-revert). Old versions already captured.
+
+### Wave-12 SIM-CORE lane — multi-city FOUNDATION: de-GB seams + CityScenario v2 (docs/multi-city-and-rank.md P0+P1)
+- [x] **P0 SEAM 1 — FREQUENCY profile-driven — VERIFIED.** The 50 Hz
+      nominal / 47.5 floor / 1.5 droop literals in `src/sim/market/
+      frequency.ts` now come from a `PowerSystemProfile` (`src/sim/
+      powerProfile.ts` → `LONDON_POWER`). `islandFrequencyHz(deficit,
+      profile?)` defaults to GB, so the dispatch caller (and every old
+      caller) is bit-identical; NYC/Rio (60 Hz) is just data. `NOMINAL_HZ`/
+      `FREQ_FLOOR_HZ` re-export the London constants. dispatch threads
+      `ctx.profile.power`.
+- [x] **P0 SEAM 2 — WEATHER profile-driven — VERIFIED.** `COLDEST_DOY`,
+      the season cosine, the GB sun arc (16.5−8.5·s, amp 1−0.45·s), the
+      Atlantic REGIME envelopes, and the winter-peak `hpProfile` in
+      `src/sim/events/weather.ts` now read a `WeatherProfile`
+      (`LONDON_WEATHER`). `seasonFactor`/`sunFactor`/`domesticProfile`/
+      `hpProfile`/`coolingFactor`/`thermalDerate`/`stepWeather` all take an
+      OPTIONAL profile defaulting to GB ⇒ bit-identical. Summer-peak cities
+      phase-shift the cosine to `peakDoy`; `summerness()`/winterness flip
+      cooling-vs-heating to the right half-year. REGIMES + RegimeSpec moved
+      onto the profile so the table and the state machine can't drift.
+      `render/grade.ts`'s no-arg `seasonFactor` stays London (untouched).
+- [x] **P0 SEAM 3 — BILL / generation-ownership profile-driven — VERIFIED.**
+      `DOMESTIC_NETWORK_SHARE` 0.32 / `DOMESTIC_ENERGY_SHARE` 0.4 /
+      `RETAIL_UPLIFT` 3.0 / `SUPPLY_FIXED_YR` 150 in `src/sim/regulation/
+      bill.ts` now live on an `EconomyProfile` (`LONDON_ECONOMY`; named
+      exports re-export it). `computeBill` gains OPTIONAL `economy` +
+      `generation`, defaulted to GB ⇒ bit-identical. The real fork — the
+      gen-recovery branch — is wired: `generation.ownership==='owned'`
+      (HK/Shanghai/Cairo/Dubai) annuitizes gen capex into the NETWORK pot
+      and zeroes the PPA line; London's liberalised `'tender'` (PPA on the
+      energy line, gen excluded from DUoS) stays the default. tick threads
+      `ctx.profile.economy/generation`.
+- [x] **P1 CITYSCENARIO v2 — VERIFIED.** `src/data/cityRegistry.ts`'s
+      `CityScenario` gains optional `power`/`weatherProfile`/`economy`/
+      `generation`/`regulator`/`difficulty`/`unlockAtRank` — ALL OPTIONAL,
+      defaulting to London via `resolveProfile()`/`profileOf()` →
+      `LONDON_PROFILE`. The london scenario (and all 5 missions) declare
+      NONE, so they resolve to exactly LONDON_PROFILE. `SimContext` carries
+      the resolved `profile` (scenario DATA derived from scenarioId, NEVER
+      serialized — `newContext` rebuilds it from the save's scenarioId like
+      the map, so **NO SAVE_VERSION bump**, justified). Threaded:
+      scenario → newContext → tick/dispatch/frequency/weather/bill/worker.
+- [x] **DETERMINISM PROOF — VERIFIED.** All 470 pre-existing tests pass
+      UNCHANGED (the seams are pure refactors — that IS the bit-identical
+      proof). New `tests/powerProfile.test.ts` (16) asserts London's
+      profile reproduces every prior literal and that profile-less ==
+      London across a full-year hour-sweep, AND that a throwaway 60 Hz /
+      summer-peak profile (NOT shipped) bends frequency/season/heating/
+      cooling/bill differently. New `tests/cityScenario.test.ts` (6):
+      London + every mission resolve to LONDON_PROFILE, two independent
+      1000-tick London runs produce a bit-identical bill/freq/weather/
+      served/rngState trace, and per-block overrides fall back cleanly.
+      `npx vitest run` green (sim lane: 507 pass; the 2 reds —
+      `cbPalette` tritanopia + an `eventLog` parallel flake — are the
+      concurrent UX lane's files, not sim-core). `tsc -b` + full `eslint
+      src tests e2e tools` + `npm run build` clean; `playwright test
+      e2e/build.spec.ts` 4/4 green on a FRESH server.
+- [ ] **NEXT WAVE (out of scope here):** the actual cities (Sydney first,
+      then Hong Kong's owned-gen fork, then the rest as data + one mechanic
+      each — `*Map.ts` + a CityScenario block) and the operator RANK +
+      city-UNLOCK-offer + Supabase `progression` meta-layer (docs P2–P5).
+      The regulator `'profit-cap'`/`'cost-of-service'` framings + the
+      `hydroDriven`/`baseloadFloor` knobs are typed hooks only, dormant.
+
 ### Tier-3 UX lane — bill chart · KPI tooltips · undo history · save slots (ROADMAP #28/#36/#27/#34, this prompt)
 - [x] **#28 BILL-OVER-TIME CHART — VERIFIED.** A stacked-area chart of the
       £/household/yr bill + four components (network DUoS / wholesale energy
@@ -74,6 +190,72 @@
       (844×390): preview/ux-{billchart,kpitooltip,undolist,saveslots}-
       {desktop,mobile}.png (+ ux-billchart-crop / ux-kpitooltip-crop) —
       chart readable, tooltips legible, undo list usable, save slots clear.
+
+### Wave 12 UX/polish lane — minimap · event-log filters · colour-blind · net-zero · alert ack/snooze (ROADMAP #26/#30/#32/#33/#39, this prompt) — VERIFIED
+- [x] **#32 COLOUR-BLIND MODE — VERIFIED.** Single source of truth in
+      src/ui/cbPalette.ts: deuteranopia/protanopia/tritanopia-safe sets for
+      the status (ok/warn/danger), the three voltage levels and the loading
+      heatmap, each spread across a wide LIGHTNESS range and leaning on the
+      blue↔yellow axis so hue-loss never collapses the language. theme.ts
+      `statusColors(mode)` swaps the chrome; MapRenderer holds instance
+      palette fields (levelColor/overload/heat/ok/warn/danger) that
+      `setCbMode(mode)` swaps + redraws lines/rings/catchments/ghosts in
+      place (the exported LEVEL_COLOR constant stays the default for static
+      legends). Toggle lives in the start-menu settings footer
+      (ColourBlindSetting.tsx) with a LIVE LEGEND of the voltage + status
+      swatches, each PAIRED with a glyph (═/─/· · ✓/!/✕) so it's never
+      hue-alone; persisted to localStorage (ec.cbMode). Distinctness PROVEN
+      in tests/cbPalette.test.ts (14): a Brettel-style deficiency projection
+      asserts every within-language pair keeps cbDistance > 0.15 AND a real
+      luminance gap under each mode. IMAGE: preview/ux2-cblegend-zoom.png —
+      the deuteranopia legend reads cleanly, all six swatches distinct.
+- [x] **#26 MINIMAP — VERIFIED.** src/ui/Minimap.tsx: a corner collapsible
+      DOM <canvas> (NOT a second Pixi app) — terrain wash (water/built-up/
+      green-belt) pre-rendered ONCE to an offscreen canvas sized to the real
+      256×160 map, network strokes (level-coloured) + gen/sub pips overlaid
+      each frame from the snapshot, and the live gold VIEWPORT RECTANGLE.
+      Click/drag pans the main camera (requestPan). FLAGGED read-only
+      accessor `MapRenderer.getMinimapView()` — the ONLY render addition:
+      returns map size + the visible tile rect (inverts the corner screen→
+      tile transform); restructures nothing. Reached via a tiny
+      render/rendererRegistry.ts (MapView publishes/retracts the live
+      renderer). Default open on desktop, closed on a narrow phone.
+      IMAGES: preview/ux2-minimap-{crop,desktop,mobile}.png.
+- [x] **#33 NET-ZERO DASHBOARD — VERIFIED.** src/ui/NetZeroPanel.tsx (green
+      companion to RIIO, HUD wind-icon button): reads the EXISTING snapshot
+      (stats.carbonG + genMW + gen assets) — live carbon intensity vs a
+      2050-style glidepath bar w/ a now-marker, low-carbon share bar,
+      generation-mix stacked bar (low-carbon techs hatched = shape-not-hue),
+      and the worst running source callout. Maths in src/ui/netZero.ts,
+      unit-tested (tests/netZero.test.ts, 7): mix shares sum to 1, low-carbon
+      share counts only zero-carbon, worst = dirtiest running unit,
+      battery-charging excluded as a sink, blank-grid handled. IMAGE:
+      preview/ux2-netzero-{crop,desktop,mobile}.png.
+- [x] **#30 FILTERABLE EVENT LOG — VERIFIED.** AlertsFeed.tsx gains
+      `EventLog` (full modal, opened by the feed's "log ▸"): category chips
+      (faults/planning/weather/market/finance), a search box, click-to-jump
+      rows, sticky timestamps, per-row ack/snooze. Events carry no category
+      (sim lane owns GameEvent) so the client classifies from the copy —
+      `categorizeEvent` keyword rules (word-boundaried so "ice" doesn't hide
+      in "price"), unit-tested in tests/eventLog.test.ts. IMAGE:
+      preview/ux2-eventlog-{crop,desktop,filtered,mobile}.png — "planning"
+      chip active, "19 events (filtered)", category column, ack/snooze rows.
+- [x] **#39 ALERT ACKNOWLEDGE / SNOOZE — VERIFIED.** Store holds
+      ackedAlerts:Set + snoozedAlerts:Record (keyed by event seq), persisted
+      to localStorage (ec.alertState.v1). The corner feed + the news ticker
+      both filter through `alertVisible(e, nowMin, acked, snoozed)`: ack =
+      gone for good, snooze = hidden 60 game-min then re-fires. Per-row ✓/zzz
+      buttons on the feed and the log. Unit: tests/eventLog.test.ts — snooze
+      re-arms exactly on its minute, ack wins over a future snooze.
+- [x] All CLIENT-SIDE — no protocol/worker/state/sim/londonMap/cityRegistry
+      touched; NO SAVE_VERSION bump (cb mode, minimap flag, alert ack/snooze
+      live under their own localStorage keys; net-zero/event-log read the
+      existing snapshot). Full `npx vitest run` 521 green (29 new); `npx tsc
+      -b`, `npx eslint src tests e2e tools`, `npm run build` clean; `npx
+      playwright test e2e/app.spec.ts e2e/controls.spec.ts` 6/6 on a fresh
+      server. IMAGES inspected at desktop (1280×800) AND phone-landscape
+      (844×390): preview/ux2-*.png — minimap, net-zero, event-log, the
+      colour-blind legend all read cleanly on both.
 
 ### Logo / brand redesign prompt (owner, 2026-06-13)
 - [x] **New brand mark from a blank concept** — VERIFIED. Explored 4

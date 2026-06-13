@@ -16,6 +16,7 @@ import { V_BROWNOUT, V_COLLAPSE } from './grid/voltage';
 import { runDispatch, underConstruction, type DispatchResult } from './market/dispatch';
 import { systemFrequencyHz } from './market/frequency';
 import { stepWeather, sunFactor, windFactor } from './events/weather';
+import { LONDON_PROFILE, type WeatherProfile } from './powerProfile';
 import {
   buildHeathrowScheme,
   LATE_PENALTY_K_PER_DAY,
@@ -280,6 +281,8 @@ function runPowerFlow(
     soc: state.soc,
     dtMin,
     tech: { smartEv: state.tech.smartEv, flexMarket: state.tech.flexMarket },
+    weatherProfile: ctx.profile.weather,
+    power: ctx.profile.power,
   });
   const pf = solveDcPowerFlow(derived.net, dispatch.injections, {
     slackPreference: dispatch.slackPreference,
@@ -291,7 +294,12 @@ function runPowerFlow(
  *  every live→dark transition of a service substation, diagnose its
  *  island and say WHY (sun set on a solar-only island, wind died, kit
  *  tripped upstream, plant still under construction…). */
-function explainSupplyLosses(state: GameState, derived: Derived, pf: PowerFlowResult): void {
+function explainSupplyLosses(
+  state: GameState,
+  ctx: SimContext,
+  derived: Derived,
+  pf: PowerFlowResult,
+): void {
   const first = state.subLive.size === 0; // first tick after load: baseline silently
   let islands: ReturnType<typeof findIslands> | undefined;
   for (const a of state.assets.values()) {
@@ -322,7 +330,7 @@ function explainSupplyLosses(state: GameState, derived: Derived, pf: PowerFlowRe
         if (g.gen === 'windOnshore' || g.gen === 'windOffshore') wind = true;
         const avail =
           g.gen === 'solarFarm'
-            ? sunFactor(state.simTimeMin, state.weather)
+            ? sunFactor(state.simTimeMin, state.weather, ctx.profile.weather)
             : g.gen === 'windOnshore' || g.gen === 'windOffshore'
               ? windFactor(state.weather, g.gen === 'windOffshore')
               : g.gen === 'battery'
@@ -371,7 +379,7 @@ export function solveTick(
   const rng = new Rng(state.rngState);
 
   if (dtMin > 0) {
-    stepWeather(state.weather, rng, dtMin, state.simTimeMin);
+    stepWeather(state.weather, rng, dtMin, state.simTimeMin, ctx.profile.weather);
     // the live storm banner (UI reads stormAnnounced): the named-storm
     // regime gets its own richer banner via stepIncidents below, so only
     // announce the generic one for a windy-wet front that gusts past the
@@ -750,7 +758,7 @@ export function solveTick(
       dtMin,
       !rebuildGraceActive(state),
     );
-    explainSupplyLosses(state, derived, pf);
+    explainSupplyLosses(state, ctx, derived, pf);
   }
 
   let servedCustomers = 0;
@@ -855,6 +863,8 @@ export function solveTick(
       claimsYrK(state, dtMin) +
       hseFineYrK(state, dtMin),
     levyPct: state.levyPct,
+    economy: ctx.profile.economy,
+    generation: ctx.profile.generation,
   });
 
   if (dtMin > 0) {
@@ -1154,7 +1164,10 @@ export function currentPeriodActuals(state: GameState): PeriodActuals {
 
 /** Current weather/renewable factors for the HUD, plus the multi-day
  *  regime (current + pre-rolled next) for the forecast strip. */
-export function weatherView(state: GameState): {
+export function weatherView(
+  state: GameState,
+  weatherProfile: WeatherProfile = LONDON_PROFILE.weather,
+): {
   sun: number;
   wind: number;
   cloud: number;
@@ -1163,7 +1176,7 @@ export function weatherView(state: GameState): {
   regimeEndsMin: number;
 } {
   return {
-    sun: sunFactor(state.simTimeMin, state.weather),
+    sun: sunFactor(state.simTimeMin, state.weather, weatherProfile),
     wind: windFactor(state.weather, false),
     cloud: state.weather.cloud,
     // fallbacks cover pre-season saves before their first stepWeather
