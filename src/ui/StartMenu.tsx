@@ -114,7 +114,7 @@ export function StartMenu() {
           fontFamily: theme.font,
         }}
       >
-        <img src="/logo.svg" alt="" width={56} height={56} style={{ borderRadius: 13 }} />
+        <img src="/icon-192.png" alt="" width={72} height={72} style={{ borderRadius: 17 }} />
         <img
           src="/logotype.png"
           alt="ElectriCity"

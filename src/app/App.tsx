@@ -56,7 +56,7 @@ function Wordmark() {
       }}
     >
       <img
-        src="/logo.svg"
+        src="/icon-192.png"
         alt=""
         width={26}
         height={26}
