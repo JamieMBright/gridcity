@@ -303,9 +303,11 @@ export const MISSIONS: Mission[] = [
       },
       {
         text:
-          'You are a network operator, not a power company — you DESIGNATE sites and ' +
-          'developers build on them. Pick ONSHORE WIND and click open land on the ' +
-          'breezy western ridge (the map shades green where it can go). That opens a tender.',
+          'You are a network operator, not a power company. Normally developers apply to ' +
+          'connect wherever they like — but for this build the Regulator lets you DESIGNATE ' +
+          'sites for optimal generation (developers may still apply elsewhere too). Pick ' +
+          'ONSHORE WIND and click open land on the breezy western ridge (the map shades green ' +
+          'where it can go). That opens a tender.',
         done: (s) => s.inbox.tenders.length > 0,
         unlocks: ['gen:windOnshore'],
         focus: M1_WIND,
