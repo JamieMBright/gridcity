@@ -7,9 +7,51 @@
 
 import type { GenType } from '../catalog';
 import type { Rng } from '../rng';
-import { TERRAIN, ZONE, type CityMap } from '../map/types';
+import { NO_COUNCIL, TERRAIN, ZONE, isBrownfield, type CityMap } from '../map/types';
+import { planningApproveOdds } from '../customers/adoption';
 
 export type AppKind = 'solarFarm' | 'windOnshore' | 'battery' | 'dataCentre' | 'evHub';
+
+/** Planning land class for a candidate site. Brownfield is waved through;
+ *  everything else opens a council determination (appeal) window, with
+ *  green-belt and conservation land the hardest to win. */
+export type LandType = 'brownfield' | 'greenfield' | 'greenbelt' | 'conservation';
+
+/** Classify a tile for planning. Brownfield (previously-developed) wins;
+ *  the conservation quarters (the posh river/heath blobs) reject hardest;
+ *  pre-designated generation sites (solar/wind/nuclear) are ordinary
+ *  greenfield; plain open countryside is protected green belt. */
+export function landTypeAt(map: CityMap, x: number, y: number): LandType {
+  if (isBrownfield(map, x, y)) return 'brownfield';
+  const i = y * map.width + x;
+  const zone = map.zone[i];
+  if (zone === ZONE.posh) return 'conservation';
+  if (zone === ZONE.solarSite || zone === ZONE.windSite || zone === ZONE.nuclearSite)
+    return 'greenfield';
+  // open land / fields / glasshouse country sit in the green belt
+  return 'greenbelt';
+}
+
+/** A planning appeal opened on a non-brownfield application: the relevant
+ *  council determines it over a ~30 game-day window. Deterministic — the
+ *  outcome (approve/reject) is rolled at OPEN time off the seeded rng and
+ *  realised when the window closes, so a save/load mid-appeal can't re-roll
+ *  it. The odds are read out to the inbox so the player sees the gamble. */
+export interface PlanningAppeal {
+  councilId: number;
+  /** Council name (snapshotted so the UI/news needn't carry the map). */
+  council: string;
+  landType: Exclude<LandType, 'brownfield'>;
+  /** Game-minute the council hands down its determination. */
+  decideAtMin: number;
+  /** Probability the scheme is approved, 0..1 (for the inbox read-out). */
+  approveOdds: number;
+  /** The pre-rolled outcome, realised when the window closes. */
+  willApprove: boolean;
+}
+
+/** Days a council takes to determine a contested (non-brownfield) scheme. */
+export const APPEAL_DAYS = 30;
 
 export interface Application {
   id: number;
@@ -32,7 +74,14 @@ export interface Application {
   decideByMin: number;
   /** Once accepted: energize by this game-minute or pay daily damages. */
   connectByMin?: number | undefined;
-  status: 'open' | 'firm' | 'flex' | 'declined' | 'connected' | 'expired';
+  /** Planning land class of the site (additive; absent ⇒ brownfield-equiv,
+   *  i.e. the old wave-it-through behaviour for pre-feature saves). */
+  landType?: LandType | undefined;
+  /** Non-brownfield schemes sit in 'appeal' under a council determination
+   *  window (additive). On approval the appeal clears and the application
+   *  drops to 'open' (ready to connect); on refusal it lapses. */
+  appeal?: PlanningAppeal | undefined;
+  status: 'open' | 'appeal' | 'firm' | 'flex' | 'declined' | 'connected' | 'expired' | 'refused';
   /** Asset id of the customer's kit once accepted (gen only). */
   assetId?: number | undefined;
   /** Whether the late-connection event has been announced. */
@@ -77,39 +126,69 @@ export const DATACENTRE_MW_MAX = 120;
 /** Data centres want dense urban fabric: tiles at least this populous. */
 export const DATACENTRE_MIN_CUSTOMERS = 60;
 
+/** Brownfield-first steer: the fraction of new applications that aim
+ *  specifically for previously-developed land. The rest search any eligible
+ *  site (and may still happen to land on brownfield), so over many seeds the
+ *  brownfield share dominates — the GB "brownfield first" planning bias. */
+export const BROWNFIELD_BIAS = 0.72;
+
+/** Whether a candidate tile can host this kind of scheme at all (ignores
+ *  brownfield preference — that's a separate weighting). A brownfield tile
+ *  is buildable for generation/demand even where its zone is industrial:
+ *  developers reuse the cleared works. */
+function siteEligible(map: CityMap, x: number, y: number, kind: AppKind): boolean {
+  const i = y * map.width + x;
+  const zone = map.zone[i];
+  const terrain = map.terrain[i];
+  const brown = isBrownfield(map, x, y);
+  switch (kind) {
+    case 'solarFarm':
+      return zone === ZONE.solarSite || (brown && terrain === TERRAIN.land);
+    case 'windOnshore':
+      // onshore wind wants open eastern country, or a cleared coastal works
+      return (
+        (zone === ZONE.none && terrain === TERRAIN.land && x > 110) ||
+        (brown && terrain === TERRAIN.land && x > 110)
+      );
+    case 'battery':
+      return (zone === ZONE.none || brown) && terrain === TERRAIN.land;
+    case 'dataCentre':
+      // hyperscalers want the dense urban grid (fibre, staff, latency) OR a
+      // big cleared brownfield campus
+      return (map.customers[i] ?? 0) >= DATACENTRE_MIN_CUSTOMERS || (brown && terrain === TERRAIN.land);
+    case 'evHub':
+      return (zone === ZONE.none || brown) && terrain === TERRAIN.land;
+  }
+}
+
+/** Pick a site for a new scheme. With probability BROWNFIELD_BIAS the search
+ *  insists on brownfield (previously-developed) land; otherwise it takes any
+ *  eligible tile. Deterministic: exactly one preference draw, then a fixed
+ *  budget of seeded tile probes. */
 function findSite(
   map: CityMap,
   rng: Rng,
   kind: AppKind,
   taken: (x: number, y: number) => boolean,
 ): { x: number; y: number } | undefined {
-  for (let tries = 0; tries < 200; tries++) {
+  const insistBrownfield = rng.chance(BROWNFIELD_BIAS);
+  let fallback: { x: number; y: number } | undefined;
+  for (let tries = 0; tries < 240; tries++) {
     const x = rng.int(map.width);
     const y = rng.int(map.height);
-    const i = y * map.width + x;
     if (taken(x, y)) continue;
-    const zone = map.zone[i];
-    const terrain = map.terrain[i];
-    switch (kind) {
-      case 'solarFarm':
-        if (zone === ZONE.solarSite) return { x, y };
-        break;
-      case 'windOnshore':
-        if (zone === ZONE.none && terrain === TERRAIN.land && x > 110) return { x, y };
-        break;
-      case 'battery':
-        if (zone === ZONE.none && terrain === TERRAIN.land) return { x, y };
-        break;
-      case 'dataCentre':
-        // hyperscalers want the dense urban grid: fibre, staff, latency
-        if ((map.customers[i] ?? 0) >= DATACENTRE_MIN_CUSTOMERS) return { x, y };
-        break;
-      case 'evHub':
-        if (zone === ZONE.none && terrain === TERRAIN.land) return { x, y };
-        break;
+    if (!siteEligible(map, x, y, kind)) continue;
+    const brown = isBrownfield(map, x, y);
+    if (brown) return { x, y }; // brownfield is always the best answer
+    if (insistBrownfield) {
+      // remember a greenfield fallback so we never starve, but keep probing
+      // for the brownfield the steer wanted
+      fallback ??= { x, y };
+      continue;
     }
+    return { x, y };
   }
-  return undefined;
+  return fallback;
 }
 
 /** Mean game-days between a GENERATION application: the developer pipeline
@@ -141,6 +220,40 @@ function demandKindsFor(servedCustomers: number): AppKind[] {
   return kinds;
 }
 
+/** Live council satisfaction reader (0..100). tick.ts supplies one backed
+ *  by state.councils; tests/seed paths default everyone to 50 (neutral). */
+export type SatOf = (councilId: number) => number;
+
+/** Open a planning appeal for a non-brownfield site: resolve the council,
+ *  compute its approve odds and PRE-ROLL the outcome (so a save/load can't
+ *  re-roll it), determining over a ~30-day window. Returns undefined for
+ *  brownfield (or council-less, e.g. coastal water-edge) land — those proceed
+ *  straight to 'open'. */
+function openAppealFor(
+  map: CityMap,
+  rng: Rng,
+  x: number,
+  y: number,
+  landType: LandType,
+  simTimeMin: number,
+  satOf: SatOf,
+): PlanningAppeal | undefined {
+  if (landType === 'brownfield') return undefined;
+  const cid = map.council[y * map.width + x] ?? NO_COUNCIL;
+  if (cid === NO_COUNCIL) return undefined; // no determining authority
+  const profile = map.councils.find((c) => c.id === cid);
+  if (!profile) return undefined;
+  const approveOdds = planningApproveOdds(profile, landType, satOf(cid));
+  return {
+    councilId: cid,
+    council: profile.name,
+    landType,
+    decideAtMin: simTimeMin + APPEAL_DAYS * 1440,
+    approveOdds,
+    willApprove: rng.chance(approveOdds),
+  };
+}
+
 function buildApplication(
   map: CityMap,
   rng: Rng,
@@ -148,6 +261,7 @@ function buildApplication(
   simTimeMin: number,
   nextId: number,
   taken: (x: number, y: number) => boolean,
+  satOf: SatOf,
 ): Application | undefined {
   const site = findSite(map, rng, kind, taken);
   if (!site) return undefined;
@@ -157,6 +271,8 @@ function buildApplication(
     kind === 'dataCentre'
       ? DATACENTRE_MW_MIN + rng.int(DATACENTRE_MW_MAX - DATACENTRE_MW_MIN + 1)
       : spec.mw;
+  const landType = landTypeAt(map, site.x, site.y);
+  const appeal = openAppealFor(map, rng, site.x, site.y, landType, simTimeMin, satOf);
   return {
     id: nextId,
     kind,
@@ -166,7 +282,10 @@ function buildApplication(
     mw,
     customers: spec.customers,
     decideByMin: simTimeMin + DECIDE_DAYS * 1440,
-    status: 'open',
+    landType,
+    // a contested (non-brownfield) scheme enters determination; brownfield
+    // (and council-less) sites land 'open' and ready to connect at once
+    ...(appeal ? { appeal, status: 'appeal' as const } : { status: 'open' as const }),
   };
 }
 
@@ -238,6 +357,7 @@ export function maybeSpawnApplications(
   servedCustomers: number,
   nextId: number,
   taken: (x: number, y: number) => boolean,
+  satOf: SatOf = () => 50,
 ): Application[] {
   const out: Application[] = [];
   let id = nextId;
@@ -245,7 +365,7 @@ export function maybeSpawnApplications(
   if (rng.chance(dtMin / (genIntervalDays(servedCustomers) * 1440))) {
     const pool = genKindsFor(servedCustomers);
     const kind = pool[rng.int(pool.length)] ?? 'solarFarm';
-    const app = buildApplication(map, rng, kind, simTimeMin, id, taken);
+    const app = buildApplication(map, rng, kind, simTimeMin, id, taken, satOf);
     if (app) {
       out.push(app);
       id++;
@@ -255,8 +375,36 @@ export function maybeSpawnApplications(
   if (rng.chance(dtMin / (demandIntervalDays(servedCustomers) * 1440))) {
     const pool = demandKindsFor(servedCustomers);
     const kind = pool[rng.int(pool.length)] ?? 'evHub';
-    const app = buildApplication(map, rng, kind, simTimeMin, id, taken);
+    const app = buildApplication(map, rng, kind, simTimeMin, id, taken, satOf);
     if (app) out.push(app);
+  }
+  return out;
+}
+
+/** Step open planning appeals: when a council's determination window closes,
+ *  realise the pre-rolled outcome. APPROVED schemes clear the appeal and drop
+ *  to 'open' (now connectable); REFUSED schemes lapse to 'refused'. The
+ *  caller (tick.ts) pushes the news headlines from the returned outcomes so
+ *  this stays free of GameState. Pure: no rng draws (the outcome was rolled
+ *  at open time). */
+export interface AppealOutcome {
+  app: Application;
+  approved: boolean;
+}
+export function stepAppeals(apps: Application[], simTimeMin: number): AppealOutcome[] {
+  const out: AppealOutcome[] = [];
+  for (const a of apps) {
+    if (a.status !== 'appeal' || !a.appeal) continue;
+    if (simTimeMin < a.appeal.decideAtMin) continue;
+    if (a.appeal.willApprove) {
+      a.status = 'open';
+      // give the player the full DECIDE window from the grant to respond
+      a.decideByMin = simTimeMin + DECIDE_DAYS * 1440;
+      out.push({ app: a, approved: true });
+    } else {
+      a.status = 'refused';
+      out.push({ app: a, approved: false });
+    }
   }
   return out;
 }

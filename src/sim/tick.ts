@@ -18,9 +18,9 @@ import { systemFrequencyHz } from './market/frequency';
 import { stepWeather, sunFactor, windFactor } from './events/weather';
 import {
   buildHeathrowScheme,
-  GEN_OF_KIND,
   LATE_PENALTY_K_PER_DAY,
   maybeSpawnApplications,
+  stepAppeals,
 } from './events/applications';
 import {
   bumpAllMoods,
@@ -28,7 +28,11 @@ import {
   dingCurtailedDevelopers,
   stepTenders,
 } from './events/developers';
-import { maybeAmbientNews } from './events/news';
+import {
+  maybeAmbientNews,
+  newsAppealOutcome,
+  newsApplicationSubmitted,
+} from './events/news';
 import { stepIncidents } from './events/incidents';
 import {
   DLR_RATING_MUL,
@@ -478,12 +482,18 @@ export function solveTick(
     const taken = (x: number, y: number): boolean =>
       assetAtTile(state.assets.values(), x, y) !== undefined ||
       state.loadSites.some((l) => l.x === x && l.y === y) ||
-      state.applications.some((a) => a.status === 'open' && a.x === x && a.y === y);
+      state.applications.some(
+        (a) => (a.status === 'open' || a.status === 'appeal') && a.x === x && a.y === y,
+      );
     // faster application cadence + more opportunities (#53 Connections ×
     // engagement): a staffed, engaged team turns offers around quicker,
     // so the pipeline flows faster (scaling dtMin lifts the arrival rate
     // without changing the RNG draw count — one chance() either way)
     const cadence = connectionCadenceMul(state.org);
+    // live council satisfaction reader, so a contented (NIMBY) electorate
+    // weights its planning determinations harder
+    const satOf = (councilId: number): number =>
+      state.councils.get(councilId)?.satisfaction ?? 50;
     const apps = maybeSpawnApplications(
       ctx.map,
       rng,
@@ -492,17 +502,20 @@ export function solveTick(
       connectedCustomers,
       state.nextAppId,
       taken,
+      satOf,
     );
     for (const app of apps) {
       state.nextAppId++;
       state.applications.push(app);
-      pushEvent(
-        state,
-        'warn',
-        `connection application: ${app.name} (${app.mw} MW ${GEN_OF_KIND[app.kind] ? 'generation' : 'demand'})`,
-        app.x,
-        app.y,
-      );
+      // brownfield-favoured / appeal-aware planning headline (council-named,
+      // coord-tagged so it click-to-jumps like every other event)
+      newsApplicationSubmitted(state, app);
+    }
+    // step open planning appeals: when a council's ~30-day determination
+    // window closes, realise the pre-rolled outcome and feature it on the
+    // news banner (approved → ready to connect; refused → lapses)
+    for (const outcome of stepAppeals(state.applications, state.simTimeMin)) {
+      newsAppealOutcome(state, outcome.app, outcome.approved);
     }
     // the bespoke once-per-game Heathrow PV+BESS scheme: fires when the
     // deterministic (dedicated-seed) schedule passes, routing through the

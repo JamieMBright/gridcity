@@ -10,6 +10,7 @@ import { pushSettings } from '../online/cloud';
 import { localStorageStore } from '../persistence/localStorageStore';
 import { MISSIONS } from '../sim/scenario/missions';
 import { AccountPanel } from './AccountPanel';
+import { LogoLockup } from './Logo';
 import { STORY_KEY } from './StoryIntro';
 import { theme } from './theme';
 
@@ -119,12 +120,9 @@ export function StartMenu() {
           fontFamily: theme.font,
         }}
       >
-        <img src="/logo.svg" alt="" width={56} height={56} style={{ borderRadius: 13 }} />
-        <img
-          src="/logotype.png"
-          alt="ElectriCity"
-          style={{ display: 'block', width: 380, maxWidth: '100%', margin: '6px auto 0' }}
-        />
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <LogoLockup height={92} />
+        </div>
         <div style={{ color: theme.slate, marginTop: 8, fontSize: 12.5 }}>
           power a stylized London — keep the lights on, the bills down, the carbon low
         </div>

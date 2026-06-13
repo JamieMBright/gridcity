@@ -77,6 +77,36 @@ export function adoptionMilestones(
   return out;
 }
 
+/** Planning determination (the brownfield-appeals mechanic): the probability
+ *  a council APPROVES a contested (non-brownfield) connection scheme, 0..1.
+ *  Weighted by the council's own profile and the land it would consume:
+ *
+ *   - an AMBITIOUS council (net-zero plans) waves more generation through;
+ *   - an AFFLUENT, well-served, SATISFIED council guards its amenity harder
+ *     (NIMBY pressure rises when residents are comfortable);
+ *   - GREEN-BELT land is protected (hard to release); CONSERVATION land is
+ *     harder still; ordinary GREENFIELD is marginal.
+ *
+ *  Pure + deterministic: the caller rolls the outcome off the seeded rng. */
+export function planningApproveOdds(
+  profile: CouncilProfile,
+  landType: 'greenfield' | 'greenbelt' | 'conservation',
+  satisfaction: number,
+): number {
+  // base appetite to grant: ambition pushes for it, affluence resists
+  // development on amenity grounds
+  let odds = 0.5 + 0.32 * profile.ambition - 0.2 * profile.affluence;
+  // a comfortable, well-supplied electorate objects more (satisfaction is
+  // 0..100; the swing is ±0.12 around the 50 mark)
+  odds -= ((satisfaction - 50) / 50) * 0.12;
+  // the land itself: green belt and conservation areas reject harder than
+  // ordinary greenfield
+  const landPenalty =
+    landType === 'conservation' ? 0.34 : landType === 'greenbelt' ? 0.2 : 0.04;
+  odds -= landPenalty;
+  return Math.max(0.05, Math.min(0.9, odds));
+}
+
 /** Satisfaction drifts toward a target set by supply quality; outages
  *  leave a mark that takes game-weeks to forgive. */
 export function stepSatisfaction(

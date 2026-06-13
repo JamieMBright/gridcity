@@ -10,6 +10,7 @@ import { DirectoratesPanel } from '../ui/DirectoratesPanel';
 import { InboxPanel } from '../ui/InboxPanel';
 import { InfoPanel } from '../ui/InfoPanel';
 import { KpiDashboard } from '../ui/KpiDashboard';
+import { LogoMark } from '../ui/Logo';
 import { MapView } from '../ui/MapView';
 import { MobileChrome } from '../ui/MobileChrome';
 import { RotatePrompt } from '../ui/RotatePrompt';
@@ -40,15 +41,20 @@ function Wordmark() {
         pointerEvents: 'none',
       }}
     >
-      <img
-        src="/logo.svg"
-        alt=""
-        width={26}
-        height={26}
-        style={{ verticalAlign: -6, marginRight: 8, borderRadius: 6 }}
-      />
-      <span style={{ color: theme.orange }}>ELECTRI</span>
-      <span style={{ color: theme.slate }}>CITY</span>
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+          verticalAlign: 'middle',
+        }}
+      >
+        <LogoMark size={26} />
+        <span>
+          <span style={{ color: theme.offWhite }}>Electri</span>
+          <span style={{ color: theme.orange }}>City</span>
+        </span>
+      </span>
     </div>
   );
 }

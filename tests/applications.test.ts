@@ -79,4 +79,34 @@ describe('connection application cadence', () => {
     expect(gen).toBeGreaterThan(0);
     expect(demand).toBeGreaterThan(0);
   });
+
+  it('every spawned application carries a planning land type', () => {
+    // a dense map with brownfield and open land so siting always succeeds
+    const map = makeTestMap(40, 40);
+    const flags = new Uint8Array(40 * 40);
+    map.flags = flags;
+    for (let y = 0; y < 40; y++) {
+      for (let x = 0; x < 40; x++) {
+        const i = y * 40 + x;
+        if (x < 20) {
+          map.zone[i] = ZONE.industrial;
+          flags[i] = 4; // FLAG_BROWNFIELD
+        } else {
+          map.zone[i] = ZONE.urbanCore; // demand-eligible dense fabric
+        }
+      }
+    }
+    const rng = new Rng(7);
+    let n = 0;
+    for (let d = 0; d < 120; d++) {
+      const apps = maybeSpawnApplications(map, rng, 1440, d * 1440, 50_000, 1, () => false);
+      for (const a of apps) {
+        expect(a.landType).toBeDefined();
+        // a brownfield site is waved through (open); contested land appeals
+        if (a.landType === 'brownfield') expect(a.status).toBe('open');
+        n++;
+      }
+    }
+    expect(n).toBeGreaterThan(0);
+  });
 });

@@ -92,6 +92,9 @@ function buildSites(s: GameState): SimSnapshot['sites'] {
   for (const a of s.applications) {
     if (a.status === 'open') {
       sites.push({ x: a.x, y: a.y, icon: 'application', label: a.name });
+    } else if (a.status === 'appeal') {
+      // under council determination: still a pending site on the map
+      sites.push({ x: a.x, y: a.y, icon: 'application', label: a.name });
     } else if (a.status === 'firm' || a.status === 'flex') {
       if (a.connectByMin !== undefined && s.simTimeMin > a.connectByMin) {
         sites.push({ x: a.x, y: a.y, icon: 'overdue', label: a.name });

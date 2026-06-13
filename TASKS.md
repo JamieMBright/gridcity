@@ -12,6 +12,23 @@
 
 ## Open
 
+### Logo / brand redesign prompt (owner, 2026-06-13)
+- [x] **New brand mark from a blank concept** — VERIFIED. Explored 4
+      directions in `docs/logo-concept.md` (A "The Node" ★, B "The
+      Window", C "The Spark E", D "The Pylon Node"); chose A — a glowing
+      substation NODE where the grid converges, the operator's instrument,
+      with the dusk-glow hook baked in and legible at 16px (the old
+      bolt+buildings mark was the cliché answer). Implemented code-drawn
+      SVG `src/ui/Logo.tsx` (`<LogoMark>` + `<LogoLockup>`; the "i" tittle
+      is the warm grid-node, "Electri" off-white → "City" gold). Wired
+      into StartMenu hero + App corner wordmark; regenerated
+      `public/logo.svg`, `public/icon.svg`, apple-touch-icon.png,
+      icon-512.png, logotype.png via `tools/genIcons.mjs` (rasterises the
+      SVG sources so they stay in sync). Inspected at 16/32/180/512px,
+      inline + hero, on the navy panel — keepers in `preview/logo-*.png`;
+      favicon survives 16px. `tsc -b`, eslint, build green; app+menu e2e
+      green (boot text assertion updated to "Electri"/"City").
+
 - [ ] **+30d skip vs incidents (noticed at Wave 9 gate):** now that
       weather incidents fire every week or two, a +30d (and often +7d)
       skip halts at the first storm/incident (bad news stops a skip —
@@ -303,18 +320,54 @@
         palette token is seeded ready.) Drove by environment-art
         (detail-at-the-transition, calm-in-the-mass) + color-theory
         (desaturation/harmony onto the dusk ramp).
-  - [ ] BROWNFIELD-FAVOURED PLANNING + APPEALS (sim mechanic): generation/
-        demand applications should FAVOUR arriving on BROWNFIELD tiles
-        (needs a brownfield texture/flag in the map model — ties to the
-        terrain work). Some applications still target NON-brownfield —
-        but those do NOT instantly build: open a ~30-day APPEALS window
-        and simulate PLANNING decisions from the relevant COUNCIL
-        (approve / reject, weighted by council profile + land type +
-        conservation/green-belt status). Rejections + approvals + appeals
-        FEATURE ON THE NEWS BANNER feed ("Camford council rejects the
-        Estuary Sun array on green-belt grounds", etc.). Sim lane:
-        events/applications.ts + councils + the news/event stream —
-        coordinate with the running events lanes; lands Wave 8/9.
+  - [x] BROWNFIELD-FAVOURED PLANNING + APPEALS (sim mechanic) —
+        **VERIFIED (Wave 9 SIM lane).** Brownfield = a per-tile flag bit
+        (FLAG_BROWNFIELD = bit 2 of the existing `flags` raster in
+        src/data/londonMap.ts; sim-side reader TILE_FLAG.brownfield +
+        isBrownfield() in src/sim/map/types.ts). Pure scenario data — the
+        map is rebuilt from getScenario().build(), never serialized, and
+        SaveData carries no terrain/zone/flags — so **NO SAVE_VERSION
+        bump** (stays at 11). Stamped onto the east-river industrial /
+        dockland belt (Stratford / Dagenham works / Charlton-Woolwich /
+        Grays-Tilbury) plus named regeneration sites (Greenwich gasworks,
+        Surrey docks, Old Kent Rd depots, Lower Lea yards, Park Royal).
+        (Render tint deliberately skipped — kept a pure gameplay flag, no
+        touch to the map lane's tileChooser regions.)
+    - [x] BROWNFIELD BIAS — findSite() in events/applications.ts makes one
+          seeded preference draw (BROWNFIELD_BIAS = 0.72): the steer
+          insists on previously-developed land, the rest take any eligible
+          site. Battery/data-centre/wind schemes build on cleared
+          brownfield even where the zone is industrial. Over 400 seeds
+          brownfield takes >60% of new siting; the ~1 gen + ~1 demand/week
+          cadence is preserved (same one chance() per stream).
+    - [x] APPEALS / DETERMINATION — non-brownfield sites get a landType
+          (greenfield / greenbelt / conservation) and open a ~30-day
+          council determination window (status 'appeal', APPEAL_DAYS=30).
+          Outcome PRE-ROLLED off the seeded rng at open time (save/load
+          can't re-roll) and realised when the window closes (stepAppeals
+          in tick.ts): approve → 'open' (ready to connect, fresh decide
+          window); refuse → 'refused' (lapses). Brownfield + council-less
+          coastal sites land 'open' at once.
+    - [x] COUNCIL WEIGHTING — planningApproveOdds() in
+          customers/adoption.ts: 0.5 + 0.32·ambition − 0.2·affluence,
+          minus a satisfaction NIMBY term and a land penalty (conservation
+          0.34 > green-belt 0.20 > greenfield 0.04), clamped 0.05–0.9;
+          reads live council satisfaction via a satOf() threaded from
+          tick.ts.
+    - [x] NEWS BANNER — events/news.ts: newsApplicationSubmitted
+          (brownfield celebrated; contested ones name council + clock +
+          odds) and newsAppealOutcome ("Estuary Point council REFUSES the
+          Estuary Sun solar array on green-belt grounds" / "Planning
+          granted: Old Docks council approves …"); all coord-tagged
+          (click-to-jump).
+    - [x] INBOX — InboxPanel.tsx "IN PLANNING" section: "in planning —
+          {council} to determine in N days (X% likely)", distinct from a
+          ready-to-connect app; appeal sites render their map marker
+          (worker.ts buildSites).
+    - [x] VERIFIED: tests/planningAppeals.test.ts (15) + applications.test
+          extended; full `npx vitest run` 452 green; tsc/eslint/build
+          clean; `npx playwright test e2e/build.spec.ts` 4/4 on a fresh
+          server (applications flow intact, baselines unchanged).
 
 - [ ] **HEATHROW — bespoke design + PV/BESS opportunity (owner,
       2026-06-13 04:31, two images: in-game vs real top-down).**
