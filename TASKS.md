@@ -12,6 +12,24 @@
 
 ## Open
 
+- [x] **Branded auth emails + redirect 404 (owner, 2026-06-13 13:20/
+      13:23).** Created ElectriCity-branded, email-safe HTML for the
+      passwordless flow in supabase/templates/ (confirm-signup, magic-
+      link, otp) — lofi dusk/orange, ELECTRI/CITY wordmark, bulletproof
+      CTA. README has the dashboard apply steps.
+  - [ ] OWNER ACTION (config, can't be set from the repo): the confirm
+        link 404s on localhost:3000 because the Supabase **Site URL** is
+        the dev default. Fix in dashboard → Auth → URL Configuration:
+        Site URL → the production Vercel domain; add prod + preview
+        patterns to Redirect URLs. (App is already correct:
+        emailRedirectTo=origin, detectSessionInUrl=true.) Steps in
+        supabase/templates/README.md.
+  - [ ] APP POLISH (Wave 14 integration): a styled "email confirmed —
+        welcome, operator" greeting + clean the #access_token hash on
+        the auth callback (detect type=signup/magiclink at boot, toast
+        via the store, strip the hash). App.tsx is a running lane's file
+        — do at integration.
+
 - [ ] **PLAYTEST FLURRY (owner, 2026-06-13 12:23, far-zoom screenshot).
       Process habit added to CLAUDE.md: screenshot at multiple zooms +
       per-landmark close-ups, critique honestly, BEFORE shipping.**
@@ -62,6 +80,17 @@
       (2 renderer-init flakes passed on retry; story-dismiss + campaign
       story-absent assertions intact). Shots: preview/w13ui-*.png — opening
       both beats, chip (desktop sub + line, mobile), expand tab + open palette.
+
+### RENDER/POLISH lane — Tier-4 polish (2026-06-13) — [ ] IN PROGRESS
+- [ ] #43 CONSTRUCTION SITES: plant/substation under construction draws as
+      a building site (foundation/scaffold/crane/hoarding), progressing by
+      quartile of remaining lead time, transitioning to finished art on
+      commission. Pure render.
+- [ ] #38 CAMERA BOOKMARKS: save/jump/delete named camera slots
+      (x/y/zoom), persisted client-side; a small self-contained floating
+      control. Renderer exposes getCamera()/jumpToCamera().
+- [ ] #48 PHOTO MODE: clean screenshot mode — hide chrome, golden-hour
+      tint, capture the Pixi canvas to a 2x PNG download.
 
 ### MAP/RENDER lane — playtest flurry (2026-06-13) — [x] VERIFIED
 - [x] SIGNAGE: MapLabel gained a `landmark` flag; gold NAMED_PLACES labels
