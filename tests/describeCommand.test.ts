@@ -29,6 +29,23 @@ describe('describeCommand', () => {
     ).toMatch(/33 kV cable/);
   });
 
+  it('labels a template stamp with its piece counts (#37)', () => {
+    const s = newGame();
+    expect(
+      describeCommand(
+        {
+          type: 'placeTemplate',
+          subs: [
+            { sub: 'grid', x: 0, y: 0 },
+            { sub: 'dist', x: 4, y: 0 },
+          ],
+          lines: [{ level: 33, build: 'overhead', ax: 0, ay: 0, bx: 4, by: 0 }],
+        },
+        s,
+      ),
+    ).toMatch(/stamped a template \(2 subs \+ 1 feeder\)/);
+  });
+
   it('names the demolished asset using the pre-command state', () => {
     const map = makeTestMap(10, 10);
     const s = newGame();

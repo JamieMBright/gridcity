@@ -80,6 +80,22 @@ export type Command =
       toX: number;
       toY: number;
     }
+  /** Stamp a build template (ROADMAP #37): place a set of substations and
+   *  the lines between them at an anchor, all-or-nothing, as ONE command
+   *  (= one undo step). Line endpoints reference subs by their index in
+   *  `subs`. Any failed piece rolls the whole stamp back. */
+  | {
+      type: 'placeTemplate';
+      subs: Array<{ sub: SubType; x: number; y: number }>;
+      lines: Array<{
+        level: VoltageLevel;
+        build: LineBuild;
+        ax: number;
+        ay: number;
+        bx: number;
+        by: number;
+      }>;
+    }
   /** Storm preparation (ROADMAP #9): hire surge contractor crews or run
    *  an emergency vegetation cut. Logic lives in reliability/stormprep. */
   | { type: 'stormPrep'; action: 'surge' | 'vegCut'; lineId?: number; days?: number }
@@ -640,6 +656,47 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
         );
       }
       return { ok: true };
+    }
+
+    case 'placeTemplate': {
+      // stamp a saved pattern: subs first (their fresh ids let the lines
+      // resolve their endpoints by tile), then the lines between them. All
+      // or nothing — any blocked piece rolls the whole set back, so the
+      // template paste is a single, clean undo step.
+      if (cmd.subs.length === 0) return { ok: false, error: 'empty template' };
+      const made: number[] = [];
+      const rollback = (error: string): CommandResult => {
+        for (const id of made) state.assets.delete(id);
+        state.assetsVersion++;
+        return { ok: false, error };
+      };
+      for (const s of cmd.subs) {
+        const r = applyCommand(state, map, {
+          type: 'build',
+          spec: { kind: 'sub', sub: s.sub, x: s.x, y: s.y },
+        });
+        if (!r.ok || r.assetId === undefined) return rollback(r.error ?? 'a substation is blocked');
+        made.push(r.assetId);
+      }
+      for (const l of cmd.lines) {
+        const r = applyCommand(state, map, {
+          type: 'build',
+          spec: { kind: 'line', level: l.level, build: l.build, ax: l.ax, ay: l.ay, bx: l.bx, by: l.by },
+        });
+        if (!r.ok || r.assetId === undefined) return rollback(r.error ?? 'a feeder is blocked');
+        made.push(r.assetId);
+      }
+      state.assetsVersion++;
+      pushEvent(
+        state,
+        'info',
+        `template stamped — ${cmd.subs.length} substation${cmd.subs.length > 1 ? 's' : ''}${
+          cmd.lines.length ? ` + ${cmd.lines.length} feeder${cmd.lines.length > 1 ? 's' : ''}` : ''
+        }`,
+        cmd.subs[0]?.x ?? 0,
+        cmd.subs[0]?.y ?? 0,
+      );
+      return { ok: true, assetId: made[0] };
     }
 
     case 'tee': {

@@ -719,40 +719,116 @@ export function biomassTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
-/** Construction site: the tower crane and scaffold that stand in for any
- *  plant while its planning + build clock runs. */
-export function constructionTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+/** Construction site (#43): the building-site stand-in for any plant or
+ *  substation while its planning + build clock runs. Four progress stages
+ *  read the lead-time arc at a glance — earth-moving → frame rising →
+ *  scaffolded shell → topped-out & fitting-out — each clearly a SITE, not
+ *  a finished building: churned earth, hi-vis orange hoarding, a slim
+ *  tower crane and (from stage 1) a poled scaffold cage. The MapRenderer
+ *  picks the variant by `underConstruction` remaining-time quartile and
+ *  swaps to the real sprite the instant it commissions.
+ *
+ *  stage 0 = groundworks (bare foundation + spoil + crane)
+ *  stage 1 = frame (first lift of structure, low scaffold)
+ *  stage 2 = scaffolded shell (full-height cage, sheeted)
+ *  stage 3 = topping out (near-complete block, scaffold coming down) */
+export function constructionTile(seed: number, stage = 3): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
-  void seed;
-  iso.floor(lighten(COLORS.sand, 0.04), COLORS.sand);
-  // hoarding line + barriers
-  for (const [a, b, c2, d] of [
-    [0.06, 0.06, 0.94, 0.1],
-    [0.06, 0.9, 0.94, 0.94],
-  ] as const) {
-    iso.box(a, b, c2, d, 0, 5, COLORS.orange, { ink: false });
+  const rng = new Rng(seed * 5471 + stage * 97 + 11);
+  // churned, muddier ground than the clean sand pad — this is a dig
+  const earth = hex('#b59a6a');
+  iso.floor(lighten(earth, 0.05), darken(earth, 0.12));
+  // a few darker spoil/excavation patches scuffed into the plot
+  for (let k = 0; k < 5; k++) {
+    const u = 0.18 + rng.next() * 0.6;
+    const v = 0.18 + rng.next() * 0.6;
+    const r = 0.05 + rng.next() * 0.06;
+    iso.quad(u, v, u + r, v + r, 0, darken(earth, 0.22 + rng.next() * 0.12));
   }
-  // scaffolded half-built block
-  iso.box(0.5, 0.34, 0.84, 0.66, 0, 20, COLORS.concrete);
-  for (const z of [7, 14]) {
-    iso.r.line(P(0.5, 0.66, z), P(0.84, 0.66, z), 0.9 * RES, INK);
-    iso.r.line(P(0.84, 0.66, z), P(0.84, 0.34, z), 0.9 * RES, INK);
+
+  // HOARDING: hi-vis orange site boarding around the two near edges, with
+  // a darker base rail so it reads as a solid hoarding, not a fence.
+  const hoarding = (u0: number, v0: number, u1: number, v1: number): void => {
+    iso.box(u0, v0, u1, v1, 0, 6, COLORS.orange, { ink: false });
+    // diagonal hazard ticks along the top of the near (left) face
+    if (v1 > 0.8) {
+      for (let t = 0.04; t < 0.96; t += 0.12) {
+        const u = u0 + (u1 - u0) * t;
+        iso.r.line(P(u, v1, 6), P(u + 0.03, v1, 2.5), 1.2 * RES, alpha(INK, 0.5));
+      }
+    }
+  };
+  hoarding(0.05, 0.05, 0.95, 0.1);
+  hoarding(0.05, 0.9, 0.95, 0.95);
+
+  // SCAFFOLD CAGE around the rising block — poles + lifts of boards. Only
+  // from stage 1 (groundworks has no frame to clamp it to yet).
+  const bu0 = 0.46;
+  const bv0 = 0.3;
+  const bu1 = 0.86;
+  const bv1 = 0.7;
+  const scaffold = (h: number): void => {
+    const post = (u: number, v: number): void => {
+      iso.r.poly([P(u, v, h), P(u + 0.01, v, h), P(u + 0.01, v, 0), P(u, v, 0)], COLORS.steel);
+    };
+    // the two visible faces of the cage (near-left v=bv1, near-right u=bu1)
+    const N = 5;
+    for (let i = 0; i <= N; i++) {
+      post(bu0 + ((bu1 - bu0) * i) / N, bv1);
+      post(bu1, bv0 + ((bv1 - bv0) * i) / N);
+    }
+    // horizontal board lifts every ~7 px
+    for (let z = 7; z <= h; z += 7) {
+      iso.r.line(P(bu0, bv1, z), P(bu1, bv1, z), 1.0 * RES, alpha(COLORS.steelDark, 0.9));
+      iso.r.line(P(bu1, bv0, z), P(bu1, bv1, z), 1.0 * RES, alpha(COLORS.steelDark, 0.9));
+    }
+  };
+
+  // THE RISING STRUCTURE, taller per stage
+  if (stage === 0) {
+    // groundworks: a low poured-concrete foundation slab + rebar stubs
+    iso.box(bu0, bv0, bu1, bv1, 0, 4, COLORS.concrete);
+    for (let i = 0; i <= 4; i++) {
+      const u = bu0 + ((bu1 - bu0) * i) / 4;
+      iso.r.line(P(u, bv1, 4), P(u, bv1, 11), 0.8 * RES, COLORS.steelDark); // rebar
+      const v = bv0 + ((bv1 - bv0) * i) / 4;
+      iso.r.line(P(bu1, v, 4), P(bu1, v, 11), 0.8 * RES, COLORS.steelDark);
+    }
+  } else {
+    const h = stage === 1 ? 12 : stage === 2 ? 22 : 28;
+    iso.box(bu0, bv0, bu1, bv1, 0, h, COLORS.concrete);
+    // floor-slab ink lines so it reads as an unfinished multi-storey frame
+    for (let z = 8; z < h; z += 7) {
+      iso.r.line(P(bu0, bv1, z), P(bu1, bv1, z), 0.9 * RES, alpha(INK, 0.7));
+      iso.r.line(P(bu1, bv0, z), P(bu1, bv1, z), 0.9 * RES, alpha(INK, 0.7));
+    }
+    // scaffold rises a little above the current top; stage 3 sheds it back
+    scaffold(stage === 3 ? h - 6 : h + 4);
+    // stage 3: a couple of finished glazing panels going in near the top
+    if (stage === 3) {
+      iso.windowsLeft(bv1, bu0, bu1, h - 12, h - 3, 4, alpha(hex('#9fd0e8'), 0.85));
+    }
   }
-  // tower crane: mast, jib, counter-jib, hook
-  const [mx, myB] = P(0.3, 0.42, 0);
-  const mh = 64 * RES;
+
+  // TOWER CRANE: mast, jib, counter-jib, hook. Shorter on early stages
+  // (climbs with the build), tallest at topping-out.
+  const [mx, myB] = P(0.28, 0.42, 0);
+  const mh = (40 + stage * 10) * RES;
   iso.r.line([mx, myB], [mx, myB - mh], 1.8 * RES, COLORS.orange);
   for (let i = 0; i < 6; i++) {
     const y0 = myB - (mh / 6) * i;
     iso.r.line([mx - 1.6 * RES, y0], [mx + 1.6 * RES, y0 - mh / 6], 0.8 * RES, darken(COLORS.orange, 0.25));
   }
   const jy = myB - mh;
-  iso.r.line([mx - 14 * RES, jy + 3 * RES], [mx + 34 * RES, jy], 1.4 * RES, COLORS.orange);
-  iso.r.line([mx, jy - 7 * RES], [mx + 34 * RES, jy], 0.8 * RES, INK); // tie
+  // the hook hangs over the block, a little further out the further along
+  const hookX = mx + (22 + stage * 4) * RES;
+  iso.r.line([mx - 14 * RES, jy + 3 * RES], [hookX + 8 * RES, jy], 1.4 * RES, COLORS.orange);
+  iso.r.line([mx, jy - 7 * RES], [hookX + 8 * RES, jy], 0.8 * RES, INK); // jib tie
   iso.r.line([mx, jy - 7 * RES], [mx - 14 * RES, jy + 3 * RES], 0.8 * RES, INK);
   iso.r.rect(mx - 16 * RES, jy + 2 * RES, mx - 11 * RES, jy + 6 * RES, COLORS.concrete); // counterweight
-  iso.r.line([mx + 26 * RES, jy], [mx + 26 * RES, jy + 26 * RES], 0.8 * RES, INK); // hoist
-  iso.r.rect(mx + 24.6 * RES, jy + 26 * RES, mx + 27.4 * RES, jy + 29 * RES, COLORS.steelDark);
+  const hookDrop = (18 + (3 - stage) * 6) * RES; // longer cable early on
+  iso.r.line([hookX, jy], [hookX, jy + hookDrop], 0.8 * RES, INK); // hoist cable
+  iso.r.rect(hookX - 1.4 * RES, jy + hookDrop, hookX + 1.4 * RES, jy + hookDrop + 3 * RES, COLORS.steelDark);
   return iso.build();
 }
 

@@ -623,15 +623,28 @@ function SavesButton() {
   );
 }
 
-/** The ? affordance: launch the HUD coach-mark tour (ROADMAP #40). */
+/** The ? affordance: open the keyboard cheat-sheet (#29). A long-press /
+ *  right-click instead launches the guided HUD tour (#40) — both ways in
+ *  live behind the same glyph. */
 function HelpButton() {
+  const setHelpOpen = useAppStore((s) => s.setHelpOpen);
   const setTourActive = useAppStore((s) => s.setTourActive);
+  let pressTimer: ReturnType<typeof setTimeout> | undefined;
   return (
     <button
       data-tour="help"
-      aria-label="tour the controls"
-      onClick={() => setTourActive(true)}
-      title="Tour the controls — a guided walkthrough of the HUD"
+      aria-label="keyboard shortcuts"
+      onClick={() => setHelpOpen(true)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setTourActive(true);
+      }}
+      onPointerDown={() => {
+        pressTimer = setTimeout(() => setTourActive(true), 500);
+      }}
+      onPointerUp={() => clearTimeout(pressTimer)}
+      onPointerLeave={() => clearTimeout(pressTimer)}
+      title="Keyboard shortcuts (?) · hold for a guided tour"
       style={{
         display: 'flex',
         alignItems: 'center',

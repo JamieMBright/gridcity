@@ -8,6 +8,7 @@ import type { CatchmentForecast } from '../sim/forecast';
 import type { ConnectionStudy } from '../sim/study';
 import type { TileHover } from '../render/MapRenderer';
 import type { CbMode } from '../ui/cbPalette';
+import type { BuildTemplate } from '../persistence/templateStore';
 
 export type WorkerStatus = 'connecting' | 'ready' | 'error';
 
@@ -50,6 +51,14 @@ interface AppState {
   /** Where on the line the inspect click landed (tile space) — picks
    *  the span for section undergrounding. */
   selectedLineAt: { x: number; y: number } | undefined;
+  /** Compare mode (#31): a SECOND pinned inspector slot shown beside the
+   *  first, with the same rows. Armed from the first card's "compare"
+   *  affordance — `comparePicking` makes the next inspect click fill the
+   *  compare slot instead of replacing the primary selection. */
+  compareAsset: number | undefined;
+  compareLine: number | undefined;
+  compareLineAt: { x: number; y: number } | undefined;
+  comparePicking: boolean;
   /** Placing a substation auto-runs circuits to the nearest compatible
    *  bays (palette setting). */
   autoConnect: boolean;
@@ -98,6 +107,21 @@ interface AppState {
   /** The HUD coach-mark tour is running (spotlight walkthrough). */
   tourActive: boolean;
   setTourActive: (on: boolean) => void;
+  /** Hotkey cheat-sheet overlay open (#29). */
+  helpOpen: boolean;
+  setHelpOpen: (open: boolean) => void;
+  /** Build-template paste mode (#37): the template being stamped, or
+   *  undefined when no paste is armed. While armed, a map click stamps
+   *  the set at the hovered tile (handled by a paste overlay we own, so
+   *  the render lane's click flow is untouched). */
+  pasteTemplate: BuildTemplate | undefined;
+  setPasteTemplate: (t: BuildTemplate | undefined) => void;
+  /** Recently placed substations this session, oldest→newest, capped —
+   *  the quick "save last N as a template" capture buffer (#37). Tracked
+   *  off the snapshot as operator subs appear; lines among them are
+   *  recovered from the snapshot at capture time. */
+  recentSubPlacements: number[];
+  clearRecentPlacements: () => void;
   setWorkerStatus: (status: WorkerStatus, error?: string) => void;
   setSnapshot: (snapshot: SimSnapshot) => void;
   setHoveredTile: (tile: TileHover | undefined) => void;
@@ -107,6 +131,10 @@ interface AppState {
     lineId?: number | undefined;
     at?: { x: number; y: number } | undefined;
   }) => void;
+  /** Arm/disarm the compare-pick (the next inspect click fills the second
+   *  slot). Closing the compare slot also disarms. (#31) */
+  setComparePicking: (on: boolean) => void;
+  clearCompare: () => void;
   setAutoConnect: (on: boolean) => void;
   setGridView: (on: boolean) => void;
   setGhostInfo: (info: GhostInfo | undefined) => void;
@@ -163,6 +191,27 @@ interface AppState {
   ackAlert: (seq: number) => void;
   snoozeAlert: (seq: number, untilMin: number) => void;
   clearAlertState: () => void;
+  // --- RENDER/POLISH lane (#38 camera bookmarks · #48 photo mode) ---
+  /** Saved camera positions (#38): named slots {x,y,zoom}, persisted
+   *  client-side; the CameraBookmarks panel lists them with jump/save/
+   *  delete and calls the renderer's getCamera()/jumpToCamera(). */
+  bookmarks: CameraBookmark[];
+  addBookmark: (b: CameraBookmark) => void;
+  removeBookmark: (id: number) => void;
+  /** Photo mode (#48): when on, all HUD/chrome is hidden so the map frame
+   *  is clean for a screenshot. PhotoMode.tsx itself stays mounted to drive
+   *  the capture + exit. */
+  photoMode: boolean;
+  setPhotoMode: (on: boolean) => void;
+}
+
+/** A saved camera position (#38). `id` is a monotonic client key. */
+export interface CameraBookmark {
+  id: number;
+  name: string;
+  x: number;
+  y: number;
+  zoom: number;
 }
 
 const COLLAPSE_KEY = 'ec.hudCollapsed';
@@ -219,6 +268,38 @@ function saveMinimapOpen(on: boolean): void {
   }
 }
 
+// Camera bookmark persistence (#38): client-only named camera slots.
+const BOOKMARK_KEY = 'ec.bookmarks.v1';
+function loadBookmarks(): CameraBookmark[] {
+  try {
+    const raw = localStorage.getItem(BOOKMARK_KEY);
+    if (raw) {
+      const j = JSON.parse(raw) as CameraBookmark[];
+      if (Array.isArray(j)) {
+        return j
+          .filter(
+            (b) =>
+              b &&
+              typeof b.x === 'number' &&
+              typeof b.y === 'number' &&
+              typeof b.zoom === 'number',
+          )
+          .slice(0, 6);
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return [];
+}
+function saveBookmarks(bookmarks: CameraBookmark[]): void {
+  try {
+    localStorage.setItem(BOOKMARK_KEY, JSON.stringify(bookmarks.slice(0, 6)));
+  } catch {
+    /* ignore */
+  }
+}
+
 // Alert ack/snooze persistence (#39): client-only, keyed by event seq.
 const ALERT_KEY = 'ec.alertState.v1';
 function loadAlertState(): { acked: Set<number>; snoozed: Record<number, number> } {
@@ -251,6 +332,12 @@ let toastTimer: ReturnType<typeof setTimeout> | undefined;
  *  "how loaded does it GET" number. */
 export const linePeaks = new Map<number, number>();
 
+/** Sub asset ids seen in the previous snapshot — diffed against the next
+ *  to fill the build-template capture buffer (#37). Module-level so it
+ *  survives store re-renders; reset implicitly when a save loads (the new
+ *  subs simply re-register). */
+let seenSubIds = new Set<number>();
+
 export const useAppStore = create<AppState>((set) => ({
   workerStatus: 'connecting',
   workerError: undefined,
@@ -260,6 +347,10 @@ export const useAppStore = create<AppState>((set) => ({
   selectedAsset: undefined,
   selectedLine: undefined,
   selectedLineAt: undefined,
+  compareAsset: undefined,
+  compareLine: undefined,
+  compareLineAt: undefined,
+  comparePicking: false,
   autoConnect: false,
   gridView: false,
   ghostInfo: undefined,
@@ -285,26 +376,78 @@ export const useAppStore = create<AppState>((set) => ({
   savesOpen: false,
   tourActive: false,
   setTourActive: (tourActive) => set({ tourActive }),
+  helpOpen: false,
+  setHelpOpen: (helpOpen) => set({ helpOpen }),
+  pasteTemplate: undefined,
+  setPasteTemplate: (pasteTemplate) => set({ pasteTemplate }),
+  recentSubPlacements: [],
+  clearRecentPlacements: () => set({ recentSubPlacements: [] }),
   setWorkerStatus: (workerStatus, workerError) => set({ workerStatus, workerError }),
-  setSnapshot: (snapshot) => {
-    for (const b of snapshot.branches) {
-      if (b.kind !== 'line' || b.ratingMW <= 0) continue;
-      const loading = Math.abs(b.flowMW) / b.ratingMW;
-      if (loading > (linePeaks.get(b.assetId) ?? 0)) linePeaks.set(b.assetId, loading);
-    }
-    set({ snapshot });
-  },
+  setSnapshot: (snapshot) =>
+    set((s) => {
+      for (const b of snapshot.branches) {
+        if (b.kind !== 'line' || b.ratingMW <= 0) continue;
+        const loading = Math.abs(b.flowMW) / b.ratingMW;
+        if (loading > (linePeaks.get(b.assetId) ?? 0)) linePeaks.set(b.assetId, loading);
+      }
+      // capture buffer for build templates (#37): note operator-owned
+      // substations as they appear, so "save my last build" knows which
+      // kit to bundle. iDNO/tee subs are excluded (not player-buildable).
+      let recent = s.recentSubPlacements;
+      const prev = seenSubIds;
+      const next = new Set<number>();
+      let added = false;
+      for (const a of snapshot.assets) {
+        if (a.kind !== 'sub' || a.idno || a.sub === 'tee') continue;
+        next.add(a.id);
+        if (!prev.has(a.id) && !recent.includes(a.id)) {
+          recent = [...recent, a.id].slice(-12);
+          added = true;
+        }
+      }
+      seenSubIds = next;
+      return added ? { snapshot, recentSubPlacements: recent } : { snapshot };
+    }),
   setHoveredTile: (hoveredTile) => set({ hoveredTile }),
-  // arming a different tool drops the pinned inspector card
+  // arming a different tool drops the pinned inspector card (and the
+  // compare slot / pick arming — they only make sense while inspecting)
   setTool: (tool) =>
     set((s) => ({
       tool,
       selectedAsset: tool.t === 'inspect' ? s.selectedAsset : undefined,
       selectedLine: tool.t === 'inspect' ? s.selectedLine : undefined,
       selectedLineAt: tool.t === 'inspect' ? s.selectedLineAt : undefined,
+      compareAsset: tool.t === 'inspect' ? s.compareAsset : undefined,
+      compareLine: tool.t === 'inspect' ? s.compareLine : undefined,
+      compareLineAt: tool.t === 'inspect' ? s.compareLineAt : undefined,
+      comparePicking: tool.t === 'inspect' ? s.comparePicking : false,
     })),
   setSelected: ({ assetId, lineId, at }) =>
-    set({ selectedAsset: assetId, selectedLine: lineId, selectedLineAt: at }),
+    set((s) => {
+      // compare-pick armed: the next inspect click fills the SECOND slot,
+      // leaving the primary pin intact. A click on empty ground (no asset
+      // and no line) cancels the pick without disturbing the primary pin.
+      if (s.comparePicking) {
+        if (assetId === undefined && lineId === undefined) {
+          return { comparePicking: false };
+        }
+        return {
+          compareAsset: assetId,
+          compareLine: lineId,
+          compareLineAt: at,
+          comparePicking: false,
+        };
+      }
+      return { selectedAsset: assetId, selectedLine: lineId, selectedLineAt: at };
+    }),
+  setComparePicking: (comparePicking) => set({ comparePicking }),
+  clearCompare: () =>
+    set({
+      compareAsset: undefined,
+      compareLine: undefined,
+      compareLineAt: undefined,
+      comparePicking: false,
+    }),
   setAutoConnect: (autoConnect) => set({ autoConnect }),
   setGridView: (gridView) => set({ gridView }),
   setGhostInfo: (ghostInfo) => set({ ghostInfo }),
@@ -390,6 +533,22 @@ export const useAppStore = create<AppState>((set) => ({
       saveAlertState(new Set(), {});
       return { ackedAlerts: new Set(), snoozedAlerts: {} };
     }),
+  // --- RENDER/POLISH lane (#38 / #48) ---
+  bookmarks: loadBookmarks(),
+  addBookmark: (b) =>
+    set((s) => {
+      const bookmarks = [...s.bookmarks, b].slice(-6);
+      saveBookmarks(bookmarks);
+      return { bookmarks };
+    }),
+  removeBookmark: (id) =>
+    set((s) => {
+      const bookmarks = s.bookmarks.filter((b) => b.id !== id);
+      saveBookmarks(bookmarks);
+      return { bookmarks };
+    }),
+  photoMode: false,
+  setPhotoMode: (photoMode) => set({ photoMode }),
 }));
 
 /** Pure event categoriser (#30): map an event's severity + message to a

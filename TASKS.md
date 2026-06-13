@@ -12,6 +12,151 @@
 
 ## Open
 
+- [ ] **FAVOUR LOGGING IN (owner, 2026-06-13 14:28): with ranks +
+      city unlocks, login matters more.** Direction: GUEST play stays
+      fully fine for LONDON sandbox + TUTORIALS (localStorage). But
+      PROGRESSION — rank/accolades/unlocked cities/per-city leaderboards
+      — needs an account, so favour signing in:
+  - [ ] Make login SOLID first (the "login didn't work" bug): the
+        Supabase Site-URL fix (already logged) + a styled auth callback
+        + verify the OTP/magic-link round-trip end to end.
+  - [ ] Gate progression behind (or strongly tied to) an account: rank,
+        accolades, city unlocks and cross-device sync require login;
+        guest can still play London + tutorials but sees their progress
+        is local-only with a clear, friendly "sign in to keep your rank
+        & unlock cities across devices" prompt at the right moments
+        (first rank-up, first city-unlock offer, period report card).
+  - [ ] Surface the BENEFIT prominently (start menu NETWORK ACCESS
+        block + an inline prompt), not a hard wall — never block the
+        core London/tutorial play. Aligns with docs/multi-city-and-rank.md
+        P5 (the `progression` Supabase table + guest→login merge).
+
+- [ ] **TUTORIAL OVERHAUL + PLAYTEST FLURRY 2 (owner, 2026-06-13 ~13:40,
+      full 5-tutorial playthrough + screenshot). HUGE — spans several
+      waves.**
+  - [ ] **Tutorials REPLACE campaign**: rename campaign→"tutorial",
+        delete the old london Tutorial strip. Clicking "tutorial" opens
+        a LESSONS PAGE listing every lesson, what it teaches, and a
+        0/1/2/3-STAR rating by how well it was completed. Many MORE
+        tutorials covering all mechanics (not just 5).
+  - [ ] **GUIDED-PLAY SPOTLIGHT (core, always-on theme)**: when telling
+        the player to click X, DARKEN everything else and HIGHLIGHT X;
+        after the click, highlight the suitable next targets (e.g.
+        suitable land to site wind). Same attention-drawing for events
+        (a bubble pops when awards/bids/alerts arrive). Applies beyond
+        tutorials.
+  - [ ] **During tutorials**: PREVENT unrelated applications spawning
+        (confusing); HIDE unnecessary overlays/HUD, introduce mechanics
+        progressively across lessons; NO "skip tutorial" option (the
+        tutorial is the only content) — remove the skip.
+  - [ ] **T1 First Light** (onshore wind): spotlight the Onshore-wind
+        button → then suitable land. Allow only ONE wind facility.
+        CAPACITY PICKER: scroll / +– to set MW (don't force 100 MW for
+        Aldbrook — ask ~15 MW; user adjusts). Explain sizing (bigger
+        install = more network; find the sweet spot) + show a rough
+        "powers ~N homes" estimate beside the capacity + introduce
+        standing-charge aims. Make them actually click ▶▶▶; when a bid
+        lands, show it, then tell them to click ▶▶7d to gather all bids.
+        TEACH a bid: all offer the same 100 MW unit but differ on £ —
+        the energy £/MWh (white) goes on customers' ENERGY bill; the
+        curtail £ is compensation you pay if you cut them, landing on
+        the STANDING-CHARGE part — lower is better on both. Step 5/6
+        wording: replace "arm the 33 kV line" with plain language ("this
+        wind farm has a 33 kV connection, so run 33 kV circuits from the
+        turbines to the distribution substation so power can flow").
+        Teach: after placing a line the 33 kV tool STAYS armed for the
+        next click; to end a line, hit Esc / pick another tool / click
+        the same connection point twice (VERIFY click-same-point-twice
+        works). Then inspect the turbine to see its connection voltage.
+        Teach demolish line+dist-sub, turn AUTO-CONNECT on (needs a
+        HOTKEY), re-place the dist sub to auto-connect. FOOTPRINT BUG:
+        the wind farm sits on its single auctioned tile but turbines
+        bleed out of it — the 33 kV circuit must be clickable to ANY
+        tile the farm now occupies. Don't end on connect — let them
+        watch power flow; a "finish tutorial" button on the 6/6 tile.
+        Confusion: dist sub is 33 kV/LV immediately → add a PRIOR lesson
+        teaching BSP / grid site / dist site + the voltage levels.
+  - [ ] **T2 Step Up**: 2nd-pane wording weird ("Try a 33 kV line…") →
+        have them INSPECT the offshore unit to learn its kV instead.
+        The "BUILDING Offshore Wind" top label blocks the tutorial
+        notes → let the tutorial notes DOMINATE more and hide as steps
+        execute (recallable). Teach UNDERGROUND cables (happier locals,
+        less coastline interference).
+  - [ ] **T3 Storm**: step 1/5 text hard, drop "already wired" — clearer
+        for beginners. HIGHLIGHT the incoming alert. PAUSE the clock on
+        major alerts until dismissed (player idled through a storm that
+        restored unseen — need prep time). Better SEVERE-weather
+        indicators: subtle rain/wind/heat-mirage screen effects, clearly
+        distinct from regular weather; severe weather = a fun "emergency
+        system prepare" phase where the day slows down (a ~2-min
+        experience for that day; player can speed up; levers to improve
+        outcomes e.g. extra vans on temporary standby). After the depot,
+        have the player raise vans 0→1 and SEE the van leave the depot
+        and attend the fault. End the lesson at the end of a
+        system-prepare stage. Introduce CI & CML here.
+  - [ ] **T4 Inbox**: side-by-side VISUAL comparison of firm vs
+        flexible; explain what the study message means; don't end until
+        the site is BUILT. Introduce CUSTOMER SATISFACTION; an on-time
+        new connection = 100% satisfaction.
+  - [ ] **T5 Bill**: reword "capital is unlimited" → "The network
+        operator can elect any solution they see fit within the
+        allowances set by The Regulator — but every pound lands on
+        customer bills." Headroom toggle did NOTHING (BUG). Allow
+        skipping a mission step forward/backward. Teach scroll-to-size a
+        dist sub to cover the whole town at once; teach REINFORCING an
+        existing sub (inspect → increase, cheaper than new build); place
+        a new application just outside range and connect it by
+        reinforcing the sub's catchment. Opening bill was sky-high —
+        rebalance (mission "completed" at £333/yr — sense-check targets).
+
+- [ ] **GAME/UX BUGS from the flurry (owner, 2026-06-13):**
+  - [ ] FOOTPRINT: tile size must be pre-determined/reserved — could
+        place side-by-side bids that EXPLODED OUT on award (overlap).
+        Reserve the footprint at designation so awards can't collide.
+  - [ ] GRAPHICS: wind turbine not centred on the hub mast (screenshot —
+        blades offset from the mast); blades don't appear while placing.
+        Fix the rotor offset + show blades on the ghost/placement.
+  - [ ] ESCAPE menu: Esc (when NOT cancelling a line build) opens a menu
+        → Save / Quit to main menu; clicking "ELECTRICITY" top-left
+        opens the same pane.
+  - [ ] LOGIN didn't really work (investigate auth/sign-in flow end to
+        end — ties to the Supabase Site-URL fix already logged).
+  - [ ] SNOOZE: 1 hour is pointless (a second passes an hour) → snooze
+        ~2 days.
+  - [ ] SEVERE-WEATHER ALERT: pop the really damaging ones to the MIDDLE
+        of screen to dismiss, with a weather MAP showing the hurricane
+        bearing down on London.
+  - [ ] VANS ON THE MAP: actually SEE orange/white vans leave the depot
+        and attend faults (count = player's van number); vans return to
+        a depot between repairs; follow ROADS where possible, else move
+        orthogonally through building-free tiles.
+  - [ ] CONNECTIONS: an application out of reach of any kit should give
+        the network MONEY to build out the cables (per the study) — do
+        NOT penalise the operator for new connections.
+  - [ ] HUD OVERLAP: the map overlay interrupts the finance/bill panel;
+        HUD panes overlap so you can't upgrade a substation (messages in
+        the way). Fix the layout/z-order so panels never block controls.
+  - [ ] SUBSTATION SIZING: MVA size scrollable / +– when selected to
+        build (and when reinforcing).
+
+- [x] **Branded auth emails + redirect 404 (owner, 2026-06-13 13:20/
+      13:23).** Created ElectriCity-branded, email-safe HTML for the
+      passwordless flow in supabase/templates/ (confirm-signup, magic-
+      link, otp) — lofi dusk/orange, ELECTRI/CITY wordmark, bulletproof
+      CTA. README has the dashboard apply steps.
+  - [ ] OWNER ACTION (config, can't be set from the repo): the confirm
+        link 404s on localhost:3000 because the Supabase **Site URL** is
+        the dev default. Fix in dashboard → Auth → URL Configuration:
+        Site URL → the production Vercel domain; add prod + preview
+        patterns to Redirect URLs. (App is already correct:
+        emailRedirectTo=origin, detectSessionInUrl=true.) Steps in
+        supabase/templates/README.md.
+  - [ ] APP POLISH (Wave 14 integration): a styled "email confirmed —
+        welcome, operator" greeting + clean the #access_token hash on
+        the auth callback (detect type=signup/magiclink at boot, toast
+        via the store, strip the hash). App.tsx is a running lane's file
+        — do at integration.
+
 - [ ] **PLAYTEST FLURRY (owner, 2026-06-13 12:23, far-zoom screenshot).
       Process habit added to CLAUDE.md: screenshot at multiple zooms +
       per-landmark close-ups, critique honestly, BEFORE shipping.**
@@ -62,6 +207,17 @@
       (2 renderer-init flakes passed on retry; story-dismiss + campaign
       story-absent assertions intact). Shots: preview/w13ui-*.png — opening
       both beats, chip (desktop sub + line, mobile), expand tab + open palette.
+
+### RENDER/POLISH lane — Tier-4 polish (2026-06-13) — [ ] IN PROGRESS
+- [ ] #43 CONSTRUCTION SITES: plant/substation under construction draws as
+      a building site (foundation/scaffold/crane/hoarding), progressing by
+      quartile of remaining lead time, transitioning to finished art on
+      commission. Pure render.
+- [ ] #38 CAMERA BOOKMARKS: save/jump/delete named camera slots
+      (x/y/zoom), persisted client-side; a small self-contained floating
+      control. Renderer exposes getCamera()/jumpToCamera().
+- [ ] #48 PHOTO MODE: clean screenshot mode — hide chrome, golden-hour
+      tint, capture the Pixi canvas to a 2x PNG download.
 
 ### MAP/RENDER lane — playtest flurry (2026-06-13) — [x] VERIFIED
 - [x] SIGNAGE: MapLabel gained a `landmark` flag; gold NAMED_PLACES labels
