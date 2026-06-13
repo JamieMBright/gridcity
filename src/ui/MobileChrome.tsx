@@ -16,39 +16,57 @@ import { InboxPanel } from './InboxPanel';
 import { InfoPanel } from './InfoPanel';
 import { panelStyle, theme } from './theme';
 import { useUnlockGate } from './unlocks';
+import {
+  GEN_ICONS,
+  IconBill,
+  IconBuilding,
+  IconDemolish,
+  IconDepot,
+  IconInbox,
+  IconInspect,
+  IconLedger,
+  IconMenu,
+  IconReport,
+  IconVan,
+  SUB_ICONS,
+  type IconComponent,
+} from './icons';
 
 interface RailItem {
-  icon: string;
+  /** Bespoke glyph (ink-contour SVG). Voltage levels render as text. */
+  Icon?: IconComponent | undefined;
+  /** Short text badge for numeric signage (kV levels). */
+  text?: string | undefined;
   tool: Tool;
   label: string;
-  color?: string;
+  color?: string | undefined;
 }
 
 const RAIL: RailItem[] = [
-  { icon: '🔍', tool: { t: 'inspect' }, label: 'Inspect' },
-  { icon: '🏭', tool: { t: 'gen', gen: 'gasCCGT' }, label: 'Gas CCGT' },
-  { icon: '🔥', tool: { t: 'gen', gen: 'gasPeaker' }, label: 'Gas peaker' },
-  { icon: '☀️', tool: { t: 'gen', gen: 'solarFarm' }, label: 'Solar farm' },
-  { icon: '🍃', tool: { t: 'gen', gen: 'windOnshore' }, label: 'Onshore wind' },
-  { icon: '💨', tool: { t: 'gen', gen: 'windOffshore' }, label: 'Offshore wind' },
-  { icon: '🌊', tool: { t: 'gen', gen: 'tidal' }, label: 'Tidal stream' },
-  { icon: '🌿', tool: { t: 'gen', gen: 'biomass' }, label: 'Biomass CHP' },
-  { icon: '☢️', tool: { t: 'gen', gen: 'nuclear' }, label: 'Nuclear' },
-  { icon: '🔋', tool: { t: 'gen', gen: 'battery' }, label: 'Battery' },
-  { icon: '⬛', tool: { t: 'gen', gen: 'coal' }, label: 'Coal station' },
-  { icon: '🔌', tool: { t: 'gen', gen: 'interconnector' }, label: 'Interconnector' },
-  { icon: 'H₂', tool: { t: 'gen', gen: 'electrolyser' }, label: 'Hydrogen electrolyser' },
-  { icon: 'BSP', tool: { t: 'sub', sub: 'bulk' }, label: 'Bulk supply point' },
-  { icon: 'GRD', tool: { t: 'sub', sub: 'grid' }, label: 'Grid substation' },
-  { icon: 'DST', tool: { t: 'sub', sub: 'dist' }, label: 'Distribution sub' },
-  { icon: 'POL', tool: { t: 'sub', sub: 'pole' }, label: 'Pole transformer' },
-  { icon: 'VLT', tool: { t: 'sub', sub: 'vault' }, label: 'Underground sub' },
-  { icon: 'CAP', tool: { t: 'sub', sub: 'capbank' }, label: 'Capacitor bank' },
-  { icon: '400', tool: { t: 'line', level: 400, build: 'overhead' }, label: '400 kV line', color: hex(LEVEL_COLOR[400]) },
-  { icon: '132', tool: { t: 'line', level: 132, build: 'overhead' }, label: '132 kV line', color: hex(LEVEL_COLOR[132]) },
-  { icon: '33', tool: { t: 'line', level: 33, build: 'overhead' }, label: '33 kV line', color: hex(LEVEL_COLOR[33]) },
-  { icon: '🚐', tool: { t: 'depot' }, label: 'Field depot' },
-  { icon: '⛏', tool: { t: 'demolish' }, label: 'Demolish' },
+  { Icon: IconInspect, tool: { t: 'inspect' }, label: 'Inspect' },
+  { Icon: GEN_ICONS.gasCCGT, tool: { t: 'gen', gen: 'gasCCGT' }, label: 'Gas CCGT' },
+  { Icon: GEN_ICONS.gasPeaker, tool: { t: 'gen', gen: 'gasPeaker' }, label: 'Gas peaker' },
+  { Icon: GEN_ICONS.solarFarm, tool: { t: 'gen', gen: 'solarFarm' }, label: 'Solar farm' },
+  { Icon: GEN_ICONS.windOnshore, tool: { t: 'gen', gen: 'windOnshore' }, label: 'Onshore wind' },
+  { Icon: GEN_ICONS.windOffshore, tool: { t: 'gen', gen: 'windOffshore' }, label: 'Offshore wind' },
+  { Icon: GEN_ICONS.tidal, tool: { t: 'gen', gen: 'tidal' }, label: 'Tidal stream' },
+  { Icon: GEN_ICONS.biomass, tool: { t: 'gen', gen: 'biomass' }, label: 'Biomass CHP' },
+  { Icon: GEN_ICONS.nuclear, tool: { t: 'gen', gen: 'nuclear' }, label: 'Nuclear' },
+  { Icon: GEN_ICONS.battery, tool: { t: 'gen', gen: 'battery' }, label: 'Battery' },
+  { Icon: GEN_ICONS.coal, tool: { t: 'gen', gen: 'coal' }, label: 'Coal station' },
+  { Icon: GEN_ICONS.interconnector, tool: { t: 'gen', gen: 'interconnector' }, label: 'Interconnector' },
+  { Icon: GEN_ICONS.electrolyser, tool: { t: 'gen', gen: 'electrolyser' }, label: 'Hydrogen electrolyser' },
+  { Icon: SUB_ICONS.bulk, tool: { t: 'sub', sub: 'bulk' }, label: 'Bulk supply point' },
+  { Icon: SUB_ICONS.grid, tool: { t: 'sub', sub: 'grid' }, label: 'Grid substation' },
+  { Icon: SUB_ICONS.dist, tool: { t: 'sub', sub: 'dist' }, label: 'Distribution sub' },
+  { Icon: SUB_ICONS.pole, tool: { t: 'sub', sub: 'pole' }, label: 'Pole transformer' },
+  { Icon: SUB_ICONS.vault, tool: { t: 'sub', sub: 'vault' }, label: 'Underground sub' },
+  { Icon: SUB_ICONS.capbank, tool: { t: 'sub', sub: 'capbank' }, label: 'Capacitor bank' },
+  { text: '400', tool: { t: 'line', level: 400, build: 'overhead' }, label: '400 kV line', color: hex(LEVEL_COLOR[400]) },
+  { text: '132', tool: { t: 'line', level: 132, build: 'overhead' }, label: '132 kV line', color: hex(LEVEL_COLOR[132]) },
+  { text: '33', tool: { t: 'line', level: 33, build: 'overhead' }, label: '33 kV line', color: hex(LEVEL_COLOR[33]) },
+  { Icon: IconDepot, tool: { t: 'depot' }, label: 'Field depot' },
+  { Icon: IconDemolish, tool: { t: 'demolish' }, label: 'Demolish' },
 ];
 
 function hex(c: number): string {
@@ -91,16 +109,22 @@ function BuildRail({ onExpand }: { onExpand: () => void }) {
       }}
     >
       {!gate.active && (
-        <button onClick={onExpand} style={railBtn(false)} aria-label="open build menu">
-          »
+        <button
+          onClick={onExpand}
+          style={{ ...railBtn(false), display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          aria-label="open build menu"
+          title="Open the full build palette"
+        >
+          <IconMenu size={20} />
         </button>
       )}
       {items.map((item) => {
         const active = railActive(tool, item.tool);
         const key = hotkeyLabel(item.tool);
+        const Icon = item.Icon;
         return (
           <button
-            key={`${item.tool.t}:${key ?? item.icon}`}
+            key={`${item.tool.t}:${key ?? item.text ?? item.label}`}
             aria-label={item.label}
             title={item.label}
             onClick={() => {
@@ -115,13 +139,14 @@ function BuildRail({ onExpand }: { onExpand: () => void }) {
             }}
             style={{
               ...railBtn(active),
-              ...(item.icon.length > 2
-                ? { fontSize: 9, fontWeight: 700, letterSpacing: '0.02em' }
-                : { fontSize: 16 }),
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              ...(item.text ? { fontSize: 12, fontWeight: 700, letterSpacing: '0.01em' } : {}),
               ...(item.color && !active ? { color: item.color } : {}),
             }}
           >
-            {item.icon}
+            {Icon ? <Icon size={22} /> : item.text}
           </button>
         );
       })}
@@ -160,14 +185,14 @@ function railBtn(active: boolean): React.CSSProperties {
 type Sheet = 'build' | 'bill' | 'fleet' | 'inbox' | 'alerts' | undefined;
 
 function Chip({
-  icon,
+  Icon,
   active,
   badge,
   onClick,
   label,
   tour,
 }: {
-  icon: string;
+  Icon: IconComponent;
   active: boolean;
   badge?: number;
   onClick: () => void;
@@ -177,6 +202,7 @@ function Chip({
   return (
     <button
       aria-label={label}
+      title={label}
       data-tour={tour}
       onClick={onClick}
       style={{
@@ -188,12 +214,14 @@ function Chip({
         border: `1px solid ${active ? theme.orange : theme.navyLight}`,
         background: active ? theme.orange : 'rgba(16, 22, 48, 0.88)',
         color: active ? theme.navy : theme.offWhite,
-        fontSize: 16,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         cursor: 'pointer',
         padding: 0,
       }}
     >
-      {icon}
+      <Icon size={22} />
       {badge !== undefined && badge > 0 && (
         <span
           style={{
@@ -234,6 +262,8 @@ export function MobileChrome() {
   const tool = useAppStore((s) => s.tool);
   const kpiOpen = useAppStore((s) => s.kpiOpen);
   const setKpiOpen = useAppStore((s) => s.setKpiOpen);
+  const directoratesOpen = useAppStore((s) => s.directoratesOpen);
+  const setDirectoratesOpen = useAppStore((s) => s.setDirectoratesOpen);
   const gate = useUnlockGate();
   const show = (key: string): boolean => !gate.active || gate.has(key);
   const openApps =
@@ -260,14 +290,14 @@ export function MobileChrome() {
         }}
       >
         {show('hud:bill') && (
-          <Chip icon="💷" label="bill" tour="bill" active={sheet === 'bill'} onClick={() => toggle('bill')} />
+          <Chip Icon={IconBill} label="bill" tour="bill" active={sheet === 'bill'} onClick={() => toggle('bill')} />
         )}
         {show('hud:fleet') && (
-          <Chip icon="🚐" label="fleet" active={sheet === 'fleet'} onClick={() => toggle('fleet')} />
+          <Chip Icon={IconVan} label="fleet" active={sheet === 'fleet'} onClick={() => toggle('fleet')} />
         )}
         {show('hud:inbox') && (
           <Chip
-            icon="📨"
+            Icon={IconInbox}
             label="inbox"
             tour="inbox"
             active={sheet === 'inbox'}
@@ -276,10 +306,18 @@ export function MobileChrome() {
           />
         )}
         {show('hud:alerts') && (
-          <Chip icon="📜" label="alerts" active={sheet === 'alerts'} onClick={() => toggle('alerts')} />
+          <Chip Icon={IconLedger} label="alerts" active={sheet === 'alerts'} onClick={() => toggle('alerts')} />
         )}
         {show('hud:kpi') && (
-          <Chip icon="📊" label="RIIO KPIs" active={kpiOpen} onClick={() => setKpiOpen(!kpiOpen)} />
+          <Chip Icon={IconReport} label="RIIO KPIs" active={kpiOpen} onClick={() => setKpiOpen(!kpiOpen)} />
+        )}
+        {show('hud:kpi') && (
+          <Chip
+            Icon={IconBuilding}
+            label="the network business"
+            active={directoratesOpen}
+            onClick={() => setDirectoratesOpen(!directoratesOpen)}
+          />
         )}
       </div>
 

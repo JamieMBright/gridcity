@@ -392,21 +392,26 @@ export function seedScenario(state: GameState, ctx: SimContext): void {
 
 // --- save / load -----------------------------------------------------------
 
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 
 /** Guard for untrusted save payloads; lives beside SAVE_VERSION so the two
  *  can never drift apart again (a stale guard silently discarded saves). */
 export function isSaveData(d: unknown): d is SaveData {
   if (typeof d !== 'object' || d === null) return false;
   const v = (d as { v?: unknown }).v;
-  // v9: streets re-laid on the tile-edge lattice + landmark precincts
-  // claimed new tiles - v8 saves' assets can sit on what is now road or
-  // protected fabric. (v8 moved the whole geography; v7 the id scheme.)
-  return typeof v === 'number' && v >= 9 && v <= SAVE_VERSION;
+  // v10: Wave-8 map-geometry overhaul — the Thames re-cut (deeper Isle of
+  // Dogs loop, smoother Woolwich reach, wider estuary fan), the major-road
+  // skeleton re-laid on a real-London spider's web, the local streets
+  // narrowed onto a denser frontage lattice, and the urban density field
+  // widened. Tile land/water/road/zone indices all move, so a v9 save's
+  // network assets can sit on what is now water, carriageway or protected
+  // fabric. (v9 re-laid streets on the tile-edge lattice; v8 moved the
+  // whole geography; v7 the id scheme.)
+  return typeof v === 'number' && v >= 10 && v <= SAVE_VERSION;
 }
 
 export interface SaveData {
-  v: 9;
+  v: 10;
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;

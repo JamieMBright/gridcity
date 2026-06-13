@@ -38,6 +38,9 @@ function runWeeks(weeks: number): { gen: number; demand: number } {
 }
 
 describe('connection application cadence', () => {
+  // 24 weeks of full london ticks over the denser Wave-8 map is ~4s of
+  // sim, which can brush past the 5s default under parallel test load — give
+  // it explicit headroom so it never flakes on timing.
   it('a neutral london game gets ~1 gen + ~1 demand application per game-week', () => {
     const weeks = 24;
     const { gen, demand } = runWeeks(weeks);
@@ -47,11 +50,11 @@ describe('connection application cadence', () => {
     expect(gen).toBeLessThanOrEqual(weeks * 2);
     expect(demand).toBeGreaterThanOrEqual(weeks * 0.5);
     expect(demand).toBeLessThanOrEqual(weeks * 2);
-  });
+  }, 30_000);
 
   it('is deterministic for a fixed seed', () => {
     expect(runWeeks(8)).toEqual(runWeeks(8));
-  });
+  }, 30_000);
 
   it('rolls an independent gen and demand stream off the seeded rng', () => {
     // a dense map so both gen sites (solar/battery on land) and demand

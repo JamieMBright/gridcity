@@ -135,17 +135,22 @@ const ROAD: Record<Exclude<RouteClass, 'rail'>, RoadStyle> = {
     half: 0.035, fill: RIBBON_PALETTE.laneFill, minBand: 2, casingMinBand: 3,
     fillFloor: [0, 0, 1, 1, 1], alpha: [0, 0, 0.9, 1, 1],
   },
+  // Narrowed for the high-street fix (docs/map-overhaul.md Phase 3): a
+  // residential street is a thin seam between terrace backs, not a band, so
+  // the building walls front hard against the kerb.
   street: {
-    half: 0.05, fill: RIBBON_PALETTE.streetFill, minBand: 1, casingMinBand: 2,
-    fillFloor: [0, 1.5, 1.2, 1, 1], alpha: [0, 0.65, 1, 1, 1],
+    half: 0.04, fill: RIBBON_PALETTE.streetFill, minBand: 1, casingMinBand: 2,
+    fillFloor: [0, 1.2, 0.8, 0.55, 0.5], alpha: [0, 0.65, 1, 1, 1],
   },
   arterial: {
-    half: 0.09, fill: RIBBON_PALETTE.arterialFill, minBand: 0, casingMinBand: 2,
-    fillFloor: [2.5, 3, 2, 1.5, 1.5], alpha: [1, 1, 1, 1, 1],
+    half: 0.075, fill: RIBBON_PALETTE.arterialFill, minBand: 0, casingMinBand: 2,
+    fillFloor: [2.2, 2.6, 1.6, 1.1, 1.0], alpha: [1, 1, 1, 1, 1],
   },
+  // motorways stay the signature far-zoom element, but not cartoonishly
+  // fat up close.
   motorway: {
     half: 0.15, fill: RIBBON_PALETTE.motorwayFill, minBand: 0, casingMinBand: 0,
-    fillFloor: [4, 5, 3, 2, 2], alpha: [1, 1, 1, 1, 1],
+    fillFloor: [4, 5, 2.4, 1.6, 1.6], alpha: [1, 1, 1, 1, 1],
   },
 };
 const RAIL_HALF = 0.05;

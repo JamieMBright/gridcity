@@ -12,6 +12,16 @@ import {
 import type { VoltageLevel } from '../sim/grid/types';
 import { fmtMoneyK, panelStyle, theme } from './theme';
 import { useUnlockGate } from './unlocks';
+import {
+  GEN_ICONS,
+  IconCable,
+  IconDepot,
+  IconDemolish,
+  IconInspect,
+  IconPylon,
+  SUB_ICONS,
+  type IconComponent,
+} from './icons';
 
 function sameTool(a: Tool, b: Tool): boolean {
   if (a.t !== b.t) return false;
@@ -21,7 +31,17 @@ function sameTool(a: Tool, b: Tool): boolean {
   return true;
 }
 
-function ToolButton({ tool, label, cost }: { tool: Tool; label: string; cost?: string }) {
+function ToolButton({
+  tool,
+  label,
+  cost,
+  Icon,
+}: {
+  tool: Tool;
+  label: string;
+  cost?: string;
+  Icon?: IconComponent | undefined;
+}) {
   const current = useAppStore((s) => s.tool);
   const setTool = useAppStore((s) => s.setTool);
   const active = sameTool(current, tool);
@@ -48,6 +68,11 @@ function ToolButton({ tool, label, cost }: { tool: Tool; label: string; cost?: s
       }}
     >
       <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+        {Icon && (
+          <span style={{ flex: 'none', display: 'flex', width: 17, justifyContent: 'center' }}>
+            <Icon size={16} />
+          </span>
+        )}
         {key && (
           <span
             style={{
@@ -190,6 +215,7 @@ export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
               tool={{ t: 'gen', gen: g }}
               label={GENS[g].name}
               cost={fmtMoneyK(GENS[g].capexK)}
+              Icon={GEN_ICONS[g]}
             />
           ))}
         </Section>
@@ -202,6 +228,7 @@ export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
               tool={{ t: 'sub', sub: s }}
               label={SUBS[s].name.split(' (')[0] ?? s}
               cost={fmtMoneyK(SUBS[s].capexK)}
+              Icon={SUB_ICONS[s]}
             />
           ))}
           <AutoConnectToggle />
@@ -239,18 +266,19 @@ export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
               tool={{ t: 'line', level: lv, build }}
               label={`${lv} kV ${build === 'underground' ? 'cable' : 'line'}`}
               cost={`${fmtMoneyK(LINES[lv].capexKPerTile[build])}/km`}
+              Icon={build === 'underground' ? IconCable : IconPylon}
             />
           ))}
         </Section>
       )}
       {showDepot && (
         <Section title="Operations">
-          <ToolButton tool={{ t: 'depot' }} label="Field depot" cost={fmtMoneyK(DEPOT.capexK)} />
+          <ToolButton tool={{ t: 'depot' }} label="Field depot" cost={fmtMoneyK(DEPOT.capexK)} Icon={IconDepot} />
         </Section>
       )}
       <Section title="Tools">
-        <ToolButton tool={{ t: 'inspect' }} label="Inspect" />
-        <ToolButton tool={{ t: 'demolish' }} label="Demolish" />
+        <ToolButton tool={{ t: 'inspect' }} label="Inspect" Icon={IconInspect} />
+        <ToolButton tool={{ t: 'demolish' }} label="Demolish" Icon={IconDemolish} />
       </Section>
       {ghost && (
         <div

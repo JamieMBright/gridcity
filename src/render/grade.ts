@@ -96,31 +96,43 @@ interface Key {
  *  follows the seasons. One analogous ramp throughout: gold → dusty pink
  *  → muted purple → navy. */
 function keysFor(dawn: number, dusk: number): Key[] {
+  // Owner (2026-06-13): "Its a bit disturbing the flashing day night cycle…
+  // make the change more subtle and its mostly done in the lights of the
+  // buildings." So we DELIBERATELY compress the global WASH: the world-fabric
+  // tint now swings only gently (night lifted from a dim 0x757db4 toward a
+  // soft dusk-lilac, day pulled back from near-white) — the eye reads
+  // time-of-day off the WINDOW GLOW, which still ramps the full 0→1. A
+  // bright-noon-to-dark-night tint swing is what flashes; warm windows
+  // coming on at dusk is what reads as cosy.
   const NIGHT: Omit<Key, 'h'> = {
-    skyTop: 0x070a1c,
-    skyBottom: 0x1b1430,
-    tint: 0x757db4, // cool navy wash — cosy, windows still read
+    skyTop: 0x0a0e22,
+    skyBottom: 0x221a38,
+    // a soft dusk-lilac wash, only ~one stop below day — the night READ now
+    // lives in the windows (glow:1), not in a dark global multiply
+    tint: 0xb9b2cc,
     glow: 1,
   };
   const DAY: Omit<Key, 'h'> = {
     skyTop: 0x5e6fa3, // soft lavender-blue, not noon white
     skyBottom: 0xf2c891, // warm haze at the horizon all day
-    tint: 0xffeed9, // late-afternoon gold cast
+    tint: 0xf6ecdc, // gentle warm gold cast (pulled back from near-white)
     glow: 0,
   };
   return [
     { h: 0, ...NIGHT },
     { h: dawn - 1.2, ...NIGHT },
-    // dawn: navy lifts through dusty pink
-    { h: dawn, skyTop: 0x2a2350, skyBottom: 0xe0697a, tint: 0xc9afc0, glow: 0.55 },
+    // dawn: the lilac warms through a soft pink — only a small tint move
+    { h: dawn, skyTop: 0x2a2350, skyBottom: 0xe0697a, tint: 0xd6c6d0, glow: 0.62 },
     { h: dawn + 1.4, ...DAY },
     { h: dusk - 2.4, ...DAY },
-    // golden hour: everything warms and the first windows come on
-    { h: dusk - 1.0, skyTop: 0x565f96, skyBottom: 0xf5b36e, tint: 0xffdfae, glow: 0.18 },
-    // sunset: orange horizon under a plum sky
-    { h: dusk - 0.2, skyTop: 0x4a3567, skyBottom: 0xff8a5e, tint: 0xf5c2a0, glow: 0.5 },
-    // dusk: pink dies to muted purple, the city carries the light
-    { h: dusk + 0.6, skyTop: 0x251d44, skyBottom: 0x8a4a78, tint: 0xab95c4, glow: 0.85 },
+    // golden hour: the SKY warms and the first windows come on; the world
+    // tint barely moves
+    { h: dusk - 1.0, skyTop: 0x565f96, skyBottom: 0xf5b36e, tint: 0xf3e2cc, glow: 0.3 },
+    // sunset: orange horizon under a plum sky — carried by the SKY, the
+    // world tint stays a warm neutral
+    { h: dusk - 0.2, skyTop: 0x4a3567, skyBottom: 0xff8a5e, tint: 0xe9d6cc, glow: 0.62 },
+    // dusk: pink dies to muted purple; the city carries the light (glow high)
+    { h: dusk + 0.6, skyTop: 0x251d44, skyBottom: 0x8a4a78, tint: 0xc7bcd2, glow: 0.9 },
     { h: dusk + 1.5, ...NIGHT },
     { h: 24, ...NIGHT },
   ];
@@ -206,13 +218,14 @@ const SEASON_TINTS: Array<[prefix: string, tints: Partial<Record<Season, number>
   // crops: spring flush of green, autumn cut to pale stubble, winter bare.
   // Multiply can only pull channels DOWN, so winter is drabbed (green
   // suppressed hard) rather than frosted lighter — bare-earth midwinter.
-  ['ground_field', { winter: 0x9c9aa8, spring: 0xc9e8a8, autumn: 0xe8d2a8 }],
-  ['ground_rape', { winter: 0x8e8a98, summer: 0xc2d49a, autumn: 0xd8c49a }],
+  ['ground_field', { winter: 0x9c9aa8, spring: 0xbcd6a0, autumn: 0xdccaa4 }],
+  ['ground_rape', { winter: 0x8e8a98, summer: 0xbccb96, autumn: 0xcdc098 }],
   ['ground_plough', { winter: 0xb8c0d6 }],
-  // grass: drab dormant in winter, vivid in spring, parched gold by August
-  ['ground_grass', { winter: 0xb2a298, spring: 0xd6f5c2, summer: 0xf5e9b8, autumn: 0xe8d8ae }],
-  ['ground_park', { winter: 0xbaaaa0, spring: 0xd9f7c6, summer: 0xf7ecbe, autumn: 0xeaddb6 }],
-  ['ground_moor', { winter: 0xaaa4b4, autumn: 0xe8d2b4 }],
+  // grass: drab dormant in winter, vivid in spring; summer holds a muted
+  // green-belt sward (NOT a parched American gold — owner: lusher greens)
+  ['ground_grass', { winter: 0xb2a298, spring: 0xccf0b6, summer: 0xdde8b0, autumn: 0xdcccaa }],
+  ['ground_park', { winter: 0xbaaaa0, spring: 0xceeeba, summer: 0xdeebb4, autumn: 0xdccfac }],
+  ['ground_moor', { winter: 0xaab2a4, spring: 0xcceeb4, autumn: 0xd2d2a8 }],
   ['ground_marsh', { winter: 0xa39c9e, autumn: 0xe6d6ae }],
   // canopy: bare-branch brown-grey in winter, amber blaze in autumn
   ['trees_', { winter: 0xa68e80, spring: 0xddffc8, autumn: 0xffc488 }],

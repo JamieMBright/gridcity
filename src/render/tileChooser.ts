@@ -108,15 +108,18 @@ export function groundSpriteFor(map: CityMap, x: number, y: number): string {
         if (x > 180 && Math.abs(y - riverCenterY(x)) < 9) {
           return `ground_marsh_${v % 2}`;
         }
-        // enclosed countryside: a patchwork of crops, parcel by parcel —
-        // wheat, rapeseed, ploughed earth, pasture, rough meadow
-        const p = parcelOf(x, y);
-        const kind = p % 11;
-        if (kind < 3) return `ground_field_${p % 2}`;
-        if (kind === 3) return 'ground_rape';
-        if (kind === 4) return 'ground_plough';
-        if (kind === 5) return 'ground_park'; // mown pasture
-        // 6..10: rough meadow grass
+        // enclosed countryside: each ORGANIC field (the variant carries the
+        // map's variable-size enclosure hash, not a rigid 4×4 grid) takes
+        // ONE coherent crop, so the belt reads as hedged English fields of
+        // honestly varied size rather than an American chequerboard. The
+        // mix is grass-led (green-belt, not arable monoculture): mostly
+        // pasture/meadow, a minority barley/rape/plough.
+        const kind = v % 13;
+        if (kind === 0 || kind === 1) return `ground_field_${v % 2}`; // barley
+        if (kind === 2) return 'ground_rape';
+        if (kind === 3) return 'ground_plough';
+        if (kind === 4 || kind === 5) return 'ground_park'; // mown pasture
+        // 6..12: rough meadow grass (the green-belt majority)
       }
       return `ground_grass_${v % 4}`;
     }

@@ -75,26 +75,25 @@ const RIVER_PTS: Array<[number, number]> = [
   [120, 86], // Tower Bridge
   [124, 89], // Wapping
   [127, 87], // Limehouse
-  [130, 92], // down the west side of the Isle of Dogs
-  [133, 96], // the loop bottom — Greenwich on the south bank
-  [136, 96],
-  [139, 89], // up the east side
+  [130, 93], // down the west side of the Isle of Dogs
+  [133, 98], // the loop bottom plunges deep — Greenwich on the south bank
+  [136, 99],
+  [139, 90], // up the east side, the peninsula poking back north
   [142, 84], // the Greenwich peninsula tip (the dome's tent)
-  [146, 88], // Blackwall
-  [152, 88], // Woolwich reach
-  [158, 92], // Gallions
-  [164, 97], // Barking / Halfway reach
-  [168, 99], // Erith rands
-  [172, 94], // Purfleet — the double bend
-  [176, 98], // Greenhithe
+  [148, 87], // Blackwall, the gentle S through the reaches
+  [154, 90], // Woolwich reach
+  [160, 94], // Gallions reach
+  [166, 98], // Barking / Halfway reach
+  [170, 96], // Erith rands
+  [173, 94], // Purfleet — the double bend
+  [176, 97], // Greenhithe
   [180, 96], // the Dartford narrows (the crossing)
-  [186, 99], // Gravesend reach
-  [194, 97], // Tilbury
-  [204, 93],
-  [214, 88], // Lower Hope, turning north-east
-  [228, 83], // Canvey
-  [242, 79],
-  [255, 76], // the open sea
+  [186, 98], // Gravesend reach
+  [194, 98], // Tilbury — the estuary holds broad and low
+  [206, 96],
+  [220, 92], // Lower Hope, easing north-east
+  [236, 88], // Canvey / Southend shore
+  [255, 86], // the open sea, the mouth wide
 ];
 
 /** River centreline lookup, sampled once from the control spline. */
@@ -126,7 +125,7 @@ export function riverHalfWidth(x: number): number {
   if (x < 166) return 2.2 + 0.6 * ((x - 150) / 16); // Barking reach
   if (x < 180) return 2.8 - 0.8 * ((x - 166) / 14); // narrowing to Dartford
   const t = (x - 180) / (LONDON_W - 180);
-  return 2 + 14.5 * t * t; // the estuary fans open
+  return 2 + 18 * t * t; // the estuary fans open wide past Tilbury to the sea
 }
 
 // --- Councils --------------------------------------------------------------
@@ -382,13 +381,32 @@ export function buildLondonMap(): CityMap {
     lakeBlob(cx, cy, r);
   }
 
-  // 2) Hills: the Chiltern edge NW, the North Downs along the south
+  // 2) Uplands: the Chiltern edge to the NW and the North Downs / Surrey
+  // Hills along the south are REAL geographic masses — lush green ridges,
+  // NOT a rock-wall rim around the map (owner, 2026-06-13: "the edges of
+  // the map are rock walls. Just stick to real towns"). The map margin no
+  // longer gets a blanket hill fill; instead an organic upland BAND hugs
+  // the true high ground (a soft sine ridge, ragged at its lower edge),
+  // and the rim resolves into ordinary countryside / sea / towns that the
+  // renderer fades at the edge. (EnvArt: detail at the transition, calm in
+  // the mass — the uplands read as country, not a wall.)
   for (let x = 0; x < w; x++) {
-    const ridgeN = 4 + 3 * Math.sin(x / 16) + rng.range(0, 2) + (x < 60 ? 3 : 0);
-    const ridgeS = h - 5 - 4 * Math.sin(x / 21) - rng.range(0, 2);
+    // the Chilterns are a NARROW ridge hugging the NW corner (only the
+    // genuinely high NW ground), the band thinning fast to the east; the
+    // North Downs are a narrow southern ridge, deepest in the SW. Kept
+    // tight so the uplands read as real ridges, not a broad swath, and the
+    // countryside between breathes (also keeps the sprite budget lean).
+    const chiltern = 5 + 3 * Math.sin(x / 18) + Math.max(0, (58 - x) / 11);
+    const downs = h - 7 - 3 * Math.sin(x / 22) - Math.max(0, (96 - x) / 18);
     for (let y = 0; y < h; y++) {
-      if (y < ridgeN || y > ridgeS) {
-        if (isLand(x, y)) terrain[idx(x, y)] = TERRAIN.hill;
+      if (!isLand(x, y)) continue;
+      // ragged lower edge so the upland dissolves into farmland, not a line
+      const jN = chiltern + rng.range(-1.5, 1.5);
+      const jS = downs - rng.range(-1.5, 1.5);
+      if (y < jN || y > jS) {
+        // a thin top/bottom rim stays land so the map edge is countryside,
+        // not a cliff (owner: "edges… are rock walls. Just stick to towns")
+        if (y >= 2 && y <= h - 3) terrain[idx(x, y)] = TERRAIN.hill;
       }
     }
   }
@@ -439,7 +457,7 @@ export function buildLondonMap(): CityMap {
     [[128, 76], [152, 60], [182, 50], [208, 34], [240, 24], [255, 20]], // A12 → Brentwood, Chelmsford, out east
     [[130, 78], [158, 64], [178, 60], [198, 58], [222, 56], [236, 62]], // A127 → Romford, Basildon, Southend
     [[128, 82], [148, 80], [166, 84], [182, 86], [196, 82], [212, 74], [228, 68], [238, 64]], // A13 along the estuary
-    [[122, bank(122, 1)], [130, 99], [142, 100], [158, 102], [174, 104], [188, 106], [206, 112], [226, 124], [240, 130], [255, 136]], // A2 → Dartford, Gravesend, Kent (south of the loop)
+    [[122, bank(122, 1)], [128, 102], [142, 103], [158, 104], [174, 105], [188, 107], [206, 112], [226, 124], [240, 130], [255, 136]], // A2 → Dartford, Gravesend, Kent (kept clear south of the deepened Isle of Dogs loop)
     [[116, bank(116, 1)], [114, 112], [110, 130], [106, 146], [104, 159]], // A23 south
     [[112, bank(112, 1)], [104, 102], [94, 106], [74, 120], [60, 128], [50, 140], [44, 152], [42, 159]], // A3 → Cobham, Guildford (south of the Battersea bend)
     [[108, 82], [88, 82], [70, 78], [52, 74], [34, 70], [16, 66], [0, 64]], // A4 → Slough, out west
@@ -485,18 +503,25 @@ export function buildLondonMap(): CityMap {
       );
       return (v - 0.5) * 0.26;
     };
-    const RMAX = 46;
+    // EnvArt density + 60-30-10 value hierarchy: the focal mass must
+    // dominate the inner map. RMAX widens so the gradient reaches the green
+    // belt before dying; the base lifts and the thresholds drop so the
+    // inner ~30 tiles are solid urbanCore; the hole-punching noise is
+    // CENTRE-WEIGHTED to near-zero in the core (calm in the mass) and only
+    // ragged at the green-belt transition (detail at the edge).
+    const RMAX = 60;
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         if (!isLand(x, y)) continue;
         const i = idx(x, y);
         const d = Math.hypot(x - CENTRE.x, y - CENTRE.y);
-        let v = 1.09 - d / RMAX + (boost[i] ?? 0) + noiseAt(x, y);
+        const noiseWeight = Math.max(0.22, Math.min(1, d / 40));
+        let v = 1.16 - d / RMAX + (boost[i] ?? 0) + noiseAt(x, y) * noiseWeight;
         // south of the river thins a touch sooner, like home
         if (y > riverCenterY(x)) v -= 0.04;
-        if (v >= 0.62) zone[i] = ZONE.urbanCore;
-        else if (v >= 0.46) zone[i] = ZONE.urban;
-        else if (v >= 0.3) zone[i] = ZONE.suburb;
+        if (v >= 0.58) zone[i] = ZONE.urbanCore;
+        else if (v >= 0.42) zone[i] = ZONE.urban;
+        else if (v >= 0.26) zone[i] = ZONE.suburb;
       }
     }
   }
@@ -747,9 +772,17 @@ export function buildLondonMap(): CityMap {
   const addRoute = (kind: TransportRoute['kind'], pts: Array<[number, number]>): void => {
     routes.push({ kind, pts });
   };
-  /** Arterials and country lanes take the in-town lattice treatment. */
+  /** Major roads (the spider's web) sweep as smooth real alignments — the
+   *  ribbon renderer rounds their corners, so the old lattice snap is
+   *  redundant AND it is exactly what staircased the arterials into a
+   *  zig-zag (docs/map-overhaul.md Phase 2). Reserve lattice-snapping for
+   *  LOCAL lanes only, where axis-aligned village runs still read right. */
+  const addArterial = (pts: Array<[number, number]>): void => {
+    addRoute('arterial', pts);
+  };
   const addRoad = (kind: 'arterial' | 'lane', pts: Array<[number, number]>): void => {
-    addRoute(kind, latticeThroughTowns(pts));
+    if (kind === 'arterial') addArterial(pts);
+    else addRoute(kind, latticeThroughTowns(pts));
   };
 
   // the M25, ringing the whole city — hand-laid on its real line: it
@@ -791,13 +824,16 @@ export function buildLondonMap(): CityMap {
   // (the M3 starts on the south bank: it never enters the river)
   addRoute('motorway', [[100, 78], [80, 76], [60, 72], [40, 68], [20, 64], [0, 62]]);
   addRoute('motorway', [[100, 101], [82, 105], [62, 112], [44, 116], [24, 122], [0, 126]]);
-  // the North + South Circulars: the inner ring road, lattice-laid, with
-  // its two river crossings as perpendicular bridges (Kew side at x=96,
-  // Blackwall side at x=143)
+  // the North + South Circulars: the inner ring road. Now a smooth arc
+  // (no lattice staircase), it crosses the river square-on at two
+  // perpendicular bridges — the Blackwall side EAST of the deepened Isle
+  // of Dogs loop (x=145, clear of the Greenwich peninsula tip at x=142)
+  // and the Kew side at x=96. The south-bank approach holds x≈145 before
+  // turning west so the arc never bows back across the loop's east arm.
   addRoad('arterial', [
-    [104, 62], [112, 60], [124, 60], [132, 63], [138, 68], [142, 74],
-    [143, bank(143, -1)], [143, bank(143, 1)], // the east crossing
-    [140, 97], [134, 103], [126, 104], [118, 103], [110, 102], [102, 103],
+    [104, 62], [112, 60], [124, 60], [132, 63], [140, 70], [145, 78],
+    [145, bank(145, -1)], [145, bank(145, 1)], // the east crossing, clear of the loop
+    [145, 99], [138, 103], [130, 104], [122, 104], [114, 103], [106, 103], [100, 103],
     [96, bank(96, 1)], [96, bank(96, -1)], // the west crossing
     [94, 87], [93, 80], [94, 72], [98, 66], [104, 62],
   ]);
@@ -823,8 +859,13 @@ export function buildLondonMap(): CityMap {
       if (!tail || tail[0] !== x1 || tail[1] !== y) pts.push([x1, y]);
       addRoute('arterial', pts); // lattice by construction
     };
-    bankPath(86, 170, -1);
-    bankPath(86, 160, 1);
+    // both embankments stop short of the Isle of Dogs loop (x≈127): past
+    // it the river weaves deep through the Greenwich loop and the Woolwich
+    // reaches, so a bank-hugging arterial would graze the water. The loop
+    // and the eastern reaches are served by the South Circular and the A2
+    // / A13 radials instead.
+    bankPath(86, 126, -1);
+    bankPath(86, 126, 1);
   }
   // the radials themselves
   for (const r of RADIALS) addRoad('arterial', r);
@@ -946,8 +987,14 @@ export function buildLondonMap(): CityMap {
       if (!inb(tx, ty)) continue;
       const i = idx(tx, ty);
       if (code === RC.street) {
+        // FRONTAGE (docs/map-overhaul.md Phase 3): the high-street fix.
+        // LOCAL STREETS through the city never clear their centre tile —
+        // they stamp only `streetTouch`, so the terrace KEEPS fronting the
+        // narrow carriageway and the grey road-moat closes to a thin seam
+        // of building wall on both kerbs. Only country LANES keep the
+        // centre-clearing (their cottages front a verge, not a wall).
         const near = Math.abs(sx - tx) < 0.33 && Math.abs(sy - ty) < 0.33;
-        const val = near ? RC.street : RC.streetTouch;
+        const val = route.kind === 'lane' && near ? RC.street : RC.streetTouch;
         if ((road[i] ?? 0) < val) road[i] = val;
       } else if ((road[i] ?? 0) < code) {
         road[i] = code;

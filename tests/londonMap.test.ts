@@ -131,9 +131,9 @@ describe('london map invariants', () => {
 
   it('no street, lane or arterial crosses the Thames away from a bridge', () => {
     // the designated crossings: Kingston/Richmond/Hammersmith and the
-    // central bridges, the Circular's two crossings (96, 143), the
+    // central bridges, the Circular's two crossings (96, 145), the
     // Staines town bridge (30), Tower Bridge (120) and the pier (238)
-    const BRIDGES = new Set([30, 74, 80, 88, 96, 102, 106, 110, 114, 117, 120, 143, 238]);
+    const BRIDGES = new Set([30, 74, 80, 88, 96, 102, 106, 110, 114, 117, 120, 145, 238]);
     for (const r of map.routes ?? []) {
       if (r.kind === 'rail' || r.kind === 'motorway') continue;
       for (const [sx, sy] of sampleRoute(r, 0.3)) {
@@ -146,6 +146,54 @@ describe('london map invariants', () => {
         }
       }
     }
+  });
+
+  it('no rock-wall rim: the extreme map edge is not blanketed in hill terrain', () => {
+    // owner: "the edges of the map are rock walls. Just stick to real
+    // towns." The top/bottom margin rows must NOT be a continuous hill
+    // band — the uplands are real geographic masses, not a cliff rim.
+    const rowHillFrac = (y: number): number => {
+      let hill = 0;
+      let land = 0;
+      for (let x = 0; x < map.width; x++) {
+        const t = map.terrain[y * map.width + x];
+        if (t === TERRAIN.water) continue;
+        land++;
+        if (t === TERRAIN.hill) hill++;
+      }
+      return land === 0 ? 0 : hill / land;
+    };
+    // the very outer rows are countryside/sea, never a hill wall
+    expect(rowHillFrac(0)).toBeLessThan(0.2);
+    expect(rowHillFrac(map.height - 1)).toBeLessThan(0.2);
+  });
+
+  it('the urban fabric is dense: a big continuous core fills the inner map', () => {
+    // denser than the old sparse blob (owner: "London is more dense than
+    // this"). Count built tiles inside ~30 of Charing Cross [118,80].
+    let core = 0;
+    for (let y = 50; y <= 110; y++) {
+      for (let x = 88; x <= 148; x++) {
+        const z = map.zone[y * map.width + x];
+        if (z === ZONE.urbanCore || z === ZONE.cbd) core++;
+      }
+    }
+    expect(core).toBeGreaterThan(800); // a solid inner mass, not a small patch
+  });
+
+  it('the radial road skeleton converges on the centre (a spider web, not a lattice)', () => {
+    // every arterial radial should have an endpoint near Charing Cross AND
+    // reach out toward the edge — the leading lines that carry the eye in.
+    const arterials = (map.routes ?? []).filter((r) => r.kind === 'arterial');
+    let convergent = 0;
+    for (const r of arterials) {
+      const near = r.pts.some(([x, y]) => Math.hypot(x - 118, y - 80) < 16);
+      const far = r.pts.some(
+        ([x, y]) => x <= 2 || x >= map.width - 2 || y <= 2 || y >= map.height - 2,
+      );
+      if (near && far) convergent++;
+    }
+    expect(convergent).toBeGreaterThanOrEqual(6); // the real radial bundle
   });
 
   it('to-scale landmarks reserve their full precincts', () => {
