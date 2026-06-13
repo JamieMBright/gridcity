@@ -1179,11 +1179,6 @@
 - [ ] **Map recognisability pass 2** (owner can't model 1M properties; keep it
       sensible/enjoyable): continue tuning until London "reads" at a glance.
 
-- [ ] **Existing GB generation from real data**: owner can provide the
-      Embedded Capacity Register extract (location + capacity of connected
-      generation). Integrate when supplied; Open Infrastructure Map judged
-      off-piste for now. (Hand-seeded real-ish plants shipped meanwhile.)
-
 - [x] **Generation footprints to scale (owner, 2026-06-12): "the new
       design for the bulk supply points [is] really good but you
       haven't applied that to like the coal power station — it should
@@ -1832,7 +1827,6 @@ Wave-lane ledger entries swept from Open on 2026-06-12 22:11:
       green; tsc + eslint clean for these files.
       [~] ghost previews on option hover deferred (multi-ghost renderer
       API is another lane's file); approve executes directly.
-
 
 ### Roadmap additions prompt (bill drill-down, directorates, story, suits/H&S)
 - [x] Added to ROADMAP.md as items 51–55 with full design/build/verify
