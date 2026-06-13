@@ -102,15 +102,19 @@ describe('progressive disclosure: per-step cumulative unlocks', () => {
     expect(s1.has('line:33')).toBe(false);
     // step 2 adds the inbox HUD surface (award the bid)
     expect(missionUnlocks(m1, 2).has('hud:inbox')).toBe(true);
-    // step 3 adds the distribution substation, cumulatively
+    // step 3 is the voltage-hierarchy PRIMER — teaches a concept, unlocks
+    // nothing new (the dist sub is still one step away)
     const s3 = missionUnlocks(m1, 3);
     expect(s3.has('gen:windOnshore')).toBe(true);
-    expect(s3.has('sub:dist')).toBe(true);
-    expect(s3.has('sub:grid')).toBe(false);
-    expect(s3.has('line:33')).toBe(false);
-    // step 4 adds the 33 kV line; the full set is now available
+    expect(s3.has('sub:dist')).toBe(false);
+    // step 4 adds the distribution substation, cumulatively
     const s4 = missionUnlocks(m1, 4);
-    expect(s4.has('line:33')).toBe(true);
+    expect(s4.has('sub:dist')).toBe(true);
+    expect(s4.has('sub:grid')).toBe(false);
+    expect(s4.has('line:33')).toBe(false);
+    // step 5 adds the 33 kV line; the full set is now available
+    const s5 = missionUnlocks(m1, 5);
+    expect(s5.has('line:33')).toBe(true);
     // a finished strip (undefined step) keeps everything unlocked
     const done = missionUnlocks(m1, undefined);
     expect(done.has('line:33')).toBe(true);
