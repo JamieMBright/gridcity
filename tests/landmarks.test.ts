@@ -33,8 +33,18 @@ describe('wave-9 landmarks', () => {
       const d = Math.hypot((t[0]?.[0] ?? 0) - tx, (t[0]?.[1] ?? 0) - ty);
       expect(d, `landmark ${id} near (${tx},${ty})`).toBeLessThanOrEqual(2);
     };
-    near(LANDMARK.wembley, 88, 60); // NW
-    near(LANDMARK.o2dome, 140, 90); // Greenwich peninsula
+    // the big multi-tile heroes (owner playtest 2026-06-13): centroid near
+    // their true relative spot rather than a single anchor tile
+    const nearCentroid = (id: number, tx: number, ty: number, n: number): void => {
+      const t = tilesOf(id);
+      expect(t.length, `landmark ${id} reserves its precinct`).toBeGreaterThanOrEqual(n);
+      const cx = t.reduce((s, [x]) => s + x, 0) / t.length;
+      const cy = t.reduce((s, [, y]) => s + y, 0) / t.length;
+      const d = Math.hypot(cx - tx, cy - ty);
+      expect(d, `landmark ${id} centroid near (${tx},${ty})`).toBeLessThanOrEqual(2.5);
+    };
+    nearCentroid(LANDMARK.wembley, 88, 60, 4); // NW, 2×2
+    nearCentroid(LANDMARK.o2dome, 140, 90, 6); // Greenwich peninsula, 3×3 (2 tiles fall in river)
     near(LANDMARK.palacemast, 118, 118); // S ridge
     near(LANDMARK.kewhouse, 86, 96); // river bend
     near(LANDMARK.bttower, 112, 72); // West End
@@ -44,7 +54,9 @@ describe('wave-9 landmarks', () => {
 
   it('reserves the multi-tile precincts in full (no stray holes)', () => {
     expect(tilesOf(LANDMARK.allypally)).toHaveLength(2); // 2×1
-    expect(tilesOf(LANDMARK.excel)).toHaveLength(2); // 2×1
+    expect(tilesOf(LANDMARK.excel)).toHaveLength(3); // 3×1 (the long ExCeL)
+    expect(tilesOf(LANDMARK.wembley)).toHaveLength(4); // 2×2
+    expect(tilesOf(LANDMARK.stadium)).toHaveLength(9); // 3×3 Olympic bowl
     // Heathrow's bespoke concrete island is an 8×3 stamp
     const hw = tilesOf(LANDMARK.heathrow);
     expect(hw).toHaveLength(24);
@@ -136,18 +148,23 @@ describe('Queen Elizabeth Olympic Park (Stratford)', () => {
     };
     const velo = one(LANDMARK.velodrome);
     const orbit = one(LANDMARK.orbit);
-    // the new park stadium (there is exactly one stadium, now in Stratford)
+    // the park stadium — now a dominant 3×3 precinct in Stratford (owner
+    // playtest 2026-06-13: the Olympic Stadium is enormous)
     const stad = tilesOf(LANDMARK.stadium);
-    expect(stad).toHaveLength(1);
+    expect(stad).toHaveLength(9);
+    const stadX0 = Math.min(...stad.map(([x]) => x));
+    const stadY0 = Math.min(...stad.map(([, y]) => y));
+    const stadY1 = Math.max(...stad.map(([, y]) => y));
     // all sit on the east bank of the Lea (x >= 132) in the Stratford band
-    for (const [x, y] of [velo, stad[0]!, orbit]) {
+    for (const [x, y] of [velo, [stadX0, stadY0] as [number, number], orbit]) {
       expect(x).toBeGreaterThanOrEqual(132);
       expect(y).toBeGreaterThanOrEqual(64);
       expect(y).toBeLessThanOrEqual(74);
     }
     // true relative order: VeloPark north of the stadium; Orbit east of it
-    expect(velo[1]).toBeLessThan(stad[0]![1]);
-    expect(orbit[0]).toBeGreaterThan(stad[0]![0]);
+    expect(velo[1]).toBeLessThan(stadY0);
+    expect(orbit[0]).toBeGreaterThan(Math.max(...stad.map(([x]) => x)));
+    void stadY1;
   });
 
   it('reserves Westfield as a full 2×2 retail precinct to the south-east', () => {

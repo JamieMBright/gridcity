@@ -17,15 +17,19 @@ const BLOCK_LANDMARKS: ReadonlySet<Landmark> = new Set<Landmark>([
   LANDMARK.dome,
   LANDMARK.towerBridge,
   LANDMARK.powerstation,
-  // Wave 9 multi-tile heroes: one SW-anchored sprite per reservation
-  // (wembley + the O2 are compact 1×1 icons, emitted per-tile like the
-  // stadium/arena — only the genuinely multi-tile ones go here)
   LANDMARK.allypally,
   LANDMARK.excel,
   LANDMARK.heathrow,
   // Westfield Stratford City: a 2×2 retail/quarter precinct (velodrome +
-  // the Orbit are compact 1×1 icons emitted per-tile like the stadium)
+  // the Orbit stay compact 1×1 icons emitted per-tile).
   LANDMARK.westfield,
+  // Owner playtest (2026-06-13): the hero venues are ENORMOUS in reality and
+  // read as dots at 1×1 — sized up to dominant multi-tile footprints, so they
+  // become SW-anchored block sprites too. Olympic Stadium 3×3, the O2 3×3,
+  // Wembley 2×2.
+  LANDMARK.stadium,
+  LANDMARK.o2dome,
+  LANDMARK.wembley,
 ]);
 
 const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {

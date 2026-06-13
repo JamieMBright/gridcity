@@ -15,40 +15,113 @@
 - [ ] **PLAYTEST FLURRY (owner, 2026-06-13 12:23, far-zoom screenshot).
       Process habit added to CLAUDE.md: screenshot at multiple zooms +
       per-landmark close-ups, critique honestly, BEFORE shipping.**
-  - [ ] SIGNAGE: landmark labels (yellow: Heathrow/Wembley/Kew/BT Tower/
-        O2/Alexandra Palace) must NOT show at far/top zoom — only town
-        labels. They clutter the overview. Gate landmark labels to
-        closer zoom bands; keep towns at far zoom.
-  - [ ] GLEAM is wrong: "looks like electricity" — the owner meant make
-        the landmark COLOURS POP (richer saturation / contrast / a
-        tasteful rim-light), NOT a lightning/electric glint. Replace the
-        electric gleam with a colour-pop treatment.
-  - [ ] LANDMARK SCALE: landmarks are tiny/buried. The O2 / Millennium
-        Dome is HUGE in reality; the Olympic Stadium is huge — both read
-        as dots. Take a zoomed-in screengrab of EACH landmark, compare
-        to the real thing, and SIZE THEM UP (multi-tile, dominant). O2
-        and stadium especially.
-  - [ ] STARTING ZOOM should be very far out (open on the whole-region
-        overview).
-  - [ ] BUILD LABEL: tapping a build tool should show an on-screen
+  - [x] SIGNAGE: landmark (gold) labels gated to mid/close zoom — gone
+        from the far overview, towns stay. VERIFIED (MAP/RENDER lane).
+  - [x] GLEAM → colour-pop: electric additive bloom + travelling glint
+        replaced by a warm sprite-tint colour-pop + a steady rim-light.
+        VERIFIED (MAP/RENDER lane).
+  - [x] LANDMARK SCALE: O2 3×3, Olympic Stadium 3×3, Wembley 2×2, ExCeL
+        3×1 (+ park aprons). VERIFIED (MAP/RENDER lane).
+  - [x] STARTING ZOOM: opens on the whole-region fit (very far out).
+        VERIFIED (MAP/RENDER lane).
+  - [x] BUILD LABEL: tapping a build tool should show an on-screen
         indicator of what you're about to build (e.g. "Building: Grid
-        substation").
-  - [ ] The EXPAND (») option on the build palette should be FROZEN /
+        substation"). — VERIFIED (UI/STORY lane, 2026-06-13)
+  - [x] The EXPAND (») option on the build palette should be FROZEN /
         accessible at all zoom levels (it currently isn't reachable from
-        some states).
-  - [ ] METRICS FROZEN 3 MONTHS: the rebuild grace exists (CI/CML +
+        some states). — VERIFIED (UI/STORY lane, 2026-06-13)
+  - [x] METRICS FROZEN 3 MONTHS: the rebuild grace exists (CI/CML +
         constraints suspended) — make it CLEAR in the OPENING MESSAGE
         that all metrics are frozen for the first 3 months.
-  - [ ] OPENING SCRIPT: fix the nonsense "the letter ends" phrasing
+        — VERIFIED (UI/STORY lane, 2026-06-13)
+  - [x] OPENING SCRIPT: fix the nonsense "the letter ends" phrasing
         (introduced in my mobile hotfix) and TRIM the story to TWO PAGES
-        MAX — it's too verbose.
-  - [ ] NOTHING PRE-EXISTING ON THE MAP: remove ALL seeded generation /
-        ECR / existing plants (estuary CCGTs, Lea plant, Essex solar,
-        etc.) — "all of it vanished in the vanishing." seedScenario
-        seeds no generation. (Decide iDNO estate subs: they're customer
-        demand sites awaiting connection — likely keep as demand, but
-        their grid link vanished; confirm against "nothing pre-existing".)
-        Update e2e baselines that assume seeded gens.
+        MAX — it's too verbose. — VERIFIED (UI/STORY lane, 2026-06-13)
+  - [x] NOTHING PRE-EXISTING ON THE MAP: seedScenario seeds NO generation
+        (EXISTING_GENERATION removed from state.ts + londonMap.ts). iDNO
+        NEW_ESTATES kept as customer DEMAND (load, not generation). e2e
+        baselines fine (relative deltas). VERIFIED (MAP/RENDER lane).
+
+### UI/STORY lane — playtest flurry (2026-06-13) — [x] VERIFIED
+- [x] OPENING SCRIPT trimmed to TWO beats (was 3); "the letter ends"
+      nonsense removed; closing beat rewritten to read naturally and now
+      states plainly that all metrics (CI/CML, constraint costs, the RIIO
+      report card) are FROZEN for the first 3 months. StoryIntro adds a
+      gold grace-period callout under the year-1 allowance + CML line.
+      (src/sim/scenario/story.ts, src/ui/StoryIntro.tsx)
+- [x] BUILD LABEL chip: a pinned top-centre "Building: Grid substation" /
+      "Placing: 132 kV line" chip shows the armed tool, catalog-named,
+      desktop + phone-landscape; hidden on inspect. Pure mapping
+      (src/ui/buildLabel.ts) + BuildLabelChip wired in App.tsx.
+- [x] FROZEN EXPAND: the mobile build-palette » expand affordance moved
+      OUT of the scrolling rail into a pinned tab (always rendered,
+      missions included) — reachable at all scroll/zoom/tool states.
+      (src/ui/MobileChrome.tsx)
+- [x] VERIFIED: vitest 530 green (incl. new story.test.ts, buildLabel.test.ts);
+      tsc -b + eslint + build clean; playwright app/build/campaign green
+      (2 renderer-init flakes passed on retry; story-dismiss + campaign
+      story-absent assertions intact). Shots: preview/w13ui-*.png — opening
+      both beats, chip (desktop sub + line, mobile), expand tab + open palette.
+
+### MAP/RENDER lane — playtest flurry (2026-06-13) — [x] VERIFIED
+- [x] SIGNAGE: MapLabel gained a `landmark` flag; gold NAMED_PLACES labels
+      now fade in only from sc≥0.20 (`landmarkAlpha`), a full band inside
+      the town band, so the far whole-region overview shows TOWNS ONLY.
+      (src/render/MapRenderer.ts buildLabels + the per-frame label loop.)
+- [x] GLEAM → COLOUR-POP (the owner: the old additive bloom "looks like
+      electricity"). Removed the radial gold bloom, the breathing pulse and
+      the travelling glass glint entirely. Replaced with: (1) a warm
+      sprite-TINT (HERO_POP_TINT 0xfff4e2) on hero structure sprites so
+      their colours stay rich while the dusk grade mutes the fabric — they
+      read as the focal 5% by saturation/value CONTRAST, not by glowing;
+      (2) a single STEADY warm rim-light arc on each hero's NE edge (no
+      pulse/sweep). Also dropped the electric `glint()` catch-lights from
+      the O2 masts. (MapRenderer drawGleam + paintTile/applySeason tints.)
+- [x] LANDMARK SCALE: the hero venues were 1×1 dots — sized up to dominant
+      multi-tile SW-anchored footprints with park aprons so they stand
+      proud:  O2/Millennium Dome 3×3 (tall billowing canopy + 12 spiking
+      masts), Olympic Stadium 3×3 (big bowl in the Olympic park), Wembley
+      2×2 (bowl + the great white arch, now thick + legible), ExCeL 3×1
+      (long dock-side halls). Westfield stays 2×2 (honest: smaller than the
+      stadium), VeloPark/Orbit stay 1×1. Reservations bumped → SAVE_VERSION
+      12→13 (justified in isSaveData). atlas stays <4096px (test green).
+      (landmarkSprites.ts, atlas.ts, tileChooser BLOCK_LANDMARKS,
+      londonMap.ts placement + park aprons; landmarks.test.ts updated.)
+- [x] STARTING ZOOM: sandbox opening now fits the WHOLE map via
+      cameraFitFor (was a fixed mid-zoom over the city). Missions still
+      override with their own lockToBounds fit an instant later.
+      (MapRenderer.init.)
+- [x] NOTHING PRE-EXISTING: EXISTING_GENERATION seeding removed from
+      seedScenario; the const deleted from londonMap.ts. iDNO NEW_ESTATES
+      kept as customer demand (load). e2e baselines use relative deltas so
+      they held; build.spec comment clarified. (state.ts, londonMap.ts,
+      build.spec.ts.)
+- [x] SAVE_VERSION 12→13 (landmark resize moves protected `landmark` tiles;
+      v12 saves retired). v:13 literal + guard floor + justification updated.
+- [x] VERIFIED: vitest 530 green (landmarks.test.ts updated for the new
+      footprints); tsc -b + eslint src/tests/e2e/tools + build clean;
+      playwright e2e/build.spec.ts + e2e/app.spec.ts FRESH-server green (7/7,
+      blank-grid base). DESIGN GATE (preview/w13-*.png, daytime + dusk):
+      • w13-far / w13-far-dusk: opens on the whole region; TOWN labels only,
+        zero gold landmark clutter — signage fix confirmed; dusk shows the
+        warm grade with NO electric glints. ✓
+      • w13-mid: LONDON label + landmark labels just fading in at sc=0.26;
+        blank grid (no seeded plants) confirmed. ✓
+      • w13-close: central heroes (St Paul's, Shard, Tower Bridge) pop with
+        warm richness vs the muted fabric — colour-pop reads, no glow. ✓
+      • w13-hero-o2: HUGE white dome + spiking yellow masts in the peninsula
+        apron — dominant, recognisably the O2. ✓
+      • w13-hero-stadium: big orange/white bowl dominating the Olympic park,
+        Orbit + VeloPark beside it. ✓
+      • w13-hero-wembley: bowl + the iconic white arch, legible in its green
+        apron. ✓
+      • w13-hero-excel: long 3×1 dock-side halls — honest relative scale. ✓
+      • w13-hero-westfield: 2×2 retail mass, correctly smaller than the
+        stadium. ✓
+      Honest critique: the O2/Wembley needed park aprons added (the dense
+      terraces were occluding them at first crop) — done. The baked-in
+      sprite gleam strokes (warm edge lines) were KEPT as rim light; only
+      the per-frame additive bloom/glint (the "electricity") was removed.
 
 - [x] **REVERT the new node logo (owner, 2026-06-13 12:06): "I like the
       existing wording on ElectriCity. The new logo is kinda trash.

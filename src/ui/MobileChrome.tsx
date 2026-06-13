@@ -25,7 +25,6 @@ import {
   IconInbox,
   IconInspect,
   IconLedger,
-  IconMenu,
   IconReport,
   IconSave,
   IconVan,
@@ -82,7 +81,7 @@ function railActive(current: Tool, item: Tool): boolean {
   return true;
 }
 
-function BuildRail({ onExpand }: { onExpand: () => void }) {
+function BuildRail() {
   const tool = useAppStore((s) => s.tool);
   const setTool = useAppStore((s) => s.setTool);
   const ug = tool.t === 'line' && tool.build === 'underground';
@@ -109,16 +108,6 @@ function BuildRail({ onExpand }: { onExpand: () => void }) {
         overscrollBehavior: 'contain',
       }}
     >
-      {!gate.active && (
-        <button
-          onClick={onExpand}
-          style={{ ...railBtn(false), display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          aria-label="open build menu"
-          title="Open the full build palette"
-        >
-          <IconMenu size={20} />
-        </button>
-      )}
       {items.map((item) => {
         const active = railActive(tool, item.tool);
         const key = hotkeyLabel(item.tool);
@@ -161,6 +150,48 @@ function BuildRail({ onExpand }: { onExpand: () => void }) {
         </button>
       )}
     </div>
+  );
+}
+
+/** The build-palette EXPAND (») affordance, pinned so it is reachable at
+ *  ALL zoom levels and tool/scroll states — it lives OUTSIDE the scrolling
+ *  build rail (which could carry it off-screen) and is always rendered
+ *  (missions included), so panning, zooming or arming a tool never hides
+ *  the way into the fuller detail palette. */
+function ExpandToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <button
+      data-tour="expand"
+      onClick={onToggle}
+      aria-label={open ? 'close build menu' : 'open build menu'}
+      title={open ? 'Close the full build palette' : 'Open the full build palette'}
+      style={{
+        position: 'absolute',
+        // tucked just outside the 44px rail, fixed to the top of the
+        // build column — never scrolls with the rail, never overlaps it
+        top: 44,
+        left: 50,
+        width: 30,
+        height: 40,
+        zIndex: 6,
+        borderRadius: '0 8px 8px 0',
+        border: `1px solid ${theme.navyLight}`,
+        borderLeft: 'none',
+        background: open ? theme.orange : 'rgba(16, 22, 48, 0.92)',
+        color: open ? theme.navy : theme.gold,
+        fontFamily: theme.font,
+        fontSize: 16,
+        fontWeight: 700,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 0,
+        boxShadow: '0 2px 10px rgba(6, 8, 20, 0.4)',
+      }}
+    >
+      {open ? '«' : '»'}
+    </button>
   );
 }
 
@@ -281,7 +312,8 @@ export function MobileChrome() {
 
   return (
     <>
-      <BuildRail onExpand={() => setSheet('build')} />
+      <BuildRail />
+      <ExpandToggle open={sheet === 'build'} onToggle={() => toggle('build')} />
       <div
         style={{
           position: 'absolute',

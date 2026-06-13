@@ -202,6 +202,10 @@ interface MapLabel {
   targetPx: number;
   priority: number;
   village: boolean;
+  /** Landmark-class label (Heathrow/Wembley/the O2…): gated to mid/close
+   *  zoom only so it never clutters the far whole-region overview, where
+   *  only TOWN names belong (owner playtest, 2026-06-13). */
+  landmark: boolean;
   cx: number;
   cy: number;
 }
@@ -380,12 +384,18 @@ export class MapRenderer {
   private glowWorld = new Container();
   private lightsSprite: Sprite | undefined;
   private bloomG = new Graphics();
-  /** The hero-landmark gleam: a warm specular bloom on the SAME additive
-   *  glow layer (so it rides the dusk grade, never fights it), pulsing
-   *  gently with the day/night glow + a slow sine, plus a travelling glint
-   *  across the glass heroes. Rebuilt when the map loads (static data). */
+  /** Hero-landmark COLOUR-POP (owner playtest, 2026-06-13: the old additive
+   *  "gleam" read as ELECTRICITY — a lightning glint. The fix is a tasteful
+   *  colour treatment, not a glowing effect: the heroes pop as the focal 5%
+   *  by CONTRAST. Two parts: (1) the hero structure sprites carry a warmer,
+   *  more saturated tint than the uniformly dusk-muted fabric around them, so
+   *  their own colours stay rich while the city greys into the golden-hour
+   *  wash (color-theory: saturation + value contrast = focal); (2) a single,
+   *  STEADY, very low warm rim arc catches each hero's sun-facing edge — a
+   *  rim-LIGHT, not a radial bloom or a travelling glint. No breathing pulse,
+   *  no sweep — nothing that reads as an energized object. */
   private gleamG = new Graphics();
-  /** Hero landmark anchors (tile centres + whether glass) for the gleam. */
+  /** Hero landmark anchors (tile centres + radius) for the rim treatment. */
   private gleamHeroes: Array<{ x: number; y: number; r: number; glass: boolean }> = [];
   /** Wet sheen + rain streaks + lightning, screen-space. */
   private sheenG = new Graphics();
@@ -519,13 +529,25 @@ export class MapRenderer {
     this.app.stage.addChild(this.glowWorld, this.sheenG, this.rainG, this.flashG, this.vignette);
     this.applySeason(seasonOf(this.atmoTime));
 
-    const scale = 0.5 / RES;
-    const focus = this.tileCentre(66, 80);
-    this.world.scale.set(scale);
-    this.world.position.set(
-      this.app.screen.width / 2 - focus.x * scale,
-      this.app.screen.height / 2 - focus.y * scale,
+    // OPEN ON THE WHOLE-REGION OVERVIEW (owner playtest, 2026-06-13: "starting
+    // zoom should be very far out"). Fit the entire map on screen rather than
+    // dropping the camera mid-zoom over the city. Missions override this an
+    // instant later via lockToBounds (their tiny map gets its own fit), so
+    // only the sandbox opening is affected.
+    const cam = cameraFitFor(
+      { x0: 0, y0: 0, x1: map.width - 1, y1: map.height - 1 },
+      {
+        screenW: this.app.screen.width,
+        screenH: this.app.screen.height,
+        halfW: HALF_W,
+        halfH: HALF_H,
+        paddingPx: 12 * RES,
+        minZoom: MIN_ZOOM,
+        maxZoom: MAX_ZOOM,
+      },
     );
+    this.world.scale.set(cam.scale);
+    this.world.position.set(cam.x, cam.y);
 
     this.applyZoomBand();
     this.buildLabels();
@@ -552,6 +574,7 @@ export class MapRenderer {
       color: number,
       priority: number,
       village: boolean,
+      landmark = false,
     ): void => {
       const t = new Text({
         text,
@@ -571,7 +594,7 @@ export class MapRenderer {
       const c = this.tileCentre(x, y);
       t.position.set(c.x, c.y - 20 * RES);
       this.labelLayer.addChild(t);
-      this.labels.push({ t, targetPx, priority, village, cx: c.x, cy: c.y });
+      this.labels.push({ t, targetPx, priority, village, landmark, cx: c.x, cy: c.y });
     };
     // UI screen-px floors (legible on a phone held landscape): LONDON 30,
     // towns 20, villages 14, named places 13. Priority drives the collision
@@ -591,8 +614,9 @@ export class MapRenderer {
     }
     for (const pl of NAMED_PLACES) {
       // gold codes "transport/place" distinct from town names (also smaller,
-      // so it's not colour-alone).
-      add(pl.x, pl.y, pl.name, 13, 0xffd277, 10, false);
+      // so it's not colour-alone). Landmark-class: gated to mid/close zoom so
+      // it stays OFF the far overview (only towns label there).
+      add(pl.x, pl.y, pl.name, 13, 0xffd277, 10, false, true);
     }
   }
 
@@ -821,7 +845,9 @@ export class MapRenderer {
         const struct = this.structureSprites.get(i);
         if (struct) {
           const name = structureSpriteFor(map, x, y);
-          struct.tint = (name ? seasonTintFor(name, season) : undefined) ?? 0xffffff;
+          struct.tint = name && MapRenderer.HERO_SPRITES.has(name)
+            ? MapRenderer.HERO_POP_TINT
+            : (name ? seasonTintFor(name, season) : undefined) ?? 0xffffff;
         }
       }
     }
@@ -1004,11 +1030,28 @@ export class MapRenderer {
     }
   }
 
-  /** The hero landmarks that earn the special gleam (env-art 5% hero rule):
-   *  the silhouette icons + glass towers, with a per-id glow radius and
-   *  whether they're glass (glass heroes get the travelling glint). The
-   *  civic kit (station/school/townhall…) is deliberately excluded so the
-   *  squint test lands on the heroes, not the fabric. */
+  /** Colour-pop tint for hero-landmark structure sprites (owner playtest,
+   *  2026-06-13): a warm, near-white tint that, multiplied against the
+   *  uniformly dusk-muted `city` container, leaves the heroes RICHER and a
+   *  touch WARMER than the greyed fabric around them — so they read as the
+   *  focal 5% by saturation/value contrast, with no glowing effect. Kept
+   *  gentle (a small warm lift), not a spotlight. */
+  private static readonly HERO_POP_TINT = 0xfff4e2;
+
+  /** Is this structure-sprite name a hero landmark (gets the colour pop +
+   *  the rim-light)? Mirrors GLEAM_HEROES, by sprite name. */
+  private static readonly HERO_SPRITES: ReadonlySet<string> = new Set([
+    'lm_spire', 'lm_gherkin', 'lm_dome', 'lm_parliament', 'lm_eye', 'lm_fortress',
+    'lm_bridge', 'lm_power', 'lm_stadium', 'lm_wembley', 'lm_o2dome', 'lm_bttower',
+    'lm_allypally', 'lm_excel', 'lm_palacemast', 'lm_kewhouse', 'lm_orbit',
+    'lm_velodrome', 'lm_westfield',
+  ]);
+
+  /** The hero landmarks that earn the special rim-light + colour pop
+   *  (env-art 5% hero rule): the silhouette icons + glass towers, with a
+   *  per-id rim radius. The civic kit (station/school/townhall…) is
+   *  deliberately excluded so the squint test lands on the heroes, not the
+   *  fabric. (`glass` is retained as data but no longer drives a glint.) */
   private static readonly GLEAM_HEROES: Partial<Record<Landmark, { r: number; glass: boolean }>> = {
     [LANDMARK.spire]: { r: 30, glass: true }, // the Shard
     [LANDMARK.gherkin]: { r: 24, glass: true },
@@ -1060,41 +1103,38 @@ export class MapRenderer {
     }
   }
 
-  /** The per-frame hero gleam on the additive glow layer: a warm specular
-   *  bloom (sunset gold ~#ffe6b0, the complement of the navy dusk) that
-   *  pulses gently with the day/night glow + a slow sine, and a travelling
-   *  glint sweeping the glass heroes. Coordinated with the beauty pass: it
-   *  rides bloomG's sibling on glowWorld, so it dims by day and warms the
-   *  heroes at night exactly as the doctrine wants. */
-  private drawGleam(glow: number, phase: number): void {
+  /** The per-frame hero RIM-LIGHT (NOT the old electric gleam). A single,
+   *  steady, very low warm arc catching each hero's sun-facing (NE) edge —
+   *  golden-hour light grazing a landmark, not a glowing/electrified object.
+   *  No breathing pulse, no radial bloom, no travelling glint: those read as
+   *  electricity (owner playtest). It still rides the additive glowWorld so
+   *  it ties off by day and warms a touch at dusk, but capped so low it never
+   *  blooms — the heroes pop by sprite-colour CONTRAST (lifted tints), this
+   *  is only the finishing edge-light. `phase` is unused now (kept steady).*/
+  private drawGleam(glow: number): void {
     this.gleamG.clear();
     if (this.gridViewOn || this.gleamHeroes.length === 0) return;
-    // a gentle breathing pulse (never a flash): floor it so the heroes hold
-    // a faint golden-hour glint even by day, swelling toward night
-    const breathe = 0.82 + 0.18 * Math.sin(phase * 1.3);
-    const base = (0.32 + 0.68 * glow) * breathe;
+    // a steady amount, gently warmer toward dusk — capped low so it's a rim,
+    // never a halo (floor keeps a faint catch-light even by day)
+    const base = 0.34 + 0.32 * glow;
     if (base <= 0.01) return;
-    const GOLD = 0xffe6b0;
+    const GOLD = 0xffe7b6;
     for (const h of this.gleamHeroes) {
-      for (const [mul, a] of [
-        [2.0, 0.05],
-        [1.25, 0.1],
-        [0.7, 0.16],
-      ] as const) {
-        this.gleamG
-          .ellipse(h.x, h.y, h.r * mul, h.r * mul * 0.62)
-          .fill({ color: GOLD, alpha: a * base });
-      }
-      // a bright specular core pip on every hero
-      this.gleamG.ellipse(h.x, h.y - h.r * 0.2, h.r * 0.28, h.r * 0.2).fill({ color: 0xfff3d6, alpha: 0.22 * base });
-      // travelling glint on the glass heroes: a slim highlight sweeping up
-      if (h.glass) {
-        const t = (phase * 0.35 + (h.x % 7) / 7) % 1;
-        const gy = h.y + h.r * 0.6 - t * h.r * 1.6;
-        this.gleamG
-          .ellipse(h.x + (t - 0.5) * h.r * 0.5, gy, h.r * 0.5, h.r * 0.12)
-          .fill({ color: 0xfff6e2, alpha: 0.5 * base * (1 - Math.abs(t - 0.5) * 1.4) });
-      }
+      // a thin sun-facing rim arc across the top-right of the hero's cap:
+      // an open stroke following the NE quarter of its silhouette ellipse
+      const ry = h.r * 0.6;
+      const arc = (width: number, alpha: number): void => {
+        for (let k = 0; k <= 7; k++) {
+          const a = -Math.PI * 0.5 + (k / 7) * (Math.PI * 0.55); // top → NE
+          const px = h.x + Math.cos(a) * h.r * 0.94;
+          const py = h.y + Math.sin(a) * ry;
+          if (k === 0) this.gleamG.moveTo(px, py);
+          else this.gleamG.lineTo(px, py);
+        }
+        this.gleamG.stroke({ color: width > 1.5 * RES ? GOLD : 0xfff1d4, width, alpha, cap: 'round' });
+      };
+      arc(2.4 * RES, 0.12 * base);
+      arc(1.0 * RES, 0.4 * base);
     }
   }
 
@@ -1401,7 +1441,11 @@ export class MapRenderer {
       const s = new Sprite(struct);
       const o = this.frameOffset.get(structName);
       s.position.set(baseX + (o?.ox ?? 0), baseY + (o?.oy ?? 0));
-      if (this.seasonNow) s.tint = seasonTintFor(structName, this.seasonNow) ?? 0xffffff;
+      // hero landmarks take the warm colour-pop tint (focal-5% contrast);
+      // everything else takes its seasonal tint (or none)
+      s.tint = MapRenderer.HERO_SPRITES.has(structName)
+        ? MapRenderer.HERO_POP_TINT
+        : (this.seasonNow ? seasonTintFor(structName, this.seasonNow) ?? 0xffffff : 0xffffff);
       s.zIndex = x + y;
       this.structureLayer.addChild(s);
       this.structureSprites.set(i, s);
@@ -1722,9 +1766,10 @@ export class MapRenderer {
     // game still settles the dusk wash and pulses its "look here" rings)
     this.stepAtmosphere(dt);
     this.bobPhase += dt;
-    // the hero-landmark gleam rides the glow layer (built once when the map
-    // loaded); pulse it on the eased grade glow + the shared bobPhase
-    this.drawGleam(this.grade?.glow ?? 0, this.bobPhase);
+    // the hero-landmark rim-light rides the glow layer (built once when the
+    // map loaded); steady warm edge keyed only to the eased grade glow — no
+    // pulse/sweep (those read as electricity, owner playtest 2026-06-13)
+    this.drawGleam(this.grade?.glow ?? 0);
     {
       // labels: visible zoomed out, gone close in, each held at a CONSTANT
       // on-screen px floor. The layer rides the world scale `sc`, so a
@@ -1741,12 +1786,18 @@ export class MapRenderer {
         // at far zoom the country-scale view shows only LONDON + big towns,
         // like the reference map. 0 at sc≤0.12, full by sc≥0.2.
         const villageAlpha = Math.max(0, Math.min(1, (sc - 0.12) / 0.08));
+        // landmark-class names (Heathrow/Wembley/the O2…) are gated even
+        // tighter — they stay OFF the far whole-region overview entirely and
+        // only fade in at mid/close zoom, so the opening overview shows just
+        // town names (owner playtest, 2026-06-13). 0 at sc≤0.20, full by
+        // sc≥0.28 — a full band inside the town band.
+        const landmarkAlpha = Math.max(0, Math.min(1, (sc - 0.2) / 0.08));
         // measured on-screen half-extents, for the overlap declutter
         const boxes: Array<{ l: MapLabel; hw: number; hh: number; show: boolean }> = [];
         for (const l of this.labels) {
           const k = (l.targetPx / 64) * inv;
           l.t.scale.set(k);
-          const base = l.village ? villageAlpha : 1;
+          const base = l.landmark ? landmarkAlpha : l.village ? villageAlpha : 1;
           l.t.alpha = base;
           if (base <= 0.02) {
             l.t.visible = false;
