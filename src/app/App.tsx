@@ -286,13 +286,14 @@ export function App() {
         ))}
       {chrome && <BuildLabelChip />}
       {chrome && <Hud compact={compact} />}
-      {chrome && <Minimap />}
-      {/* RENDER/POLISH lane (#38/#48): camera bookmarks + photo mode, both
-          self-contained floating controls; bookmarks hide themselves in
-          photo mode, PhotoMode owns the clean-frame bar. FLAGGED additive
-          mount (App.tsx is shared with the UI lane). */}
-      {chrome && <CameraBookmarks />}
-      {!menuOpen && <PhotoMode />}
+      {/* Minimap, camera bookmarks and photo mode are desktop-oriented
+          floating widgets. On a phone they crowd the edges and overlapped
+          the right chip column (fave/photo) and the bottom clock bar (the
+          "map" pill hid the date), so they're desktop-only — the whole
+          phone screen is already the navigable map. (owner mobile audit) */}
+      {chrome && !isMobile && <Minimap />}
+      {chrome && !isMobile && <CameraBookmarks />}
+      {!menuOpen && !isMobile && <PhotoMode />}
       {!photoMode && <Toast />}
       {!photoMode && <Tutorial />}
       {chrome && <BalancePanel />}

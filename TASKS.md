@@ -12,6 +12,32 @@
 
 ## Open
 
+- [ ] **MOBILE LANDSCAPE LAYOUT OVERHAUL (owner, 2026-06-13 20:42, with a
+      real iPhone 14/16 Pro Max landscape screenshot). The overlap is
+      "really horrid" — be FAR more critical of mobile design/layout.**
+  - [ ] Build an ACCURATE phone-landscape repro to iterate against: real
+        Pro Max landscape viewport + iOS safe-area insets, screenshot and
+        critique HARD before claiming mobile works (design-gate doctrine).
+  - [ ] **Top-centre collision**: the freq/price ticker (48.48 Hz · £/MWh ·
+        g/kWh) overlaps the "BUILDING Capacitor bank" label; the news
+        ticker runs along the very top too. De-conflict the top band.
+  - [ ] **"BUILDING X" label** should sit ABOVE the build pane (palette),
+        not float top-centre over the ticker.
+  - [ ] **Right rail**: the camera-bookmark (fave/star) + photo-mode icons
+        COVER the right-side HUD panel buttons. Separate/stack them so
+        nothing overlaps.
+  - [ ] **Bottom bar**: the "map N:.." button covers the date. Fix the
+        bottom-bar layout so date + clock + speed + skip + actions all fit
+        without overlap.
+  - [ ] **Fat side margins on iOS 16 Pro Max** — intentional? Audit
+        viewport-fit=cover + env(safe-area-inset-*) so the map fills the
+        screen and chrome respects the notch/home-indicator (no dead bands).
+  - [ ] **ASSET ENCYCLOPEDIA (new feature)**: the player needs to know what
+        each asset IS. An expandable detail panel giving a plain-English
+        breakdown + imagery (e.g. what a capacitor bank is, what it does,
+        when to use it) so the user can identify each build option. Wire it
+        from the palette / inspector.
+
 - [ ] **FAVOUR LOGGING IN (owner, 2026-06-13 14:28): with ranks +
       city unlocks, login matters more.** Direction: GUEST play stays
       fully fine for LONDON sandbox + TUTORIALS (localStorage). But
