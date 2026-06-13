@@ -12,6 +12,20 @@
 
 ## Open
 
+- [ ] **Olympic Park, Stratford (owner, 2026-06-13 09:26): "Id like
+      london to have the Olympic park in london with the stadium
+      velodrome arcelormittal and westfield."** Add the Queen Elizabeth
+      Olympic Park as a recognisable landmark cluster at its true
+      position (Stratford, east London, north bank near the Lower Lea
+      valley): **London/Olympic Stadium** (bowl + lighting masts),
+      **Lee Valley VeloPark velodrome** (the curved pringle roof),
+      **ArcelorMittal Orbit** (the red twisting helter-skelter tower —
+      a glass/steel hero with the gleam), and **Westfield Stratford
+      City** (big retail mass). Bespoke art-is-code sprites, lofi style;
+      true relative placement + tile reservations like the other
+      landmark precincts. Folds into the Wave 9 landmark work (added at
+      integration — the running lane's scope is fixed) or a follow-up.
+
 - [ ] **Rebuild grace: CI/CML clock + constraint payments (owner,
       2026-06-13 09:15).** Two related asks; implement at Wave 9
       integration (tick.ts is lane-locked right now).
