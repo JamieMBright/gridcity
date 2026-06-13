@@ -12,6 +12,84 @@
 
 ## Open
 
+- [ ] **REVERT the new node logo (owner, 2026-06-13 12:06): "I like the
+      existing wording on ElectriCity. The new logo is kinda trash.
+      Revert those changes."** Restore the OLD ElectriCity branding:
+      the ELECTRI(orange)/CITY(slate) wordmark + the old pylon-bolt
+      logo.svg/logotype.png. Surgical revert (keep the brownfield work
+      and everything since b8d50d1): delete src/ui/Logo.tsx, tools/
+      genIcons.mjs, tools/rasterize.mjs, docs/logo-concept.md; App.tsx
+      Wordmark back to the old <img logo.svg> + ELECTRI/CITY spans;
+      StartMenu hero back to <img logo.svg> + <img logotype.png>;
+      checkout the old public/{logo.svg,icon.svg,apple-touch-icon.png,
+      icon-512.png,logotype.png} from d061cf8; revert e2e/app.spec.ts
+      Electri/City → ELECTRI/CITY. ATOMIC at Wave 12 integration (App.tsx
+      currently imports the new LogoMark; the running UX lane is editing
+      App.tsx — can't half-revert). Old versions already captured.
+
+### Wave-12 SIM-CORE lane — multi-city FOUNDATION: de-GB seams + CityScenario v2 (docs/multi-city-and-rank.md P0+P1)
+- [x] **P0 SEAM 1 — FREQUENCY profile-driven — VERIFIED.** The 50 Hz
+      nominal / 47.5 floor / 1.5 droop literals in `src/sim/market/
+      frequency.ts` now come from a `PowerSystemProfile` (`src/sim/
+      powerProfile.ts` → `LONDON_POWER`). `islandFrequencyHz(deficit,
+      profile?)` defaults to GB, so the dispatch caller (and every old
+      caller) is bit-identical; NYC/Rio (60 Hz) is just data. `NOMINAL_HZ`/
+      `FREQ_FLOOR_HZ` re-export the London constants. dispatch threads
+      `ctx.profile.power`.
+- [x] **P0 SEAM 2 — WEATHER profile-driven — VERIFIED.** `COLDEST_DOY`,
+      the season cosine, the GB sun arc (16.5−8.5·s, amp 1−0.45·s), the
+      Atlantic REGIME envelopes, and the winter-peak `hpProfile` in
+      `src/sim/events/weather.ts` now read a `WeatherProfile`
+      (`LONDON_WEATHER`). `seasonFactor`/`sunFactor`/`domesticProfile`/
+      `hpProfile`/`coolingFactor`/`thermalDerate`/`stepWeather` all take an
+      OPTIONAL profile defaulting to GB ⇒ bit-identical. Summer-peak cities
+      phase-shift the cosine to `peakDoy`; `summerness()`/winterness flip
+      cooling-vs-heating to the right half-year. REGIMES + RegimeSpec moved
+      onto the profile so the table and the state machine can't drift.
+      `render/grade.ts`'s no-arg `seasonFactor` stays London (untouched).
+- [x] **P0 SEAM 3 — BILL / generation-ownership profile-driven — VERIFIED.**
+      `DOMESTIC_NETWORK_SHARE` 0.32 / `DOMESTIC_ENERGY_SHARE` 0.4 /
+      `RETAIL_UPLIFT` 3.0 / `SUPPLY_FIXED_YR` 150 in `src/sim/regulation/
+      bill.ts` now live on an `EconomyProfile` (`LONDON_ECONOMY`; named
+      exports re-export it). `computeBill` gains OPTIONAL `economy` +
+      `generation`, defaulted to GB ⇒ bit-identical. The real fork — the
+      gen-recovery branch — is wired: `generation.ownership==='owned'`
+      (HK/Shanghai/Cairo/Dubai) annuitizes gen capex into the NETWORK pot
+      and zeroes the PPA line; London's liberalised `'tender'` (PPA on the
+      energy line, gen excluded from DUoS) stays the default. tick threads
+      `ctx.profile.economy/generation`.
+- [x] **P1 CITYSCENARIO v2 — VERIFIED.** `src/data/cityRegistry.ts`'s
+      `CityScenario` gains optional `power`/`weatherProfile`/`economy`/
+      `generation`/`regulator`/`difficulty`/`unlockAtRank` — ALL OPTIONAL,
+      defaulting to London via `resolveProfile()`/`profileOf()` →
+      `LONDON_PROFILE`. The london scenario (and all 5 missions) declare
+      NONE, so they resolve to exactly LONDON_PROFILE. `SimContext` carries
+      the resolved `profile` (scenario DATA derived from scenarioId, NEVER
+      serialized — `newContext` rebuilds it from the save's scenarioId like
+      the map, so **NO SAVE_VERSION bump**, justified). Threaded:
+      scenario → newContext → tick/dispatch/frequency/weather/bill/worker.
+- [x] **DETERMINISM PROOF — VERIFIED.** All 470 pre-existing tests pass
+      UNCHANGED (the seams are pure refactors — that IS the bit-identical
+      proof). New `tests/powerProfile.test.ts` (16) asserts London's
+      profile reproduces every prior literal and that profile-less ==
+      London across a full-year hour-sweep, AND that a throwaway 60 Hz /
+      summer-peak profile (NOT shipped) bends frequency/season/heating/
+      cooling/bill differently. New `tests/cityScenario.test.ts` (6):
+      London + every mission resolve to LONDON_PROFILE, two independent
+      1000-tick London runs produce a bit-identical bill/freq/weather/
+      served/rngState trace, and per-block overrides fall back cleanly.
+      `npx vitest run` green (sim lane: 507 pass; the 2 reds —
+      `cbPalette` tritanopia + an `eventLog` parallel flake — are the
+      concurrent UX lane's files, not sim-core). `tsc -b` + full `eslint
+      src tests e2e tools` + `npm run build` clean; `playwright test
+      e2e/build.spec.ts` 4/4 green on a FRESH server.
+- [ ] **NEXT WAVE (out of scope here):** the actual cities (Sydney first,
+      then Hong Kong's owned-gen fork, then the rest as data + one mechanic
+      each — `*Map.ts` + a CityScenario block) and the operator RANK +
+      city-UNLOCK-offer + Supabase `progression` meta-layer (docs P2–P5).
+      The regulator `'profit-cap'`/`'cost-of-service'` framings + the
+      `hydroDriven`/`baseloadFloor` knobs are typed hooks only, dormant.
+
 ### Tier-3 UX lane — bill chart · KPI tooltips · undo history · save slots (ROADMAP #28/#36/#27/#34, this prompt)
 - [x] **#28 BILL-OVER-TIME CHART — VERIFIED.** A stacked-area chart of the
       £/household/yr bill + four components (network DUoS / wholesale energy
@@ -74,6 +152,21 @@
       (844×390): preview/ux-{billchart,kpitooltip,undolist,saveslots}-
       {desktop,mobile}.png (+ ux-billchart-crop / ux-kpitooltip-crop) —
       chart readable, tooltips legible, undo list usable, save slots clear.
+
+### Wave 12 UX/polish lane — minimap · event-log filters · colour-blind · net-zero · alert ack/snooze (ROADMAP #26/#30/#32/#33/#39, this prompt)
+- [ ] **#32 Colour-blind mode** — alternative deuteranopia/protanopia/
+      tritanopia-safe palettes for the status (ok/warn/danger), voltage
+      levels and loading heatmap; theme tokens + render palette swap;
+      settings toggle; localStorage-persisted; value/shape paired with hue.
+- [ ] **#26 Minimap** — corner collapsible overview canvas (network +
+      viewport rect, click/drag to pan); reads a flagged read-only
+      MapRenderer accessor; no second Pixi app.
+- [ ] **#33 Net-zero dashboard** — snapshot carbon-intensity + gen mix +
+      renewable share; carbon trend, % low-carbon, worst source.
+- [ ] **#30 Filterable event log** — AlertsFeed gains category filters
+      (faults/planning/weather/market/finance) + search.
+- [ ] **#39 Alert acknowledge / snooze** — ack (dismiss) or snooze N min;
+      persisted in the store.
 
 ### Logo / brand redesign prompt (owner, 2026-06-13)
 - [x] **New brand mark from a blank concept** — VERIFIED. Explored 4
