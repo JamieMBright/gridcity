@@ -23,6 +23,7 @@ import {
   IconBuilding,
   IconDemolish,
   IconDepot,
+  IconHelp,
   IconInbox,
   IconInspect,
   IconLedger,
@@ -72,6 +73,17 @@ const RAIL: RailItem[] = [
 
 function hex(c: number): string {
   return `#${c.toString(16).padStart(6, '0')}`;
+}
+
+/** Deep-link key for the Asset Guide when a build tool is armed (matches the
+ *  guide entry keys: gen:… / sub:… / line:… / depot); undefined opens the
+ *  guide at the top. */
+function guideFocusFor(tool: Tool): string | undefined {
+  if (tool.t === 'gen') return `gen:${tool.gen}`;
+  if (tool.t === 'sub') return `sub:${tool.sub}`;
+  if (tool.t === 'line') return `line:${tool.level}`;
+  if (tool.t === 'depot') return 'depot';
+  return undefined;
 }
 
 function railActive(current: Tool, item: Tool): boolean {
@@ -299,6 +311,8 @@ export function MobileChrome() {
   const setDirectoratesOpen = useAppStore((s) => s.setDirectoratesOpen);
   const savesOpen = useAppStore((s) => s.savesOpen);
   const setSavesOpen = useAppStore((s) => s.setSavesOpen);
+  const guideOpen = useAppStore((s) => s.guideOpen);
+  const setGuideOpen = useAppStore((s) => s.setGuideOpen);
   const gate = useUnlockGate();
   const show = (key: string): boolean => !gate.active || gate.has(key);
   const openApps =
@@ -355,6 +369,12 @@ export function MobileChrome() {
             onClick={() => setDirectoratesOpen(!directoratesOpen)}
           />
         )}
+        <Chip
+          Icon={IconHelp}
+          label="asset guide"
+          active={guideOpen}
+          onClick={() => setGuideOpen(true, guideFocusFor(tool))}
+        />
         <Chip Icon={IconSave} label="save slots" active={savesOpen} onClick={() => setSavesOpen(true)} />
       </div>
 

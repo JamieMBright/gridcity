@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { AlertsFeed, EventLog } from '../ui/AlertsFeed';
+import { AssetGuide } from '../ui/AssetGuide';
 import { BalancePanel } from '../ui/BalancePanel';
 import { BillPanel } from '../ui/BillPanel';
 import { BuildLabelChip } from '../ui/BuildLabelChip';
@@ -309,6 +310,7 @@ export function App() {
       <RotatePrompt />
       <HudTour />
       <HotkeyHelp />
+      <AssetGuide />
       {chrome && <TemplatePaste />}
     </div>
   );

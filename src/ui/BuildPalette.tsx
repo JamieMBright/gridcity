@@ -30,6 +30,7 @@ import {
   IconCable,
   IconDepot,
   IconDemolish,
+  IconHelp,
   IconInspect,
   IconPylon,
   SUB_ICONS,
@@ -516,6 +517,47 @@ function SubMvaPicker({ sub }: { sub: SubType }) {
   );
 }
 
+/** "ⓘ guide" affordance: opens the Asset Guide. If a build tool is armed,
+ *  it deep-links straight to that asset's entry (the spotKey already matches
+ *  the guide entry keys: gen:…, sub:…, line:…, depot). */
+function GuideButton() {
+  const tool = useAppStore((s) => s.tool);
+  const setGuideOpen = useAppStore((s) => s.setGuideOpen);
+  const armed =
+    tool.t === 'gen' || tool.t === 'sub' || tool.t === 'line' || tool.t === 'depot';
+  const focus = armed ? spotKey(tool) : undefined;
+  return (
+    <button
+      onClick={() => setGuideOpen(true, focus)}
+      title={
+        armed
+          ? 'Open the Asset Guide on the armed tool — what it is, what it does, when to use it'
+          : 'Asset Guide — what every build option is, in plain English'
+      }
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        width: '100%',
+        padding: '5px 9px',
+        background: 'transparent',
+        color: theme.gold,
+        border: 'none',
+        borderRadius: 5,
+        fontFamily: theme.font,
+        fontSize: 12,
+        cursor: 'pointer',
+        textAlign: 'left',
+      }}
+    >
+      <span style={{ flex: 'none', display: 'flex', width: 17, justifyContent: 'center' }}>
+        <IconHelp size={16} />
+      </span>
+      <span>Asset guide{armed ? ' — this tool' : ''}</span>
+    </button>
+  );
+}
+
 const GEN_ORDER: GenType[] = [
   'gasCCGT',
   'gasPeaker',
@@ -637,6 +679,7 @@ export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
       <Section title="Tools">
         <ToolButton tool={{ t: 'inspect' }} label="Inspect" Icon={IconInspect} />
         <ToolButton tool={{ t: 'demolish' }} label="Demolish" Icon={IconDemolish} />
+        <GuideButton />
       </Section>
       <TemplateSection />
       {ghost && (

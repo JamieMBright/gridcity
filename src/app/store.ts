@@ -123,6 +123,12 @@ interface AppState {
   /** The lessons page (tutorial curriculum + star ratings) is open. */
   lessonsOpen: boolean;
   setLessonsOpen: (open: boolean) => void;
+  /** The Asset Guide (browsable build-option encyclopedia) is open. */
+  guideOpen: boolean;
+  /** A deep-link key (e.g. 'sub:capbank') to open the guide on; cleared
+   *  when the panel closes. Opening with a focus auto-expands that entry. */
+  guideFocus: string | undefined;
+  setGuideOpen: (open: boolean, focus?: string | undefined) => void;
   /** Hotkey cheat-sheet overlay open (#29). */
   helpOpen: boolean;
   setHelpOpen: (open: boolean) => void;
@@ -400,6 +406,10 @@ export const useAppStore = create<AppState>((set) => ({
   setTourActive: (tourActive) => set({ tourActive }),
   lessonsOpen: false,
   setLessonsOpen: (lessonsOpen) => set({ lessonsOpen }),
+  guideOpen: false,
+  guideFocus: undefined,
+  setGuideOpen: (guideOpen, focus) =>
+    set({ guideOpen, guideFocus: guideOpen ? focus : undefined }),
   helpOpen: false,
   setHelpOpen: (helpOpen) => set({ helpOpen }),
   pasteTemplate: undefined,
