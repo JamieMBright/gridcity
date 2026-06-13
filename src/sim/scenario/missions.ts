@@ -314,7 +314,10 @@ export const MISSIONS: Mission[] = [
       {
         text:
           'Developers are pricing the site — run time forward (▶▶▶) and watch the INBOX. ' +
-          'When a bid lands, AWARD it: the turbines appear, spinning and waiting for your wires.',
+          'Each bid builds the same turbines but quotes two prices: the energy £/MWh goes on ' +
+          "customers' energy bill, and the curtail £ is what you'd owe to switch them off — " +
+          'lower is better on both. AWARD the best bid: the turbines appear, spinning and waiting ' +
+          'for your wires.',
         done: (s) => s.inbox.tenders.some((t) => t.status === 'awarded'),
         unlocks: ['hud:inbox'],
         spot: 'inbox',
@@ -330,8 +333,10 @@ export const MISSIONS: Mission[] = [
       },
       {
         text:
-          'Last hop: arm the 33 KV LINE, click the wind farm, then the substation — ' +
-          'wooden poles march the route and the chevrons start to flow.',
+          'Now wire it up. This wind farm has a 33 kV connection, so run 33 kV circuits from it ' +
+          'to your substation. Pick the 33 KV LINE, click the wind farm, then click the ' +
+          'substation — wooden poles march the route and power starts to flow. The line tool ' +
+          'stays armed for the next run; press Esc (or click the same point twice) to stop.',
         done: (s) => hasLine(s, 33) && s.stats.servedCustomers > 0,
         unlocks: ['line:33'],
         spot: 'line:33',
@@ -367,9 +372,10 @@ export const MISSIONS: Mission[] = [
       },
       {
         text:
-          'Try a 33 kV line from the plant — refused: offshore wind lands at 132 kV, and a ' +
-          'line needs a matching BAY at both ends. Place a GRID SUBSTATION (132/33 kV) ' +
-          'beside the village: it owns both bays and steps the voltage down.',
+          'Offshore wind lands at 132 kV — inspect the turbines to see their connection ' +
+          'voltage. That is too high for a 33 kV line, and every line needs a matching BAY at ' +
+          'both ends. Place a GRID SUBSTATION (132/33 kV) beside the village: it owns both ' +
+          'bays and steps the voltage down to 33 kV.',
         done: (s) => s.assets.some((a) => a.kind === 'sub' && a.sub === 'grid' && !a.idno),
         unlocks: ['sub:grid'],
         focus: M2_VILLAGE,
@@ -404,8 +410,9 @@ export const MISSIONS: Mission[] = [
     steps: [
       {
         text:
-          'Thornwood Vale is already wired — through ten miles of woodland. Trees and ' +
-          'overhead lines are old enemies, and a storm is forming out in the Atlantic.',
+          "Thornwood Vale's supply runs through ten miles of woodland. Trees and overhead " +
+          'lines are old enemies, and a storm is forming out in the Atlantic — time to get ' +
+          'ready.',
         focus: M3_TOWN,
       },
       {
@@ -514,9 +521,10 @@ export const MISSIONS: Mission[] = [
     steps: [
       {
         text:
-          'Pennyford reads its bills line by line. Capital is unlimited — but every pound ' +
-          `you spend lands on customers. Serve the whole town with network charges at or ` +
-          `under £${M5_DUOS_TARGET} per household per year.`,
+          'Pennyford reads its bills line by line. The network operator can elect any solution ' +
+          'they see fit within the allowances set by The Regulator — but every pound lands on ' +
+          `customer bills. Serve the whole town with network charges at or under £${M5_DUOS_TARGET} ` +
+          'per household per year.',
         focus: M5_TOWN,
       },
       {
