@@ -221,6 +221,22 @@ export const NEW_ESTATES: Array<{ x: number; y: number; r: number }> = [
 export const FLAG_SHOPS = 1;
 export const FLAG_RUNWAY = 2;
 
+/** Airports for the render-side air layer (flight arcs, planes, shadows).
+ *  Purely additive scenery data: NOT part of CityMap, never serialized
+ *  into saves — no SAVE_VERSION implications. Heathrow's runway tiles
+ *  (FLAG_RUNWAY) already exist; a City-airport entry would need runway
+ *  tiles in the Royal Docks first (map-geometry change, own PR). */
+export interface AirportSpec {
+  name: string;
+  /** Terminal tile (the landmark anchor). */
+  x: number;
+  y: number;
+  /** Runway heading: 'EW' = westerly operation (take off/land to the west). */
+  hdg: 'EW';
+}
+
+export const AIRPORTS: AirportSpec[] = [{ name: 'Heathrow', x: 65, y: 87, hdg: 'EW' }];
+
 /** Named places shown by the inspector (central termini, the airport). */
 export const NAMED_PLACES: Array<{ x: number; y: number; name: string }> = [
   { x: 114, y: 78, name: "King's Cross" },
@@ -826,7 +842,10 @@ export function buildLondonMap(): CityMap {
   addRoad('lane', [[90, 128], [106, 122], [120, 114]]); // Epsom → Croydon
   addRoad('lane', [[120, 114], [126, 130], [132, 146]]); // Croydon → Oxted
   addRoad('lane', [[132, 146], [148, 144], [162, 138]]); // Oxted → Sevenoaks
-  addRoad('lane', [[188, 106], [206, 110]]); // Gravesend → Hoo
+  // Gravesend → Hoo: an axis-aligned run along the lattice through
+  // Gravesend's fabric, then a clean sweep across the open marsh edge —
+  // the old single shallow diagonal staircased through town
+  addRoad('lane', [[188, 106], [198, 106], [203, 108], [206, 110]]);
   addRoad('lane', [[206, 110], [216, 118], [225, 124]]); // Hoo → the A2
   addRoad('lane', [[22, 36], [40, 40], [64, 42]]); // Amersham → Watford
   addRoad('lane', [[64, 42], [80, 34], [98, 22]]); // Watford → St Albans
@@ -838,7 +857,10 @@ export function buildLondonMap(): CityMap {
   addRoad('lane', [[234, 22], [228, 38], [222, 50]]); // Maldon → Rayleigh
   addRoad('lane', [[198, 58], [210, 54], [222, 50]]); // Basildon → Rayleigh
   addRoad('lane', [[222, 50], [230, 56], [236, 62]]); // Rayleigh → Southend
-  addRoad('lane', [[182, 92], [178, 90], [177, 85]]); // Tilbury → Grays → the A13
+  // Tilbury → Grays → the A13: proper lattice runs (west along the dock
+  // row, then straight up Grays' high street to the A13) — the old
+  // diagonal pair staircased through the chalk-pit terraces
+  addRoad('lane', [[182, 92], [178, 92], [178, 90], [178, 85], [177, 85]]);
   addRoad('lane', [[142, 62], [150, 64], [158, 64]]); // Chigwell → Romford
 
   // railways out of the central termini, every line ending at a town or

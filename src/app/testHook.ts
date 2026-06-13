@@ -18,6 +18,12 @@ export interface EcTestApi {
   openLand(count: number): Array<{ x: number; y: number }>;
   /** Drive the sim directly (build/demolish/speed …). */
   sendCommand(cmd: Command): void;
+  /** Pin the renderer's atmosphere (time-of-day grade / weather) for
+   *  screenshots — render-only, the sim never sees it. No args clears. */
+  setAtmosphere(
+    simTimeMin?: number,
+    weather?: { cloud: number; wind: number; regime?: string },
+  ): void;
 }
 
 declare global {
@@ -35,6 +41,7 @@ export function installTestHook(renderer: MapRenderer): void {
     setZoom: (scale) => renderer.setZoom(scale),
     getState: () => useAppStore.getState(),
     sendCommand: (cmd) => sendCommand(cmd),
+    setAtmosphere: (simTimeMin, weather) => renderer.overrideAtmosphere(simTimeMin, weather),
     openLand: (count) => {
       const out: Array<{ x: number; y: number }> = [];
       for (let y = 4; y < map.height - 4 && out.length < count; y += 2) {

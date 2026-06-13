@@ -603,7 +603,7 @@ panels.
 
 ## Tier 4 — polish & meta
 
-### 41. Day/night sky grading
+### ~~41. Day/night sky grading~~ — SHIPPED (Wave 6 beauty lane; summary in TASKS.md)
 **What/Why.** Windows already light at dusk; grading the ambient scene
 with the clock completes the lofi promise ("powering an area literally
 makes it glow").
@@ -615,7 +615,7 @@ stronger window/streetlight bloom; transitions over ~30 game-min.
 for the city container.
 **Verify.** Screenshot strip at 06/12/18/23h.
 
-### 42. Rain & storm visuals
+### ~~42. Rain & storm visuals~~ — SHIPPED (Wave 6 beauty lane; summary in TASKS.md)
 **What/Why.** Storms are mechanically loud but visually silent; cosy
 rain is in the art brief.
 **Design.** Rain streak particle pass + darker grade when wind>0.7;
@@ -635,7 +635,7 @@ existing pulse.
 remaining time); crane slew = small rotor-style animation hook.
 **Verify.** Preview at three progress stages.
 
-### 44. Seasonal field art
+### ~~44. Seasonal field art~~ — SHIPPED (Wave 6 beauty lane; summary in TASKS.md)
 **What/Why.** With item 5's seasons, the countryside should agree:
 harvest golds in autumn, bare ploughs and frost in winter.
 **Design.** Crop tints shift by calendar quarter; snow dusting on a

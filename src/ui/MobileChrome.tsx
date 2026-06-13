@@ -134,16 +134,18 @@ function BuildRail({ onExpand }: { onExpand: () => void }) {
 function railBtn(active: boolean): React.CSSProperties {
   return {
     flex: 'none',
-    width: 36,
-    height: 36,
-    borderRadius: 7,
+    // 40px in a 44px rail: with the rail padding every tap target
+    // clears the 44pt touch floor (game-UI doctrine, sweaty thumbs)
+    width: 40,
+    height: 40,
+    borderRadius: 8,
     border: 'none',
     background: active ? theme.orange : 'transparent',
     color: active ? theme.navy : theme.offWhite,
     fontFamily: theme.font,
     fontSize: 14,
     cursor: 'pointer',
-    lineHeight: '36px',
+    lineHeight: '40px',
     padding: 0,
   };
 }
@@ -169,13 +171,14 @@ function Chip({
       onClick={onClick}
       style={{
         position: 'relative',
-        width: 36,
-        height: 36,
-        borderRadius: 7,
+        // 42px + the column gap clears the 44pt touch-target floor
+        width: 42,
+        height: 42,
+        borderRadius: 9,
         border: `1px solid ${active ? theme.orange : theme.navyLight}`,
         background: active ? theme.orange : 'rgba(16, 22, 48, 0.88)',
         color: active ? theme.navy : theme.offWhite,
-        fontSize: 15,
+        fontSize: 16,
         cursor: 'pointer',
         padding: 0,
       }}
@@ -284,7 +287,7 @@ export function MobileChrome() {
       {/* tap-to-inspect details, tucked under the chip column */}
       {sheet === undefined && tool.t === 'inspect' && (
         <InfoPanel
-          frame={{ top: 44, right: 44, width: 'min(230px, calc(100vw - 104px))', fontSize: 12 }}
+          frame={{ top: 44, right: 52, width: 'min(230px, calc(100vw - 112px))', fontSize: 12 }}
         />
       )}
     </>

@@ -54,6 +54,10 @@ export const RIBBON_PALETTE = {
   railBallast: 0x4a4555,
   railSteel: 0x9aa4b5,
   railFar: 0x2b2440,
+  /** Cross-tick symbology (OS Landranger): cream ticks across the line. */
+  railTick: 0xe8e2d2,
+  /** Station platform slab beside the line. */
+  platform: 0xc9c2b4,
   sleeper: 0x6e5a43,
   dash: 0xe8e2d2,
   parapet: 0xb8b2c4,
@@ -146,6 +150,8 @@ const ROAD: Record<Exclude<RouteClass, 'rail'>, RoadStyle> = {
 };
 const RAIL_HALF = 0.05;
 const RAIL_FAR_HALF = 0.03;
+/** One cartographic cross-tick every this many tiles of railway. */
+export const RAIL_TICK_SPACING = 1.5;
 
 /** Deck lift above the waterline, world px, per route class — used by the
  *  bridge tessellation AND the vehicle animator so cars ride the deck. */
@@ -190,6 +196,10 @@ export interface RibbonPath {
 }
 export interface JunctionNode { u: number; v: number; kind: RouteClass }
 export interface Overpass { pathIx: number; s: number }
+/** A platform slab beside a rail path at a station landmark. `side` is the
+ *  sign of the offset along the path's LEFT normal ((dv, -du)) that points
+ *  toward the landmark. */
+export interface StationSlab { pathIx: number; s: number; side: 1 | -1 }
 export interface BridgeSpan {
   pathIx: number;
   s0: number;
@@ -205,6 +215,8 @@ export interface TransportGeometry {
   roundabouts: Array<{ u: number; v: number }>;
   overpasses: Overpass[];
   spans: BridgeSpan[];
+  /** Station platforms, derived from `lm_station` landmarks beside lines. */
+  stations: StationSlab[];
 }
 
 const geomCache = new WeakMap<CityMap, TransportGeometry>();
@@ -472,7 +484,55 @@ export function transportGeometry(map: CityMap): TransportGeometry {
     }
   }
 
-  const geom: TransportGeometry = { fine, coarse, junctions, roundabouts, overpasses, spans: merged };
+  // station platforms: a slab beside the line wherever a rail path passes
+  // close to a station landmark (the central termini sit ON their lines;
+  // town stations are placed one tile off the nearest rail sample). All
+  // derived — no CityMap change.
+  const stations: StationSlab[] = [];
+  if (map.landmark) {
+    for (let i = 0; i < map.landmark.length; i++) {
+      if (map.landmark[i] !== LANDMARK.station) continue;
+      const tx = i % map.width;
+      const ty = Math.floor(i / map.width);
+      let best: StationSlab | undefined;
+      let bestD = 1.6;
+      for (let p = 0; p < fine.length; p++) {
+        const path = fine[p];
+        if (!path || path.kind !== 'rail') continue;
+        for (let k = 0; k + 1 < path.pts.length; k++) {
+          const a = path.pts[k];
+          const b = path.pts[k + 1];
+          if (!a || !b) continue;
+          const du = b.u - a.u;
+          const dv = b.v - a.v;
+          const len2 = du * du + dv * dv;
+          if (len2 < 1e-9) continue;
+          const tt = Math.min(1, Math.max(0, ((tx - a.u) * du + (ty - a.v) * dv) / len2));
+          const pu = a.u + du * tt;
+          const pv = a.v + dv * tt;
+          const d = Math.hypot(tx - pu, ty - pv);
+          if (d < bestD) {
+            const ln = Math.sqrt(len2);
+            // left normal (the ribbon offset axis): (dv, -du)
+            const side: 1 | -1 = ((tx - pu) * dv + (ty - pv) * -du) / ln >= 0 ? 1 : -1;
+            bestD = d;
+            best = { pathIx: p, s: (path.cum[k] ?? 0) + tt * ln, side };
+          }
+        }
+      }
+      if (best) stations.push(best);
+    }
+    // termini share tiles with their approach fans: merge slabs that landed
+    // on the same stretch of the same line
+    stations.sort((a, b) => a.pathIx - b.pathIx || a.s - b.s);
+    for (let i = stations.length - 1; i > 0; i--) {
+      const a = stations[i];
+      const b = stations[i - 1];
+      if (a && b && a.pathIx === b.pathIx && Math.abs(a.s - b.s) < 1.4) stations.splice(i, 1);
+    }
+  }
+
+  const geom: TransportGeometry = { fine, coarse, junctions, roundabouts, overpasses, spans: merged, stations };
   geomCache.set(map, geom);
   return geom;
 }
@@ -834,22 +894,55 @@ export function emitRouteRibbons(map: CityMap, opts: RibbonOptions, sink: Ribbon
     }
   }
 
-  // pass 4 — rail, after roads (it bridges/level-crosses them)
+  // pass 4 — rail, after roads (it bridges/level-crosses them). Identity
+  // doctrine (P5): the classic map symbology — a dark line with cream
+  // cross-ticks — at every band below the sleeper zoom, so a railway can
+  // never be misread as a thin street.
   {
     const farHalf = Math.max(RAIL_FAR_HALF, pxToTiles(2, scale) / 2);
     const ballastHalf = Math.max(RAIL_HALF, pxToTiles(1.6, scale) / 2);
+    /** Perpendicular quad centred on the line every RAIL_TICK_SPACING t. */
+    const emitTicks = (
+      sl: SlicePts,
+      halfLen: number,
+      halfWid: number,
+      alpha: number,
+    ): void => {
+      const walk = makeWalker(sl);
+      const first = sl.s[0] ?? 0;
+      const last = sl.s[sl.s.length - 1] ?? 0;
+      for (let s = first + RAIL_TICK_SPACING * 0.5; s < last; s += RAIL_TICK_SPACING) {
+        const a = walk(s);
+        if (!a) continue;
+        const nu = a.dv;
+        const nv = -a.du;
+        const flat: number[] = [];
+        for (const [du2, dv2] of [
+          [nu * halfLen - a.du * halfWid, nv * halfLen - a.dv * halfWid],
+          [nu * halfLen + a.du * halfWid, nv * halfLen + a.dv * halfWid],
+          [-nu * halfLen + a.du * halfWid, -nv * halfLen + a.dv * halfWid],
+          [-nu * halfLen - a.du * halfWid, -nv * halfLen - a.dv * halfWid],
+        ] as const) {
+          const [x, y] = ground(a.u + du2, a.v + dv2, 0);
+          flat.push(x, y);
+        }
+        sink(flat, P.railTick, alpha, 'routes');
+      }
+    };
     for (let p = 0; p < paths.length; p++) {
       const path = paths[p];
       if (path?.kind !== 'rail') continue;
       for (const sl of slicesFor(p)) {
         if (band <= 1) {
+          // far zoom: line + cross-ticks (never "thin street")
           ribbonQuads(sl.pts, sl.s, farHalf, 0, ground, quad(P.railFar, 0.92));
+          emitTicks(sl, farHalf * 2.6, Math.max(0.014, pxToTiles(0.7, scale)), 0.9);
           continue;
         }
         ribbonQuads(sl.pts, sl.s, ballastHalf + extra * 0.8, 0, ground, quad(P.casing, 0.85));
         ribbonQuads(sl.pts, sl.s, ballastHalf, 0, ground, quad(P.railBallast, 1));
         if (band >= 3) {
-          // sleepers then twin steel
+          // close zoom: ballast bed + sleeper ticks + twin steel
           const walk = makeWalker(sl);
           const first = sl.s[0] ?? 0;
           const last = sl.s[sl.s.length - 1] ?? 0;
@@ -876,7 +969,26 @@ export function emitRouteRibbons(map: CityMap, opts: RibbonOptions, sink: Ribbon
             ribbonQuads(sl.pts, sl.s, 0.006, side, ground, quad(P.railSteel, 0.95));
           }
         } else {
+          // default zoom: cross-ticks poking past the ballast + thin steel
+          emitTicks(sl, ballastHalf * 1.7, Math.max(0.012, pxToTiles(0.55, scale)), 0.75);
           ribbonQuads(sl.pts, sl.s, 0.006, 0, ground, quad(P.railSteel, 0.55));
+        }
+      }
+    }
+
+    // station platform slabs beside the line at their named landmarks
+    if (band >= 2) {
+      for (const st of geom.stations) {
+        const path = paths[st.pathIx];
+        if (!path) continue;
+        const sl = slicePath(path, st.s - 0.7, st.s + 0.7);
+        if (!sl) continue;
+        const off = st.side * (ballastHalf + extra * 0.8 + 0.055);
+        ribbonQuads(sl.pts, sl.s, 0.05 + extra * 0.6, off, ground, quad(P.casing, 0.9));
+        ribbonQuads(sl.pts, sl.s, 0.05, off, ground, quad(P.platform, 1));
+        if (band >= 3) {
+          // canopy strip along the platform's back edge
+          ribbonQuads(sl.pts, sl.s, 0.016, off + st.side * 0.028, ground, quad(P.parapet, 0.9));
         }
       }
     }
@@ -1016,4 +1128,64 @@ export function emitRouteRibbons(map: CityMap, opts: RibbonOptions, sink: Ribbon
       }
     }
   }
+}
+
+// --- boat wakes (P6) ----------------------------------------------------------
+
+/** Hard per-frame cap on wake quads — the layer must stay trivially cheap. */
+export const WAKE_MAX_SEGS = 60;
+export const WAKE_COLOR = 0xdfe9f2;
+
+export interface WakeBoat {
+  /** Hull position in world px (already projected + lane-offset). */
+  x: number;
+  y: number;
+  /** Unit FORWARD direction of travel, in world px. */
+  nx: number;
+  ny: number;
+  /** Hull length in world px — the wake scales with the vessel. */
+  size: number;
+}
+
+/** V-wake foam trailing each moving boat: two diverging arms of three
+ *  segments each, alpha fading with age (distance astern). Pure world-px
+ *  geometry, deterministic, capped — rebuilt per frame ONLY while boats
+ *  are visible at the current zoom band. Returns the quad count. */
+export function emitBoatWakes(
+  boats: WakeBoat[],
+  sink: (pts: number[], alpha: number) => void,
+): number {
+  let segs = 0;
+  for (const b of boats) {
+    if (segs + 6 > WAKE_MAX_SEGS) break;
+    const bx = -b.nx;
+    const by = -b.ny;
+    // lateral spread, squashed in screen-y so the V lies in the water plane
+    const lx = -b.ny;
+    const ly = b.nx * 0.55;
+    for (const side of [1, -1] as const) {
+      let px = b.x + bx * b.size * 0.55 + side * lx * b.size * 0.16;
+      let py = b.y + by * b.size * 0.55 + side * ly * b.size * 0.16;
+      for (let k = 1; k <= 3; k++) {
+        const d = b.size * (0.55 + k * 0.85);
+        const w = b.size * (0.16 + k * 0.34);
+        const cx = b.x + bx * d + side * lx * w;
+        const cy = b.y + by * d + side * ly * w;
+        const dx = cx - px;
+        const dy = cy - py;
+        const len = Math.hypot(dx, dy) || 1;
+        const half = (1.7 - k * 0.35) * (b.size / 10);
+        const ox = (-dy / len) * half;
+        const oy = (dx / len) * half;
+        sink(
+          [px + ox, py + oy, cx + ox, cy + oy, cx - ox, cy - oy, px - ox, py - oy],
+          0.42 - k * 0.11,
+        );
+        segs++;
+        px = cx;
+        py = cy;
+      }
+    }
+  }
+  return segs;
 }

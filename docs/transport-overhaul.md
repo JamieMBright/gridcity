@@ -340,17 +340,34 @@ full local Playwright suite before merging (fresh server).
   Unit tests: contour closure on fixture masks, Chaikin point counts,
   embankment-style selection. Verify: estuary_southend_far +
   estuary_dartford + central crops — no tile stairs at any band.
-- **P5 — Rail identity.** Far-zoom tick symbology; projected near-zoom
-  track; station platforms; rail drawn after road passes. Verify: central
-  (termini fans) + wide_far (lines read as railways, not streets).
-- **P6 — Water life.** Boat wakes; pier/dock polish sprites if time.
-  Verify: estuary crops + in-game screenshot (wakes are animated; use
-  `SHOTS=1 npx playwright test e2e/shots.helper.spec.ts`).
-- **P7 — Air layer.** `AIRPORTS` export (Heathrow only, no tile change, no
-  SAVE_VERSION bump), `src/render/airLayer.ts` arcs/planes/shadows.
-  Verify: m25_heathrow crop (static shadow check) + animated screenshot.
-  *(Optional follow-up PR: City Airport — map-geometry change, bump
-  SAVE_VERSION to 10 with justification.)*
+- ✅ **P5 — Rail identity.** *(DONE, Wave 6 transport lane)* Far-zoom
+  cross-tick symbology (dark line + cream perpendicular ticks every
+  `RAIL_TICK_SPACING` = 1.5 t) at Z0–Z1; Z2 keeps ballast + casing and
+  adds ticks poking past the ballast; Z3+ unchanged (ballast bed +
+  sleeper ticks + twin steel). Station platform slabs are DERIVED
+  (`TransportGeometry.stations`): wherever a rail path passes within
+  1.6 t of an `lm_station` landmark, a 1.4 t casing+slab (canopy strip
+  at Z3+) sits on the landmark's side of the line; termini fans dedupe
+  (16 slabs on the London map). No data change.
+- ✅ **P6 — Water life.** *(DONE)* `emitBoatWakes` in routeRibbons.ts
+  (pure, world-px): two diverging 3-segment foam arms per barge, alpha
+  fading astern, hard `WAKE_MAX_SEGS` = 60 cap; `MapRenderer.wakeG`
+  sits under the hulls in `boatLayer` and rebuilds per frame ONLY while
+  boats are visible at Z2+. Dock-polish sprites deferred.
+- ✅ **P7 — Air layer.** *(DONE)* `AIRPORTS` export in londonMap.ts
+  (Heathrow only — additive render-side scenery, NOT in CityMap or the
+  save payload, no SAVE_VERSION bump; a unit test asserts saves never
+  serialize it). `src/render/airLayer.ts`: pure deterministic quadratic
+  arcs (2 westerly departures + 2 easterly arrivals), `planeAt(arc, t)`
+  with altitude profile + map-edge fade; `emitFlightArcs` (faint lifted
+  dashes, built per band) and `emitPlanes` (ground shadow displaced
+  z·(−0.55, +0.3) and scaled/faded by altitude, then the cream
+  silhouette + orange tailfin) share one sink with tools/preview.ts.
+  Planes declutter IN from the mid band outward (bands 0–2), screen-px
+  size floor at the far bands; tutorial mini-maps get empty skies
+  (airport bounds filter). No RNG anywhere. *(Optional follow-up PR:
+  City Airport — map-geometry change, bump SAVE_VERSION to 10 with
+  justification.)*
 
 Suggested parallelisation: P4 (shoreline) and P5 (rail) are independent of
 P2/P3 once P0+P1 land.
@@ -414,3 +431,18 @@ Residuals for P5–P7: rail still street-like at far zoom (no cross-ticks),
 no boat wakes, no air layer. A couple of authored staircase lanes (e.g.
 north of Dartford) now read crisply enough to merit a waypoint re-lay in
 a later map pass (would touch map data ⇒ separate PR).
+
+### After P5–P7 (Wave 6 transport lane, 2026-06-13) — re-rendered verdicts
+
+| Crop / frame | Verdict (after) |
+|---|---|
+| `after_estuary_southend_far` (Z1) | Rail now reads as the classic line + cream cross-ticks — instantly a railway beside the plain grey A127, never a thin street. |
+| `after_estuary_dartford` (Z2) | Ticks ride the ballast; Dartford + Gravesend station slabs sit beside their lines; the two re-laid lanes run clean (Tilbury→Grays→A13 as axis-aligned lattice runs, Gravesend→Hoo as row run + marsh sweep — the old rounded staircases are gone). |
+| `after_m25_heathrow` (Z2) | Departure plane mid-climb west of the airfield with the faint flight-arc dash line; silhouette + tailfin read at a glance. |
+| `shot-transport-wakes` + Z3 frames (in-game) | Barges trail diverging V-wake foam arms fading astern; wakes rebuild per frame only at Z2+, capped at 60 quads. |
+| `shot-transport-heathrow-air` + Z1 frames (in-game) | Plane animates deterministically along the climb-out; declutters away at Z3+. The shots helper pins a midday grade (render-only hook) so transport is judged in daylight. |
+
+Residual (map data, arterial — outside the lane re-lay): the A2's
+in-town lattice jogs through Gravesend read wiggly at Z3; doctrine-
+compliant (shallow diagonal through fabric) but worth a waypoint pass
+whenever the A2 corridor is next touched.

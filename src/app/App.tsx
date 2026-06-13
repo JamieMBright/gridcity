@@ -205,26 +205,9 @@ export function App() {
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
       <MapView />
-      {/* lofi golden-hour grade over the whole scene */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          pointerEvents: 'none',
-          background:
-            'linear-gradient(160deg, rgba(255,178,102,0.12) 0%, rgba(224,105,122,0.08) 45%, rgba(16,22,48,0.18) 100%)',
-        }}
-      />
-      {/* soft vignette pulls the eye to the lit city */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          pointerEvents: 'none',
-          background:
-            'radial-gradient(ellipse at 50% 42%, transparent 52%, rgba(8, 6, 22, 0.42) 100%)',
-        }}
-      />
+      {/* the golden-hour grade + vignette are drawn BY the renderer now
+          (render/grade.ts, #41): they follow the sim clock and weather,
+          so the old static CSS washes came out. */}
       {!menuOpen &&
         (isMobile ? (
           <MobileChrome />

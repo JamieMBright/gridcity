@@ -8,13 +8,17 @@ import { describe, expect, it } from 'vitest';
 import {
   BAND_EDGES,
   MITER_LIMIT,
+  RAIL_TICK_SPACING,
   RIBBON_PALETTE,
+  WAKE_MAX_SEGS,
   bandFor,
   deckLiftWorldPx,
+  emitBoatWakes,
   emitRouteRibbons,
   fillHalfFor,
   transportGeometry,
   zoomKeyFor,
+  type WakeBoat,
 } from '../src/render/routeRibbons';
 import { chaikin, emitShoreline, traceShorelines } from '../src/render/shoreline';
 import { CELL_W, FLOOR_H } from '../src/render/sprites/iso';
@@ -267,6 +271,120 @@ describe('derived junction / bridge geometry', () => {
     expect(layers.has('bridgeTop')).toBe(true);
     const top = polys.filter((e) => e.layer === 'bridgeTop');
     for (const t of top) expect(t.color).toBe(RIBBON_PALETTE.parapet);
+  });
+});
+
+describe('rail identity (P5)', () => {
+  const railMap = (): CityMap => routedMap([{ kind: 'rail', pts: [[2, 16], [29, 16]] }]);
+
+  it('far bands draw the cross-tick symbology, one tick per spacing', () => {
+    const polys = collect(railMap(), 0, 0.04);
+    const ticks = polys.filter((e) => e.color === RIBBON_PALETTE.railTick);
+    // 27 t of line at one tick per RAIL_TICK_SPACING
+    const expected = Math.floor(27 / RAIL_TICK_SPACING);
+    expect(ticks.length).toBeGreaterThanOrEqual(expected - 1);
+    expect(ticks.length).toBeLessThanOrEqual(expected + 2);
+    // ticks run PERPENDICULAR to the (E–W, +u) line: longer across (v)
+    // than along (u) in tile space
+    const t0 = ticks[0];
+    if (!t0) throw new Error('no tick');
+    let minU = Infinity;
+    let maxU = -Infinity;
+    let minV = Infinity;
+    let maxV = -Infinity;
+    for (let i = 0; i < t0.pts.length; i += 2) {
+      const { u, v } = unproject(t0.pts[i] ?? 0, t0.pts[i + 1] ?? 0);
+      minU = Math.min(minU, u);
+      maxU = Math.max(maxU, u);
+      minV = Math.min(minV, v);
+      maxV = Math.max(maxV, v);
+    }
+    expect(maxV - minV).toBeGreaterThan(maxU - minU);
+    // same symbology at Z1
+    expect(collect(railMap(), 1, 0.12).some((e) => e.color === RIBBON_PALETTE.railTick)).toBe(true);
+  });
+
+  it('Z2 ticks ride the ballast; Z3+ switches to sleepers + twin steel', () => {
+    const z2 = collect(railMap(), 2, 0.3);
+    expect(z2.some((e) => e.color === RIBBON_PALETTE.railTick)).toBe(true);
+    expect(z2.some((e) => e.color === RIBBON_PALETTE.railBallast)).toBe(true);
+    const z3 = collect(railMap(), 3, 0.6);
+    expect(z3.some((e) => e.color === RIBBON_PALETTE.sleeper)).toBe(true);
+    expect(z3.some((e) => e.color === RIBBON_PALETTE.railSteel)).toBe(true);
+    expect(z3.some((e) => e.color === RIBBON_PALETTE.railTick)).toBe(false);
+  });
+
+  it('station platform slabs derive beside the line at station landmarks', () => {
+    const mk = (): CityMap => {
+      const map = railMap();
+      map.landmark = new Uint8Array(32 * 32);
+      map.landmark[15 * 32 + 16] = LANDMARK.station; // one tile NORTH of the line
+      return map;
+    };
+    const g = transportGeometry(mk());
+    expect(g.stations).toEqual(transportGeometry(mk()).stations); // deterministic
+    expect(g.stations.length).toBe(1);
+    const st = g.stations[0];
+    if (!st) throw new Error('no station');
+    // route starts at u=2, landmark at u=16 ⇒ s ≈ 14
+    expect(Math.abs(st.s - 14)).toBeLessThan(0.5);
+    // slab emits from Z2, decluttered at far bands
+    const z2 = collect(mk(), 2, 0.3);
+    const slabs = z2.filter((e) => e.color === RIBBON_PALETTE.platform);
+    expect(slabs.length).toBeGreaterThan(0);
+    expect(collect(mk(), 0, 0.04).some((e) => e.color === RIBBON_PALETTE.platform)).toBe(false);
+    // the slab sits on the landmark side (north ⇒ v < 16), clear of the line
+    for (const slab of slabs) {
+      for (let i = 0; i < slab.pts.length; i += 2) {
+        const { v } = unproject(slab.pts[i] ?? 0, slab.pts[i + 1] ?? 0);
+        expect(v).toBeLessThan(16);
+      }
+    }
+  });
+
+  it('no platforms derive far from any line, and termini fans dedupe', () => {
+    const map = railMap();
+    map.landmark = new Uint8Array(32 * 32);
+    map.landmark[5 * 32 + 16] = LANDMARK.station; // 11 t off the line
+    map.landmark[15 * 32 + 16] = LANDMARK.station; // adjacent pair…
+    map.landmark[15 * 32 + 17] = LANDMARK.station; // …merges to one slab
+    const g = transportGeometry(map);
+    expect(g.stations.length).toBe(1);
+  });
+});
+
+describe('boat wakes (P6)', () => {
+  const boat = (i: number): WakeBoat => ({ x: i * 500, y: 0, nx: 1, ny: 0, size: 20 });
+
+  it('emits two 3-segment arms per boat, fading astern', () => {
+    const alphas: number[] = [];
+    const xs: number[] = [];
+    const n = emitBoatWakes([boat(0)], (pts, alpha) => {
+      alphas.push(alpha);
+      for (let i = 0; i < pts.length; i += 2) xs.push(pts[i] ?? 0);
+    });
+    expect(n).toBe(6);
+    // age fade: each arm's segments get fainter
+    expect(alphas[0]).toBeGreaterThan(alphas[1] ?? 1);
+    expect(alphas[1]).toBeGreaterThan(alphas[2] ?? 1);
+    // the wake trails BEHIND a boat travelling +x
+    for (const x of xs) expect(x).toBeLessThan(0);
+  });
+
+  it('caps the per-frame quad count', () => {
+    const boats = Array.from({ length: 30 }, (_, i) => boat(i));
+    let count = 0;
+    const n = emitBoatWakes(boats, () => count++);
+    expect(count).toBe(n);
+    expect(n).toBeLessThanOrEqual(WAKE_MAX_SEGS);
+  });
+
+  it('is deterministic', () => {
+    const a: number[][] = [];
+    const b: number[][] = [];
+    emitBoatWakes([boat(1), boat(2)], (pts) => a.push(pts));
+    emitBoatWakes([boat(1), boat(2)], (pts) => b.push(pts));
+    expect(a).toEqual(b);
   });
 });
 
