@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { boot, clickButton, store } from './helpers';
+import { boot, clickButton, openLand, pause, store } from './helpers';
 
 // boot() in helpers dismisses nothing — these tests drive the menu itself,
 // so they wait for readiness manually.
@@ -82,6 +82,35 @@ test.describe('start menu, tutorial, KPI dashboard', () => {
     await expect(page.getByRole('cell', { name: 'CML min/cust/yr' })).toBeVisible();
     await page.keyboard.press('k');
     await expect(page.getByText(/RIIO-1 · year/)).not.toBeVisible();
+  });
+
+  test('named save slot: save, mutate, load restores (#34)', async ({ page }) => {
+    await boot(page);
+    await pause(page);
+    const base = await store<number>(page, '(s) => s.snapshot.assets.length');
+
+    // open the saves panel and save the current game into a named slot
+    await page.getByRole('button', { name: 'save slots' }).first().dispatchEvent('click');
+    await expect(page.getByText('SAVE SLOTS')).toBeVisible();
+    await page.getByPlaceholder(/day/).fill('e2e branch');
+    await page.getByRole('button', { name: 'save to a new slot' }).dispatchEvent('click');
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('electricity.slots.v1') !== null)).toBe(true);
+    await expect(page.getByText(/saved/)).toBeVisible();
+
+    // close the panel, mutate the game (build a sub)
+    await page.keyboard.press('Escape');
+    const [a] = await openLand(page, 1);
+    if (!a) return;
+    await page.evaluate(
+      (t) => window.__ec?.sendCommand({ type: 'build', spec: { kind: 'sub', sub: 'grid', x: t.x, y: t.y } }),
+      a,
+    );
+    await expect.poll(() => store<number>(page, '(s) => s.snapshot.assets.length')).toBe(base + 1);
+
+    // re-open saves and load the slot — the build is gone (restored to base)
+    await page.getByRole('button', { name: 'save slots' }).first().dispatchEvent('click');
+    await page.getByRole('button', { name: /load e2e branch/ }).dispatchEvent('click');
+    await expect.poll(() => store<number>(page, '(s) => s.snapshot.assets.length'), { timeout: 20_000 }).toBe(base);
   });
 
   test('continue resumes an autosaved campaign', async ({ page }) => {

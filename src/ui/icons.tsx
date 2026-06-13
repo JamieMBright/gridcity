@@ -458,6 +458,17 @@ export function IconLedger(p: IconProps) {
   );
 }
 
+/** Save slot — a floppy disk (the universal save mark, drawn in line). */
+export function IconSave(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M5 4h11l3 3v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
+      <path d="M8 4v5h7V4" />
+      <rect x="8" y="13" width="8" height="6" rx="0.5" />
+    </Svg>
+  );
+}
+
 /** Sound on — a speaker with two waves. */
 export function IconSoundOn(p: IconProps) {
   return (

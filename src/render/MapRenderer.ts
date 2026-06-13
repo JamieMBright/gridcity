@@ -915,6 +915,11 @@ export class MapRenderer {
     [LANDMARK.excel]: { r: 24, glass: true },
     [LANDMARK.palacemast]: { r: 18, glass: false },
     [LANDMARK.kewhouse]: { r: 20, glass: true },
+    // Queen Elizabeth Olympic Park, Stratford: the Orbit is the glass/steel
+    // hero (travelling glint), the VeloPark + Westfield catch the warm bloom
+    [LANDMARK.orbit]: { r: 26, glass: true },
+    [LANDMARK.velodrome]: { r: 22, glass: false },
+    [LANDMARK.westfield]: { r: 26, glass: true },
   };
 
   /** Scan the map once for hero-landmark anchors and cache their tile

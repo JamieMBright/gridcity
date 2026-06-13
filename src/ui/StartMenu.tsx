@@ -8,6 +8,7 @@ import { completedMissions, newGameCommand, startMission } from '../app/workerBr
 import { getAudioSettings, startMusic, updateAudioSettings } from '../audio/audio';
 import { pushSettings } from '../online/cloud';
 import { localStorageStore } from '../persistence/localStorageStore';
+import { listSlots } from '../persistence/slotStore';
 import { MISSIONS } from '../sim/scenario/missions';
 import { AccountPanel } from './AccountPanel';
 import { LogoLockup } from './Logo';
@@ -54,11 +55,13 @@ export function StartMenu() {
   const setMenuOpen = useAppStore((s) => s.setMenuOpen);
   const setTutorialStep = useAppStore((s) => s.setTutorialStep);
   const setTourActive = useAppStore((s) => s.setTourActive);
+  const setSavesOpen = useAppStore((s) => s.setSavesOpen);
   const [foot, setFoot] = useState<'settings' | 'leaderboard' | 'credits' | undefined>(undefined);
   const [campaignOpen, setCampaignOpen] = useState(false);
   const [, force] = useState(0);
   if (!menuOpen) return null;
   const hasSave = localStorageStore.load() !== undefined;
+  const slotCount = listSlots().length;
   const audio = getAudioSettings();
   const done = completedMissions();
 
@@ -142,6 +145,12 @@ export function StartMenu() {
             </button>
             <button style={bigBtn(false)} onClick={() => setTour(true)}>
               <span style={{ color: theme.orange }}>🧭 </span>tour the controls
+            </button>
+            <button style={bigBtn(false)} onClick={() => setSavesOpen(true)}>
+              <span style={{ color: theme.orange }}>💾 </span>save slots
+              {slotCount > 0 && (
+                <span style={{ color: theme.slate, fontWeight: 400 }}> · {slotCount}</span>
+              )}
             </button>
             <button style={bigBtn(false)} onClick={() => setCampaignOpen(!campaignOpen)}>
               <span style={{ color: theme.orange }}>🎓 </span>campaign

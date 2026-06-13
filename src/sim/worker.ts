@@ -38,6 +38,8 @@ import {
   type GameState,
   type SaveData,
 } from './state';
+import { BillHistory, bandsOf } from './billHistory';
+import { describeCommand } from './describeCommand';
 import { computeBalance } from './balance';
 import { forecastCatchments } from './forecast';
 import { planReinforcement, proposeLoop } from './planner';
@@ -61,10 +63,18 @@ let ctx = newContext();
 let derived: Derived | undefined;
 let running = false;
 
-// undo/redo: full snapshots, taken before every mutating player command
+// undo/redo: full snapshots, taken before every mutating player command.
+// `undoLabels` runs parallel to `undoStack` (same length, same order) —
+// one human label per snapshot, for the undo history list (#27).
 const UNDO_DEPTH = 20;
 const undoStack: SaveData[] = [];
+const undoLabels: string[] = [];
 const redoStack: SaveData[] = [];
+const redoLabels: string[] = [];
+
+// bill-over-time history (#28): sampled per game-day, worker-local chart
+// data (rebuilt after a load, like the inspector sparkline `history`).
+const billHistory = new BillHistory();
 
 function restore(data: SaveData): void {
   state = deserialize(data);
@@ -187,7 +197,10 @@ function goalViewOf(out: ReturnType<typeof solveTick>): GoalView {
 function makeSnapshot(accumulate: boolean): SimSnapshot {
   const d = ensureDerived();
   const out = solveTick(state, ctx, d, accumulate);
-  if (accumulate) sampleHistory(out);
+  if (accumulate) {
+    sampleHistory(out);
+    billHistory.sample(state.simTimeMin, bandsOf(out.bill));
+  }
   // advance the goal ladder BEFORE assembling the snapshot so the
   // completion event and the next rung both ride this same post
   const view = goalViewOf(out);
@@ -253,6 +266,8 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
     events: state.events,
     undoDepth: undoStack.length,
     redoDepth: redoStack.length,
+    undoLabels: [...undoLabels],
+    billHistory: billHistory.view(),
     sites: buildSites(state),
     growth: state.growth.map((g) => ({ ...g })),
     inbox: {
@@ -309,6 +324,7 @@ function runSkip(to: SkipTarget): void {
       const d = ensureDerived();
       const out = solveTick(state, ctx, d, true);
       sampleHistory(out);
+      billHistory.sample(state.simTimeMin, bandsOf(out.bill));
       advanceGoals(state, goalViewOf(out));
       if (missionOf(state.scenarioId)) {
         advanceMission(state, missionView(state, out, d.service.totalCustomers));
@@ -356,6 +372,13 @@ function start(save: unknown): void {
       state = newGame(); // corrupt save: start fresh rather than die
     }
   }
+  // a loaded game starts with empty chart/undo history (worker-local, not
+  // serialized) — they rebuild as play continues
+  billHistory.clear();
+  undoStack.length = 0;
+  undoLabels.length = 0;
+  redoStack.length = 0;
+  redoLabels.length = 0;
   post({ type: 'snapshot', snapshot: makeSnapshot(false) });
   if (running) return;
   running = true;
@@ -388,10 +411,12 @@ self.onmessage = (e: MessageEvent<MainToWorker>) => {
         }
         derived = undefined;
         history.clear();
+        billHistory.clear();
         lastHistMin = -1;
         studyRan = false;
         postedSecurityKey = undefined;
         undoStack.length = 0; // a fresh scenario must not undo into the old one
+        undoLabels.length = 0;
         redoStack.length = 0;
         post({ type: 'snapshot', snapshot: makeSnapshot(false) });
         post({ type: 'saveData', data: serialize(state) });
@@ -426,6 +451,29 @@ self.onmessage = (e: MessageEvent<MainToWorker>) => {
         // read-only, so paused inspection changes nothing
         post({ type: 'billDetail', line: msg.line, rows: billDetailRows(state, msg.line) });
         break;
+      case 'undoTo': {
+        // step undo `depth` times in one message — byte-for-byte identical
+        // to pressing the undo button `depth` times (each step pushes the
+        // current state onto redo, then restores the popped snapshot), so
+        // a later redo walks forward exactly as it would have.
+        const depth = Math.min(Math.max(1, Math.floor(msg.depth)), undoStack.length);
+        for (let i = 0; i < depth; i++) {
+          const data = undoStack.pop();
+          if (!data) break;
+          const label = undoLabels.pop() ?? 'action';
+          redoStack.push(serialize(state));
+          redoLabels.push(label);
+          restore(data);
+        }
+        post({ type: 'snapshot', snapshot: makeSnapshot(false) });
+        post({ type: 'saveData', data: serialize(state) });
+        break;
+      }
+      case 'requestSlotSave':
+        // a named-slot save (#34): tag it so the bridge routes the payload
+        // to the slot writer, not the autosave
+        post({ type: 'saveData', data: serialize(state), forSlot: true });
+        break;
       case 'skipGoals':
         // dismiss the ladder for good: park the index past the end
         state.goalIndex = GOALS.length;
@@ -441,14 +489,21 @@ self.onmessage = (e: MessageEvent<MainToWorker>) => {
         break;
       case 'command': {
         if (msg.cmd.type === 'undo' || msg.cmd.type === 'redo') {
-          const from = msg.cmd.type === 'undo' ? undoStack : redoStack;
-          const to = msg.cmd.type === 'undo' ? redoStack : undoStack;
+          const isUndo = msg.cmd.type === 'undo';
+          const from = isUndo ? undoStack : redoStack;
+          const fromLabels = isUndo ? undoLabels : redoLabels;
+          const to = isUndo ? redoStack : undoStack;
+          const toLabels = isUndo ? redoLabels : undoLabels;
           const data = from.pop();
           if (!data) {
             post({ type: 'cmdResult', seq: msg.seq, ok: false, error: `nothing to ${msg.cmd.type}` });
             break;
           }
+          // the popped action's label moves to the other stack with the
+          // snapshot of where we're coming from
+          const label = fromLabels.pop() ?? 'action';
           to.push(serialize(state));
+          toLabels.push(label);
           restore(data);
           post({ type: 'cmdResult', seq: msg.seq, ok: true });
           post({ type: 'snapshot', snapshot: makeSnapshot(false) });
@@ -456,14 +511,25 @@ self.onmessage = (e: MessageEvent<MainToWorker>) => {
           break;
         }
         const mutating = msg.cmd.type !== 'setSpeed';
+        let label = '';
         if (mutating) {
+          label = describeCommand(msg.cmd, state);
           undoStack.push(serialize(state));
-          if (undoStack.length > UNDO_DEPTH) undoStack.shift();
+          undoLabels.push(label);
+          if (undoStack.length > UNDO_DEPTH) {
+            undoStack.shift();
+            undoLabels.shift();
+          }
         }
         const result = applyCommand(state, ctx.map, msg.cmd);
         if (mutating) {
-          if (result.ok) redoStack.length = 0;
-          else undoStack.pop(); // nothing changed: don't burn an undo slot
+          if (result.ok) {
+            redoStack.length = 0;
+            redoLabels.length = 0;
+          } else {
+            undoStack.pop(); // nothing changed: don't burn an undo slot
+            undoLabels.pop();
+          }
         }
         post({ type: 'cmdResult', seq: msg.seq, ...result });
         post({ type: 'snapshot', snapshot: makeSnapshot(false) });

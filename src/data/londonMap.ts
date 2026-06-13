@@ -257,6 +257,11 @@ export const NAMED_PLACES: Array<{ x: number; y: number; name: string }> = [
   { x: 150, y: 86, name: 'ExCeL' },
   { x: 86, y: 96, name: 'Kew Gardens' },
   { x: 112, y: 72, name: 'BT Tower' },
+  // Queen Elizabeth Olympic Park, Stratford (owner, 2026-06-13)
+  { x: 134, y: 69, name: 'Olympic Park' },
+  { x: 133, y: 66, name: 'Lee Valley VeloPark' },
+  { x: 136, y: 68, name: 'ArcelorMittal Orbit' },
+  { x: 137, y: 72, name: 'Westfield Stratford' },
 ];
 
 /** Generation already on the system when the game opens — the real-world
@@ -685,6 +690,10 @@ export function buildLondonMap(): CityMap {
   zoneRect(99, 56, 107, 61, ZONE.park); // the heath
   zoneRect(78, 108, 88, 116, ZONE.park); // Richmond park
   zoneRect(124, 71, 130, 75, ZONE.park); // Victoria park
+  // Queen Elizabeth Olympic Park: green parkland on the east Lea bank so the
+  // four 2012 heroes (VeloPark, Stadium, Orbit, Westfield) stand in the park
+  // rather than being swamped by dense towers (owner, 2026-06-13).
+  zoneRect(132, 65, 139, 73, ZONE.park);
   zoneRect(130, 100, 137, 104, ZONE.park); // Greenwich park
   zoneRect(126, 108, 132, 113, ZONE.park); // Dulwich
   // golf courses fringing the suburbs and towns
@@ -1203,11 +1212,18 @@ export function buildLondonMap(): CityMap {
   placeLandmarkRect(61, 86, 8, 3, LANDMARK.heathrow);
   // Battersea's four chimneys claim a 2×2 block on the south bank
   placeLandmarkRect(100, riverY(100) + Math.ceil(hwAt(100)) + 1, 2, 2, LANDMARK.powerstation);
-  placeLandmark(132, 68, LANDMARK.stadium); // the Olympic bowl on the Lea
+  // QUEEN ELIZABETH OLYMPIC PARK, Stratford (owner, 2026-06-13): the four
+  // heroes of the 2012 park on the Lea's east bank, in true relative order —
+  // the VeloPark to the north, the Stadium bowl central, the ArcelorMittal
+  // Orbit between it and Westfield, the Westfield Stratford City retail mass
+  // to the south-east beside the park.
+  placeLandmark(133, 66, LANDMARK.velodrome); // Lee Valley VeloPark, N
+  placeLandmark(134, 69, LANDMARK.stadium); // the Olympic Stadium bowl, centre
+  placeLandmark(136, 68, LANDMARK.orbit); // the ArcelorMittal Orbit, the tower
+  placeLandmarkRect(136, 71, 2, 2, LANDMARK.westfield); // Westfield Stratford City, SE
   placeLandmark(118, 58, LANDMARK.arena); // north London ground
   placeLandmark(106, 110, LANDMARK.arena); // south London ground
-  placeLandmark(98, 74, LANDMARK.mall); // the western Westfield
-  placeLandmark(133, 71, LANDMARK.mall); // the eastern one by the bowl
+  placeLandmark(98, 74, LANDMARK.mall); // the western Westfield (Shepherd's Bush)
   placeLandmark(114, 65, LANDMARK.zoo); // in Regent's park
   placeLandmark(115, 65, LANDMARK.zoo);
   // Wave 9 heroes (map-overhaul §5: "many are missing") at true positions.
@@ -1299,6 +1315,11 @@ export function buildLondonMap(): CityMap {
     [LANDMARK.palacemast]: 1,
     [LANDMARK.bttower]: 6,
     [LANDMARK.gherkin]: 40, // a full City office tower
+    // Queen Elizabeth Olympic Park: the big Westfield draws a mall's crowd,
+    // the venues a stadium's, the Orbit a handful of visitors
+    [LANDMARK.velodrome]: 10,
+    [LANDMARK.orbit]: 4,
+    [LANDMARK.westfield]: 40,
   };
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {

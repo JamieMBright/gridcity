@@ -12,6 +12,69 @@
 
 ## Open
 
+### Tier-3 UX lane — bill chart · KPI tooltips · undo history · save slots (ROADMAP #28/#36/#27/#34, this prompt)
+- [x] **#28 BILL-OVER-TIME CHART — VERIFIED.** A stacked-area chart of the
+      £/household/yr bill + four components (network DUoS / wholesale energy
+      / generation+ops / constraints+levies) over the sampled game-months,
+      expandable under the BillPanel headline ("▸ bill over time"). Worker
+      samples once per game-DAY into a bounded ring (src/sim/billHistory.ts:
+      `BillHistory`, decimates to ≤120 points by halving resolution when
+      full, always tracks the freshest reading at the right edge; worker-
+      local chart data, rebuilt on load → NO SAVE_VERSION bump). `bandsOf`
+      splits the household total proportionally so the bands always sum to
+      the headline. Shipped in the snapshot (`billHistory: BillSample[]`).
+      UI: SVG stacked areas + total polyline, tap/move to read a day, legend
+      chips ISOLATE a band. zIndex lift when expanded so the chart isn't
+      occluded by the inbox on short desktops. Sampled in BOTH the live tick
+      and the skip loop (deterministic). Unit: tests/billHistory.test.ts (5)
+      — per-day dedupe, bounded decimation keeping the newest, band sum ==
+      total.
+- [x] **#36 "WHY IS THIS NUMBER RED?" KPI TOOLTIPS — VERIFIED.** Every
+      KpiDashboard row gets a colour-coded `?` dot (green/amber/red by
+      status) that taps/hovers open a tooltip: what the KPI is, what GOOD
+      looks like, and WHY it's that colour right now (the threshold it's
+      meeting/missing). Pure copy + threshold reasoning in src/ui/kpiHelp.ts
+      (targetHelp for the RIIO set, bandedHelp for health/safety/engagement,
+      ltiHelp for the zero-target injury rate); teach copy table in
+      KpiDashboard. Rewrote the dashboard onto a shared KpiRow + HelpDot.
+      Verified visually (preview/ux-kpitooltip-crop.png reads cleanly: CML's
+      tooltip shows the definition, a gold "Good:" line and a green "why").
+- [x] **#27 UNDO HISTORY LIST — VERIFIED.** A panel (src/ui/UndoHistory.tsx)
+      listing the recent undo-able actions newest-first with one-line labels
+      ("built Grid substation", "awarded CCGT bid"…); clicking an entry
+      reverts back THROUGH it in one worker message. Opened by right-click
+      OR long-press on the undo button, or a dedicated ledger button (HUD).
+      Worker keeps `undoLabels`/`redoLabels` parallel to the snapshot stacks
+      (label captured at push via src/sim/describeCommand.ts), shipped as
+      `undoLabels` in the snapshot; new `undoTo(depth)` protocol message
+      steps undo `depth`× exactly like pressing the button (redo still walks
+      forward). Ctrl+Z/Ctrl+Y untouched. Unit: tests/describeCommand.test.ts
+      (3) — labels match commands, demolish names the pre-command asset,
+      never empty. e2e: undo.spec.ts asserts labels populate + undoTo(2)
+      reverts 2 builds and redo walks forward.
+- [x] **#34 NAMED SAVE SLOTS — VERIFIED.** A SavesPanel (src/ui/SavesPanel.
+      tsx) lists up to 5 named manual saves with name · day · bill · "saved
+      N ago", with save / overwrite / load / rename / delete; reachable from
+      the StartMenu ("save slots") and in-game (HUD save button + mobile
+      chip). Additive persistence (src/persistence/slotStore.ts, own
+      localStorage key `electricity.slots.v1`) BESIDE the untouched single
+      autosave + continue flow. Worker answers a `requestSlotSave` with a
+      `forSlot`-tagged saveData the bridge routes to the slot writer (never
+      the autosave); loading a slot replays it through `start`. Cloud rides
+      the existing best-effort path. Unit: tests/slotStore.test.ts (5) —
+      upsert oldest-eviction + overwrite-in-place, default naming,
+      localStorage round-trip (save/rename/delete). e2e: menu.spec.ts saves
+      a named slot, mutates, loads it back and asserts the restore.
+- [x] All ADDITIVE — no SAVE_VERSION bump (stays 11): billHistory + undo
+      labels are worker-local chart/UI data; named slots live under their
+      own key. Full `npx vitest run` 470 green; `npx tsc -b`, `npx eslint
+      src tests e2e tools`, `npm run build` clean; `npx playwright test
+      e2e/app.spec.ts e2e/menu.spec.ts e2e/undo.spec.ts` 15/15 on a fresh
+      server. IMAGES inspected at desktop (1280×800) AND phone-landscape
+      (844×390): preview/ux-{billchart,kpitooltip,undolist,saveslots}-
+      {desktop,mobile}.png (+ ux-billchart-crop / ux-kpitooltip-crop) —
+      chart readable, tooltips legible, undo list usable, save slots clear.
+
 ### Logo / brand redesign prompt (owner, 2026-06-13)
 - [x] **New brand mark from a blank concept** — VERIFIED. Explored 4
       directions in `docs/logo-concept.md` (A "The Node" ★, B "The
@@ -48,19 +111,50 @@
       sprite previews inspected. (Olympic Park cluster + per-city assets
       remain for a follow-up.)
 
-- [ ] **Olympic Park, Stratford (owner, 2026-06-13 09:26): "Id like
+- [x] **Olympic Park, Stratford (owner, 2026-06-13 09:26): "Id like
       london to have the Olympic park in london with the stadium
-      velodrome arcelormittal and westfield."** Add the Queen Elizabeth
-      Olympic Park as a recognisable landmark cluster at its true
-      position (Stratford, east London, north bank near the Lower Lea
-      valley): **London/Olympic Stadium** (bowl + lighting masts),
-      **Lee Valley VeloPark velodrome** (the curved pringle roof),
-      **ArcelorMittal Orbit** (the red twisting helter-skelter tower —
-      a glass/steel hero with the gleam), and **Westfield Stratford
-      City** (big retail mass). Bespoke art-is-code sprites, lofi style;
-      true relative placement + tile reservations like the other
-      landmark precincts. Folds into the Wave 9 landmark work (added at
-      integration — the running lane's scope is fixed) or a follow-up.
+      velodrome arcelormittal and westfield."** — VERIFIED. Added the
+      Queen Elizabeth Olympic Park as a recognisable four-hero cluster on
+      the Lea's east bank (Stratford), in true relative order: **Lee
+      Valley VeloPark** (new `velodromeTile` — the saddle/Pringle
+      hyperbolic-paraboloid timber roof over a glazed concourse) to the
+      north at (133,66); the **Olympic Stadium** bowl + lighting masts
+      (the existing `stadiumTile`, relocated from its old Lea tile to
+      (134,69) — there is now ONE stadium, in the park); the
+      **ArcelorMittal Orbit** (new `orbitTile` — a dense tangle of
+      looping ArcelorMittal-red tubular lattice up to twin observation
+      decks, the spine mast + slide, the warm specular GLEAM down its
+      sun-facing tubes) at (136,68); and **Westfield Stratford City**
+      (new `westfieldTile`, a 2×2 SW-anchored precinct — a big glazed
+      retail hall with barrel atria, the orange brand band over the
+      entrance, and the Stratford-City mixed-use towers behind, clearly
+      out-scaling the generic mall) at (136..137,71..72). The precinct is
+      re-zoned to Olympic **parkland** so the heroes stand in the park
+      rather than being swamped by the surrounding urbanCore towers
+      (zoneRect 132,65–139,73 → ZONE.park). New LANDMARK ids 30/31/32
+      (append-only); sprites registered in the atlas (lm_velodrome/
+      lm_orbit/lm_westfield) — atlas 1470×1432, well under the 4096
+      ceiling; gleam-hero registrations added (Orbit glass-glint hero,
+      VeloPark + Westfield warm bloom); NAMED_PLACES entries (Olympic
+      Park / Lee Valley VeloPark / ArcelorMittal Orbit / Westfield
+      Stratford) so search+labels find them; per-landmark customers
+      (Westfield 40, VeloPark 10, Orbit 4). **SAVE_VERSION 11→12** and
+      v11 saves retired: the new protected landmark tiles + the
+      urbanCore→park re-zone move the gameplay tile raster, so a v11
+      asset could sit on what is now park/protected Olympic fabric.
+      Rendered each sprite + the in-situ Stratford crop at dusk and
+      inspected: VeloPark reads by its saddle roof, the Stadium by its
+      orange bowl, the Orbit by its red looping tower (gleam visible),
+      Westfield by its glazed mass + brand band — keepers in
+      preview/olympic-*.png. VERIFIED: full `npx vitest run` green
+      (457 tests, incl. new tests/landmarks.test.ts Olympic block +
+      save/saveArbitration with the version bump); eslint clean across
+      src/tests/e2e/tools; `npm run build` green; e2e build.spec fresh-
+      server green (asset/seed counts unchanged — landmarks are render
+      decoration, not gen/sub assets). (My tsc note: a parallel UX lane's
+      in-flight BillPanel.tsx edits trip `tsc -b` strict-null/unused
+      lints — not my files; my changed files compile clean and the vite
+      build passes.)
 
 - [x] **Rebuild grace: CI/CML clock + constraint payments (owner,
       2026-06-13 09:15).** Two related asks; implement at Wave 9
