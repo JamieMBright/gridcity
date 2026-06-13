@@ -4,6 +4,15 @@
 // stays the default everywhere a scenario id is optional.
 
 import type { CityMap } from '../sim/map/types';
+import {
+  LONDON_PROFILE,
+  type EconomyProfile,
+  type GenerationModel,
+  type PowerSystemProfile,
+  type RegulatorProfile,
+  type ResolvedProfile,
+  type WeatherProfile,
+} from '../sim/powerProfile';
 import { buildLondonMap, setClientMap } from './londonMap';
 import {
   buildBillMap,
@@ -20,6 +29,46 @@ export interface CityScenario {
   build: () => CityMap;
   /** Tutorial-campaign mission (tiny map, scripted steps, win check). */
   mission?: boolean;
+
+  // --- CityScenario v2: additive, optional per-city config blocks. ------
+  // Every block is OPTIONAL and defaults to London's GB behaviour (see
+  // resolveProfile), so omitting them all — as London and every mission
+  // do — is bit-identical to the pre-v2 engine. No new city ships this
+  // wave; these seams just make cities DATA for the next one.
+
+  /** System frequency, voltages, droop (50 Hz GB default). */
+  power?: PowerSystemProfile;
+  /** Season phase, sun arc, weather regimes (GB winter-peak default). */
+  weatherProfile?: WeatherProfile;
+  /** Currency + bill shares (GB £/DUoS default). */
+  economy?: EconomyProfile;
+  /** Generation ownership: liberalised tender (GB default) vs owned. */
+  generation?: GenerationModel;
+  /** Regulator framing (Ofgem/RIIO default). */
+  regulator?: RegulatorProfile;
+
+  /** Difficulty 1–10 and the rank a city's offer arrives at (rank wave). */
+  difficulty?: number;
+  unlockAtRank?: number;
+}
+
+/** Resolve a scenario's optional config blocks into the fully-defaulted
+ *  ResolvedProfile the sim threads through. Omitted blocks fall back to
+ *  London/GB, so the london scenario (which declares none) yields exactly
+ *  LONDON_PROFILE — the determinism anchor. */
+export function resolveProfile(s: CityScenario): ResolvedProfile {
+  return {
+    power: s.power ?? LONDON_PROFILE.power,
+    weather: s.weatherProfile ?? LONDON_PROFILE.weather,
+    economy: s.economy ?? LONDON_PROFILE.economy,
+    generation: s.generation ?? LONDON_PROFILE.generation,
+    regulator: s.regulator ?? LONDON_PROFILE.regulator,
+  };
+}
+
+/** The active profile for a scenario id (defaults to London). */
+export function profileOf(scenarioId: string): ResolvedProfile {
+  return resolveProfile(getScenario(scenarioId));
 }
 
 export const CITY_SCENARIOS: CityScenario[] = [

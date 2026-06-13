@@ -4,8 +4,8 @@ import { boot, clickButton, openLand, store } from './helpers';
 test.describe('app boot & chrome', () => {
   test('boots with wordmark, ticker, bill panel, fleet panel and status bar', async ({ page }) => {
     await boot(page);
-    await expect(page.getByText('Electri', { exact: true })).toBeVisible();
-    await expect(page.getByText('City', { exact: true })).toBeVisible();
+    await expect(page.getByText('ELECTRI', { exact: true })).toBeVisible();
+    await expect(page.getByText('CITY', { exact: true })).toBeVisible();
     await expect(page.getByText(/AVG ANNUAL BILL/)).toBeVisible();
     await expect(page.getByText('FIELD FLEET', { exact: true })).toBeVisible();
     await expect(page.getByText('TREE CUTTING', { exact: true })).toBeVisible();

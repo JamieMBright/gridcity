@@ -11,9 +11,9 @@ import { localStorageStore } from '../persistence/localStorageStore';
 import { listSlots } from '../persistence/slotStore';
 import { MISSIONS } from '../sim/scenario/missions';
 import { AccountPanel } from './AccountPanel';
-import { LogoLockup } from './Logo';
 import { STORY_KEY } from './StoryIntro';
 import { theme } from './theme';
+import { ColourBlindSetting } from './ColourBlindSetting';
 
 const bigBtn = (primary: boolean): React.CSSProperties => ({
   display: 'block',
@@ -123,9 +123,12 @@ export function StartMenu() {
           fontFamily: theme.font,
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <LogoLockup height={92} />
-        </div>
+        <img src="/logo.svg" alt="" width={56} height={56} style={{ borderRadius: 13 }} />
+        <img
+          src="/logotype.png"
+          alt="ElectriCity"
+          style={{ display: 'block', width: 380, maxWidth: '100%', margin: '6px auto 0' }}
+        />
         <div style={{ color: theme.slate, marginTop: 8, fontSize: 12.5 }}>
           power a stylized London — keep the lights on, the bills down, the carbon low
         </div>
@@ -244,6 +247,7 @@ export function StartMenu() {
                 {k === 'musicOn' ? 'music' : 'sfx'} {audio[k] ? 'on' : 'off'}
               </button>
             ))}
+            <ColourBlindSetting />
           </div>
         )}
         {foot === 'credits' && (

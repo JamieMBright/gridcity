@@ -236,7 +236,7 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
       satisfactionAvg: out.satisfactionAvg,
       networkHealthPct: networkHealthPct(state),
     },
-    weather: weatherView(state),
+    weather: weatherView(state, ctx.profile.weather),
     bill: out.bill,
     fleet: {
       vans: state.vans.map((v) => ({

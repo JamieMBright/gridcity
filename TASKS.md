@@ -12,7 +12,7 @@
 
 ## Open
 
-- [ ] **REVERT the new node logo (owner, 2026-06-13 12:06): "I like the
+- [x] **REVERT the new node logo (owner, 2026-06-13 12:06): "I like the
       existing wording on ElectriCity. The new logo is kinda trash.
       Revert those changes."** Restore the OLD ElectriCity branding:
       the ELECTRI(orange)/CITY(slate) wordmark + the old pylon-bolt
@@ -153,20 +153,71 @@
       {desktop,mobile}.png (+ ux-billchart-crop / ux-kpitooltip-crop) —
       chart readable, tooltips legible, undo list usable, save slots clear.
 
-### Wave 12 UX/polish lane — minimap · event-log filters · colour-blind · net-zero · alert ack/snooze (ROADMAP #26/#30/#32/#33/#39, this prompt)
-- [ ] **#32 Colour-blind mode** — alternative deuteranopia/protanopia/
-      tritanopia-safe palettes for the status (ok/warn/danger), voltage
-      levels and loading heatmap; theme tokens + render palette swap;
-      settings toggle; localStorage-persisted; value/shape paired with hue.
-- [ ] **#26 Minimap** — corner collapsible overview canvas (network +
-      viewport rect, click/drag to pan); reads a flagged read-only
-      MapRenderer accessor; no second Pixi app.
-- [ ] **#33 Net-zero dashboard** — snapshot carbon-intensity + gen mix +
-      renewable share; carbon trend, % low-carbon, worst source.
-- [ ] **#30 Filterable event log** — AlertsFeed gains category filters
-      (faults/planning/weather/market/finance) + search.
-- [ ] **#39 Alert acknowledge / snooze** — ack (dismiss) or snooze N min;
-      persisted in the store.
+### Wave 12 UX/polish lane — minimap · event-log filters · colour-blind · net-zero · alert ack/snooze (ROADMAP #26/#30/#32/#33/#39, this prompt) — VERIFIED
+- [x] **#32 COLOUR-BLIND MODE — VERIFIED.** Single source of truth in
+      src/ui/cbPalette.ts: deuteranopia/protanopia/tritanopia-safe sets for
+      the status (ok/warn/danger), the three voltage levels and the loading
+      heatmap, each spread across a wide LIGHTNESS range and leaning on the
+      blue↔yellow axis so hue-loss never collapses the language. theme.ts
+      `statusColors(mode)` swaps the chrome; MapRenderer holds instance
+      palette fields (levelColor/overload/heat/ok/warn/danger) that
+      `setCbMode(mode)` swaps + redraws lines/rings/catchments/ghosts in
+      place (the exported LEVEL_COLOR constant stays the default for static
+      legends). Toggle lives in the start-menu settings footer
+      (ColourBlindSetting.tsx) with a LIVE LEGEND of the voltage + status
+      swatches, each PAIRED with a glyph (═/─/· · ✓/!/✕) so it's never
+      hue-alone; persisted to localStorage (ec.cbMode). Distinctness PROVEN
+      in tests/cbPalette.test.ts (14): a Brettel-style deficiency projection
+      asserts every within-language pair keeps cbDistance > 0.15 AND a real
+      luminance gap under each mode. IMAGE: preview/ux2-cblegend-zoom.png —
+      the deuteranopia legend reads cleanly, all six swatches distinct.
+- [x] **#26 MINIMAP — VERIFIED.** src/ui/Minimap.tsx: a corner collapsible
+      DOM <canvas> (NOT a second Pixi app) — terrain wash (water/built-up/
+      green-belt) pre-rendered ONCE to an offscreen canvas sized to the real
+      256×160 map, network strokes (level-coloured) + gen/sub pips overlaid
+      each frame from the snapshot, and the live gold VIEWPORT RECTANGLE.
+      Click/drag pans the main camera (requestPan). FLAGGED read-only
+      accessor `MapRenderer.getMinimapView()` — the ONLY render addition:
+      returns map size + the visible tile rect (inverts the corner screen→
+      tile transform); restructures nothing. Reached via a tiny
+      render/rendererRegistry.ts (MapView publishes/retracts the live
+      renderer). Default open on desktop, closed on a narrow phone.
+      IMAGES: preview/ux2-minimap-{crop,desktop,mobile}.png.
+- [x] **#33 NET-ZERO DASHBOARD — VERIFIED.** src/ui/NetZeroPanel.tsx (green
+      companion to RIIO, HUD wind-icon button): reads the EXISTING snapshot
+      (stats.carbonG + genMW + gen assets) — live carbon intensity vs a
+      2050-style glidepath bar w/ a now-marker, low-carbon share bar,
+      generation-mix stacked bar (low-carbon techs hatched = shape-not-hue),
+      and the worst running source callout. Maths in src/ui/netZero.ts,
+      unit-tested (tests/netZero.test.ts, 7): mix shares sum to 1, low-carbon
+      share counts only zero-carbon, worst = dirtiest running unit,
+      battery-charging excluded as a sink, blank-grid handled. IMAGE:
+      preview/ux2-netzero-{crop,desktop,mobile}.png.
+- [x] **#30 FILTERABLE EVENT LOG — VERIFIED.** AlertsFeed.tsx gains
+      `EventLog` (full modal, opened by the feed's "log ▸"): category chips
+      (faults/planning/weather/market/finance), a search box, click-to-jump
+      rows, sticky timestamps, per-row ack/snooze. Events carry no category
+      (sim lane owns GameEvent) so the client classifies from the copy —
+      `categorizeEvent` keyword rules (word-boundaried so "ice" doesn't hide
+      in "price"), unit-tested in tests/eventLog.test.ts. IMAGE:
+      preview/ux2-eventlog-{crop,desktop,filtered,mobile}.png — "planning"
+      chip active, "19 events (filtered)", category column, ack/snooze rows.
+- [x] **#39 ALERT ACKNOWLEDGE / SNOOZE — VERIFIED.** Store holds
+      ackedAlerts:Set + snoozedAlerts:Record (keyed by event seq), persisted
+      to localStorage (ec.alertState.v1). The corner feed + the news ticker
+      both filter through `alertVisible(e, nowMin, acked, snoozed)`: ack =
+      gone for good, snooze = hidden 60 game-min then re-fires. Per-row ✓/zzz
+      buttons on the feed and the log. Unit: tests/eventLog.test.ts — snooze
+      re-arms exactly on its minute, ack wins over a future snooze.
+- [x] All CLIENT-SIDE — no protocol/worker/state/sim/londonMap/cityRegistry
+      touched; NO SAVE_VERSION bump (cb mode, minimap flag, alert ack/snooze
+      live under their own localStorage keys; net-zero/event-log read the
+      existing snapshot). Full `npx vitest run` 521 green (29 new); `npx tsc
+      -b`, `npx eslint src tests e2e tools`, `npm run build` clean; `npx
+      playwright test e2e/app.spec.ts e2e/controls.spec.ts` 6/6 on a fresh
+      server. IMAGES inspected at desktop (1280×800) AND phone-landscape
+      (844×390): preview/ux2-*.png — minimap, net-zero, event-log, the
+      colour-blind legend all read cleanly on both.
 
 ### Logo / brand redesign prompt (owner, 2026-06-13)
 - [x] **New brand mark from a blank concept** — VERIFIED. Explored 4

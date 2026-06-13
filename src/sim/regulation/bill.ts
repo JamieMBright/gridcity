@@ -20,6 +20,12 @@ import {
   type VegPolicy,
 } from '../catalog';
 import { subMva, type PlacedAsset } from '../assets';
+import {
+  LONDON_ECONOMY,
+  LONDON_GENERATION,
+  type EconomyProfile,
+  type GenerationModel,
+} from '../powerProfile';
 
 export function assetCapexK(a: PlacedAsset): number {
   if (a.kind === 'line') return a.capexK;
@@ -43,11 +49,17 @@ export function assetOpexFrac(a: PlacedAsset): number {
 // costs, balancing, metering and the supplier's slice pile on. A
 // reasonable mature network prices out near £100/yr of DUoS and around
 // £3k/yr all-in for an electrified (EV + heat pump) home.
-export const DOMESTIC_NETWORK_SHARE = 0.32;
-export const DOMESTIC_ENERGY_SHARE = 0.4;
-export const RETAIL_UPLIFT = 3.0;
+//
+// These GB defaults now live on the per-scenario EconomyProfile
+// (powerProfile.ts → LONDON_ECONOMY); the named exports below are kept
+// (re-exported from the London profile) so existing importers and tests
+// are unchanged. computeBill reads the active profile, defaulting to
+// London, so omitting it is bit-identical.
+export const DOMESTIC_NETWORK_SHARE = LONDON_ECONOMY.domesticNetworkShare;
+export const DOMESTIC_ENERGY_SHARE = LONDON_ECONOMY.domesticEnergyShare;
+export const RETAIL_UPLIFT = LONDON_ECONOMY.retailUplift;
 /** Supplier standing charge, £/household/yr. */
-export const SUPPLY_FIXED_YR = 150;
+export const SUPPLY_FIXED_YR = LONDON_ECONOMY.supplyFixedYr;
 
 export interface BillInputs {
   assets: Iterable<PlacedAsset>;
@@ -72,6 +84,14 @@ export interface BillInputs {
   penaltyYrK: number;
   /** Innovation levy, % of the subtotal. */
   levyPct: number;
+  /** Active economy profile (currency + bill shares). Optional; defaults
+   *  to GB's LONDON_ECONOMY so omitting it is bit-identical. */
+  economy?: EconomyProfile;
+  /** Generation-ownership model. Optional; defaults to GB's liberalised
+   *  'tender' market (gen recovers via PPA on the energy line). The
+   *  'owned' branch (vertically-integrated cities) puts gen capex in the
+   *  NETWORK pot directly — wired but dormant for London. */
+  generation?: GenerationModel;
 }
 
 export interface BillBreakdown {
@@ -113,25 +133,33 @@ export interface BillBreakdown {
 }
 
 export function computeBill(inp: BillInputs): BillBreakdown {
+  const economy = inp.economy ?? LONDON_ECONOMY;
+  const generation = inp.generation ?? LONDON_GENERATION;
+  // The generation-ownership fork. In a LIBERALISED market ('tender',
+  // London's default) generation is private spend: developers recover it
+  // through their PPA strike on delivered energy (inp.ppaYrK), never
+  // through DUoS. In a VERTICALLY INTEGRATED city ('owned': HK, Shanghai,
+  // Cairo, Dubai) there is no developer and no PPA — the operator built
+  // the plant, so its annuitized capex/opex lands in the NETWORK pot with
+  // the wires, and there is no energy-line top-up. The interconnector is
+  // ALWAYS the player's own asset (no developer, no PPA): its converter
+  // hall annuitizes onto the network pot whichever model is active.
+  const owned = generation.ownership === 'owned';
   let capexYrK = 0;
   let opexYrK = 0;
   let genYrK = 0;
   let overheadKm = 0;
   for (const a of inp.assets) {
-    // generation is private spend: developers recover it through their
-    // PPA strike on delivered energy (inp.ppaYrK), never through DUoS —
-    // EXCEPT the interconnector, which is the player's own network
-    // asset (no developer, no PPA): its converter hall annuitizes onto
-    // the DUoS pot with the wires, while the energy it imports flows
-    // through energyYrK like any wholesale purchase
-    if (a.kind === 'gen' && a.gen !== 'interconnector') continue;
+    if (a.kind === 'gen' && a.gen !== 'interconnector' && !owned) continue;
     if (a.kind === 'sub' && a.idno) continue; // the iDNO's iron, not yours
     const capex = assetCapexK(a);
     capexYrK += capex * ANNUITY_FACTOR;
     opexYrK += capex * assetOpexFrac(a);
     if (a.kind === 'line' && a.build === 'overhead') overheadKm += a.lengthTiles;
   }
-  genYrK = inp.ppaYrK;
+  // owned-generation cities have no PPA top-up (gen capex is already in
+  // the network pot above); liberalised markets carry the PPA strike here
+  genYrK = owned ? 0 : inp.ppaYrK;
   const fleetYrK = inp.fleetSize * VAN_OPEX_K_YR;
   const vegYrK = (VEG_POLICY[inp.vegPolicy]?.costPerKmYrK ?? 0) * overheadKm * inp.vegCostMul;
   const constraintYrK = inp.constraintYrK + inp.penaltyYrK;
@@ -152,13 +180,14 @@ export function computeBill(inp: BillInputs): BillBreakdown {
   const energyPotK = inp.energyYrK + genYrK;
   const perCustomerDuosYr =
     inp.totalCustomers > 0
-      ? (networkPotK * DOMESTIC_NETWORK_SHARE * 1000) / inp.totalCustomers
+      ? (networkPotK * economy.domesticNetworkShare * 1000) / inp.totalCustomers
       : 0;
   const perCustomerYr =
     inp.totalCustomers > 0
       ? perCustomerDuosYr +
-        (energyPotK * DOMESTIC_ENERGY_SHARE * RETAIL_UPLIFT * 1000) / inp.totalCustomers +
-        SUPPLY_FIXED_YR
+        (energyPotK * economy.domesticEnergyShare * economy.retailUplift * 1000) /
+          inp.totalCustomers +
+        economy.supplyFixedYr
       : 0;
   return {
     capexYrK,

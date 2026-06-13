@@ -22,7 +22,8 @@ import {
   type ReportCard,
 } from './regulation/riio';
 import { EXISTING_GENERATION, NEW_ESTATES } from '../data/londonMap';
-import { getScenario } from '../data/cityRegistry';
+import { getScenario, profileOf } from '../data/cityRegistry';
+import type { ResolvedProfile } from './powerProfile';
 import { Rng } from './rng';
 import type { SimSpeed } from './protocol';
 
@@ -222,6 +223,14 @@ export function applyGrowth(map: CityMap, growth: GrowthRecord[]): void {
 export interface SimContext {
   map: CityMap;
   demand: DemandField;
+  /** The active scenario's resolved power-system / weather / economy /
+   *  generation / regulator profile. Defaults to LONDON_PROFILE for the
+   *  london scenario (and every mission), so the sim's behaviour is
+   *  unchanged. Lives on the context (not GameState) because it is pure
+   *  scenario DATA, derived from scenarioId — never serialized, so no
+   *  SAVE_VERSION bump: a load rebuilds it from the save's scenarioId via
+   *  newContext, exactly like the map. */
+  profile: ResolvedProfile;
 }
 
 export function newGame(scenarioId = 'london'): GameState {
@@ -294,7 +303,7 @@ export function newContext(scenarioId = 'london'): SimContext {
   // a fresh map every time: town growth mutates the context's copy, so
   // a new game (or a load) must never inherit a previous run's infill
   const map = getScenario(scenarioId).build();
-  return { map, demand: buildDemandField(map) };
+  return { map, demand: buildDemandField(map), profile: profileOf(scenarioId) };
 }
 
 // --- scenario seeding --------------------------------------------------------

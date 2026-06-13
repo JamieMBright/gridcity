@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useAppStore } from '../app/store';
+import { alertVisible, useAppStore } from '../app/store';
 import { useIsMobile } from '../app/useIsMobile';
 import { requestSkip, sendCommand, setSimSpeed, skipGoalLadder } from '../app/workerBridge';
 import { getAudioSettings, updateAudioSettings } from '../audio/audio';
@@ -28,6 +28,7 @@ import {
   IconSoundOff,
   IconSoundOn,
   IconUndo,
+  IconWind,
 } from './icons';
 
 function formatGameClock(simTimeMin: number): string {
@@ -67,9 +68,15 @@ function NewsTicker() {
   }>({ text: '' });
 
   const refresh = (): void => {
-    const snap = useAppStore.getState().snapshot;
+    const st = useAppStore.getState();
+    const snap = st.snapshot;
     if (!snap || snap.events.length === 0) return;
-    const items = snap.events.slice(-8).reverse();
+    // #39: the ticker skips acknowledged/snoozed alerts too
+    const items = snap.events
+      .filter((e) => alertVisible(e, snap.simTimeMin, st.ackedAlerts, st.snoozedAlerts))
+      .slice(-8)
+      .reverse();
+    if (items.length === 0) return;
     const latest = items[0];
     setShown({
       text: items.map((e) => e.msg).join('   •••   '),
@@ -533,6 +540,35 @@ function RiioButton() {
   );
 }
 
+/** Net-zero dashboard (#33): the green companion to RIIO. */
+function NetZeroButton() {
+  const open = useAppStore((s) => s.netZeroOpen);
+  const setOpen = useAppStore((s) => s.setNetZeroOpen);
+  return (
+    <button
+      data-tour="netzero"
+      aria-label="net zero dashboard"
+      onClick={() => setOpen(!open)}
+      title="Net-zero dashboard: carbon trend, generation mix, low-carbon share"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '4px 8px',
+        borderRadius: 5,
+        border: `1px solid ${open ? theme.orange : theme.navyLight}`,
+        background: open ? theme.orange : 'transparent',
+        color: open ? theme.navy : theme.slate,
+        fontFamily: theme.font,
+        fontSize: 12,
+        cursor: 'pointer',
+      }}
+    >
+      <IconWind size={15} />
+    </button>
+  );
+}
+
 /** The network business: directorates, pay & benefits, H&S (#53/#55). */
 function CompanyButton() {
   const open = useAppStore((s) => s.directoratesOpen);
@@ -711,6 +747,7 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
       {show('hud:n1') && <N1Button />}
       {show('hud:forecast') && <ForecastButton />}
       {!compact && show('hud:kpi') && <RiioButton />}
+      {!compact && show('hud:kpi') && <NetZeroButton />}
       {!compact && show('hud:kpi') && <CompanyButton />}
       {!compact && <SavesButton />}
       <SoundButton />

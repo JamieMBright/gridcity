@@ -7,6 +7,7 @@ import type { ReinforcementPlan } from '../sim/planner';
 import type { CatchmentForecast } from '../sim/forecast';
 import type { ConnectionStudy } from '../sim/study';
 import type { TileHover } from '../render/MapRenderer';
+import type { CbMode } from '../ui/cbPalette';
 
 export type WorkerStatus = 'connecting' | 'ready' | 'error';
 
@@ -141,6 +142,27 @@ interface AppState {
    *  ignores this flag. */
   hudCollapsed: boolean;
   setHudCollapsed: (collapsed: boolean) => void;
+  /** Colour-blind mode (#32): swaps the status/voltage/heatmap palettes
+   *  for a deuteranopia/protanopia/tritanopia-safe set. Persisted. */
+  cbMode: CbMode;
+  setCbMode: (mode: CbMode) => void;
+  /** Corner minimap open (#26). Persisted; defaults closed on mobile. */
+  minimapOpen: boolean;
+  setMinimapOpen: (open: boolean) => void;
+  /** Net-zero dashboard panel open (#33). */
+  netZeroOpen: boolean;
+  setNetZeroOpen: (open: boolean) => void;
+  /** Full filterable event-log panel open (#30). */
+  eventLogOpen: boolean;
+  setEventLogOpen: (open: boolean) => void;
+  /** Alert acknowledge/snooze (#39), keyed by event seq. acked = dismissed
+   *  for good; snoozed[seq] = the game-minute it re-fires at. Persisted so
+   *  a reload keeps the feed quiet. */
+  ackedAlerts: Set<number>;
+  snoozedAlerts: Record<number, number>;
+  ackAlert: (seq: number) => void;
+  snoozeAlert: (seq: number, untilMin: number) => void;
+  clearAlertState: () => void;
 }
 
 const COLLAPSE_KEY = 'ec.hudCollapsed';
@@ -156,6 +178,69 @@ function saveCollapsed(on: boolean): void {
     localStorage.setItem(COLLAPSE_KEY, on ? '1' : '0');
   } catch {
     /* private mode / SSR — collapse just won't persist */
+  }
+}
+
+const CB_KEY = 'ec.cbMode';
+function loadCbMode(): CbMode {
+  try {
+    const v = localStorage.getItem(CB_KEY);
+    if (v === 'deuteranopia' || v === 'protanopia' || v === 'tritanopia') return v;
+  } catch {
+    /* ignore */
+  }
+  return 'off';
+}
+function saveCbMode(mode: CbMode): void {
+  try {
+    localStorage.setItem(CB_KEY, mode);
+  } catch {
+    /* ignore */
+  }
+}
+
+const MINIMAP_KEY = 'ec.minimapOpen';
+function loadMinimapOpen(): boolean {
+  try {
+    const v = localStorage.getItem(MINIMAP_KEY);
+    if (v === '1') return true;
+    if (v === '0') return false;
+  } catch {
+    /* ignore */
+  }
+  // default: open on desktop, closed on a narrow phone (#26 mobile default)
+  return typeof window === 'undefined' || window.innerWidth > 720;
+}
+function saveMinimapOpen(on: boolean): void {
+  try {
+    localStorage.setItem(MINIMAP_KEY, on ? '1' : '0');
+  } catch {
+    /* ignore */
+  }
+}
+
+// Alert ack/snooze persistence (#39): client-only, keyed by event seq.
+const ALERT_KEY = 'ec.alertState.v1';
+function loadAlertState(): { acked: Set<number>; snoozed: Record<number, number> } {
+  try {
+    const raw = localStorage.getItem(ALERT_KEY);
+    if (raw) {
+      const j = JSON.parse(raw) as { acked?: number[]; snoozed?: Record<number, number> };
+      return { acked: new Set(j.acked ?? []), snoozed: j.snoozed ?? {} };
+    }
+  } catch {
+    /* ignore */
+  }
+  return { acked: new Set(), snoozed: {} };
+}
+function saveAlertState(acked: Set<number>, snoozed: Record<number, number>): void {
+  try {
+    localStorage.setItem(
+      ALERT_KEY,
+      JSON.stringify({ acked: [...acked].slice(-400), snoozed }),
+    );
+  } catch {
+    /* ignore */
   }
 }
 
@@ -271,4 +356,84 @@ export const useAppStore = create<AppState>((set) => ({
     saveCollapsed(hudCollapsed);
     set({ hudCollapsed });
   },
+  cbMode: loadCbMode(),
+  setCbMode: (cbMode) => {
+    saveCbMode(cbMode);
+    set({ cbMode });
+  },
+  minimapOpen: loadMinimapOpen(),
+  setMinimapOpen: (minimapOpen) => {
+    saveMinimapOpen(minimapOpen);
+    set({ minimapOpen });
+  },
+  netZeroOpen: false,
+  setNetZeroOpen: (netZeroOpen) => set({ netZeroOpen }),
+  eventLogOpen: false,
+  setEventLogOpen: (eventLogOpen) => set({ eventLogOpen }),
+  ackedAlerts: loadAlertState().acked,
+  snoozedAlerts: loadAlertState().snoozed,
+  ackAlert: (seq) =>
+    set((s) => {
+      const acked = new Set(s.ackedAlerts);
+      acked.add(seq);
+      saveAlertState(acked, s.snoozedAlerts);
+      return { ackedAlerts: acked };
+    }),
+  snoozeAlert: (seq, untilMin) =>
+    set((s) => {
+      const snoozed = { ...s.snoozedAlerts, [seq]: untilMin };
+      saveAlertState(s.ackedAlerts, snoozed);
+      return { snoozedAlerts: snoozed };
+    }),
+  clearAlertState: () =>
+    set(() => {
+      saveAlertState(new Set(), {});
+      return { ackedAlerts: new Set(), snoozedAlerts: {} };
+    }),
 }));
+
+/** Pure event categoriser (#30): map an event's severity + message to a
+ *  filter bucket. The sim's GameEvent carries no category field (sim lane
+ *  owns it), so the client classifies from the copy — keyword-driven and
+ *  unit-tested in tests/eventLog.test.ts. */
+export type EventCategory = 'faults' | 'planning' | 'weather' | 'market' | 'finance';
+
+export const EVENT_CATEGORIES: EventCategory[] = [
+  'faults',
+  'planning',
+  'weather',
+  'market',
+  'finance',
+];
+
+// Word-boundaried where a short keyword could hide inside another word
+// (e.g. "ice" in "pr-ice-"). Weather is matched first so storms win.
+const CAT_RULES: Array<[EventCategory, RegExp]> = [
+  ['weather', /storm|\bwind\b|gale|flood|lightning|heatwave|freeze|\bsnow\b|\bice\b|weather|surge crew/i],
+  ['faults', /fault|outage|\btrip\b|\bfail|broke|broken|interrupt|blackout|unserved|overload|\bfire\b|dig-?in|damage/i],
+  ['planning', /planning|consent|appeal|objection|consult|permission|council|tender|applicat|connect(ion)?|develop|award/i],
+  ['market', /\bprice|wholesale|merit|curtail|frequenc|carbon|dispatch|market|export|import|\bgas\b|MWh/i],
+  ['finance', /\bbill|\bcost|capex|allowance|penalt|reward|ofgem|riio|levy|constraint payment|invoice|£/i],
+];
+
+export function categorizeEvent(e: { sev: 'info' | 'warn' | 'bad'; msg: string }): EventCategory {
+  for (const [cat, re] of CAT_RULES) {
+    if (re.test(e.msg)) return cat;
+  }
+  // a 'bad' event with no keyword is most usefully a fault; else market chatter
+  return e.sev === 'bad' ? 'faults' : 'market';
+}
+
+/** Is an event currently visible in the alerts feed? Acked → never;
+ *  snoozed → hidden until its re-fire minute passes (#39). */
+export function alertVisible(
+  e: { seq: number },
+  nowMin: number,
+  acked: Set<number>,
+  snoozed: Record<number, number>,
+): boolean {
+  if (acked.has(e.seq)) return false;
+  const until = snoozed[e.seq];
+  if (until !== undefined && nowMin < until) return false;
+  return true;
+}
