@@ -12,6 +12,30 @@
 
 ## Open
 
+- [ ] **BESPOKE ICONS + COLLAPSIBLE CHROME (owner, 2026-06-13 05:03):
+      "I don't like how we have used standard emojis for the icons. I
+      want more bespoke signage, especially when collapsed on mobile
+      mode. We should allow collapses to happen on desktop mode too for
+      a cleaner look."** UI/art lane (use the design skills:
+      game-ui-design iconography + readable-at-size, frontend-design,
+      color-theory for the lofi palette).
+  - [ ] Replace standard emoji glyphs with a BESPOKE art-is-code icon
+        set in the lofi ink-contour style — across the HUD buttons
+        (RIIO, 🏢 company, sound, grid-view, ⚡, ⚖, etc.), the build
+        palette tool icons, and ESPECIALLY the COLLAPSED MOBILE RAIL
+        signage (MobileChrome). One consistent pictographic language
+        (substation, pylon, turbine, bill, balance, inbox, fleet/van,
+        directorates, KPIs…), legible at small size on a phone.
+        Implement as a shared icon component/sprite set (SVG or the
+        vector raster pipeline), not unicode.
+  - [ ] DESKTOP COLLAPSE: let the HUD/palette collapse on desktop too
+        (not just mobile) for a cleaner look — a toggle to the compact
+        icon-rail presentation; remember the choice.
+  - [ ] Judge on IMAGES: render the icon set + collapsed/expanded chrome
+        at desktop and phone-landscape, LOOK and iterate. Lands as a
+        Wave 8 UI lane (after Wave 7 merges — Hud/MobileChrome/Palette
+        just changed there).
+
 - [ ] **Map-edge rock walls (owner, 2026-06-13 04:48): "I don't
       understand why the edges of the map are rock walls. Just stick to
       real towns."** The map boundary renders as rock/cliff walls —
