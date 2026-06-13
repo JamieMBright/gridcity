@@ -188,8 +188,33 @@ export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
         £{b.perCustomerYr.toFixed(0)}
         <span style={{ fontSize: 12, fontWeight: 400, color: theme.slate }}> /home/yr</span>
       </div>
-      <div style={{ fontSize: 11, color: theme.orangeSoft }}>
-        of which your network (DUoS): £{b.perCustomerDuosYr.toFixed(2)}/yr
+      {/* The headline TOTAL is mostly wholesale energy the operator doesn't
+          set. What the operator actually controls — and what the report
+          cards grade — is the NETWORK (DUoS) charge, so give it real weight
+          here (owner playtest: the £-total headline read as the score). */}
+      <div
+        style={{
+          marginTop: 2,
+          display: 'inline-flex',
+          alignItems: 'baseline',
+          gap: 6,
+          padding: '2px 8px',
+          borderRadius: 6,
+          border: `1px solid ${theme.orange}`,
+          background: 'rgba(255,138,30,0.10)',
+        }}
+      >
+        <span style={{ fontSize: 9, letterSpacing: '0.08em', color: theme.slate }}>
+          YOUR NETWORK CHARGE (DUoS)
+        </span>
+        <span style={{ fontSize: 15, fontWeight: 800, color: theme.orange }}>
+          £{b.perCustomerDuosYr.toFixed(0)}
+        </span>
+        <span style={{ fontSize: 9, color: theme.slate }}>/home/yr</span>
+      </div>
+      <div style={{ fontSize: 9.5, color: theme.slate, marginTop: 2, lineHeight: 1.35 }}>
+        the rest is wholesale energy — you don't set that. This DUoS line is
+        the bit you control and the report card grades.
       </div>
       <button
         aria-label={trendOpen ? 'hide bill trend' : 'show bill trend'}
