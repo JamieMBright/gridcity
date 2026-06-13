@@ -6,7 +6,7 @@
 import { Rng } from '../../sim/rng';
 import { CELL_W, INK, INK_W, Iso, lit, P, RES, shaded, top } from './iso';
 import { COLORS } from './palette';
-import { alpha, darken, hex, lighten, type Pt, type RGBA } from './raster';
+import { alpha, darken, hex, lighten, mix, type Pt, type RGBA } from './raster';
 
 const STONE = hex('#d9cdb4');
 const STONE_DARK = hex('#b3a78e');
@@ -1588,6 +1588,259 @@ export function heathrowTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
     const v = rng.chance(0.5) ? rng.range(0.4, 0.62) : rng.range(H - 0.62, H - 0.4);
     const c = dots[rng.int(dots.length)] ?? COLORS.steel;
     iso.box(u, v, u + 0.06, v + 0.045, 0, 2.2, c, { ink: false });
+  }
+  return iso.build();
+}
+
+// --- Queen Elizabeth Olympic Park, Stratford (owner, 2026-06-13) -------------
+// Four heroes of the 2012 park, true to their relative placement on the Lea:
+// the VeloPark to the north, the Stadium bowl (existing stadiumTile) centre,
+// the Orbit tower between it and Westfield, and the Westfield retail mass SE.
+
+/** LEE VALLEY VELOPARK: the cycling track's signature double-curved
+ *  hyperbolic-paraboloid "Pringle" roof — pale timber cladding that dips at
+ *  the centre and lifts at the two ends, over a low glazed concourse band.
+ *  A compact 1×1 read from far zoom by the saddle silhouette. */
+export function velodromeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const TIMBER = hex('#caa46e'); // warm western-red-cedar cladding
+  const u0 = 0.14;
+  const u1 = 0.86;
+  const v0 = 0.2;
+  const v1 = 0.8;
+  iso.shadow(u0, v0, u1, v1, 0.18, 0.2);
+  // the low glazed concourse drum the roof floats on
+  iso.box(u0, v0, u1, v1, 0, 8, lighten(COLORS.concrete, 0.06), {
+    topC: lighten(COLORS.concrete, 0.14),
+  });
+  iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, 2, 7, 9, alpha(COLORS.glassSky, 0.9), undefined);
+  iso.windowsRight(u1, v0 + 0.06, v1 - 0.06, 2, 7, 7, alpha(COLORS.glassSunset, 0.85), undefined);
+  // the saddle roof: a grid of timber panels whose height follows a hypar —
+  // z lifts toward the u-ends and sags across the middle of the v span.
+  const um = (u0 + u1) / 2;
+  const baseZ = 12;
+  const lift = 22; // end-rise of the saddle
+  const sag = 13; // mid-span dip across v
+  const roofZ = (u: number, v: number): number => {
+    const su = (u - um) / ((u1 - u0) / 2); // -1..1 across u
+    const sv = (v - (v0 + v1) / 2) / ((v1 - v0) / 2); // -1..1 across v
+    return baseZ + lift * (su * su) - sag * (1 - sv * sv);
+  };
+  const NU = 7;
+  const NV = 6;
+  for (let i = 0; i < NU; i++) {
+    for (let j = 0; j < NV; j++) {
+      const ua = u0 + ((u1 - u0) * i) / NU;
+      const ub = u0 + ((u1 - u0) * (i + 1)) / NU;
+      const va = v0 + ((v1 - v0) * j) / NV;
+      const vb = v0 + ((v1 - v0) * (j + 1)) / NV;
+      // shade each panel by its facing: end panels (high) catch the warmth,
+      // mid panels sit in soft shade — sells the curved saddle
+      const mid = roofZ((ua + ub) / 2, (va + vb) / 2);
+      const t = (mid - (baseZ - sag)) / (baseZ + lift);
+      const col = mix(shaded(TIMBER, 0.12), lit(TIMBER, 0.16), Math.max(0, Math.min(1, t)));
+      iso.r.poly(
+        [
+          iso.P(ua, va, roofZ(ua, va)),
+          iso.P(ub, va, roofZ(ub, va)),
+          iso.P(ub, vb, roofZ(ub, vb)),
+          iso.P(ua, vb, roofZ(ua, vb)),
+        ],
+        col,
+      );
+    }
+  }
+  // timber seam lines along the u panel joints (reads the cedar boarding)
+  for (let i = 0; i <= NU; i++) {
+    const u = u0 + ((u1 - u0) * i) / NU;
+    const pts: Pt[] = [];
+    for (let j = 0; j <= NV; j++) {
+      const v = v0 + ((v1 - v0) * j) / NV;
+      pts.push(iso.P(u, v, roofZ(u, v)));
+    }
+    iso.r.polyline(pts, 0.5 * RES, alpha(darken(TIMBER, 0.22), 0.7));
+  }
+  // ink the two swooping eave edges (the saddle silhouette) + the high rim
+  const eave = (v: number): void => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= NU; i++) {
+      const u = u0 + ((u1 - u0) * i) / NU;
+      pts.push(iso.P(u, v, roofZ(u, v)));
+    }
+    iso.r.polyline(pts, INK_W * 0.8, alpha(INK, 0.7));
+  };
+  eave(v0);
+  eave(v1);
+  // a pale glazed clerestory strip the timber sits over at the dipped centre
+  iso.r.line(iso.P(u0, (v0 + v1) / 2, roofZ(u0, (v0 + v1) / 2)), iso.P(u1, (v0 + v1) / 2, roofZ(u1, (v0 + v1) / 2)), 0.6 * RES, alpha(COLORS.white, 0.5));
+  // the gleam catches the sun-facing risen end of the roof
+  iso.gleam(iso.P(u1, v0 + 0.1, roofZ(u1, v0 + 0.1)), iso.P(u1, v1 - 0.1, roofZ(u1, v1 - 0.1)), 1.1 * RES);
+  return iso.build();
+}
+
+/** THE ARCELORMITTAL ORBIT: Britain's tallest sculpture — a looping tangle of
+ *  bright-red tubular steel lattice spiralling up to a twin-deck observation
+ *  platform, a single straight spine mast, and the looping slide. A slender
+ *  1×1 hero spike; its sun-facing red steel takes the warm specular gleam. */
+export function orbitTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const RED = hex('#d23b34'); // ArcelorMittal red
+  const REDLIT = lit(RED, 0.18);
+  const REDSH = shaded(RED, 0.2);
+  const [cx, cyB] = P(0.52, 0.54, 0);
+  const H = 150;
+  const Rb = 18 * RES; // base spread of the helix
+  const yAt = (z: number): number => cyB - z * RES;
+  iso.shadow(0.28, 0.34, 0.78, 0.74, 0.34, 0.24);
+  // a small concrete pad + the splayed support legs
+  iso.box(0.34, 0.4, 0.7, 0.72, 0, 5, lighten(COLORS.concrete, 0.05), { ink: false });
+  for (const a of [0.4, 2.0, 3.7, 5.2]) {
+    const lx = cx + Math.cos(a) * Rb;
+    const ly = cyB + Math.sin(a) * Rb * 0.5;
+    iso.r.line([lx, ly], [cx + Math.cos(a) * Rb * 0.3, yAt(34)], 1.5 * RES, a < 2.5 ? REDLIT : REDSH);
+  }
+  // the looping helix lattice: a dense tangle of intertwined red tubes
+  // corkscrewing up, radius bulging in the lower body and easing in toward the
+  // observation deck — the Orbit's signature knot. Cull the deep-back arcs so
+  // the loops read as foreground tangle, not a solid mass; wobble the radius so
+  // the tubes weave rather than march in a clean spiral.
+  const helix = (phase: number, turns: number, col: RGBA, w: number, wob: number): void => {
+    const pts: Pt[] = [];
+    const STEPS = 110;
+    for (let i = 0; i <= STEPS; i++) {
+      const t = i / STEPS;
+      const z = 8 + (H - 18) * t;
+      // bulge: widest ~40% up, drawing in to the deck — the trumpet body
+      const r = Rb * (0.62 + 0.55 * Math.sin(Math.PI * (0.18 + 0.7 * t)) - 0.18 * t)
+        + wob * Math.sin(t * 9 + phase);
+      const a = phase + t * turns * Math.PI * 2;
+      const c = Math.cos(a);
+      if (c < -0.32) {
+        if (pts.length > 1) iso.r.polyline(pts, w, col);
+        pts.length = 0;
+        continue;
+      }
+      pts.push([cx + c * r, yAt(z) + Math.sin(a) * r * 0.32]);
+    }
+    if (pts.length > 1) iso.r.polyline(pts, w, col);
+  };
+  helix(0.0, 3.4, REDSH, 1.7 * RES, 1.5 * RES); // deeper shaded tangle behind
+  helix(1.1, 3.0, alpha(RED, 0.92), 1.6 * RES, -2.2 * RES); // mid weave
+  helix(2.5, 3.6, REDLIT, 2.0 * RES, 1.0 * RES); // bright sun-facing front loops
+  helix(3.9, 2.8, alpha(REDLIT, 0.85), 1.5 * RES, 2.6 * RES); // outer flares
+  // diagonal lacing struts between the tubes (the trihex lattice feel)
+  for (let k = 1; k < 13; k++) {
+    const t = k / 13;
+    const z = 8 + (H - 18) * t;
+    const r = Rb * (0.62 + 0.55 * Math.sin(Math.PI * (0.18 + 0.7 * t)) - 0.18 * t);
+    const a1 = 2.5 + t * 3.6 * Math.PI * 2;
+    const a2 = a1 + 1.3;
+    if (Math.cos(a1) < -0.15 && Math.cos(a2) < -0.15) continue;
+    iso.r.line(
+      [cx + Math.cos(a1) * r, yAt(z) + Math.sin(a1) * r * 0.32],
+      [cx + Math.cos(a2) * r * 0.9, yAt(z + 8) + Math.sin(a2) * r * 0.9 * 0.32],
+      0.7 * RES,
+      alpha(RED, 0.8),
+    );
+  }
+  // the straight spine mast through the core
+  iso.r.line([cx, yAt(6)], [cx, yAt(H + 6)], 1.6 * RES, REDLIT);
+  // the twin observation decks near the top: two flat red discs
+  for (const z of [H - 26, H - 16]) {
+    const rr = 9 * RES;
+    const disc: Pt[] = [];
+    for (let i = 0; i <= 18; i++) {
+      const a = (i / 18) * Math.PI * 2;
+      disc.push([cx + Math.cos(a) * rr, yAt(z) + Math.sin(a) * rr * 0.36]);
+    }
+    iso.r.poly(disc, z === H - 16 ? top(RED, 0.2) : REDSH);
+    iso.r.polyline(disc, INK_W * 0.5, alpha(INK, 0.6), true);
+    // glazed viewing band under the upper deck
+    if (z === H - 26) iso.r.poly([...disc.slice(0, 10), ...disc.slice(0, 10).map(([x, y]): Pt => [x, y + 4 * RES]).reverse()], alpha(COLORS.glassDark, 0.85));
+  }
+  // the looping slide swooping down the sun-facing side (a coiled steel ring)
+  const slide: Pt[] = [];
+  for (let i = 0; i <= 40; i++) {
+    const t = i / 40;
+    const z = (H - 30) * (1 - t) + 10;
+    const a = 1.2 + t * 2.4 * Math.PI;
+    const r = (Rb * 1.18) * (0.5 + 0.5 * t);
+    const c = Math.cos(a);
+    if (c < -0.2) {
+      if (slide.length > 1) iso.r.polyline(slide, 1.0 * RES, alpha(COLORS.steelDark, 0.85));
+      slide.length = 0;
+      continue;
+    }
+    slide.push([cx + c * r, yAt(z) + Math.sin(a) * r * 0.3]);
+  }
+  if (slide.length > 1) iso.r.polyline(slide, 1.0 * RES, alpha(COLORS.steelDark, 0.85));
+  // mast finial + warm specular gleam down the sun-facing tubes
+  iso.glint([cx, yAt(H + 6)], 2 * RES);
+  iso.gleam([cx + Rb * 0.7, yAt(H * 0.5)], [cx + Rb * 0.4, yAt(H - 18)], 1.2 * RES);
+  return iso.build();
+}
+
+/** WESTFIELD STRATFORD CITY: the big retail mass beside the park — a long
+ *  glazed mall hall with a barrel atrium, an orange brand band over the grand
+ *  entrance, and a pair of office/residential blocks rising behind it (the
+ *  dense Stratford City quarter). A 2×2 SW-anchored precinct: out-scales the
+ *  generic mall so the Olympic-quarter retail reads as the big one. */
+export function westfieldTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true });
+  void seed;
+  const CLAD = hex('#dcd2c0'); // pale stone-cream cladding
+  iso.shadow(0.12, 0.2, 1.88, 1.86, 0.22, 0.24);
+  // the long retail hall block filling most of the precinct
+  iso.box(0.16, 0.24, 1.7, 1.66, 0, 26, CLAD);
+  // big shopfront glazing along the south + east faces
+  iso.windowsLeft(1.66, 0.26, 1.6, 3, 14, 12, alpha(COLORS.glassSky, 0.9), COLORS.white);
+  iso.windowsRight(1.7, 0.34, 1.58, 6, 18, 9, alpha(COLORS.glassSunset, 0.85), COLORS.white);
+  // the barrel-vaulted glass atrium running down the spine
+  for (let s = 0; s < 4; s++) {
+    const v0 = 0.42 + s * 0.3;
+    const v1 = v0 + 0.18;
+    iso.r.poly(
+      [iso.P(0.4, v0, 26), iso.P(1.5, v0, 26), iso.P(1.5, (v0 + v1) / 2, 33), iso.P(0.4, (v0 + v1) / 2, 33)],
+      alpha(COLORS.glassSky, 0.92),
+    );
+    iso.r.poly(
+      [iso.P(0.4, (v0 + v1) / 2, 33), iso.P(1.5, (v0 + v1) / 2, 33), iso.P(1.5, v1, 26), iso.P(0.4, v1, 26)],
+      alpha(lighten(COLORS.glassSky, 0.16), 0.92),
+    );
+    iso.r.line(iso.P(0.4, (v0 + v1) / 2, 33), iso.P(1.5, (v0 + v1) / 2, 33), 0.7 * RES, alpha(COLORS.white, 0.9));
+    iso.gleam(iso.P(0.95, (v0 + v1) / 2, 33), iso.P(1.5, (v0 + v1) / 2, 33), 0.9 * RES);
+  }
+  // the grand glazed entrance + the orange Westfield brand band on the SE
+  iso.r.poly([iso.P(1.7 + 0.002, 0.7, 20), iso.P(1.7 + 0.002, 1.2, 20), iso.P(1.7 + 0.002, 1.2, 0), iso.P(1.7 + 0.002, 0.7, 0)], COLORS.glassLit);
+  iso.r.poly([iso.P(1.7 + 0.002, 0.6, 25), iso.P(1.7 + 0.002, 1.3, 25), iso.P(1.7 + 0.002, 1.3, 21), iso.P(1.7 + 0.002, 0.6, 21)], COLORS.orange);
+  // two taller mixed-use blocks of the Stratford City quarter rising behind
+  // (NE corner) so the mass reads as the dense new town, not a flat shed
+  iso.box(0.5, 1.66, 0.94, 1.86, 0, 64, COLORS.glassSky, {
+    leftC: shaded(COLORS.glassSky, 0.18),
+    rightC: COLORS.glassSunset,
+    topC: COLORS.white,
+  });
+  iso.box(1.06, 1.62, 1.5, 1.86, 0, 52, hex('#cdb79a'));
+  for (let z = 12; z < 60; z += 11) {
+    iso.r.line(iso.P(0.5, 1.86, z), iso.P(0.94, 1.86, z), 0.5 * RES, alpha(COLORS.white, 0.6));
+  }
+  iso.windowsLeft(1.86, 1.1, 1.46, 9, 48, 8, alpha(COLORS.glassDark, 0.7), undefined);
+  // a lit office band up the taller glass tower
+  for (let z = 16; z < 58; z += 12) {
+    if ((Math.floor(z) + (z % 24 < 12 ? 0 : 1)) % 2 === 0) {
+      iso.r.poly([iso.P(0.56, 1.86, z + 7), iso.P(0.7, 1.86, z + 7), iso.P(0.7, 1.86, z + 1), iso.P(0.56, 1.86, z + 1)], alpha(COLORS.glassLit, 0.8));
+    }
+  }
+  // car-park rows + a few cars on the apron strip at the SW
+  const cars: RGBA[] = [COLORS.glassDark, hex('#c9453a'), COLORS.white, COLORS.steel];
+  for (const u of [1.78, 1.88]) {
+    for (let v = 0.4; v < 1.5; v += 0.16) {
+      const [px, py] = iso.P(u, v, 1);
+      const c = cars[Math.floor(v * 10) % cars.length] ?? COLORS.white;
+      iso.r.rect(px - 2 * RES, py - 3.2 * RES, px + 2 * RES, py + 3.2 * RES, c);
+    }
   }
   return iso.build();
 }

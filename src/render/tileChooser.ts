@@ -23,6 +23,9 @@ const BLOCK_LANDMARKS: ReadonlySet<Landmark> = new Set<Landmark>([
   LANDMARK.allypally,
   LANDMARK.excel,
   LANDMARK.heathrow,
+  // Westfield Stratford City: a 2×2 retail/quarter precinct (velodrome +
+  // the Orbit are compact 1×1 icons emitted per-tile like the stadium)
+  LANDMARK.westfield,
 ]);
 
 const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {
@@ -55,6 +58,9 @@ const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {
   [LANDMARK.bttower]: 'lm_bttower',
   [LANDMARK.gherkin]: 'lm_gherkin',
   [LANDMARK.heathrow]: 'lm_heathrow',
+  [LANDMARK.velodrome]: 'lm_velodrome',
+  [LANDMARK.orbit]: 'lm_orbit',
+  [LANDMARK.westfield]: 'lm_westfield',
 };
 
 function at(map: CityMap, x: number, y: number, arr: Uint8Array): number {

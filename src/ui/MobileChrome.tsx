@@ -27,6 +27,7 @@ import {
   IconLedger,
   IconMenu,
   IconReport,
+  IconSave,
   IconVan,
   SUB_ICONS,
   type IconComponent,
@@ -264,6 +265,8 @@ export function MobileChrome() {
   const setKpiOpen = useAppStore((s) => s.setKpiOpen);
   const directoratesOpen = useAppStore((s) => s.directoratesOpen);
   const setDirectoratesOpen = useAppStore((s) => s.setDirectoratesOpen);
+  const savesOpen = useAppStore((s) => s.savesOpen);
+  const setSavesOpen = useAppStore((s) => s.setSavesOpen);
   const gate = useUnlockGate();
   const show = (key: string): boolean => !gate.active || gate.has(key);
   const openApps =
@@ -319,6 +322,7 @@ export function MobileChrome() {
             onClick={() => setDirectoratesOpen(!directoratesOpen)}
           />
         )}
+        <Chip Icon={IconSave} label="save slots" active={savesOpen} onClick={() => setSavesOpen(true)} />
       </div>
 
       {sheet !== undefined && (

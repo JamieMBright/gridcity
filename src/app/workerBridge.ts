@@ -97,6 +97,14 @@ export function initWorker(): void {
       case 'saveData': {
         // stamp here, not in the worker: the sim stays wall-clock-free
         const stamped = { ...msg.data, savedAt: Date.now() };
+        if (msg.forSlot) {
+          // a named-slot save (#34): hand the payload to the pending slot
+          // writer rather than the autosave / cloud slot 0
+          const cb = slotSaveCb;
+          slotSaveCb = undefined;
+          cb?.(stamped);
+          break;
+        }
         localStorageStore.store(stamped);
         pushCloudSave(stamped, freshGamePending);
         freshGamePending = false;
@@ -169,6 +177,27 @@ export function requestBalance(): void {
 /** Itemise one bill line (BillPanel tapped-row drill-down). */
 export function requestBillDetail(line: BillDetailLine): void {
   send({ type: 'billDetail', line });
+}
+
+/** Undo back `depth` steps in one go (undo history list, #27). */
+export function undoTo(depth: number): void {
+  send({ type: 'undoTo', depth });
+}
+
+/** Pending callback for the next named-slot save payload (#34). */
+let slotSaveCb: ((data: unknown) => void) | undefined;
+
+/** Capture the current SaveData for a named slot. The worker answers with a
+ *  `forSlot`-tagged saveData, routed here instead of the autosave. */
+export function captureSlotSave(cb: (data: unknown) => void): void {
+  slotSaveCb = cb;
+  send({ type: 'requestSlotSave' });
+}
+
+/** Load a named slot's SaveData into the running game (#34): the worker
+ *  restores it like any save, then continues. */
+export function loadSlotData(data: unknown): void {
+  send({ type: 'start', save: data });
 }
 
 /** Ask the worker for costed reinforcement options for a balance scope

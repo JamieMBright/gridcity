@@ -41,6 +41,7 @@ import {
   kewhouseTile,
   mallTile,
   o2domeTile,
+  orbitTile,
   palacemastTile,
   parliamentTile,
   powerstationTile,
@@ -52,8 +53,10 @@ import {
   stationTile,
   towerBridgeTile,
   townhallTile,
+  velodromeTile,
   watertowerTile,
   wembleyTile,
+  westfieldTile,
   zooTile,
 } from './landmarkSprites';
 import {
@@ -251,6 +254,10 @@ function buildSpriteCells(): Map<string, Cell> {
   set('lm_kewhouse', kewhouseTile(316));
   set('lm_bttower', bttowerTile(317));
   set('lm_heathrow', heathrowTile(318), HEATHROW_W, HEATHROW_H, true);
+  // Queen Elizabeth Olympic Park, Stratford (stadium reuses lm_stadium)
+  set('lm_velodrome', velodromeTile(321));
+  set('lm_orbit', orbitTile(322));
+  set('lm_westfield', westfieldTile(323), 2, 2, true);
   // civic fabric
   set('lm_station', stationTile(281));
   set('lm_school', schoolTile(282));

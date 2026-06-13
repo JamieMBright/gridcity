@@ -17,8 +17,10 @@ import {
   IconHeadroom,
   IconHelp,
   IconHourglass,
+  IconLedger,
   IconRedo,
   IconReport,
+  IconSave,
   IconScales,
   IconShield,
   IconSkip,
@@ -315,6 +317,7 @@ function GoalChip() {
 
 function UndoRedo() {
   const snapshot = useAppStore((s) => s.snapshot);
+  const setUndoListOpen = useAppStore((s) => s.setUndoListOpen);
   const btn = (enabled: boolean): React.CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
@@ -331,16 +334,40 @@ function UndoRedo() {
   });
   const undoOk = (snapshot?.undoDepth ?? 0) > 0;
   const redoOk = (snapshot?.redoDepth ?? 0) > 0;
+  // long-press opens the undo history list (the same as right-click) —
+  // mobile has no context menu
+  let pressTimer: ReturnType<typeof setTimeout> | undefined;
+  const openList = (): void => {
+    if (undoOk) setUndoListOpen(true);
+  };
   return (
     <span style={{ display: 'flex', gap: 2 }}>
       <button
         aria-label="undo"
-        title="Undo (Ctrl+Z)"
+        title="Undo (Ctrl+Z) · right-click or hold for history"
         style={btn(undoOk)}
         disabled={!undoOk}
         onClick={() => sendCommand({ type: 'undo' })}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          openList();
+        }}
+        onPointerDown={() => {
+          pressTimer = setTimeout(openList, 450);
+        }}
+        onPointerUp={() => clearTimeout(pressTimer)}
+        onPointerLeave={() => clearTimeout(pressTimer)}
       >
         <IconUndo size={14} />
+      </button>
+      <button
+        aria-label="action history"
+        title="Undo history — pick how far back to revert"
+        style={btn(undoOk)}
+        disabled={!undoOk}
+        onClick={openList}
+      >
+        <IconLedger size={13} />
       </button>
       <button
         aria-label="redo"
@@ -533,6 +560,33 @@ function CompanyButton() {
   );
 }
 
+/** Named save slots (#34): branch your campaign into a named slot. */
+function SavesButton() {
+  const setOpen = useAppStore((s) => s.setSavesOpen);
+  return (
+    <button
+      aria-label="save slots"
+      onClick={() => setOpen(true)}
+      title="Named save slots — branch your campaign"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '4px 8px',
+        borderRadius: 5,
+        border: `1px solid ${theme.navyLight}`,
+        background: 'transparent',
+        color: theme.slate,
+        fontFamily: theme.font,
+        fontSize: 12,
+        cursor: 'pointer',
+      }}
+    >
+      <IconSave size={15} />
+    </button>
+  );
+}
+
 /** The ? affordance: launch the HUD coach-mark tour (ROADMAP #40). */
 function HelpButton() {
   const setTourActive = useAppStore((s) => s.setTourActive);
@@ -658,6 +712,7 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
       {show('hud:forecast') && <ForecastButton />}
       {!compact && show('hud:kpi') && <RiioButton />}
       {!compact && show('hud:kpi') && <CompanyButton />}
+      {!compact && <SavesButton />}
       <SoundButton />
       <HelpButton />
       <button

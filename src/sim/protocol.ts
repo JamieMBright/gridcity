@@ -21,6 +21,7 @@ import type { BranchView } from './tick';
 import type { OrgView } from './events/directorates';
 import type { SafetyView } from './reliability/safety';
 import type { Claim } from './events/litigation';
+import type { BillSample } from './billHistory';
 
 export type SimSpeed = 0 | 1 | 4 | 16;
 
@@ -163,6 +164,13 @@ export interface SimSnapshot {
   /** Undo/redo stack depths (for button states). */
   undoDepth: number;
   redoDepth: number;
+  /** Undo history labels (#27), OLDEST→NEWEST, parallel to the undo
+   *  stack: "built 132 kV line", "awarded CCGT bid"… The last entry is the
+   *  most recent undo-able action; undoTo(n) reverts the top n. */
+  undoLabels: string[];
+  /** Bill-over-time history (#28): daily-sampled household-bill trend +
+   *  components, decimated to a bounded ring. Worker-local chart data. */
+  billHistory: BillSample[];
   /** Map markers the renderer draws bubbles for (stable-ordered). */
   sites: Array<{
     x: number;
@@ -241,7 +249,14 @@ export type MainToWorker =
   | { type: 'skipGoals' }
   /** Itemise one bill line (top contributors, computed on demand). */
   | { type: 'billDetail'; line: BillDetailLine }
-  | { type: 'requestSave' };
+  /** Undo back N steps in one message (#27, undo history list): pop the
+   *  top N undo snapshots, restore the Nth-from-top. N≥1. */
+  | { type: 'undoTo'; depth: number }
+  | { type: 'requestSave' }
+  /** Grab the current SaveData for a NAMED slot (#34): answered with a
+   *  saveData message tagged `forSlot`, so the bridge routes it to the
+   *  slot writer instead of the autosave. */
+  | { type: 'requestSlotSave' };
 
 export type WorkerToMain =
   | { type: 'pong'; t: number }
@@ -253,7 +268,9 @@ export type WorkerToMain =
       error?: string | undefined;
       assetId?: number | undefined;
     }
-  | { type: 'saveData'; data: SaveData }
+  /** `forSlot`: this payload was requested for a named save slot (#34),
+   *  not the autosave — the bridge routes it to the slot writer. */
+  | { type: 'saveData'; data: SaveData; forSlot?: boolean }
   | { type: 'study'; study: ConnectionStudy }
   | { type: 'balance'; report: BalanceReport }
   | { type: 'forecast'; rows: CatchmentForecast[] }

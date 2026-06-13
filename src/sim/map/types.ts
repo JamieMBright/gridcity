@@ -90,6 +90,11 @@ export const LANDMARK = {
   bttower: 27, // BT Tower, the thin West-End spike
   gherkin: 28, // the City's glass bullet (was tile-anchored only)
   heathrow: 29, // the bespoke concrete terminal island in the west
+  // Queen Elizabeth Olympic Park, Stratford (owner, 2026-06-13). Append-only
+  // so existing landmark-raster values never shift under old saves.
+  velodrome: 30, // Lee Valley VeloPark — the curved timber pringle roof
+  orbit: 31, // the ArcelorMittal Orbit — red twisting helter-skelter tower
+  westfield: 32, // Westfield Stratford City — the big retail mass beside it
 } as const;
 export type Landmark = (typeof LANDMARK)[keyof typeof LANDMARK];
 

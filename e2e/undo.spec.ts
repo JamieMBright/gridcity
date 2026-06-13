@@ -28,6 +28,40 @@ test.describe('undo/redo', () => {
     await clickButton(page, 'redo');
     await expect.poll(() => assetCount(page)).toBe(base + 1);
   });
+
+  test('undo history list labels actions and reverts back N steps (#27)', async ({ page }) => {
+    await boot(page);
+    await pause(page);
+    const base = await assetCount(page);
+    const [a, b] = await openLand(page, 2);
+    if (!a || !b) return;
+
+    // three undo-able builds → three labels on the stack
+    for (const t of [a, b]) {
+      await page.evaluate(
+        (p) => window.__ec?.sendCommand({ type: 'build', spec: { kind: 'sub', sub: 'grid', x: p.x, y: p.y } }),
+        t,
+      );
+    }
+    await expect.poll(() => assetCount(page)).toBe(base + 2);
+    await expect
+      .poll(() => store<number>(page, '(s) => s.snapshot.undoLabels.length'))
+      .toBeGreaterThanOrEqual(2);
+    // labels read like a build log
+    expect(
+      await store<boolean>(page, "(s) => s.snapshot.undoLabels.every((l) => l.length > 0)"),
+    ).toBe(true);
+
+    // open the history list and revert 2 steps in one click
+    await clickButton(page, 'action history');
+    await expect(page.getByText('UNDO HISTORY')).toBeVisible();
+    // the deepest entry reverts 2 steps (back past both builds)
+    await page.getByRole('button', { name: /undo 2 steps/ }).first().dispatchEvent('click');
+    await expect.poll(() => assetCount(page)).toBe(base);
+    // redo still walks forward
+    await clickButton(page, 'redo');
+    await expect.poll(() => assetCount(page)).toBe(base + 1);
+  });
 });
 
 test.describe('pinned inspector', () => {

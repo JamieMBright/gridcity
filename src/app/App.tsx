@@ -14,10 +14,12 @@ import { LogoMark } from '../ui/Logo';
 import { MapView } from '../ui/MapView';
 import { MobileChrome } from '../ui/MobileChrome';
 import { RotatePrompt } from '../ui/RotatePrompt';
+import { SavesPanel } from '../ui/SavesPanel';
 import { SearchBox } from '../ui/SearchBox';
 import { StartMenu } from '../ui/StartMenu';
 import { StoryIntro } from '../ui/StoryIntro';
 import { Tutorial } from '../ui/Tutorial';
+import { UndoHistory } from '../ui/UndoHistory';
 import { panelStyle, theme } from '../ui/theme';
 import { playSfx } from '../audio/audio';
 import { HOTKEYS } from './hotkeys';
@@ -252,10 +254,12 @@ export function App() {
       <Toast />
       <Tutorial />
       {!menuOpen && <BalancePanel />}
+      {!menuOpen && <UndoHistory />}
       <StoryIntro />
       <KpiDashboard />
       <DirectoratesPanel />
       <StartMenu />
+      <SavesPanel />
       <RotatePrompt />
       <HudTour />
     </div>

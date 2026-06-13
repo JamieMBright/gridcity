@@ -409,13 +409,19 @@ export function seedScenario(state: GameState, ctx: SimContext): void {
 
 // --- save / load -----------------------------------------------------------
 
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
 
 /** Guard for untrusted save payloads; lives beside SAVE_VERSION so the two
  *  can never drift apart again (a stale guard silently discarded saves). */
 export function isSaveData(d: unknown): d is SaveData {
   if (typeof d !== 'object' || d === null) return false;
   const v = (d as { v?: unknown }).v;
+  // v12: Queen Elizabeth Olympic Park, Stratford — the four 2012 heroes
+  // (VeloPark, Olympic Stadium, ArcelorMittal Orbit, Westfield Stratford
+  // City) are stamped into the `landmark` raster on the east Lea bank and the
+  // precinct is re-zoned to Olympic parkland (urbanCore tiles become ZONE.park
+  // around the cluster). A v11 asset could sit on what is now protected
+  // Olympic fabric / parkland, so v11 saves are retired here.
   // v11: Wave-9 landmark/Heathrow pass — the bespoke Heathrow terminal
   // island re-zones its tiles to open tarmac and clears their streets
   // (gameplay tile raster moves), and new append-only LANDMARK ids
@@ -430,11 +436,11 @@ export function isSaveData(d: unknown): d is SaveData {
   // network assets can sit on what is now water, carriageway or protected
   // fabric. (v9 re-laid streets on the tile-edge lattice; v8 moved the
   // whole geography; v7 the id scheme.)
-  return typeof v === 'number' && v >= 11 && v <= SAVE_VERSION;
+  return typeof v === 'number' && v >= 12 && v <= SAVE_VERSION;
 }
 
 export interface SaveData {
-  v: 11;
+  v: 12;
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;

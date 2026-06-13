@@ -90,6 +90,10 @@ interface AppState {
   kpiOpen: boolean;
   /** The network-business panel (directorates + pay + safety, #53). */
   directoratesOpen: boolean;
+  /** Undo history list panel (#27): the recent undo-able actions. */
+  undoListOpen: boolean;
+  /** Named save-slots panel (#34). */
+  savesOpen: boolean;
   /** The HUD coach-mark tour is running (spotlight walkthrough). */
   tourActive: boolean;
   setTourActive: (on: boolean) => void;
@@ -125,6 +129,8 @@ interface AppState {
   setScenarioId: (id: string) => void;
   setKpiOpen: (open: boolean) => void;
   setDirectoratesOpen: (open: boolean) => void;
+  setUndoListOpen: (open: boolean) => void;
+  setSavesOpen: (open: boolean) => void;
   /** A time-skip is running on the worker (disables the HUD skip buttons
    *  until its final snapshot lands). */
   skipping: boolean;
@@ -190,6 +196,8 @@ export const useAppStore = create<AppState>((set) => ({
   scenarioId: 'london',
   kpiOpen: false,
   directoratesOpen: false,
+  undoListOpen: false,
+  savesOpen: false,
   tourActive: false,
   setTourActive: (tourActive) => set({ tourActive }),
   setWorkerStatus: (workerStatus, workerError) => set({ workerStatus, workerError }),
@@ -254,6 +262,8 @@ export const useAppStore = create<AppState>((set) => ({
     ),
   setKpiOpen: (kpiOpen) => set({ kpiOpen }),
   setDirectoratesOpen: (directoratesOpen) => set({ directoratesOpen }),
+  setUndoListOpen: (undoListOpen) => set({ undoListOpen }),
+  setSavesOpen: (savesOpen) => set({ savesOpen }),
   skipping: false,
   setSkipping: (skipping) => set({ skipping }),
   hudCollapsed: loadCollapsed(),
