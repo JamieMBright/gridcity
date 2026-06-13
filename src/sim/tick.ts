@@ -671,28 +671,6 @@ export function solveTick(
   if (dtMin > 0) {
     updateReliability(state.reliability, state.offTiles, coverage, ctx.map, dtMin);
     explainSupplyLosses(state, derived, pf);
-    // group litigation (#54): customer-minutes lost in the CURRENT
-    // continuous mass-outage episode. While many customers sit dark the
-    // accumulator grows; once it clears (few customers off) it resets, so
-    // only a genuinely prolonged mass outage seeds a group action.
-    if (state.scenarioId === 'london') {
-      let darkCustomers = 0;
-      let worst = { x: 0, y: 0, c: 0 };
-      for (const tile of state.offTiles) {
-        const c = ctx.map.customers[tile] ?? 0;
-        darkCustomers += c;
-        if (c > worst.c) worst = { x: tile % ctx.map.width, y: Math.floor(tile / ctx.map.width), c };
-      }
-      const GROUP_RESET_CUSTOMERS = 200; // episode "over" below this many off
-      if (darkCustomers >= GROUP_RESET_CUSTOMERS) {
-        state.groupOutageCustMin = (state.groupOutageCustMin ?? 0) + darkCustomers * dtMin;
-        if (maybeSeedGroupClaim(state, state.groupOutageCustMin, worst.x, worst.y)) {
-          state.groupOutageCustMin = 0; // a claim is filed: don't re-file this episode
-        }
-      } else {
-        state.groupOutageCustMin = undefined;
-      }
-    }
   }
 
   let servedCustomers = 0;
@@ -700,6 +678,36 @@ export function solveTick(
     const cov = coverage[tile] ?? COV.empty;
     if (cov === COV.on || cov === COV.brownout) {
       servedCustomers += ctx.map.customers[tile] ?? 0;
+    }
+  }
+  // high-water mark of customers ever simultaneously served (transient)
+  const everServed = Math.max(state.everServedCustomers ?? 0, servedCustomers);
+  state.everServedCustomers = everServed;
+
+  if (state.scenarioId === 'london' && dtMin > 0) {
+    // group litigation (#54): customer-minutes lost in the CURRENT
+    // continuous mass-outage episode. A group action is a LOSS from a
+    // grid you actually ran — gated on having energized a real base
+    // (everServed), so the day-0 blank grid you're rebuilding and the
+    // seeded-but-unconnected iDNO estates never trigger it. Once the
+    // accumulator clears (few served customers are off) it resets, so
+    // only a genuinely prolonged mass outage seeds a group action.
+    const GROUP_MIN_EVER_SERVED = 5_000; // you've run a town before suing applies
+    const darkServed = Math.max(0, everServed - servedCustomers);
+    const GROUP_RESET_CUSTOMERS = 200; // episode "over" below this many lost
+    if (everServed >= GROUP_MIN_EVER_SERVED && darkServed >= GROUP_RESET_CUSTOMERS) {
+      let worst = { x: 0, y: 0, c: 0 };
+      for (const tile of state.offTiles) {
+        if (!derived.service.subOfTile.has(tile)) continue;
+        const c = ctx.map.customers[tile] ?? 0;
+        if (c > worst.c) worst = { x: tile % ctx.map.width, y: Math.floor(tile / ctx.map.width), c };
+      }
+      state.groupOutageCustMin = (state.groupOutageCustMin ?? 0) + darkServed * dtMin;
+      if (maybeSeedGroupClaim(state, state.groupOutageCustMin, worst.x, worst.y)) {
+        state.groupOutageCustMin = 0; // a claim is filed: don't re-file this episode
+      }
+    } else {
+      state.groupOutageCustMin = undefined;
     }
   }
 

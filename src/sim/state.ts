@@ -165,6 +165,12 @@ export interface GameState {
    *  mass-outage episode (resets when supply largely restores) — crosses
    *  a threshold to seed a group claim. Additive optional. */
   groupOutageCustMin?: number | undefined;
+  /** High-water mark of customers ever simultaneously served (transient,
+   *  not serialized — self-heals in one tick on load). A group action is
+   *  a LOSS from a served grid, so this gates out the day-0 blank-grid
+   *  rebuild and the seeded-but-unconnected iDNO estates: you aren't sued
+   *  for the network that vanished, only for supply you actually lost. */
+  everServedCustomers?: number | undefined;
 }
 
 /** One scheduled maintenance night (#16): `branchId` goes out as a
