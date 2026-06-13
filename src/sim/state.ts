@@ -23,6 +23,7 @@ import {
 } from './regulation/riio';
 import { EXISTING_GENERATION, NEW_ESTATES } from '../data/londonMap';
 import { getScenario } from '../data/cityRegistry';
+import { Rng } from './rng';
 import type { SimSpeed } from './protocol';
 
 export interface GameEvent {
@@ -171,6 +172,13 @@ export interface GameState {
    *  rebuild and the seeded-but-unconnected iDNO estates: you aren't sued
    *  for the network that vanished, only for supply you actually lost. */
   everServedCustomers?: number | undefined;
+  /** The bespoke Heathrow PV+BESS scheme (owner): the deterministic
+   *  game-minute it raises its big combined solar + battery application,
+   *  set once at seedScenario off a dedicated seed (so it never perturbs
+   *  the main rng stream). `heathrowSchemeFired` flips when it spawns, so
+   *  it fires exactly once per game. Additive optional. */
+  heathrowSchemeMin?: number | undefined;
+  heathrowSchemeFired?: boolean | undefined;
 }
 
 /** One scheduled maintenance night (#16): `branchId` goes out as a
@@ -388,17 +396,32 @@ export function seedScenario(state: GameState, ctx: SimContext): void {
     });
     pushEvent(state, 'warn', `connection application: ${s.name} (${s.mw} MW generation)`, s.site.x, s.site.y);
   }
+
+  // (c) schedule the bespoke once-per-game Heathrow PV+BESS scheme at a
+  // deterministic random point a few months to ~2 years in. A DEDICATED
+  // seed keeps this off the main tick rng stream, so it never shifts the
+  // weather/application cadence; the same game always raises it on the
+  // same day.
+  const hRng = new Rng(0x4ea7);
+  state.heathrowSchemeMin = state.simTimeMin + (120 + hRng.int(620)) * 1440;
+  state.heathrowSchemeFired = false;
 }
 
 // --- save / load -----------------------------------------------------------
 
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 
 /** Guard for untrusted save payloads; lives beside SAVE_VERSION so the two
  *  can never drift apart again (a stale guard silently discarded saves). */
 export function isSaveData(d: unknown): d is SaveData {
   if (typeof d !== 'object' || d === null) return false;
   const v = (d as { v?: unknown }).v;
+  // v11: Wave-9 landmark/Heathrow pass — the bespoke Heathrow terminal
+  // island re-zones its tiles to open tarmac and clears their streets
+  // (gameplay tile raster moves), and new append-only LANDMARK ids
+  // (heroes + the bespoke Heathrow) are stamped into the `landmark`
+  // raster. A v10 asset could sit on what is now protected Heathrow
+  // fabric, so v10 saves are retired here.
   // v10: Wave-8 map-geometry overhaul — the Thames re-cut (deeper Isle of
   // Dogs loop, smoother Woolwich reach, wider estuary fan), the major-road
   // skeleton re-laid on a real-London spider's web, the local streets
@@ -407,11 +430,11 @@ export function isSaveData(d: unknown): d is SaveData {
   // network assets can sit on what is now water, carriageway or protected
   // fabric. (v9 re-laid streets on the tile-edge lattice; v8 moved the
   // whole geography; v7 the id scheme.)
-  return typeof v === 'number' && v >= 10 && v <= SAVE_VERSION;
+  return typeof v === 'number' && v >= 11 && v <= SAVE_VERSION;
 }
 
 export interface SaveData {
-  v: 10;
+  v: 11;
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;
@@ -492,6 +515,9 @@ export interface SaveData {
   claimsYrK?: number;
   /** Current mass-outage episode customer-minutes (#54, additive). */
   groupOutageCustMin?: number;
+  /** Heathrow PV+BESS scheme schedule (Wave 9, additive). */
+  heathrowSchemeMin?: number;
+  heathrowSchemeFired?: boolean;
 }
 
 export function serialize(s: GameState): SaveData {
@@ -576,6 +602,8 @@ export function serialize(s: GameState): SaveData {
     ...(s.claims && s.claims.length > 0 ? { claims: s.claims.map((c) => ({ ...c })) } : {}),
     ...(s.claimsYrK !== undefined ? { claimsYrK: s.claimsYrK } : {}),
     ...(s.groupOutageCustMin !== undefined ? { groupOutageCustMin: s.groupOutageCustMin } : {}),
+    ...(s.heathrowSchemeMin !== undefined ? { heathrowSchemeMin: s.heathrowSchemeMin } : {}),
+    ...(s.heathrowSchemeFired !== undefined ? { heathrowSchemeFired: s.heathrowSchemeFired } : {}),
     // scenario tag only when off the default: london saves stay
     // byte-identical to pre-campaign ones
     ...(s.scenarioId !== 'london' ? { scenarioId: s.scenarioId } : {}),
@@ -671,6 +699,8 @@ export function deserialize(d: SaveData): GameState {
     claims: d.claims?.map((c) => ({ ...c })),
     claimsYrK: d.claimsYrK,
     groupOutageCustMin: d.groupOutageCustMin,
+    heathrowSchemeMin: d.heathrowSchemeMin,
+    heathrowSchemeFired: d.heathrowSchemeFired,
   };
 }
 

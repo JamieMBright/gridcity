@@ -24,15 +24,24 @@ import {
 } from './buildingSprites';
 import {
   airportTile,
+  allypallyTile,
   arenaTile,
+  bttowerTile,
   carparkTile,
   churchTile,
   datacentreTile,
   domeTile,
+  excelTile,
   eyeTile,
   fortressTile,
   gherkinTile,
+  HEATHROW_H,
+  HEATHROW_W,
+  heathrowTile,
+  kewhouseTile,
   mallTile,
+  o2domeTile,
+  palacemastTile,
   parliamentTile,
   powerstationTile,
   schoolTile,
@@ -44,6 +53,7 @@ import {
   towerBridgeTile,
   townhallTile,
   watertowerTile,
+  wembleyTile,
   zooTile,
 } from './landmarkSprites';
 import {
@@ -89,41 +99,75 @@ import {
   waterTile,
 } from './worldSprites';
 
+/** A registered atlas frame. `ox/oy` are the transparent margin trimmed off
+ *  the LEFT/TOP of the sprite's original canvas; both renderers add them back
+ *  to the placement so trimming never shifts a pixel on screen. */
+export interface AtlasFrame {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  ox: number;
+  oy: number;
+}
+
 export interface SpriteAtlas {
   width: number;
   height: number;
   /** RGBA8, row-major. */
   pixels: Uint8ClampedArray<ArrayBuffer>;
-  /** Sprite name → its rectangle on the sheet. */
-  frames: Map<string, { x: number; y: number; w: number; h: number }>;
+  /** Sprite name → its rectangle on the sheet (+ trim offset). */
+  frames: Map<string, AtlasFrame>;
 }
 
 interface Cell {
   pixels: Uint8ClampedArray<ArrayBuffer>;
-  /** Frame size on the sheet (transparent right/bottom margins trimmed). */
+  /** Trimmed frame size on the sheet. */
   w: number;
   h: number;
+  /** Transparent margin trimmed off the original canvas left/top. */
+  ox: number;
+  oy: number;
   /** Row stride of `pixels` (the sprite's full canvas width). */
   stride: number;
 }
 
-/** Sprites are placed by their top-left corner in both renderers, so
- *  fully-transparent right columns and bottom rows can be dropped from
- *  the registered frame without moving a single pixel. Keeps the sheet
- *  under the 4096px mobile-GPU ceiling as landmarks grow multi-tile. */
-function trimmedExtent(pixels: Uint8ClampedArray, w: number, h: number): { w: number; h: number } {
-  let maxX = 0;
-  let maxY = 0;
+/** Sprites are placed by their top-left corner in both renderers, so the
+ *  fully-transparent margin around the drawn art can be dropped from the
+ *  registered frame — as long as the trimmed left/top offset (ox, oy) is
+ *  added back at placement. Trimming ALL FOUR sides (not just right/bottom)
+ *  reclaims the big empty sky above the tall heroes (the Shard, BT Tower,
+ *  the multi-tile palaces and the Heathrow island), which is what keeps the
+ *  sheet under the 4096px mobile-GPU ceiling as the landmark set grows. */
+function trimmedExtent(
+  pixels: Uint8ClampedArray,
+  w: number,
+  h: number,
+): { w: number; h: number; ox: number; oy: number } {
+  let minX = w;
+  let minY = h;
+  let maxX = -1;
+  let maxY = -1;
   for (let y = 0; y < h; y++) {
-    for (let x = w - 1; x >= 0; x--) {
+    for (let x = 0; x < w; x++) {
       if ((pixels[(y * w + x) * 4 + 3] ?? 0) > 0) {
+        if (x < minX) minX = x;
         if (x > maxX) maxX = x;
-        maxY = y;
-        break;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
       }
     }
   }
-  return { w: Math.min(w, maxX + 2), h: Math.min(h, maxY + 2) };
+  if (maxX < 0) return { w: 1, h: 1, ox: 0, oy: 0 }; // fully transparent
+  // a 1px transparent guard band keeps linear-filter neighbours clean
+  const ox = Math.max(0, minX - 1);
+  const oy = Math.max(0, minY - 1);
+  return {
+    w: Math.min(w, maxX + 2) - ox,
+    h: Math.min(h, maxY + 2) - oy,
+    ox,
+    oy,
+  };
 }
 
 function buildSpriteCells(): Map<string, Cell> {
@@ -198,6 +242,15 @@ function buildSpriteCells(): Map<string, Cell> {
   set('lm_zoo_0', zooTile(220, 0));
   set('lm_zoo_1', zooTile(221, 1));
   set('lm_power', powerstationTile(222), 2, 2, true);
+  // Wave 9 heroes (map-overhaul §5)
+  set('lm_wembley', wembleyTile(311));
+  set('lm_o2dome', o2domeTile(312));
+  set('lm_palacemast', palacemastTile(313));
+  set('lm_allypally', allypallyTile(314), 2, 1, true);
+  set('lm_excel', excelTile(315), 2, 1, true);
+  set('lm_kewhouse', kewhouseTile(316));
+  set('lm_bttower', bttowerTile(317));
+  set('lm_heathrow', heathrowTile(318), HEATHROW_W, HEATHROW_H, true);
   // civic fabric
   set('lm_station', stationTile(281));
   set('lm_school', schoolTile(282));
@@ -239,39 +292,134 @@ function buildSpriteCells(): Map<string, Cell> {
 /** GPU texture ceiling: the shelf packer must stay within this square. */
 const MAX_SHEET = 4096;
 
+interface FreeRect { x: number; y: number; w: number; h: number }
+
+/** MaxRects bin packer (Best-Short-Side-Fit). Maintains a list of maximal
+ *  free rectangles and places each sprite in the free rect whose leftover
+ *  short side is smallest, then splits + prunes. Reliably ~95% dense — it
+ *  fits the multi-tile Wave-9 heroes (incl. the Heathrow island) under the
+ *  4096px mobile-GPU ceiling where the old single-row shelf packer (which
+ *  wasted the gap under every short sprite) could not. Deterministic: rects
+ *  packed largest-first with a name tiebreak, ties broken by lowest y then
+ *  leftmost, so the layout is stable across runs. */
+function packMaxRects(
+  order: Array<[string, Cell]>,
+  binW: number,
+  binH: number,
+): { width: number; height: number; frames: Map<string, AtlasFrame> } | undefined {
+  const frames = new Map<string, AtlasFrame>();
+  const free: FreeRect[] = [{ x: 0, y: 0, w: binW, h: binH }];
+  let usedW = 0;
+  let usedH = 0;
+
+  // Bottom-Left placement (robust MaxRects rule): the free rect that puts
+  // the sprite's TOP edge lowest, ties → leftmost, ties → tightest fit. BL
+  // rarely fails the way Best-Short-Side-Fit can fragment.
+  const place = (w: number, h: number): { x: number; y: number } | undefined => {
+    let best: { x: number; y: number; top: number; fit: number } | undefined;
+    for (const fr of free) {
+      if (fr.w < w || fr.h < h) continue;
+      const top = fr.y + h;
+      const fit = Math.min(fr.w - w, fr.h - h);
+      if (
+        !best ||
+        top < best.top ||
+        (top === best.top && fr.x < best.x) ||
+        (top === best.top && fr.x === best.x && fit < best.fit)
+      ) {
+        best = { x: fr.x, y: fr.y, top, fit };
+      }
+    }
+    return best ? { x: best.x, y: best.y } : undefined;
+  };
+
+  const splitFree = (placed: FreeRect): void => {
+    const next: FreeRect[] = [];
+    for (const fr of free) {
+      // no overlap → keep
+      if (
+        placed.x >= fr.x + fr.w ||
+        placed.x + placed.w <= fr.x ||
+        placed.y >= fr.y + fr.h ||
+        placed.y + placed.h <= fr.y
+      ) {
+        next.push(fr);
+        continue;
+      }
+      // split fr into up to four maximal rects around the placed rect
+      if (placed.x > fr.x) next.push({ x: fr.x, y: fr.y, w: placed.x - fr.x, h: fr.h });
+      if (placed.x + placed.w < fr.x + fr.w) next.push({ x: placed.x + placed.w, y: fr.y, w: fr.x + fr.w - (placed.x + placed.w), h: fr.h });
+      if (placed.y > fr.y) next.push({ x: fr.x, y: fr.y, w: fr.w, h: placed.y - fr.y });
+      if (placed.y + placed.h < fr.y + fr.h) next.push({ x: fr.x, y: placed.y + placed.h, w: fr.w, h: fr.y + fr.h - (placed.y + placed.h) });
+    }
+    // prune: drop any free rect fully contained in another
+    free.length = 0;
+    for (let i = 0; i < next.length; i++) {
+      const a = next[i]!;
+      let contained = false;
+      for (let j = 0; j < next.length; j++) {
+        if (i === j) continue;
+        const b = next[j]!;
+        if (a.x >= b.x && a.y >= b.y && a.x + a.w <= b.x + b.w && a.y + a.h <= b.y + b.h) {
+          // tie: keep the earlier index to stay deterministic
+          if (a.w === b.w && a.h === b.h && a.x === b.x && a.y === b.y && j > i) continue;
+          contained = true;
+          break;
+        }
+      }
+      if (!contained) free.push(a);
+    }
+  };
+
+  for (const [name, cell] of order) {
+    const pos = place(cell.w, cell.h);
+    if (!pos) return undefined; // doesn't fit this bin
+    frames.set(name, { x: pos.x, y: pos.y, w: cell.w, h: cell.h, ox: cell.ox, oy: cell.oy });
+    splitFree({ x: pos.x, y: pos.y, w: cell.w, h: cell.h });
+    if (pos.x + cell.w > usedW) usedW = pos.x + cell.w;
+    if (pos.y + cell.h > usedH) usedH = pos.y + cell.h;
+  }
+  return { width: usedW, height: usedH, frames };
+}
+
 export function buildAtlas(): SpriteAtlas {
   const cells = buildSpriteCells();
-  // shelf packing: tallest first so each shelf holds near-equal heights
-  // (stable + name tiebreak keeps the layout deterministic)
-  const order = [...cells.entries()].sort(
-    (a, b) => b[1].h - a[1].h || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0),
-  );
-  const frames = new Map<string, { x: number; y: number; w: number; h: number }>();
-  let x = 0;
-  let y = 0;
-  let shelfH = 0;
-  let usedW = 0;
-  for (const [name, cell] of order) {
-    if (x + cell.w > MAX_SHEET) {
-      y += shelfH;
-      x = 0;
-      shelfH = 0;
+  // largest-area first (max-side then name tiebreak) — the standard MaxRects
+  // feed order; deterministic.
+  const order = [...cells.entries()].sort((a, b) => {
+    const aa = a[1].w * a[1].h;
+    const bb = b[1].w * b[1].h;
+    if (aa !== bb) return bb - aa;
+    const am = Math.max(a[1].w, a[1].h);
+    const bm = Math.max(b[1].w, b[1].h);
+    if (am !== bm) return bm - am;
+    return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0;
+  });
+  // search bin widths: a narrower bin can pack the tall heroes denser. Pick
+  // the layout with the smallest longer side that fits ≤ MAX_SHEET on both
+  // axes (the GPU ceiling). Deterministic: fixed width ladder + stable order.
+  const widest = order.reduce((m, [, c]) => Math.max(m, c.w), 0);
+  let best: ReturnType<typeof packMaxRects> | undefined;
+  for (let w = Math.max(2048, widest); w <= MAX_SHEET; w += 128) {
+    const packed = packMaxRects(order, w, MAX_SHEET);
+    if (!packed || packed.width > MAX_SHEET || packed.height > MAX_SHEET) continue;
+    if (!best || Math.max(packed.width, packed.height) < Math.max(best.width, best.height)) {
+      best = packed;
     }
-    frames.set(name, { x, y, w: cell.w, h: cell.h });
-    x += cell.w;
-    if (cell.h > shelfH) shelfH = cell.h;
-    if (x > usedW) usedW = x;
   }
-  const width = usedW;
-  const height = y + shelfH;
-  if (height > MAX_SHEET) throw new Error(`sprite atlas overflow: ${height}px tall`);
+  if (!best) throw new Error('sprite atlas overflow: no bin width fits under the 4096px ceiling');
+  const { width, height, frames } = best;
+  if (height > MAX_SHEET || width > MAX_SHEET) {
+    throw new Error(`sprite atlas overflow: ${width}x${height}px`);
+  }
 
   const pixels = new Uint8ClampedArray(width * height * 4);
   for (const [name, cell] of cells) {
     const f = frames.get(name);
     if (!f) continue;
+    // copy the trimmed sub-rect: content starts at (ox, oy) in the canvas
     for (let row = 0; row < cell.h; row++) {
-      const src = row * cell.stride * 4;
+      const src = ((cell.oy + row) * cell.stride + cell.ox) * 4;
       const dst = ((f.y + row) * width + f.x) * 4;
       pixels.set(cell.pixels.subarray(src, src + cell.w * 4), dst);
     }

@@ -16,13 +16,18 @@ export interface ReliabilityTotals {
 
 /** Update totals from this tick's coverage. `offTiles` is the persistent
  *  set of tiles currently dark; transitions into it count as
- *  interruptions, time spent in it accrues CML. */
+ *  interruptions, time spent in it accrues CML. `accrue` gates the
+ *  scoring: during the rebuild grace (the first ~3 months after the grid
+ *  vanished) the offTiles transition tracking still runs — so "your site
+ *  went dark" events fire — but CI/CML do not count against the operator
+ *  yet (the regulator's breathing room while you rebuild). */
 export function updateReliability(
   totals: ReliabilityTotals,
   offTiles: Set<number>,
   coverage: Uint8Array,
   map: CityMap,
   dtMin: number,
+  accrue = true,
 ): void {
   for (let i = 0; i < coverage.length; i++) {
     const dark = coverage[i] === COV.off;
@@ -30,9 +35,9 @@ export function updateReliability(
       const customers = map.customers[i] ?? 0;
       if (!offTiles.has(i)) {
         offTiles.add(i);
-        totals.ciCustomers += customers;
+        if (accrue) totals.ciCustomers += customers;
       }
-      totals.cmlCustomerMin += customers * dtMin;
+      if (accrue) totals.cmlCustomerMin += customers * dtMin;
     } else if (offTiles.has(i)) {
       offTiles.delete(i);
     }

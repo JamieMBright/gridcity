@@ -25,6 +25,11 @@ export const FLOOR_CX = CELL_W / 2;
 export const SUN_WARM = hex('#ffb066');
 export const DUSK_COOL = hex('#3a2b50');
 export const SHADOW = hex('#2e2240');
+/** The hero specular gleam: sunset gold, the complement of the navy dusk
+ *  shadow (#10162f) — baked onto a hero landmark's sun-facing roofline so
+ *  it pops against the grade (Color complementary harmony = maximum pop).
+ *  Kept light, not neon, so the dark-grade read is "catches the light". */
+export const GLEAM = hex('#ffe6b0');
 /** The drawing ink: every form gets a crisp dark contour line. */
 export const INK = alpha(hex('#241c38'), 0.85);
 /** Contour width in device pixels at full sprite resolution. */
@@ -121,6 +126,22 @@ export class Iso {
   /** Ink contour along a segment (the sharp-line drawing style). */
   edge(a: Pt, b: Pt, w = INK_W, c: RGBA = INK): void {
     this.r.line(a, b, w, c);
+  }
+
+  /** A baked warm specular gleam stroke on a hero's sun-facing edge: a
+   *  bright sunset-gold core over a soft halo, the "special gleam" that
+   *  makes a landmark pop against the dusk grade (env-art 5% hero rule).
+   *  Cheap — it's painted into the sprite once, not per frame. */
+  gleam(a: Pt, b: Pt, w = 1.4 * RES): void {
+    this.r.line(a, b, w * 2.4, alpha(GLEAM, 0.28));
+    this.r.line(a, b, w, alpha(GLEAM, 0.95));
+  }
+
+  /** A round specular glint (a catch-light pip) at a point. */
+  glint(p: Pt, r = 2.2 * RES): void {
+    this.r.line([p[0] - r, p[1]], [p[0] + r, p[1]], r * 0.9, alpha(GLEAM, 0.22));
+    this.r.line([p[0], p[1] - r], [p[0], p[1] + r], r * 0.9, alpha(GLEAM, 0.22));
+    this.r.line([p[0] - r * 0.5, p[1]], [p[0] + r * 0.5, p[1]], r * 0.8, alpha(GLEAM, 0.95));
   }
 
   /** Extruded box from z0 up to z1: left+right walls and top, finished

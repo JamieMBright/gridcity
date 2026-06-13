@@ -10,7 +10,7 @@ import { CONSTRAINT_COMP_K } from '../src/sim/market/dispatch';
 import { devCurtailK, DEVELOPERS } from '../src/sim/events/developers';
 import { ZONE } from '../src/sim/map/types';
 import { newGame, type GameState, type SimContext } from '../src/sim/state';
-import { advanceTime, derive, solveTick } from '../src/sim/tick';
+import { advanceTime, derive, REBUILD_GRACE_MIN, solveTick } from '../src/sim/tick';
 import {
   commissionAll,
   directBuildGen,
@@ -29,7 +29,7 @@ function twoSolarFixture(cheapK?: number, dearK?: number) {
   const ctx = makeContext(map);
   const state = newGame();
   state.weather.cloud = 0;
-  state.simTimeMin = 13 * 60; // noon
+  state.simTimeMin = REBUILD_GRACE_MIN + 13 * 60; // noon, past the rebuild grace
   const cheap = directBuildGen(state, map, 'solarFarm', 5, 5);
   const dear = directBuildGen(state, map, 'solarFarm', 15, 5);
   mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'dist', x: 10, y: 10 } });

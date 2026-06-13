@@ -12,6 +12,17 @@
 
 ## Open
 
+- [x] **Wave 9 landmarks + Heathrow (agent lane, integrated by main
+      after the lane stalled post-completion).** Missing landmarks added
+      (Wembley, O2, Crystal Palace, Alexandra Palace, ExCeL, Kew, BT
+      Tower, real Gherkin) with the warm specular GLEAM on heroes;
+      bespoke concrete HEATHROW (twin runways + terminal island, planes
+      on the real runways); the Heathrow PV+BESS special application.
+      SAVE_VERSION 10→11. VERIFIED: 434 lane tests + main's rebuild-grace
+      tests = 436 green; tsc/eslint/build clean; Heathrow + heroes +
+      sprite previews inspected. (Olympic Park cluster + per-city assets
+      remain for a follow-up.)
+
 - [ ] **Olympic Park, Stratford (owner, 2026-06-13 09:26): "Id like
       london to have the Olympic park in london with the stadium
       velodrome arcelormittal and westfield."** Add the Queen Elizabeth
@@ -26,10 +37,10 @@
       landmark precincts. Folds into the Wave 9 landmark work (added at
       integration — the running lane's scope is fixed) or a follow-up.
 
-- [ ] **Rebuild grace: CI/CML clock + constraint payments (owner,
+- [x] **Rebuild grace: CI/CML clock + constraint payments (owner,
       2026-06-13 09:15).** Two related asks; implement at Wave 9
       integration (tick.ts is lane-locked right now).
-  - [ ] CI/CML CLOCK STARTS AFTER 3 MONTHS (owner: "the clock on ci/cml
+  - [x] CI/CML CLOCK STARTS AFTER 3 MONTHS (owner: "the clock on ci/cml
         should only start after 3 months"): suppress reliability-KPI
         (CI/CML) accrual for the first ~3 game-months (90 days) of a
         london game — you're rebuilding the vanished grid, the regulator
@@ -38,7 +49,7 @@
         called from tick.ts) on simTimeMin >= 3 months; RIIO report card
         ignores pre-grace interruptions. Same rebuild-grace philosophy
         as the day-0 group-litigation fix already shipped.
-  - [ ] CONSTRAINT PAYMENTS feel harsh early (owner: "seems a bit harsh
+  - [x] CONSTRAINT PAYMENTS feel harsh early (owner: "seems a bit harsh
         to have to pay for turn down when theres no grid to start").
         Model is CORRECT (firm-connection curtailment = a real GB
         constraint payment; distinct from a flexibility service you

@@ -17,12 +17,13 @@ const BLOCK_LANDMARKS: ReadonlySet<Landmark> = new Set<Landmark>([
   LANDMARK.dome,
   LANDMARK.towerBridge,
   LANDMARK.powerstation,
+  // Wave 9 multi-tile heroes: one SW-anchored sprite per reservation
+  // (wembley + the O2 are compact 1×1 icons, emitted per-tile like the
+  // stadium/arena — only the genuinely multi-tile ones go here)
+  LANDMARK.allypally,
+  LANDMARK.excel,
+  LANDMARK.heathrow,
 ]);
-
-/** The Gherkin has no landmark id of its own: it anchors on a fixed CBD
- *  tile in the City cluster (north of the bridge, east of St Paul's). If
- *  the map shifts under it the rule degrades to ordinary CBD fabric. */
-const GHERKIN_TILE = { x: 118, y: 77 };
 
 const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {
   [LANDMARK.parliament]: 'lm_parliament',
@@ -45,6 +46,15 @@ const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {
   [LANDMARK.church]: 'lm_church',
   [LANDMARK.datacentre]: 'lm_datacentre',
   [LANDMARK.airport]: 'lm_airport',
+  [LANDMARK.wembley]: 'lm_wembley',
+  [LANDMARK.o2dome]: 'lm_o2dome',
+  [LANDMARK.palacemast]: 'lm_palacemast',
+  [LANDMARK.allypally]: 'lm_allypally',
+  [LANDMARK.excel]: 'lm_excel',
+  [LANDMARK.kewhouse]: 'lm_kewhouse',
+  [LANDMARK.bttower]: 'lm_bttower',
+  [LANDMARK.gherkin]: 'lm_gherkin',
+  [LANDMARK.heathrow]: 'lm_heathrow',
 };
 
 function at(map: CityMap, x: number, y: number, arr: Uint8Array): number {
@@ -199,7 +209,8 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
 
   switch (zone) {
     case ZONE.cbd:
-      if (x === GHERKIN_TILE.x && y === GHERKIN_TILE.y) return 'lm_gherkin';
+      // the Gherkin now carries its own LANDMARK id (handled above), so the
+      // CBD fabric is plain skyscrapers — no fixed-tile special-case
       return `sky_${v % 3}`;
     case ZONE.urbanCore:
       if (v % 7 < 2) return `tower_${v % 2}`;

@@ -79,6 +79,17 @@ export const LANDMARK = {
   church: 18, // village centrepiece
   datacentre: 19, // arrives uninvited, hungry and impatient
   airport: 20, // the terminal in the west; planes, one day
+  // Wave 9 heroes (map-overhaul §5: "many are missing"). Append-only so
+  // existing landmark-raster values never shift under old saves.
+  wembley: 21, // the great white arch over the bowl, NW
+  o2dome: 22, // the tented dome on the Greenwich peninsula
+  palacemast: 23, // Crystal Palace transmitter mast, S ridge
+  allypally: 24, // Alexandra Palace + its mast, N hill
+  excel: 25, // ExCeL / Royal Docks exhibition halls, E
+  kewhouse: 26, // Kew Palm House glasshouse, by the river bend
+  bttower: 27, // BT Tower, the thin West-End spike
+  gherkin: 28, // the City's glass bullet (was tile-anchored only)
+  heathrow: 29, // the bespoke concrete terminal island in the west
 } as const;
 export type Landmark = (typeof LANDMARK)[keyof typeof LANDMARK];
 

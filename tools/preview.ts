@@ -115,8 +115,10 @@ function blit(
       const so = ((frame.y + yy) * atlas.width + frame.x + xx) * 4;
       const sa = (atlas.pixels[so + 3] ?? 0) / 255;
       if (sa <= 0) continue;
-      const dx = px + xx;
-      const dy = py + yy;
+      // the atlas frame is 4-side-trimmed; add the offset back so the art
+      // lands where the untrimmed canvas top-left would have been
+      const dx = px + frame.ox + xx;
+      const dy = py + frame.oy + yy;
       if (dx < 0 || dx >= W || dy < 0 || dy >= H) continue;
       const o = (dy * W + dx) * 4;
       img[o] = (atlas.pixels[so] ?? 0) * tr * sa + (img[o] ?? 0) * (1 - sa);
@@ -214,7 +216,8 @@ function dumpSprites(atlas: SpriteAtlas, names: string[]): void {
       img[i * 4 + 2] = 48;
       img[i * 4 + 3] = 255;
     }
-    blit(atlas, name, img, f.w, f.h, 0, 0);
+    // blit adds the trim offset; cancel it so the trimmed art fills the dump
+    blit(atlas, name, img, f.w, f.h, -f.ox, -f.oy);
     writeFileSync(`preview/sprite_${name}.png`, encodePng(f.w, f.h, img));
     console.log(`preview/sprite_${name}.png  ${f.w}x${f.h}`);
   }

@@ -23,7 +23,7 @@ import { rollFaults } from '../src/sim/reliability/faults';
 import { assetCapexK } from '../src/sim/regulation/bill';
 import { Rng } from '../src/sim/rng';
 import { deserialize, serialize, type SaveData } from '../src/sim/state';
-import { advanceTime, derive, solveTick } from '../src/sim/tick';
+import { advanceTime, derive, REBUILD_GRACE_MIN, solveTick } from '../src/sim/tick';
 import { mustApply, poweredFixture } from './helpers';
 
 const YEAR_MIN = 525_600;
@@ -173,7 +173,7 @@ describe('planned maintenance windows (#16)', () => {
     const { state, ctx, ids } = poweredFixture();
     const line = state.assets.get(ids.line33);
     if (!line || line.kind !== 'line') throw new Error('fixture');
-    state.simTimeMin = 1320; // 22:00
+    state.simTimeMin = REBUILD_GRACE_MIN + 1320; // 22:00, past the rebuild grace (CML scores)
     line.builtAtMin = state.simTimeMin - 20 * YEAR_MIN; // well-worn feeder
     const branchId = lineBranchId(ids.line33);
     const healthBefore = assetHealth(line, state.simTimeMin);
@@ -183,7 +183,7 @@ describe('planned maintenance windows (#16)', () => {
       assetId: ids.line33,
     });
     expect(r.ok).toBe(true);
-    expect(state.maintenance).toEqual([{ branchId, startMin: 1500, durMin: 240 }]);
+    expect(state.maintenance).toEqual([{ branchId, startMin: REBUILD_GRACE_MIN + 1500, durMin: 240 }]);
     expect(state.maintYrK).toBe(Math.round(MAINT_COST_FRAC * line.capexK));
     // one window per branch
     expect(
@@ -198,9 +198,9 @@ describe('planned maintenance windows (#16)', () => {
       advanceTime(state);
       const cmlBefore = state.reliability.cmlCustomerMin;
       const out = solveTick(state, ctx, d, true);
-      if (state.simTimeMin < 1500) {
+      if (state.simTimeMin < REBUILD_GRACE_MIN + 1500) {
         expect(state.outages.has(branchId)).toBe(false);
-      } else if (state.simTimeMin < 1740) {
+      } else if (state.simTimeMin < REBUILD_GRACE_MIN + 1740) {
         sawOutage = true;
         expect(state.outages.has(branchId)).toBe(true);
         expect(state.outageCause.get(branchId)).toBe(MAINT_CAUSE);
@@ -212,7 +212,7 @@ describe('planned maintenance windows (#16)', () => {
     expect(sawOutage).toBe(true);
     expect(cmlInWindow).toBeGreaterThan(0); // customers dark → CML accrues
     // window over: outage + cause cleared, queue empty, condition up ~25
-    expect(state.simTimeMin).toBeGreaterThanOrEqual(1740);
+    expect(state.simTimeMin).toBeGreaterThanOrEqual(REBUILD_GRACE_MIN + 1740);
     expect(state.outages.has(branchId)).toBe(false);
     expect(state.outageCause.has(branchId)).toBe(false);
     expect(state.maintenance).toBeUndefined();

@@ -17,6 +17,7 @@ import { runDispatch, underConstruction, type DispatchResult } from './market/di
 import { systemFrequencyHz } from './market/frequency';
 import { stepWeather, sunFactor, windFactor } from './events/weather';
 import {
+  buildHeathrowScheme,
   GEN_OF_KIND,
   LATE_PENALTY_K_PER_DAY,
   maybeSpawnApplications,
@@ -108,6 +109,16 @@ const TRIP_RECLOSE_MIN = 90;
 export const AWAITING_CREW = -1;
 const MAX_CASCADE = 5;
 const MIN_PER_YEAR = 525_600;
+
+/** The regulator's rebuild grace after "the Night the Grid Vanished":
+ *  the first ~3 game-months. CI/CML scoring and firm-curtailment
+ *  constraint payments are both suspended in this window — you're
+ *  rebuilding the inherited blank grid, not running a failing one.
+ *  London only; missions have their own framing. */
+export const REBUILD_GRACE_MIN = 90 * 1440; // ~3 months
+function rebuildGraceActive(state: GameState): boolean {
+  return state.scenarioId === 'london' && state.simTimeMin < REBUILD_GRACE_MIN;
+}
 
 export interface Derived {
   version: string;
@@ -493,6 +504,30 @@ export function solveTick(
         app.y,
       );
     }
+    // the bespoke once-per-game Heathrow PV+BESS scheme: fires when the
+    // deterministic (dedicated-seed) schedule passes, routing through the
+    // normal firm/flex + connection-study flow and the news banner
+    if (
+      state.scenarioId === 'london' &&
+      state.heathrowSchemeFired !== true &&
+      state.heathrowSchemeMin !== undefined &&
+      state.simTimeMin >= state.heathrowSchemeMin
+    ) {
+      const scheme = buildHeathrowScheme(ctx.map, state.simTimeMin, state.nextAppId, taken);
+      state.heathrowSchemeFired = true; // once per game, even if siting fails
+      if (scheme) {
+        state.nextAppId++;
+        state.applications.push(scheme);
+        pushEvent(
+          state,
+          'warn',
+          `Heathrow Airport applies to connect a ${scheme.mw} MW solar + ${scheme.bessMw} MW battery scheme`,
+          scheme.x,
+          scheme.y,
+        );
+      }
+    }
+
     for (const a of state.applications) {
       if (a.status === 'open' && state.simTimeMin > a.decideByMin) {
         a.status = 'expired';
@@ -676,7 +711,13 @@ export function solveTick(
     state.genCostYrK += (dispatch.ppaTopupKPerHour * 8760 - state.genCostYrK) * alpha;
     state.carbonEMA += (dispatch.carbonG - state.carbonEMA) * alpha;
     state.flexYrK += (dispatch.flexCostKPerHour * 8760 - state.flexYrK) * alpha;
-    state.constraintYrK += (dispatch.constraintKPerHour * 8760 - state.constraintYrK) * alpha;
+    // rebuild grace: firm-curtailment constraint payments are real (you
+    // promised firm access and can't deliver it) — but not while you're
+    // rebuilding the vanished grid. For the first ~3 months they're
+    // waived; the curtailment still physically happens, it just isn't
+    // billed. After the grace, over-procuring firm gen costs as it should.
+    const constraintK = rebuildGraceActive(state) ? 0 : dispatch.constraintKPerHour;
+    state.constraintYrK += (constraintK * 8760 - state.constraintYrK) * alpha;
     // losses bought at the running marginal price (the DNO's energy)
     const lossKPerHour = (lossMWTotal * dispatch.priceMWh) / 1000;
     state.lossYrK += (lossKPerHour * 8760 - state.lossYrK) * alpha;
@@ -688,7 +729,14 @@ export function solveTick(
 
   const coverage = buildCoverage(state, derived, dispatch, pf, ctx);
   if (dtMin > 0) {
-    updateReliability(state.reliability, state.offTiles, coverage, ctx.map, dtMin);
+    updateReliability(
+      state.reliability,
+      state.offTiles,
+      coverage,
+      ctx.map,
+      dtMin,
+      !rebuildGraceActive(state),
+    );
     explainSupplyLosses(state, derived, pf);
   }
 

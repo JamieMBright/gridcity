@@ -1023,6 +1023,32 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
           flex: cmd.response === 'flex',
         });
         app.assetId = id;
+        // the bespoke Heathrow scheme is PV + BESS: the application studies
+        // and builds as solar, but acceptance ALSO drops a co-located
+        // battery (the firm/flex deal applies to both halves of the scheme)
+        if (app.heathrow && app.bessMw !== undefined) {
+          let bx = app.x;
+          let by = app.y + 1;
+          // a free neighbour tile for the battery; fall back to the PV tile
+          for (const [dx, dy] of [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1]] as const) {
+            if (!assetAtTile(state.assets.values(), app.x + dx, app.y + dy)) {
+              bx = app.x + dx;
+              by = app.y + dy;
+              break;
+            }
+          }
+          const bId = state.nextAssetId++;
+          state.assets.set(bId, {
+            id: bId,
+            kind: 'gen',
+            gen: 'battery',
+            x: bx,
+            y: by,
+            customer: true,
+            flex: cmd.response === 'flex',
+          });
+          state.soc.set(bId, 0);
+        }
         state.assetsVersion++;
       } else {
         state.loadSites.push({

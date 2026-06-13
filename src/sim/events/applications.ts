@@ -19,6 +19,13 @@ export interface Application {
   y: number;
   /** Capacity (gen) or demand (load), MW. */
   mw: number;
+  /** The bespoke once-per-game Heathrow scheme: a BIG combined PV + BESS
+   *  on the airport estate. Studies + connects as solar generation (its
+   *  `kind`), but on acceptance ALSO spawns a co-located battery of
+   *  `bessMw`. Surfaced distinctly on the news banner. */
+  heathrow?: boolean | undefined;
+  /** Battery capacity paired with the Heathrow PV scheme, MW. */
+  bessMw?: number | undefined;
   /** Bill-paying customers a load connection brings. */
   customers: number;
   /** Decide by this game-minute or it lapses. */
@@ -161,6 +168,58 @@ function buildApplication(
     decideByMin: simTimeMin + DECIDE_DAYS * 1440,
     status: 'open',
   };
+}
+
+/** The Heathrow PV+BESS scheme's capacity (owner: "a BIG combined solar +
+ *  battery installation"). Airport-scale: ~80 MW of canopy/field PV beside
+ *  the runways, firmed by ~60 MW / 120 MWh of grid-forming battery. */
+export const HEATHROW_PV_MW = 80;
+export const HEATHROW_BESS_MW = 60;
+
+/** Build the bespoke once-per-game Heathrow scheme as a SOLAR application
+ *  (so it flows through the normal connection-study + firm/flex machinery),
+ *  flagged `heathrow` with its paired battery size. Sited on the airport
+ *  estate (just south-west of the terminal island, open apron-edge land).
+ *  Deterministic: the caller gates it on a seeded fire-time. */
+export function buildHeathrowScheme(
+  map: CityMap,
+  simTimeMin: number,
+  nextId: number,
+  taken: (x: number, y: number) => boolean,
+): Application | undefined {
+  // prefer open land on the airfield apron edge (around the terminal at
+  // ~65,87), falling back to any open land nearby so the scheme always
+  // sites even if the immediate tiles are occupied
+  const candidates: Array<[number, number]> = [];
+  for (let r = 1; r <= 8; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        candidates.push([65 + dx, 87 + dy]);
+      }
+    }
+  }
+  for (const [x, y] of candidates) {
+    if (x < 0 || y < 0 || x >= map.width || y >= map.height) continue;
+    const i = y * map.width + x;
+    if (taken(x, y)) continue;
+    if (map.terrain[i] !== TERRAIN.land) continue;
+    if (map.zone[i] !== ZONE.none) continue;
+    return {
+      id: nextId,
+      kind: 'solarFarm',
+      name: 'Heathrow Airport Solar + Storage',
+      x,
+      y,
+      mw: HEATHROW_PV_MW,
+      customers: 0,
+      decideByMin: simTimeMin + DECIDE_DAYS * 1440,
+      status: 'open',
+      heathrow: true,
+      bessMw: HEATHROW_BESS_MW,
+    };
+  }
+  return undefined;
 }
 
 /** Roll the connection pipeline this tick: an INDEPENDENT generation
