@@ -1,18 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#101630"/>
-  <!-- lattice pylon, line-drawn -->
-  <g stroke="#aab3c4" stroke-width="2.4" stroke-linecap="round" fill="none">
-    <path d="M21 58 L29 15"/>
-    <path d="M43 58 L35 15"/>
-    <path d="M29 15 L32 8 L35 15"/>
-    <path d="M21 58 L40 42 M43 58 L24 42 M24 42 L37 31 M40 42 L27 31"/>
-    <path d="M11 22 L53 22"/>
-    <path d="M16 31 L48 31"/>
+  <!-- ElectriCity mark: a substation NODE where the grid converges, lit
+       warm against the dark network — "powering an area makes it glow."
+       Code-drawn; favicon-native at 16px. -->
+  <defs>
+    <radialGradient id="ecGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ff8a1e" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#ff8a1e" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="ecCore" cx="42%" cy="38%" r="68%">
+      <stop offset="0" stop-color="#ffd27a"/>
+      <stop offset="0.5" stop-color="#ff9a2e"/>
+      <stop offset="1" stop-color="#f47714"/>
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0d1228"/>
+  <circle cx="32" cy="32" r="26" fill="url(#ecGlow)"/>
+  <g fill="none" stroke="#6f7ba6" stroke-width="3.4" stroke-linecap="round">
+    <path d="M32 32 L11 11"/><path d="M32 32 L53 11"/>
+    <path d="M32 32 L11 53"/><path d="M32 32 L53 53"/>
   </g>
-  <g stroke="#f4f1ea" stroke-width="2" stroke-linecap="round">
-    <path d="M13 22 L13 26 M51 22 L51 26 M18 31 L18 35 M46 31 L46 35"/>
+  <g fill="#39446e">
+    <circle cx="11" cy="11" r="4.4"/><circle cx="53" cy="11" r="4.4"/>
+    <circle cx="11" cy="53" r="4.4"/><circle cx="53" cy="53" r="4.4"/>
   </g>
-  <!-- the bolt -->
-  <path d="M37 4 L20 32 L30 32 L24 60 L45 26 L34 26 Z"
-        fill="#ff8a1e" stroke="#241c38" stroke-width="2" stroke-linejoin="round"/>
+  <circle cx="32" cy="32" r="12.5" fill="url(#ecCore)"/>
+  <circle cx="32" cy="32" r="12.5" fill="none" stroke="#ffe6bc" stroke-width="1.6"/>
+  <circle cx="28.5" cy="28.5" r="3" fill="#fff7ec" opacity="0.9"/>
 </svg>

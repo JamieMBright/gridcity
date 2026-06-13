@@ -69,6 +69,8 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
 
   const claims = snapshot.claims ?? [];
   const apps = snapshot.inbox.applications.filter((a) => a.status === 'open');
+  // schemes on non-brownfield land sit under a council determination window
+  const appeals = snapshot.inbox.applications.filter((a) => a.status === 'appeal');
   const overdue = snapshot.inbox.applications.filter(
     (a) =>
       (a.status === 'firm' || a.status === 'flex') &&
@@ -78,7 +80,11 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   const pitches = snapshot.inbox.pitches.filter((p) => p.status === 'open' || p.status === 'funded');
   const tenders = snapshot.inbox.tenders.filter((t) => t.status === 'open');
   const count =
-    apps.length + tenders.length + claims.length + pitches.filter((p) => p.status === 'open').length;
+    apps.length +
+    appeals.length +
+    tenders.length +
+    claims.length +
+    pitches.filter((p) => p.status === 'open').length;
   if (count === 0 && overdue.length === 0 && !open) return null;
 
   // CfD allocation rounds (#14): tenders swept into a round (Tender.roundId,
@@ -387,6 +393,36 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
                   >
                     decline
                   </button>
+                </div>
+              </div>
+            );
+          })}
+          {appeals.length > 0 && sectionHeader('IN PLANNING', 'appeals-h')}
+          {appeals.map((a) => {
+            const daysLeft = a.appeal
+              ? Math.max(0, (a.appeal.decideAtMin - snapshot.simTimeMin) / 1440)
+              : 0;
+            const odds = a.appeal ? Math.round(a.appeal.approveOdds * 100) : 0;
+            const landLabel =
+              a.landType === 'conservation'
+                ? 'conservation area'
+                : a.landType === 'greenbelt'
+                  ? 'green belt'
+                  : 'greenfield';
+            return (
+              <div key={`ap${a.id}`} style={{ marginTop: 8 }}>
+                <div
+                  style={{ color: theme.gold, cursor: 'pointer' }}
+                  onClick={() => requestPan(a.x, a.y)}
+                >
+                  {a.name}
+                </div>
+                <div style={{ color: theme.slate, fontSize: 11 }}>
+                  {a.mw} MW · {landLabel}
+                </div>
+                <div style={{ color: theme.orangeSoft, fontSize: 11, marginTop: 2 }}>
+                  in planning — {a.appeal?.council ?? 'council'} to determine in{' '}
+                  {daysLeft.toFixed(0)}d ({odds}% likely)
                 </div>
               </div>
             );

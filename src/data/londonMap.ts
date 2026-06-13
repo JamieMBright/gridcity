@@ -216,9 +216,15 @@ export const NEW_ESTATES: Array<{ x: number; y: number; r: number }> = [
   { x: 156, y: 130, r: 3 },
 ];
 
-/** Map flags bitmask (CityMap.flags). */
+/** Map flags bitmask (CityMap.flags). Kept in lock-step with TILE_FLAG in
+ *  src/sim/map/types.ts (the sim-side reader). */
 export const FLAG_SHOPS = 1;
 export const FLAG_RUNWAY = 2;
+/** Brownfield: previously-developed land (disused works, gasworks, depots,
+ *  docklands, ex-industrial sites). Planning-friendly land for the
+ *  connection-application + appeals mechanic — generation/demand schemes
+ *  favour brownfield and skip the council determination window. */
+export const FLAG_BROWNFIELD = 4;
 
 /** Airports for the render-side air layer (flight arcs, planes, shadows).
  *  Purely additive scenery data: NOT part of CityMap, never serialized
@@ -551,6 +557,34 @@ export function buildLondonMap(): CityMap {
   zoneBlob(94, 70, 3, ZONE.industrial); // Park Royal
   zoneRect(176, 86, 182, 90, ZONE.industrial, 1); // Grays riverside works
   zoneRect(180, 90, 186, 93, ZONE.industrial, 1); // Tilbury docks
+
+  // BROWNFIELD designation (planning mechanic): previously-developed land —
+  // disused gasworks, depots, ex-works and docklands. Generation/demand
+  // connection applications FAVOUR these (the GB "brownfield first" steer)
+  // and skip the council determination window; everything else (greenfield /
+  // green-belt / conservation) opens a ~30-day planning appeal. A flag bit
+  // (FLAG_BROWNFIELD) — pure scenario data, never serialized, so no
+  // SAVE_VERSION implication. Stamped onto existing industrial/dockland
+  // fabric plus a handful of named regeneration sites near the towns.
+  const markBrownfield = (x: number, y: number): void => {
+    if (!isLand(x, y)) return;
+    flags[idx(x, y)] = (flags[idx(x, y)] ?? 0) | FLAG_BROWNFIELD;
+  };
+  const brownfieldRect = (x0: number, y0: number, x1: number, y1: number): void => {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) markBrownfield(x, y);
+  };
+  // the east-river industrial corridors carry the brownfield grain (the
+  // real Thames Gateway regeneration belt: gasworks, wharves, depots)
+  brownfieldRect(134, 74, 152, 80); // Lea mouth / Stratford ex-works
+  brownfieldRect(158, 84, 170, 88); // Dagenham (the old motor-works belt)
+  brownfieldRect(146, 94, 158, 98); // Charlton / Woolwich south-bank works
+  brownfieldRect(176, 86, 186, 93); // Grays pits + Tilbury docklands
+  // named regeneration / disused sites near the towns + inner east end
+  brownfieldRect(126, 86, 132, 90); // Greenwich peninsula (the old gasworks)
+  brownfieldRect(120, 82, 126, 86); // Surrey docks / Rotherhithe wharves
+  brownfieldRect(110, 96, 116, 100); // Old Kent Road depots
+  brownfieldRect(132, 70, 138, 74); // Lower Lea / Hackney Wick yards
+  brownfieldRect(90, 68, 98, 72); // Park Royal industrial estate (west)
 
   // 6) Satellite towns and villages beyond the belt: organic footprints —
   // a core, suburb lobes strung along the town's growth axis, industry on

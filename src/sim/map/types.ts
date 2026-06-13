@@ -130,6 +130,31 @@ export interface CouncilProfile {
   blurb: string;
 }
 
+/** Per-tile flag bits (CityMap.flags). Re-exported here from the map data
+ *  so the sim can read planning-relevant land designations without importing
+ *  the London-specific scenario module. Kept in sync with src/data/londonMap
+ *  (which owns the authoritative FLAG_* literals it stamps at build time). */
+export const TILE_FLAG = {
+  /** bit 0: a high-street shop frontage. */
+  shops: 1,
+  /** bit 1: airport runway tarmac. */
+  runway: 2,
+  /** bit 2: BROWNFIELD — previously-developed land (disused works, gasworks,
+   *  depots, docklands, ex-industrial sites). Planning-friendly: the GB
+   *  "brownfield first" steer means generation/demand applications favour
+   *  these and are waved through without an appeal, where greenfield /
+   *  green-belt / conservation land opens a council determination window. */
+  brownfield: 4,
+} as const;
+
+/** True if tile (x,y) is designated BROWNFIELD (previously-developed land).
+ *  Reads the `flags` raster; false off-map or where flags are absent. */
+export function isBrownfield(map: CityMap, x: number, y: number): boolean {
+  if (!inBounds(map, x, y)) return false;
+  const f = map.flags?.[y * map.width + x] ?? 0;
+  return (f & TILE_FLAG.brownfield) !== 0;
+}
+
 export interface CityMap {
   width: number;
   height: number;
@@ -151,7 +176,8 @@ export interface CityMap {
   variant: Uint8Array;
   /** Landmark id per tile (see LANDMARK; 0 = none). */
   landmark?: Uint8Array | undefined;
-  /** Per-tile flag bits (bit 0: high-street shops). */
+  /** Per-tile flag bits (bit 0: high-street shops; bit 1: runway tarmac;
+   *  bit 2: brownfield / previously-developed land — see TILE_FLAG). */
   flags?: Uint8Array | undefined;
   councils: CouncilProfile[];
 }

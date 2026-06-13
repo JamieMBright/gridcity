@@ -8,6 +8,7 @@ import { DEVELOPERS } from './developers';
 import type { GameState } from '../state';
 import { pushEvent } from '../state';
 import { inRebuildYear, STORY_FRAGMENTS } from '../scenario/story';
+import type { Application } from './applications';
 
 /** Mean game-days between ambient headlines. */
 const NEWS_MEAN_DAYS = 1.6;
@@ -71,4 +72,95 @@ export function maybeAmbientNews(state: GameState, rng: Rng, dtMin: number): voi
     ? (STORY_FRAGMENTS[rng.int(STORY_FRAGMENTS.length)] ?? '')
     : (liveColour(state, rng) ?? HEADLINES[rng.int(HEADLINES.length)] ?? '');
   if (msg) pushEvent(state, 'info', `📰 ${msg}`);
+}
+
+// --- planning newsroom (brownfield-favoured applications + appeals) ---------
+//
+// Submissions, council determinations and brownfield grants feature on the
+// banner with flavourful, council-named headlines, tagged with the site
+// coords so they're click-to-jump like every other event.
+
+/** A short land-class phrase for a headline. */
+function landPhrase(landType: Application['landType']): string {
+  switch (landType) {
+    case 'conservation':
+      return 'conservation-area';
+    case 'greenbelt':
+      return 'green-belt';
+    case 'greenfield':
+      return 'greenfield';
+    default:
+      return 'brownfield';
+  }
+}
+
+/** A friendly scheme descriptor ("solar array", "battery scheme", …). */
+function schemeNoun(app: Application): string {
+  switch (app.kind) {
+    case 'solarFarm':
+      return 'solar array';
+    case 'windOnshore':
+      return 'wind scheme';
+    case 'battery':
+      return 'battery scheme';
+    case 'dataCentre':
+      return 'data-centre campus';
+    case 'evHub':
+      return 'EV charging hub';
+  }
+}
+
+/** News when a new application arrives. Brownfield schemes are celebrated as
+ *  the planning-friendly "brownfield first" win; contested ones announce the
+ *  council and the determination clock. */
+export function newsApplicationSubmitted(state: GameState, app: Application): void {
+  if (app.status === 'appeal' && app.appeal) {
+    const odds = Math.round(app.appeal.approveOdds * 100);
+    pushEvent(
+      state,
+      'warn',
+      `🏛 ${app.name} lodges a ${schemeNoun(app)} on ${landPhrase(app.landType)} land — ${app.appeal.council} council to determine (${odds}% likely)`,
+      app.x,
+      app.y,
+    );
+  } else if (app.landType === 'brownfield') {
+    pushEvent(
+      state,
+      'warn',
+      `🏗 brownfield scheme: ${app.name} applies to connect a ${app.mw} MW ${schemeNoun(app)} on a cleared site`,
+      app.x,
+      app.y,
+    );
+  } else {
+    pushEvent(
+      state,
+      'warn',
+      `connection application: ${app.name} (${app.mw} MW ${schemeNoun(app)})`,
+      app.x,
+      app.y,
+    );
+  }
+}
+
+/** News when a council hands down its planning determination. */
+export function newsAppealOutcome(state: GameState, app: Application, approved: boolean): void {
+  const council = app.appeal?.council ?? 'the council';
+  const land = landPhrase(app.landType);
+  if (approved) {
+    pushEvent(
+      state,
+      'info',
+      `🏛 Planning granted: ${council} council approves the ${app.name} ${schemeNoun(app)} — ready to connect`,
+      app.x,
+      app.y,
+    );
+  } else {
+    pushEvent(
+      state,
+      'bad',
+      `🏛 ${council} council REFUSES the ${app.name} ${schemeNoun(app)} on ${land} grounds`,
+      app.x,
+      app.y,
+    );
+  }
 }
