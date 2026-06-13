@@ -14,11 +14,12 @@ import { findIslands } from './grid/topology';
 import type { Network, PowerFlowResult } from './grid/types';
 import { V_BROWNOUT, V_COLLAPSE } from './grid/voltage';
 import { runDispatch, underConstruction, type DispatchResult } from './market/dispatch';
+import { systemFrequencyHz } from './market/frequency';
 import { stepWeather, sunFactor, windFactor } from './events/weather';
 import {
   GEN_OF_KIND,
   LATE_PENALTY_K_PER_DAY,
-  maybeSpawnApplication,
+  maybeSpawnApplications,
 } from './events/applications';
 import {
   bumpAllMoods,
@@ -27,6 +28,7 @@ import {
   stepTenders,
 } from './events/developers';
 import { maybeAmbientNews } from './events/news';
+import { stepIncidents } from './events/incidents';
 import {
   DLR_RATING_MUL,
   DRONE_VEG_COST_MUL,
@@ -168,8 +170,9 @@ export interface TickOutputs {
   volts: Array<[number, number, number]>;
   servedCustomers: number;
   bill: BillBreakdown;
-  /** Indicative system frequency for the dial, Hz. */
-  freqHz: number;
+  /** Load-weighted system frequency for the dial, Hz — undefined when no
+   *  island is electrified (HUD shows N/A). */
+  freqHz: number | undefined;
   /** Customer-weighted council satisfaction, 0..100. */
   satisfactionAvg: number;
 }
@@ -354,9 +357,15 @@ export function solveTick(
 
   if (dtMin > 0) {
     stepWeather(state.weather, rng, dtMin, state.simTimeMin);
+    // the live storm banner (UI reads stormAnnounced): the named-storm
+    // regime gets its own richer banner via stepIncidents below, so only
+    // announce the generic one for a windy-wet front that gusts past the
+    // fault threshold without being a named storm.
     if (isStorm(state.weather.wind) && !state.stormAnnounced) {
       state.stormAnnounced = true;
-      pushEvent(state, 'warn', 'storm over the region — overhead lines at risk');
+      if (state.weather.regime !== 'storm') {
+        pushEvent(state, 'warn', 'storm over the region — overhead lines at risk');
+      }
     } else if (!isStorm(state.weather.wind) && state.weather.wind < 0.7) {
       state.stormAnnounced = false;
     }
@@ -464,7 +473,7 @@ export function solveTick(
     // so the pipeline flows faster (scaling dtMin lifts the arrival rate
     // without changing the RNG draw count — one chance() either way)
     const cadence = connectionCadenceMul(state.org);
-    const app = maybeSpawnApplication(
+    const apps = maybeSpawnApplications(
       ctx.map,
       rng,
       dtMin * cadence,
@@ -473,7 +482,7 @@ export function solveTick(
       state.nextAppId,
       taken,
     );
-    if (app) {
+    for (const app of apps) {
       state.nextAppId++;
       state.applications.push(app);
       pushEvent(
@@ -538,6 +547,16 @@ export function solveTick(
     // must not get sued or hurt while learning). Both roll off `rng`, so
     // they ride the seeded stream like every other event here.
     if (state.scenarioId === 'london') {
+      // named weather disasters (storm / flooding / heatwave) + their
+      // consequences. Flood damage registers through the same job/outage
+      // bookkeeping as a fault, so the orange vans turn out for it too.
+      stepIncidents(state, rng, dtMin, (branchId, assetId, x, y, repairMin, label) => {
+        state.outages.set(branchId, AWAITING_CREW);
+        state.outageCause.set(branchId, label);
+        state.jobs.set(branchId, { branchId, assetId, x, y, repairMin, waitedMin: 0, label });
+        pushEvent(state, 'bad', label, x, y);
+      });
+
       const healthForSafety = networkHealthPct(state);
       const incident = stepSafety(state, rng, dtMin, healthForSafety, isStorm(state.weather.wind));
       // an LTI seeds a personal-injury claim (#54 ← #55)
@@ -827,9 +846,14 @@ export function solveTick(
     }
   }
 
-  // indicative frequency: sags with unserved connected demand
-  const deficit = dispatch.connectedMW > 0 ? 1 - dispatch.servedMW / dispatch.connectedMW : 0;
-  const freqHz = Math.max(47.5, 50 - 1.5 * deficit) + (dtMin > 0 ? (rng.next() - 0.5) * 0.04 : 0);
+  // system frequency: the load-weighted mean of every ELECTRIFIED island's
+  // own supply/demand-balance frequency (market/frequency.ts). With no
+  // island carrying load (the day-0 blank grid) there is nothing spinning
+  // — freqHz is undefined and the HUD shows N/A rather than a made-up
+  // deficit. A small seeded jitter rides a live, served grid.
+  const sysHz = systemFrequencyHz(dispatch.freqSamples);
+  const freqHz =
+    sysHz === undefined ? undefined : sysHz + (dtMin > 0 ? (rng.next() - 0.5) * 0.04 : 0);
   if (dtMin > 0) state.rngState = rng.getState();
 
   return {

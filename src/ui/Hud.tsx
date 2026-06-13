@@ -171,7 +171,9 @@ function MarketTicker() {
   const snapshot = useAppStore((s) => s.snapshot);
   if (!snapshot) return null;
   const st = snapshot.stats;
-  const freqOff = Math.abs(st.freqHz - 50) > 0.3;
+  // no electrified island ⇒ no frequency to report (day-0 blank grid)
+  const freqNA = st.freqHz === undefined;
+  const freqOff = st.freqHz !== undefined && Math.abs(st.freqHz - 50) > 0.3;
   return (
     <div
       style={{
@@ -187,8 +189,11 @@ function MarketTicker() {
         pointerEvents: 'none',
       }}
     >
-      <span style={{ color: freqOff ? theme.danger : theme.ok }}>
-        {st.freqHz.toFixed(2)} Hz
+      <span
+        title={freqNA ? 'no electrified island — nothing on the bars to set a frequency' : 'system frequency (load-weighted over electrified islands)'}
+        style={{ color: freqNA ? theme.slate : freqOff ? theme.danger : theme.ok }}
+      >
+        {freqNA ? '— Hz' : `${st.freqHz?.toFixed(2)} Hz`}
       </span>
       <span style={{ color: theme.gold }}>£{st.priceMWh.toFixed(0)}/MWh</span>
       <span style={{ color: st.carbonG > 200 ? theme.sunset : theme.ok }}>

@@ -57,12 +57,18 @@ export function stormName(startMin: number): string {
  *  banner already rides isStorm/stormAnnounced events. */
 export function forecastStorms(state: GameState): StormForecast[] {
   const w = state.weather;
-  if (w.nextRegime !== 'windy-wet' || w.regimeEndsMin === undefined) return [];
+  // a queued named STORM is always a warning; a windy-wet front only
+  // rates a forecast banner in the cold half of the year.
+  const next = w.nextRegime;
+  if ((next !== 'storm' && next !== 'windy-wet') || w.regimeEndsMin === undefined) return [];
   const winterness = seasonFactor(w.regimeEndsMin);
-  if (winterness < STORM_WINTERNESS) return [];
-  // mirrors events/weather.ts REGIMES['windy-wet'] wind envelope
-  // (wind 0.66 + winter boost 0.12 — that file is read-only here)
-  const severity = Math.min(1, 0.66 + 0.12 * winterness);
+  if (next === 'windy-wet' && winterness < STORM_WINTERNESS) return [];
+  // mirrors events/weather.ts REGIMES wind envelopes (that file is
+  // read-only here): the named storm gusts to ~0.92+, windy-wet to ~0.66.
+  const severity =
+    next === 'storm'
+      ? Math.min(1, 0.92 + 0.06 * winterness)
+      : Math.min(1, 0.66 + 0.12 * winterness);
   return [
     {
       name: `Storm ${stormName(w.regimeEndsMin)}`,
