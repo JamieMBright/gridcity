@@ -12,6 +12,44 @@
 
 ## Open
 
+- [ ] **PLAYTEST FLURRY (owner, 2026-06-13 12:23, far-zoom screenshot).
+      Process habit added to CLAUDE.md: screenshot at multiple zooms +
+      per-landmark close-ups, critique honestly, BEFORE shipping.**
+  - [ ] SIGNAGE: landmark labels (yellow: Heathrow/Wembley/Kew/BT Tower/
+        O2/Alexandra Palace) must NOT show at far/top zoom — only town
+        labels. They clutter the overview. Gate landmark labels to
+        closer zoom bands; keep towns at far zoom.
+  - [ ] GLEAM is wrong: "looks like electricity" — the owner meant make
+        the landmark COLOURS POP (richer saturation / contrast / a
+        tasteful rim-light), NOT a lightning/electric glint. Replace the
+        electric gleam with a colour-pop treatment.
+  - [ ] LANDMARK SCALE: landmarks are tiny/buried. The O2 / Millennium
+        Dome is HUGE in reality; the Olympic Stadium is huge — both read
+        as dots. Take a zoomed-in screengrab of EACH landmark, compare
+        to the real thing, and SIZE THEM UP (multi-tile, dominant). O2
+        and stadium especially.
+  - [ ] STARTING ZOOM should be very far out (open on the whole-region
+        overview).
+  - [ ] BUILD LABEL: tapping a build tool should show an on-screen
+        indicator of what you're about to build (e.g. "Building: Grid
+        substation").
+  - [ ] The EXPAND (») option on the build palette should be FROZEN /
+        accessible at all zoom levels (it currently isn't reachable from
+        some states).
+  - [ ] METRICS FROZEN 3 MONTHS: the rebuild grace exists (CI/CML +
+        constraints suspended) — make it CLEAR in the OPENING MESSAGE
+        that all metrics are frozen for the first 3 months.
+  - [ ] OPENING SCRIPT: fix the nonsense "the letter ends" phrasing
+        (introduced in my mobile hotfix) and TRIM the story to TWO PAGES
+        MAX — it's too verbose.
+  - [ ] NOTHING PRE-EXISTING ON THE MAP: remove ALL seeded generation /
+        ECR / existing plants (estuary CCGTs, Lea plant, Essex solar,
+        etc.) — "all of it vanished in the vanishing." seedScenario
+        seeds no generation. (Decide iDNO estate subs: they're customer
+        demand sites awaiting connection — likely keep as demand, but
+        their grid link vanished; confirm against "nothing pre-existing".)
+        Update e2e baselines that assume seeded gens.
+
 - [x] **REVERT the new node logo (owner, 2026-06-13 12:06): "I like the
       existing wording on ElectriCity. The new logo is kinda trash.
       Revert those changes."** Restore the OLD ElectriCity branding:

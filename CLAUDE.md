@@ -26,6 +26,12 @@ model it the way GB actually works, then simplify for fun.
 - **Integration-test everything.** Unit tests for sim logic, Playwright
   e2e for flows, AND look at the result: render previews / take real
   screenshots and inspect them before claiming art or UI works.
+- **Screenshot-and-critique at MULTIPLE ZOOMS before every ship**
+  (owner, 2026-06-13, standing habit): take real in-game screenshots at
+  the far/top zoom, mid, and close — AND a zoomed-in grab of each
+  changed landmark/asset — then critique honestly against what the real
+  thing looks like (the O2/stadium are HUGE; labels mustn't clutter the
+  far view) BEFORE opening a PR. Judged on images, harshly, by you.
 - **Feedback arrives in flurries** mid-task. Convert every prompt into
   TASKS.md checkboxes IMMEDIATELY (before working), then audit edits
   against it. Later prompts supersede earlier ones on conflict.
