@@ -12,6 +12,30 @@
 
 ## Open
 
+- [ ] **PER-CITY ASSET PACKS + richer building stock (owner, 2026-06-13
+      05:05): "For the new cities, we will need fresh assets for
+      landmarks and housing and building stock etc. id love a much
+      wealthier selection of offerings for each city. Bigger and smaller
+      housing of different eras."** Extends the MULTI-CITY work.
+  - [ ] Each new city ships its OWN art pack (art-is-code, lofi style):
+        bespoke LANDMARKS (e.g. Sydney Opera House/Harbour Bridge, Paris
+        Eiffel/Haussmann, NYC skyscrapers/brownstones, HK towers, Athens
+        Acropolis, Shanghai Pudong, Rio Christ/favela morros, Cairo
+        pyramids/minarets, Dubai Burj Khalifa/Palm), city-appropriate
+        HOUSING + commercial/industrial BUILDING STOCK — not reskinned
+        London terraces.
+  - [ ] Much WEALTHIER selection generally (applies to London too):
+        bigger AND smaller housing across different ERAS (Georgian,
+        Victorian, interwar, postwar, modern; per city: brownstone,
+        Haussmann, walk-up, high-rise, vernacular) so streets read
+        varied, not repetitive. Expand the sprite families + tileChooser
+        variety; estate-cluster the eras sensibly.
+  - [ ] Tie to CityScenario v2: a city's asset pack is data the renderer
+        selects on by scenario; share a common construction kit so packs
+        are additive, atlas stays <=4096px (per-city atlas or lazy load).
+        Big art effort — sequence across the multi-city implementation
+        waves; use environment-art + the sprite doctrine.
+
 - [ ] **BESPOKE ICONS + COLLAPSIBLE CHROME (owner, 2026-06-13 05:03):
       "I don't like how we have used standard emojis for the icons. I
       want more bespoke signage, especially when collapsed on mobile
