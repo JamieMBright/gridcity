@@ -5,10 +5,10 @@
 // tile fits, and the claim is DERIVED from anchor + MW (never stored).
 
 import { describe, expect, it } from 'vitest';
-import { applyCommand, checkBuild, footprintTiles } from '../src/sim/commands';
+import { applyCommand, assetAtTile, checkBuild, footprintTiles } from '../src/sim/commands';
 import { FARM_MW_PER_TILE, GENS } from '../src/sim/catalog';
-import { farmClaimTiles, farmFitMW, farmTileOrder } from '../src/sim/farms';
-import { stepTenders } from '../src/sim/events/developers';
+import { farmClaimTiles, farmFitMW, farmTileOrder, homesPowered } from '../src/sim/farms';
+import { reservedTiles, stepTenders } from '../src/sim/events/developers';
 import { Rng } from '../src/sim/rng';
 import { TERRAIN, ZONE, type CityMap } from '../src/sim/map/types';
 import { deserialize, newGame, serialize, type GameState } from '../src/sim/state';
@@ -201,7 +201,7 @@ describe('award claims the proportional tile set', () => {
     expect(blocked.error).toBe('tile already occupied');
   });
 
-  it('an award caps to the free prefix when the site tightened since bidding', () => {
+  it('an award lands on the full reserved plot (the reservation protects it)', () => {
     const map = makeTestMap(40, 40);
     const state = newGame();
     applyCommand(state, map, {
@@ -209,19 +209,25 @@ describe('award claims the proportional tile set', () => {
       spec: { kind: 'gen', gen: 'solarFarm', x: 20, y: 20 },
     });
     const t = state.tenders[0]!;
-    t.bids.push({ developerId: 2, priceMWh: 80, leadDaysDelta: 0, mw: 50 });
-    // build over the SECOND tile of the would-be claim
-    const second = farmTileOrder(map, 'solarFarm', 20, 20)[1]!;
-    mustApply(state, map, {
+    // the designation reserved the whole 50 MW (5-tile) field
+    expect(t.reserved).toHaveLength(5);
+    // a build can no longer land on a reserved (non-anchor) plot tile
+    const second = t.reserved![1]!;
+    const blocked = applyCommand(state, map, {
       type: 'build',
       spec: { kind: 'sub', sub: 'dist', x: second % map.width, y: Math.floor(second / map.width) },
     });
+    expect(blocked.ok).toBe(false);
+    expect(blocked.error).toBe('a designated generation site is reserved here');
+    // the award lands on exactly the reserved tiles
+    t.bids.push({ developerId: 2, priceMWh: 80, leadDaysDelta: 0, mw: 50 });
     const r = applyCommand(state, map, { type: 'acceptBid', tenderId: t.id, developerId: 2 });
     expect(r.ok).toBe(true);
     const a = state.assets.get(r.assetId!)!;
-    expect(a.kind === 'gen' && a.mw).toBe(SOLAR_PER); // one free tile's worth
-    expect(footprintTiles(map, a)).toHaveLength(1);
+    expect(a.kind === 'gen' && a.mw).toBe(50);
+    expect(footprintTiles(map, a)).toEqual(t.reserved);
   });
+
 
   it('wind spreads turbine tiles with spacing (anchor-parity checkerboard)', () => {
     const map = makeTestMap(40, 40);
@@ -290,5 +296,153 @@ describe('derivation determinism + save compatibility', () => {
     accrueBids(loaded, new Rng(7));
     expect(loaded.tenders[0]!.bids.length).toBeGreaterThan(0);
     for (const b of loaded.tenders[0]!.bids) expect(b.mw).toBeUndefined();
+  });
+});
+
+describe('footprint reservation (designations cannot overlap)', () => {
+  it('a designation reserves its whole capacity-scaled plot', () => {
+    const map = makeTestMap(40, 40);
+    const state = newGame();
+    applyCommand(state, map, {
+      type: 'build',
+      spec: { kind: 'gen', gen: 'solarFarm', x: 20, y: 20 },
+    });
+    const t = state.tenders[0]!;
+    // 50 MW catalog ask / 10 MW per tile = a 5-tile reserved plot
+    expect(t.reserved).toEqual(farmClaimTiles(map, 'solarFarm', 20, 20, GENS.solarFarm.capacityMW));
+    expect(reservedTiles(state.tenders).size).toBe(5);
+  });
+
+  it('a second designation cannot overlap the first (no explosion on award)', () => {
+    const map = makeTestMap(40, 40);
+    const state = newGame();
+    // first onshore-wind designation: a big plot to maximise overlap risk
+    const r1 = applyCommand(state, map, {
+      type: 'build',
+      spec: { kind: 'gen', gen: 'windOnshore', x: 20, y: 20, mw: 100 },
+    });
+    expect(r1.ok).toBe(true);
+    const first = state.tenders[0]!.reserved!;
+    expect(first.length).toBeGreaterThan(1);
+    // designate a SECOND wind farm a few tiles away (anchor on free ground)
+    // — its plot must wall off the first's reservation and never overlap.
+    // Without reservation the two BFS blobs would compete for the same
+    // middle tiles and "explode" into each other on award.
+    const r2 = applyCommand(state, map, {
+      type: 'build',
+      spec: { kind: 'gen', gen: 'windOnshore', x: 26, y: 20, mw: 100 },
+    });
+    expect(r2.ok).toBe(true);
+    const second = state.tenders[1]!.reserved!;
+    const overlap = new Set(first);
+    for (const i of second) expect(overlap.has(i)).toBe(false);
+  });
+
+  it('a build cannot land on a reserved generation plot', () => {
+    const map = makeTestMap(40, 40);
+    const state = newGame();
+    applyCommand(state, map, {
+      type: 'build',
+      spec: { kind: 'gen', gen: 'solarFarm', x: 20, y: 20 },
+    });
+    const reservedTile = state.tenders[0]!.reserved![1]!;
+    const check = checkBuild(
+      map,
+      state.assets.values(),
+      { kind: 'sub', sub: 'dist', x: reservedTile % map.width, y: Math.floor(reservedTile / map.width) },
+      reservedTiles(state.tenders),
+    );
+    expect(check.ok).toBe(false);
+    expect(check.error).toBe('a designated generation site is reserved here');
+  });
+
+  it('the chosen MW (capacity picker) flows to the tender, footprint and award', () => {
+    const map = makeTestMap(40, 40);
+    const state = newGame();
+    // player dials 15 MW of onshore wind (3 turbine tiles at 5 MW/tile)
+    applyCommand(state, map, {
+      type: 'build',
+      spec: { kind: 'gen', gen: 'windOnshore', x: 20, y: 20, mw: 15 },
+    });
+    const t = state.tenders[0]!;
+    expect(t.fitMW).toBe(15);
+    expect(t.reserved).toHaveLength(3);
+    t.bids.push({ developerId: 2, priceMWh: 70, leadDaysDelta: 0, mw: 15 });
+    const r = applyCommand(state, map, { type: 'acceptBid', tenderId: t.id, developerId: 2 });
+    expect(r.ok).toBe(true);
+    const a = state.assets.get(r.assetId!)!;
+    expect(a.kind === 'gen' && a.mw).toBe(15);
+    expect(footprintTiles(map, a)).toEqual(t.reserved);
+  });
+
+  it('the chosen MW is capped to what the land actually fits', () => {
+    const map = crampedMap(3); // three open land tiles only
+    const state = newGame();
+    // ask for far more than the land holds
+    applyCommand(state, map, {
+      type: 'build',
+      spec: { kind: 'gen', gen: 'solarFarm', x: 5, y: 5, mw: 500 },
+    });
+    const t = state.tenders[0]!;
+    expect(t.fitMW).toBe(3 * SOLAR_PER); // capped to the 3-tile land fit
+    expect(t.reserved).toHaveLength(3);
+  });
+
+  it('homesPowered scales with MW and technology load factor', () => {
+    expect(homesPowered('windOnshore', 15)).toBeGreaterThan(0);
+    expect(homesPowered('windOnshore', 30)).toBe(homesPowered('windOnshore', 15) * 2);
+    // offshore (higher load factor) powers more homes per MW than solar
+    expect(homesPowered('windOffshore', 10)).toBeGreaterThan(homesPowered('solarFarm', 10));
+  });
+});
+
+describe('a multi-tile farm is connectable on any tile it occupies', () => {
+  function awardWind(map: CityMap, state: GameState, mw: number): number {
+    applyCommand(state, map, {
+      type: 'build',
+      spec: { kind: 'gen', gen: 'windOnshore', x: 20, y: 20, mw },
+    });
+    const t = state.tenders[0]!;
+    t.bids.push({ developerId: 2, priceMWh: 70, leadDaysDelta: 0, mw });
+    const r = applyCommand(state, map, { type: 'acceptBid', tenderId: t.id, developerId: 2 });
+    return r.assetId!;
+  }
+
+  it('assetAtTile (map-aware) finds the farm on any of its claimed tiles', () => {
+    const map = makeTestMap(40, 40);
+    const state = newGame();
+    const id = awardWind(map, state, 30); // several turbine tiles
+    const a = state.assets.get(id)!;
+    const tiles = footprintTiles(map, a);
+    expect(tiles.length).toBeGreaterThan(1);
+    for (const i of tiles) {
+      const found = assetAtTile(state.assets.values(), i % map.width, Math.floor(i / map.width), map);
+      expect(found?.id).toBe(id);
+    }
+  });
+
+  it('a 33 kV line can be drawn to a non-anchor tile of the farm', () => {
+    const map = makeTestMap(40, 40);
+    const state = newGame();
+    const id = awardWind(map, state, 30);
+    const a = state.assets.get(id)!;
+    if (a.kind !== 'gen') throw new Error('expected a gen asset');
+    const farTile = footprintTiles(map, a).at(-1)!;
+    const fx = farTile % map.width;
+    const fy = Math.floor(farTile / map.width);
+    expect(fx !== a.x || fy !== a.y).toBe(true); // genuinely not the anchor
+    // a dist sub nearby, then a 33 kV line landing on the far farm tile
+    mustApply(state, map, { type: 'build', spec: { kind: 'sub', sub: 'dist', x: 30, y: 30 } });
+    const check = checkBuild(map, state.assets.values(), {
+      kind: 'line',
+      level: 33,
+      build: 'overhead',
+      ax: fx,
+      ay: fy,
+      bx: 30,
+      by: 30,
+    });
+    expect(check.ok).toBe(true);
+    expect(check.endA).toBe(id); // resolved to the farm, on its non-anchor tile
   });
 });

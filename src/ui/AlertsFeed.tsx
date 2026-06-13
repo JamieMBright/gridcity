@@ -19,8 +19,10 @@ import {
 } from '../app/store';
 import { statusColors, headingStyle, panelStyle, theme } from './theme';
 
-/** Minutes an alert stays snoozed before it re-fires. */
-const SNOOZE_MIN = 60;
+/** Minutes an alert stays snoozed before it re-fires. A game-hour passes
+ *  in about a second, so an hour-long snooze was pointless (owner playtest);
+ *  two game-days keeps a known issue quiet long enough to be useful. */
+const SNOOZE_MIN = 2 * 24 * 60;
 
 const CAT_LABEL: Record<EventCategory, string> = {
   faults: 'faults',
@@ -63,6 +65,10 @@ export function AlertsFeed({ frame }: { frame?: React.CSSProperties } = {}) {
       style={{
         ...panelStyle,
         position: 'absolute',
+        // docked just above the bill panel on the right rail; it sits
+        // BELOW the pinned inspector (zIndex 8) so a substation card's
+        // controls always win the stack (owner playtest: messages were
+        // covering the upgrade buttons)
         bottom: 320,
         right: 12,
         width: 250,
@@ -71,6 +77,7 @@ export function AlertsFeed({ frame }: { frame?: React.CSSProperties } = {}) {
         lineHeight: 1.4,
         maxHeight: 150,
         overflowY: 'auto',
+        zIndex: 4,
         ...frame,
       }}
     >
@@ -126,7 +133,7 @@ export function AlertsFeed({ frame }: { frame?: React.CSSProperties } = {}) {
           </span>
           <button
             aria-label="snooze alert"
-            title="Snooze 1 hour — it re-fires after"
+            title="Snooze 2 days — it re-fires after"
             onClick={() => snoozeAlert(e.seq, now + SNOOZE_MIN)}
             style={feedBtn}
           >
@@ -345,7 +352,7 @@ export function EventLog() {
                   <>
                     <button
                       aria-label="snooze"
-                      title="Snooze 1 hour"
+                      title="Snooze 2 days"
                       onClick={() => snoozeAlert(e.seq, now + SNOOZE_MIN)}
                       style={feedBtn}
                     >

@@ -62,6 +62,14 @@ interface AppState {
   /** Placing a substation auto-runs circuits to the nearest compatible
    *  bays (palette setting). */
   autoConnect: boolean;
+  /** CAPACITY PICKER (owner playtest, 2026-06-13). The MW the player has
+   *  dialled for the next FARM tender (onshore wind &c) — carried into the
+   *  designate command so the tender's fitMW and reserved footprint use it.
+   *  undefined = take the full land fit (the old behaviour). */
+  genSizeMw: number | undefined;
+  /** The MVA chosen for the next SUBSTATION build (BuildPalette ± picker);
+   *  undefined = leave the transformer on auto-reinforcement. */
+  subSizeMva: number | undefined;
   gridView: boolean;
   ghostInfo: GhostInfo | undefined;
   toast: string | undefined;
@@ -90,6 +98,11 @@ interface AppState {
   /** Council ring-fence highlight on the map (balance row click). */
   highlightCouncil: number | undefined;
   menuOpen: boolean;
+  /** The in-game pause MENU (Save / Quit to main menu). Opened by Escape
+   *  when nothing else is being cancelled, or by clicking the wordmark.
+   *  Distinct from `menuOpen` (the start menu). */
+  gameMenuOpen: boolean;
+  setGameMenuOpen: (open: boolean) => void;
   /** Current tutorial step index, or undefined when not in the tutorial.
    *  Drives the London step strip AND the active mission's steps. */
   tutorialStep: number | undefined;
@@ -136,6 +149,8 @@ interface AppState {
   setComparePicking: (on: boolean) => void;
   clearCompare: () => void;
   setAutoConnect: (on: boolean) => void;
+  setGenSizeMw: (mw: number | undefined) => void;
+  setSubSizeMva: (mva: number | undefined) => void;
   setGridView: (on: boolean) => void;
   setGhostInfo: (info: GhostInfo | undefined) => void;
   setToast: (msg: string | undefined) => void;
@@ -352,6 +367,8 @@ export const useAppStore = create<AppState>((set) => ({
   compareLineAt: undefined,
   comparePicking: false,
   autoConnect: false,
+  genSizeMw: undefined,
+  subSizeMva: undefined,
   gridView: false,
   ghostInfo: undefined,
   toast: undefined,
@@ -368,6 +385,8 @@ export const useAppStore = create<AppState>((set) => ({
   forecast: undefined,
   highlightCouncil: undefined,
   menuOpen: true,
+  gameMenuOpen: false,
+  setGameMenuOpen: (gameMenuOpen) => set({ gameMenuOpen }),
   tutorialStep: undefined,
   scenarioId: 'london',
   kpiOpen: false,
@@ -449,6 +468,8 @@ export const useAppStore = create<AppState>((set) => ({
       comparePicking: false,
     }),
   setAutoConnect: (autoConnect) => set({ autoConnect }),
+  setGenSizeMw: (genSizeMw) => set({ genSizeMw }),
+  setSubSizeMva: (subSizeMva) => set({ subSizeMva }),
   setGridView: (gridView) => set({ gridView }),
   setGhostInfo: (ghostInfo) => set({ ghostInfo }),
   setToast: (toast) => {

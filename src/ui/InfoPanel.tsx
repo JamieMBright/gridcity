@@ -147,7 +147,12 @@ export function InfoPanel({
   const clearCompare = useAppStore((s) => s.clearCompare);
 
   // an inspect CLICK pins the card: it stays up (and clickable) while
-  // the player works the controls, instead of vanishing with the hover
+  // the player works the controls, instead of vanishing with the hover.
+  // It rides ABOVE the alerts feed / bill panel (zIndex 8) and caps its
+  // height with an inner scroll so a tall substation card never pushes its
+  // upgrade/reinforce buttons off-screen or behind another pane (owner
+  // playtest: "can't upgrade the substation because the messages are in
+  // the way").
   const pinnedFrame: React.CSSProperties = {
     ...panelStyle,
     position: 'absolute',
@@ -157,6 +162,9 @@ export function InfoPanel({
     padding: '10px 14px',
     pointerEvents: 'auto',
     lineHeight: 1.5,
+    zIndex: 8,
+    maxHeight: 'calc(100vh - 52px)',
+    overflowY: 'auto',
     ...frame,
   };
 
@@ -859,9 +867,13 @@ function BatteryPolicyControls({ assetId, policy }: { assetId: number; policy: B
   );
 }
 
-/** Transformer sizing: step through the fixed MVA sizes, or hand it back
- *  to auto-reinforcement. Sits inside the (pointer-transparent) info
- *  panel, so the controls re-enable pointer events for themselves. */
+/** Transformer reinforcement sizer: step (or scroll / drag the slider)
+ *  through the fixed MVA sizes to reinforce an existing substation —
+ *  reinforcing in place is cheaper than a new build, and a bigger
+ *  transformer widens the service radius so one sub can cover a whole town
+ *  (T5 ask). Hand it back to auto-reinforcement with `auto`. Sits inside
+ *  the (pointer-transparent) info panel, so the controls re-enable pointer
+ *  events for themselves. */
 function MvaControls({
   assetId,
   sub,
@@ -875,67 +887,91 @@ function MvaControls({
 }) {
   const steps = SUBS[sub].mvaSteps ?? [];
   const ix = steps.indexOf(mva);
-  const btn: React.CSSProperties = {
-    width: 20,
-    height: 18,
+  const maxIx = steps.length - 1;
+  const setStep = (i: number): void => {
+    const next = steps[Math.max(0, Math.min(maxIx, i))];
+    if (next !== undefined && next !== mva) sendCommand({ type: 'setSubMva', assetId, mva: next });
+  };
+  const btn = (enabled: boolean): React.CSSProperties => ({
+    width: 22,
+    height: 20,
     padding: 0,
     borderRadius: 4,
     border: `1px solid ${theme.navyLight}`,
     background: 'transparent',
-    color: theme.offWhite,
+    color: enabled ? theme.offWhite : theme.slate,
+    opacity: enabled ? 1 : 0.4,
     fontFamily: theme.font,
-    fontSize: 11,
-    cursor: 'pointer',
-  };
+    fontSize: 13,
+    lineHeight: 1,
+    cursor: enabled ? 'pointer' : 'default',
+  });
+  const max = steps[maxIx] ?? mva;
+  const min = steps[0] ?? mva;
   return (
     <div
-      style={{
-        pointerEvents: 'auto',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        marginTop: 4,
-        fontSize: 11,
+      style={{ pointerEvents: 'auto', marginTop: 6, fontSize: 11 }}
+      // scroll over the control to size up/down — quick reinforcement sizing
+      onWheel={(e) => {
+        if (ix < 0 || auto) return;
+        e.preventDefault();
+        setStep(ix + (e.deltaY < 0 ? 1 : -1));
       }}
     >
-      <span style={{ color: theme.slate }}>transformer</span>
-      <button
-        aria-label="smaller transformer"
-        style={btn}
-        disabled={ix <= 0}
-        onClick={() => {
-          const next = steps[ix - 1];
-          if (next !== undefined) sendCommand({ type: 'setSubMva', assetId, mva: next });
-        }}
-      >
-        −
-      </button>
-      <span style={{ color: theme.gold }}>{mva} MVA</span>
-      <button
-        aria-label="bigger transformer"
-        style={btn}
-        disabled={ix < 0 || ix >= steps.length - 1}
-        onClick={() => {
-          const next = steps[ix + 1];
-          if (next !== undefined) sendCommand({ type: 'setSubMva', assetId, mva: next });
-        }}
-      >
-        +
-      </button>
-      <button
-        aria-label="auto reinforcement"
-        style={{
-          ...btn,
-          width: 'auto',
-          padding: '0 6px',
-          color: auto ? theme.navy : theme.slate,
-          background: auto ? theme.orange : 'transparent',
-          border: `1px solid ${auto ? theme.orange : theme.navyLight}`,
-        }}
-        onClick={() => sendCommand({ type: 'setSubMva', assetId, auto: !auto })}
-      >
-        auto
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ color: theme.slate }}>reinforce transformer</span>
+        <button
+          aria-label="auto reinforcement"
+          title="Auto: the worker steps the MVA up on its own as demand grows"
+          style={{
+            padding: '1px 7px',
+            borderRadius: 4,
+            fontFamily: theme.font,
+            fontSize: 10,
+            cursor: 'pointer',
+            color: auto ? theme.navy : theme.slate,
+            background: auto ? theme.orange : 'transparent',
+            border: `1px solid ${auto ? theme.orange : theme.navyLight}`,
+          }}
+          onClick={() => sendCommand({ type: 'setSubMva', assetId, auto: !auto })}
+        >
+          auto {auto ? '✓' : ''}
+        </button>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+        <button
+          aria-label="smaller transformer"
+          style={btn(ix > 0)}
+          disabled={ix <= 0}
+          onClick={() => setStep(ix - 1)}
+        >
+          −
+        </button>
+        {/* the slider IS the scrollable picker: drag or scroll to size */}
+        <input
+          type="range"
+          aria-label="transformer MVA"
+          min={0}
+          max={maxIx}
+          step={1}
+          value={ix < 0 ? 0 : ix}
+          disabled={ix < 0}
+          onChange={(e) => setStep(Number(e.target.value))}
+          style={{ flex: 1, accentColor: theme.orange, cursor: ix < 0 ? 'default' : 'pointer' }}
+        />
+        <button
+          aria-label="bigger transformer"
+          style={btn(ix >= 0 && ix < maxIx)}
+          disabled={ix < 0 || ix >= maxIx}
+          onClick={() => setStep(ix + 1)}
+        >
+          +
+        </button>
+        <span style={{ color: theme.gold, minWidth: 52, textAlign: 'right' }}>{mva} MVA</span>
+      </div>
+      <div style={{ color: theme.slate, fontSize: 9.5, marginTop: 2 }}>
+        {min}–{max} MVA · bigger = wider catchment, cheaper than a new sub
+      </div>
     </div>
   );
 }

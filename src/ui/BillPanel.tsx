@@ -167,11 +167,17 @@ export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
         bottom: 12,
         right: 12,
         width: 230,
+        // keep the panel inside the lower-right zone (below the alerts feed
+        // at bottom:320) so the two never collide on a short desktop; the
+        // detail rows scroll if the viewport is very short
+        maxHeight: 'min(296px, calc(100vh - 40px))',
+        overflowY: 'auto',
         padding: '10px 14px',
         lineHeight: 1.55,
-        // sit above the inbox so the expanded trend chart (which grows the
-        // panel upward) is never occluded on short desktop viewports
-        zIndex: trendOpen ? 5 : undefined,
+        // sit above the inbox/alerts so the expanded trend chart (which
+        // grows the panel upward) is never occluded on short desktops; the
+        // pinned inspector still wins (zIndex 8) so its controls stay clear
+        zIndex: trendOpen ? 6 : 4,
         ...frame,
       }}
     >

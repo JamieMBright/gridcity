@@ -51,6 +51,13 @@ export interface GenAsset {
    *  rides PlacedAsset serialization. Absent (old saves, fixed plant)
    *  = the catalog capacity on a single-tile/fixed footprint. */
   mw?: number | undefined;
+  /** FOOTPRINT RESERVATION (owner playtest, 2026-06-13): the EXACT tile
+   *  set an awarded farm occupies — the reserved plot the designation held,
+   *  stamped at award so the plant lands precisely where it was reserved
+   *  (no "explosion") and its tiles never depend on a re-derivation that
+   *  could drift past a neighbour. Additive: absent (old saves) falls back
+   *  to the pure `farmClaimTiles(map, gen, x, y, mw)` derivation, unchanged. */
+  claim?: number[] | undefined;
   /** Constraint-market curtailment price, £k/MWh (#17): compensation per
    *  curtailed MWh on a firm connection, inherited from the developer's
    *  curtailPriceK personality. Absent (legacy saves, customer plant)

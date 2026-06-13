@@ -175,10 +175,31 @@ export interface Tender {
    *  the protocol carries no extra round plumbing. */
   roundId?: number | undefined;
   /** Farm techs only: the MW the open land around the site fits (capped
-   *  at the catalog ask), surveyed at designation while the map is in
-   *  hand — every bid offers at most this. Additive: absent (old saves,
-   *  fixed plant) = bids carry no MW and award the catalog plant. */
+   *  at the catalog ask AND the player's chosen size), surveyed at
+   *  designation while the map is in hand — every bid offers at most this.
+   *  Additive: absent (old saves, fixed plant) = bids carry no MW and
+   *  award the catalog plant. */
   fitMW?: number | undefined;
+  /** FOOTPRINT RESERVATION (owner playtest, 2026-06-13: side-by-side bids
+   *  "exploded out" on award). The tile indices this tender HOLDS from the
+   *  moment it is designated — its eventual plant footprint (the full
+   *  `fitMW` farm claim, or the fixed catalog rect). Other designations and
+   *  builds treat these as occupied, so two tenders can never claim
+   *  overlapping ground and the award lands exactly here (no explosion).
+   *  Derived at designation, serialized so a load reproduces the hold.
+   *  Additive: absent (old saves) = no reservation, the old behaviour. */
+  reserved?: number[] | undefined;
+}
+
+/** Tiles every still-open tender holds (its reserved footprint) — the
+ *  occupancy a new designation / build / farm survey must avoid. */
+export function reservedTiles(tenders: Iterable<Tender>): Set<number> {
+  const held = new Set<number>();
+  for (const t of tenders) {
+    if (t.status !== 'open') continue;
+    for (const i of t.reserved ?? []) held.add(i);
+  }
+  return held;
 }
 
 /** The MW a developer offers on a tender: what the land fits. */

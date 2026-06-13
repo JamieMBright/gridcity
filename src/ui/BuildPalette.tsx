@@ -21,6 +21,8 @@ import {
   type CapturedLine,
   type CapturedSub,
 } from '../persistence/templateStore';
+import { FARM_MW_PER_TILE } from '../sim/catalog';
+import { homesPowered, isFarmGen } from '../sim/farms';
 import { fmtMoneyK, panelStyle, theme } from './theme';
 import { useUnlockGate } from './unlocks';
 import {
@@ -364,6 +366,145 @@ function TemplateSection() {
   );
 }
 
+/** A compact ± / scroll size stepper with a caption. */
+function SizeStepper({
+  value,
+  unit,
+  onStep,
+  onWheel,
+  caption,
+}: {
+  value: number;
+  unit: string;
+  onStep: (dir: -1 | 1) => void;
+  onWheel: (dir: -1 | 1) => void;
+  caption: React.ReactNode;
+}) {
+  const btn: React.CSSProperties = {
+    flex: 'none',
+    width: 24,
+    height: 24,
+    padding: 0,
+    borderRadius: 5,
+    border: `1px solid ${theme.navyLight}`,
+    background: 'transparent',
+    color: theme.gold,
+    fontFamily: theme.font,
+    fontSize: 15,
+    lineHeight: '20px',
+    cursor: 'pointer',
+  };
+  return (
+    <div style={{ margin: '2px 9px 4px' }}>
+      <div
+        onWheel={(e) => {
+          e.preventDefault();
+          onWheel(e.deltaY > 0 ? -1 : 1);
+        }}
+        style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+      >
+        <button aria-label="smaller" onClick={() => onStep(-1)} style={btn}>
+          −
+        </button>
+        <div
+          style={{
+            flex: 1,
+            textAlign: 'center',
+            color: theme.offWhite,
+            fontFamily: theme.font,
+            fontSize: 13,
+            fontWeight: 700,
+          }}
+        >
+          {value} {unit}
+        </div>
+        <button aria-label="larger" onClick={() => onStep(1)} style={btn}>
+          +
+        </button>
+      </div>
+      <div style={{ marginTop: 3, fontSize: 10, color: theme.slate, lineHeight: 1.45 }}>{caption}</div>
+    </div>
+  );
+}
+
+/** CAPACITY PICKER (owner playtest): dial the MW for a FARM tender. Bigger
+ *  installs reserve more land and need more network to evacuate — there's
+ *  a sweet spot. Shows a live "powers ~N homes" estimate. */
+function CapacityPicker({ gen }: { gen: GenType }) {
+  const mw = useAppStore((s) => s.genSizeMw);
+  const setMw = useAppStore((s) => s.setGenSizeMw);
+  const per = FARM_MW_PER_TILE[gen] ?? 5;
+  const cap = GENS[gen].capacityMW;
+  // default modest: onshore wind ~15 MW (owner's Aldbrook ask), others a
+  // few tiles' worth — never the full catalog plant unless the player dials up
+  const def = gen === 'windOnshore' ? 15 : Math.min(cap, Math.max(per, per * 3));
+  const value = Math.min(cap, Math.max(per, mw ?? def));
+  // round the working value to the per-tile grid so MW always maps to tiles
+  const step = per;
+  const clamp = (v: number): number => Math.min(cap, Math.max(per, Math.round(v / step) * step));
+  const change = (dir: -1 | 1): void => setMw(clamp(value + dir * step));
+  const homes = homesPowered(gen, value);
+  const tiles = Math.max(1, Math.round(value / per));
+  return (
+    <div style={{ borderTop: `1px solid ${theme.navyLight}`, marginTop: 4, paddingTop: 2 }}>
+      <div style={{ color: theme.slate, fontSize: 10, letterSpacing: '0.1em', margin: '2px 9px' }}>
+        SIZE THIS WIND FARM
+      </div>
+      <SizeStepper
+        value={value}
+        unit="MW"
+        onStep={change}
+        onWheel={change}
+        caption={
+          <>
+            <span style={{ color: theme.orangeSoft }}>powers ~{homes.toLocaleString()} homes</span> ·
+            reserves ~{tiles} tile{tiles === 1 ? '' : 's'}. Bigger installs need more network to
+            carry the power away — find the sweet spot.
+          </>
+        }
+      />
+    </div>
+  );
+}
+
+/** Build-time MVA size for a substation (the reinforce-existing case lives
+ *  in the inspector). Auto leaves it on auto-reinforcement. */
+function SubMvaPicker({ sub }: { sub: SubType }) {
+  const steps = SUBS[sub].mvaSteps;
+  const mva = useAppStore((s) => s.subSizeMva);
+  const setMva = useAppStore((s) => s.setSubSizeMva);
+  if (!steps || steps.length === 0) return null;
+  const auto = mva === undefined || !steps.includes(mva);
+  const ix = auto ? -1 : steps.indexOf(mva);
+  const move = (dir: -1 | 1): void => {
+    if (auto) {
+      setMva(steps[dir > 0 ? 0 : steps.length - 1]);
+      return;
+    }
+    const next = ix + dir;
+    if (next < 0) setMva(undefined); // step below the smallest → back to auto
+    else setMva(steps[Math.min(steps.length - 1, next)]);
+  };
+  return (
+    <div style={{ borderTop: `1px solid ${theme.navyLight}`, marginTop: 4, paddingTop: 2 }}>
+      <div style={{ color: theme.slate, fontSize: 10, letterSpacing: '0.1em', margin: '2px 9px' }}>
+        TRANSFORMER SIZE
+      </div>
+      <SizeStepper
+        value={auto ? 0 : (mva ?? 0)}
+        unit={auto ? '· auto' : 'MVA'}
+        onStep={move}
+        onWheel={move}
+        caption={
+          auto
+            ? 'auto-reinforces as the catchment grows. + to fix a size now.'
+            : 'a fixed transformer — bigger covers more homes but costs more upfront. − below the smallest returns to auto.'
+        }
+      />
+    </div>
+  );
+}
+
 const GEN_ORDER: GenType[] = [
   'gasCCGT',
   'gasPeaker',
@@ -422,6 +563,7 @@ export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
               Icon={GEN_ICONS[g]}
             />
           ))}
+          {tool.t === 'gen' && isFarmGen(tool.gen) && <CapacityPicker gen={tool.gen} />}
         </Section>
       )}
       {subs.length > 0 && (
@@ -436,6 +578,7 @@ export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
             />
           ))}
           <AutoConnectToggle />
+          {tool.t === 'sub' && <SubMvaPicker sub={tool.sub} />}
         </Section>
       )}
       {levels.length > 0 && (

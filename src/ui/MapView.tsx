@@ -7,15 +7,32 @@ import { installTestHook } from '../app/testHook';
 import { useAppStore, type Tool } from '../app/store';
 import { requestForecast, sendCommand, setWatch } from '../app/workerBridge';
 import { assetAtTile, checkBuild, pylonTilesOf, siteErrorAt, type BuildSpec } from '../sim/commands';
+import { farmClaimTiles, farmFitMW, isFarmGen } from '../sim/farms';
+import { reservedTiles } from '../sim/events/developers';
 import { priceLine, pylonSiteOk } from '../sim/cost';
 import { mapBounds, missionOf } from '../sim/scenario/missions';
 import { ANNUITY_FACTOR, DEPOT, GENS, LINES, SUBS } from '../sim/catalog';
 import type { LineAsset, PlacedAsset } from '../sim/assets';
 import { assetLevels } from '../sim/assets';
 
-function specFor(tool: Tool, x: number, y: number, assets: PlacedAsset[]): BuildSpec | undefined {
-  if (tool.t === 'gen') return { kind: 'gen', gen: tool.gen, x, y };
-  if (tool.t === 'sub') return { kind: 'sub', sub: tool.sub, x, y };
+function specFor(
+  tool: Tool,
+  x: number,
+  y: number,
+  assets: PlacedAsset[],
+  sizes?: { mw?: number | undefined; mva?: number | undefined },
+): BuildSpec | undefined {
+  if (tool.t === 'gen')
+    return {
+      kind: 'gen',
+      gen: tool.gen,
+      x,
+      y,
+      // capacity picker: only a sizeable FARM tender carries a chosen MW
+      ...(isFarmGen(tool.gen) && sizes?.mw !== undefined ? { mw: sizes.mw } : {}),
+    };
+  if (tool.t === 'sub')
+    return { kind: 'sub', sub: tool.sub, x, y, ...(sizes?.mva !== undefined ? { mva: sizes.mva } : {}) };
   if (tool.t === 'depot') return { kind: 'depot', x, y };
   if (tool.t === 'line' && tool.fromAssetId !== undefined) {
     const from = assets.find((a) => a.id === tool.fromAssetId);
@@ -111,9 +128,10 @@ function handleTileClick(tile: TileHover): void {
     case 'gen':
     case 'sub':
     case 'depot': {
-      const spec = specFor(tool, x, y, assets);
+      const st = useAppStore.getState();
+      const spec = specFor(tool, x, y, assets, { mw: st.genSizeMw, mva: st.subSizeMva });
       if (spec) {
-        if (spec.kind === 'sub') spec.autoConnect = useAppStore.getState().autoConnect;
+        if (spec.kind === 'sub') spec.autoConnect = st.autoConnect;
         sendCommand({ type: 'build', spec });
       }
       return;
@@ -492,13 +510,17 @@ export function MapView() {
       }
     }
 
-    const spec = specFor(tool, hovered.x, hovered.y, assets);
+    const { genSizeMw, subSizeMva } = useAppStore.getState();
+    const spec = specFor(tool, hovered.x, hovered.y, assets, { mw: genSizeMw, mva: subSizeMva });
     if (!spec) {
       r.setGhost(undefined);
       setGhostInfo(undefined);
       return;
     }
-    const check = checkBuild(map, assets, spec);
+    // open tenders hold reserved footprints — the ghost must reject a build
+    // that would overlap them (matches the worker's checkBuild)
+    const reserved = reservedTiles(snapshot?.inbox.tenders ?? []);
+    const check = checkBuild(map, assets, spec, reserved);
     let ghost: Ghost;
     if (spec.kind === 'line') {
       ghost = {
@@ -518,6 +540,20 @@ export function MapView() {
           : spec.kind === 'sub'
             ? { bulk: 'sub_bulk', grid: 'sub_grid', dist: 'sub_dist', pole: 'sub_pole', vault: 'sub_vault', tee: 'sub_dist', capbank: 'sub_capbank' }[spec.sub]
             : 'depot';
+      // FOOTPRINT-RESERVATION preview for a sizeable farm: outline the exact
+      // plot the tender will reserve (capacity-scaled claim), walling off
+      // any ground other open tenders already hold, and show blade ghosts
+      // for wind so the turbines are visible while placing.
+      let tiles: number[] | undefined;
+      let windGen: 'windOnshore' | 'windOffshore' | undefined;
+      if (spec.kind === 'gen' && isFarmGen(spec.gen) && check.ok) {
+        const taken = new Set<number>(reserved);
+        for (const i of pylonTilesOf(assets)) taken.add(i);
+        const land = farmFitMW(map, spec.gen, hovered.x, hovered.y, taken);
+        const mw = spec.mw !== undefined ? Math.max(1, Math.min(spec.mw, land)) : land;
+        tiles = farmClaimTiles(map, spec.gen, hovered.x, hovered.y, mw, taken);
+        if (spec.gen === 'windOnshore' || spec.gen === 'windOffshore') windGen = spec.gen;
+      }
       ghost = {
         kind: 'tile',
         x: hovered.x,
@@ -531,6 +567,8 @@ export function MapView() {
             : spec.kind === 'sub'
               ? SUBS[spec.sub].footprint
               : undefined,
+        ...(tiles ? { tiles } : {}),
+        ...(windGen ? { windGen } : {}),
       };
     }
     r.setGhost(ghost);

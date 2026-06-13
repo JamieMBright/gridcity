@@ -6,6 +6,7 @@ import { BuildLabelChip } from '../ui/BuildLabelChip';
 import { BuildPalette } from '../ui/BuildPalette';
 import { CameraBookmarks } from '../ui/CameraBookmarks';
 import { FleetPanel } from '../ui/FleetPanel';
+import { GameMenu } from '../ui/GameMenu';
 import { HotkeyHelp } from '../ui/HotkeyHelp';
 import { Hud } from '../ui/Hud';
 import { HudTour } from '../ui/HudTour';
@@ -35,8 +36,12 @@ import { useUnlockGate } from '../ui/unlocks';
 import { initWorker, sendCommand, setSimSpeed } from './workerBridge';
 
 function Wordmark() {
+  const setGameMenuOpen = useAppStore((s) => s.setGameMenuOpen);
   return (
-    <div
+    <button
+      aria-label="game menu"
+      title="Game menu — save or quit to the main menu (Esc)"
+      onClick={() => setGameMenuOpen(true)}
       style={{
         ...panelStyle,
         position: 'absolute',
@@ -46,7 +51,8 @@ function Wordmark() {
         fontSize: 18,
         fontWeight: 800,
         letterSpacing: '0.05em',
-        pointerEvents: 'none',
+        cursor: 'pointer',
+        textAlign: 'left',
       }}
     >
       <img
@@ -58,7 +64,7 @@ function Wordmark() {
       />
       <span style={{ color: theme.orange }}>ELECTRI</span>
       <span style={{ color: theme.slate }}>CITY</span>
-    </div>
+    </button>
   );
 }
 
@@ -70,8 +76,11 @@ function StatusBar() {
       style={{
         ...panelStyle,
         position: 'absolute',
-        bottom: 12,
+        // lifted clear of the bottom-left minimap (the map overlay moved
+        // here, off the right-rail bill stack)
+        bottom: 160,
         left: 12,
+        maxWidth: 'min(420px, calc(100vw - 24px))',
         padding: '6px 12px',
         fontSize: 12,
         pointerEvents: 'none',
@@ -121,7 +130,7 @@ function useKeyboard(): void {
       // undo/redo before the modifier guard: Ctrl/Cmd+Z, Ctrl+Y, Ctrl+Shift+Z
       if ((e.ctrlKey || e.metaKey) && !e.altKey) {
         const k = e.key.toLowerCase();
-        if ((k === 'z' || k === 'y') && !typing && !s.menuOpen) {
+        if ((k === 'z' || k === 'y') && !typing && !s.menuOpen && !s.gameMenuOpen) {
           e.preventDefault();
           sendCommand({ type: k === 'y' || e.shiftKey ? 'redo' : 'undo' });
         }
@@ -130,15 +139,23 @@ function useKeyboard(): void {
       if (e.altKey) return;
       if (typing) return;
       if (e.key === 'Escape') {
-        if (s.selectedAsset !== undefined || s.selectedLine !== undefined) {
+        // an open modal closes first (game menu, help) before any tool work
+        if (s.gameMenuOpen) {
+          s.setGameMenuOpen(false);
+        } else if (s.selectedAsset !== undefined || s.selectedLine !== undefined) {
           s.setSelected({});
         } else if (s.tool.t === 'line' && (s.tool.waypoints?.length ?? 0) > 0) {
           // unwind the bent route one waypoint at a time
           s.setTool({ ...s.tool, waypoints: s.tool.waypoints?.slice(0, -1) });
         } else if (s.tool.t === 'line' && s.tool.fromAssetId !== undefined) {
           s.setTool({ ...s.tool, fromAssetId: undefined });
-        } else {
+        } else if (s.tool.t !== 'inspect') {
+          // a non-inspect tool is armed: disarm it (existing behaviour)
           s.setTool({ t: 'inspect' });
+        } else if (!s.menuOpen) {
+          // nothing to cancel and not already at the start menu: open the
+          // in-game pause MENU (Save / Quit to main menu)
+          s.setGameMenuOpen(true);
         }
         return;
       }
@@ -151,6 +168,7 @@ function useKeyboard(): void {
       }
       if (s.helpOpen) return; // the overlay swallows other keys while open
       if (s.menuOpen) return;
+      if (s.gameMenuOpen) return; // the pause menu swallows build hotkeys
       const key = e.key.toLowerCase();
       if (key === 'g') {
         s.setGridView(!s.gridView);
@@ -282,6 +300,7 @@ export function App() {
       <EventLog />
       <DirectoratesPanel />
       <StartMenu />
+      <GameMenu />
       <SavesPanel />
       <RotatePrompt />
       <HudTour />
