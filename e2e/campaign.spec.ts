@@ -56,10 +56,13 @@ async function tapTile(page: Page, tile: { x: number; y: number }): Promise<void
   expect(tapped).toBe(true);
 }
 
-/** Menu → "tutorial" (which IS campaign mission 1), and wait for it. */
+/** Menu → "tutorials" opens the LESSONS PAGE → click First Light to launch
+ *  campaign mission 1, then wait for it. */
 async function startTutorial(page: Page): Promise<void> {
   await waitReady(page);
-  await clickButton(page, 'tutorial');
+  await clickButton(page, 'tutorials');
+  await expect.poll(() => store<boolean>(page, '(s) => s.lessonsOpen')).toBe(true);
+  await clickButton(page, /1\. First Light/);
   await expect.poll(() => store<boolean>(page, '(s) => s.menuOpen')).toBe(false);
   await expect
     .poll(() => store<string>(page, '(s) => s.snapshot?.scenarioId'), { timeout: 20_000 })
@@ -186,15 +189,15 @@ test.describe('campaign tutorial — real UI path at phone-landscape', () => {
   });
 });
 
-test.describe('start menu campaign list', () => {
-  test('campaign accordion lists missions; m2 locked until m1', async ({ page }) => {
+test.describe('start menu lessons page', () => {
+  test('lessons page lists missions; m2 locked until m1', async ({ page }) => {
     await waitReady(page);
-    await clickButton(page, /campaign/);
+    await clickButton(page, 'tutorials');
+    await expect.poll(() => store<boolean>(page, '(s) => s.lessonsOpen')).toBe(true);
     await expect(page.getByRole('button', { name: /1\. First Light/ })).toBeEnabled();
-    // the locked m2 button reads "🔒 Step Up complete …", and is disabled
-    await expect(
-      page.getByRole('button', { name: /🔒 Step Up complete/ }),
-    ).toBeDisabled();
+    // the locked m2 row reads "🔒 Step Up complete "First Light" to unlock"
+    // and is disabled until First Light is done
+    await expect(page.getByRole('button', { name: /Step Up complete/ })).toBeDisabled();
   });
 });
 

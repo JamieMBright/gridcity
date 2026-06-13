@@ -11,6 +11,7 @@ import type {
   WorkerToMain,
 } from '../sim/protocol';
 import { isSaveData } from '../sim/state';
+import { computeStars, recordLessonResult } from '../ui/lessonProgress';
 import { useAppStore } from './store';
 
 let worker: Worker | undefined;
@@ -66,7 +67,25 @@ export function initWorker(): void {
         // mission via 'continue'.
         const sid = msg.snapshot.scenarioId ?? 'london';
         if (s.scenarioId !== sid) s.setScenarioId(sid);
-        if (msg.snapshot.missionComplete && sid !== 'london') recordMissionComplete(sid);
+        if (msg.snapshot.missionComplete && sid !== 'london') {
+          recordMissionComplete(sid);
+          // grade the lesson off the completion snapshot: per-home network
+          // charge, total assets, and whether anything ever ran hot. Both
+          // recorders are idempotent / max-keeping, so re-firing each
+          // sticky-complete snapshot is harmless (stars never downgrade).
+          const snap = msg.snapshot;
+          const hadOverload = snap.branches.some(
+            (b) => b.ratingMW > 0 && Math.abs(b.flowMW) > b.ratingMW + 1e-6,
+          );
+          recordLessonResult(
+            sid,
+            computeStars({
+              perCustomerDuosYr: snap.bill.perCustomerDuosYr,
+              assetCount: snap.assets.length,
+              hadOverload,
+            }),
+          );
+        }
         s.setSnapshot(msg.snapshot);
         // a snapshot arriving means any skip has finished (the worker
         // fast-forwards synchronously): re-enable the skip buttons

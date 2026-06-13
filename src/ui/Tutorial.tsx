@@ -15,6 +15,7 @@ import {
   type MissionStep,
   type MissionUiView,
 } from '../sim/scenario/missions';
+import { SpotlightOverlay, useSpotlightRect } from './Spotlight';
 import { panelStyle, theme } from './theme';
 
 const btnStyle: React.CSSProperties = {
@@ -51,10 +52,15 @@ function StepStrip({
 }) {
   const step = useAppStore((s) => s.tutorialStep);
   const setStep = useAppStore((s) => s.setTutorialStep);
+  const setLessonsOpen = useAppStore((s) => s.setLessonsOpen);
+  const setMenuOpen = useAppStore((s) => s.setMenuOpen);
   // loud refusals: a siting click the sim rejects sets this toast — we
   // surface the reason prominently right under the strip, not just as the
   // small corner toast that's easy to miss mid-lesson.
   const toast = useAppStore((s) => s.toast);
+  // the notes can DOMINATE while you read, then tuck to a recallable pill
+  // so they never block the build label / a teaching tile (owner T2).
+  const [minimized, setMinimized] = useState(false);
 
   const current = step !== undefined ? steps[step] : undefined;
 
@@ -65,62 +71,148 @@ function StepStrip({
     }
   }, [snapshot, step, current, setStep, steps.length, ui]);
 
+  // guided-play spotlight: ring the step's target control (measured live
+  // so it follows whichever layout is mounted). Pure-visual — clicks pass
+  // through, so the player can still act freely.
+  const spotRect = useSpotlightRect(minimized ? undefined : current?.spot);
+
   if (step === undefined || !current) return null;
   const last = step === steps.length - 1;
 
+  // end the tutorial outright (the no-skip rule keeps this off mid-lesson;
+  // it appears only as the explicit "finish" on the final tile).
+  const finish = (): void => {
+    setStep(undefined);
+    setLessonsOpen(true);
+    setMenuOpen(true);
+  };
+
+  if (minimized) {
+    return (
+      <button
+        onClick={() => setMinimized(false)}
+        title="Show the tutorial notes"
+        style={{
+          ...panelStyle,
+          position: 'absolute',
+          top: 56,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          padding: '6px 14px',
+          border: `1px solid ${theme.orange}`,
+          color: theme.orange,
+          fontFamily: theme.font,
+          fontSize: 12,
+          fontWeight: 700,
+          cursor: 'pointer',
+          zIndex: 7,
+        }}
+      >
+        📖 lesson {step + 1}/{steps.length} — tap to show
+      </button>
+    );
+  }
+
   return (
-    <div
-      style={{
-        ...panelStyle,
-        position: 'absolute',
-        top: 56,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: 'min(420px, 92vw)',
-        maxHeight: '46vh',
-        overflowY: 'auto',
-        padding: '10px 14px',
-        border: `1px solid ${theme.orange}`,
-        zIndex: 5,
-        // taps PASS THROUGH the strip to the map underneath (the camera
-        // fit can put a teaching tile beneath the strip on a phone) —
-        // only the buttons below re-arm pointer events
-        pointerEvents: 'none',
-      }}
-    >
-      <div style={{ color: theme.orange, fontSize: 10, letterSpacing: '0.12em' }}>
-        {header} {step + 1}/{steps.length}
-      </div>
-      <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 4 }}>{current.text}</div>
-      {toast && (
+    <>
+      {spotRect && <SpotlightOverlay hole={spotRect} zIndex={6} />}
+      <div
+        style={{
+          ...panelStyle,
+          position: 'absolute',
+          top: 56,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 'min(440px, 94vw)',
+          maxHeight: '46vh',
+          overflowY: 'auto',
+          padding: '12px 16px',
+          border: `1px solid ${theme.orange}`,
+          boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+          zIndex: 7,
+          // taps PASS THROUGH the strip body to the map underneath (the
+          // camera fit can put a teaching tile beneath the strip on a
+          // phone) — only the buttons below re-arm pointer events
+          pointerEvents: 'none',
+        }}
+      >
         <div
-          role="alert"
           style={{
-            marginTop: 8,
-            padding: '6px 10px',
-            borderRadius: 6,
-            background: 'rgba(224, 105, 122, 0.16)',
-            border: `1px solid ${theme.danger}`,
-            color: theme.danger,
-            fontSize: 12,
-            lineHeight: 1.4,
-            fontWeight: 600,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            pointerEvents: 'auto',
           }}
         >
-          ⚠ can’t do that here — {toast}
-        </div>
-      )}
-      <div style={{ display: 'flex', gap: 8, marginTop: 8, pointerEvents: 'auto' }}>
-        {!current.done && (
-          <button onClick={() => setStep(last ? undefined : step + 1)} style={btnStyle}>
-            {last ? 'play' : 'next'}
+          <div style={{ color: theme.orange, fontSize: 10, letterSpacing: '0.12em' }}>
+            {header} {step + 1}/{steps.length}
+          </div>
+          <button
+            onClick={() => setMinimized(true)}
+            title="Tuck the notes away (recall any time)"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: theme.slate,
+              cursor: 'pointer',
+              fontSize: 14,
+              lineHeight: 1,
+              padding: 0,
+            }}
+          >
+            ▁
           </button>
+        </div>
+        <div style={{ fontSize: 13.5, lineHeight: 1.55, marginTop: 5 }}>{current.text}</div>
+        {toast && (
+          <div
+            role="alert"
+            style={{
+              marginTop: 8,
+              padding: '6px 10px',
+              borderRadius: 6,
+              background: 'rgba(224, 105, 122, 0.16)',
+              border: `1px solid ${theme.danger}`,
+              color: theme.danger,
+              fontSize: 12,
+              lineHeight: 1.4,
+              fontWeight: 600,
+            }}
+          >
+            ⚠ can’t do that here — {toast}
+          </div>
         )}
-        <button onClick={() => setStep(undefined)} style={ghostBtnStyle}>
-          skip tutorial
-        </button>
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+            marginTop: 10,
+            alignItems: 'center',
+            pointerEvents: 'auto',
+          }}
+        >
+          {/* step navigation — back/forward only; there is NO "skip the
+              whole tutorial" escape (owner: the tutorial IS the content) */}
+          <button
+            onClick={() => setStep(Math.max(0, step - 1))}
+            disabled={step === 0}
+            style={{ ...ghostBtnStyle, opacity: step === 0 ? 0.4 : 1 }}
+            title="Previous step"
+          >
+            ◂ back
+          </button>
+          {last ? (
+            <button onClick={finish} style={btnStyle}>
+              finish tutorial ✓
+            </button>
+          ) : (
+            <button onClick={() => setStep(step + 1)} style={btnStyle} title="Next step">
+              next ▸
+            </button>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -128,6 +220,7 @@ function StepStrip({
 function MissionVictory({ scenarioId }: { scenarioId: string }) {
   const snapshot = useAppStore((s) => s.snapshot);
   const setMenuOpen = useAppStore((s) => s.setMenuOpen);
+  const setLessonsOpen = useAppStore((s) => s.setLessonsOpen);
   const setTutorialStep = useAppStore((s) => s.setTutorialStep);
   const [dismissedFor, setDismissedFor] = useState<string | undefined>(undefined);
 
@@ -201,9 +294,12 @@ function MissionVictory({ scenarioId }: { scenarioId: string }) {
           )}
           <button
             style={{ ...ghostBtnStyle, padding: '7px 14px', color: theme.offWhite }}
-            onClick={() => setMenuOpen(true)}
+            onClick={() => {
+              setLessonsOpen(true);
+              setMenuOpen(true);
+            }}
           >
-            back to menu
+            lessons ★
           </button>
           <button
             style={{ ...ghostBtnStyle, padding: '7px 14px' }}
