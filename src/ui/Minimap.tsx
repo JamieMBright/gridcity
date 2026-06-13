@@ -165,8 +165,11 @@ export function Minimap() {
         style={{
           ...panelStyle,
           position: 'absolute',
+          // bottom-LEFT so the map overlay never sits on the bill/finance
+          // stack on the right rail (owner playtest: "map overlay interrupts
+          // the finance/cost bill panel")
           bottom: 12,
-          right: 12,
+          left: 12,
           padding: '6px 8px',
           display: 'flex',
           alignItems: 'center',
@@ -187,8 +190,9 @@ export function Minimap() {
       style={{
         ...panelStyle,
         position: 'absolute',
+        // bottom-LEFT, clear of the right-rail finance stack (see above)
         bottom: 12,
-        right: 12,
+        left: 12,
         padding: 6,
         display: 'flex',
         flexDirection: 'column',

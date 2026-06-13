@@ -107,7 +107,7 @@ describe('generation tenders', () => {
     expect(demo.error).toMatch(/developer owns/);
   });
 
-  it('award re-validates the site and fails if built over', () => {
+  it("a designated site is reserved — it can't be built over, so the award lands", () => {
     const map = makeTestMap(30, 30);
     const state = newGame();
     applyCommand(state, map, {
@@ -117,8 +117,39 @@ describe('generation tenders', () => {
     const tender = state.tenders[0];
     if (!tender) throw new Error('no tender');
     tender.bids.push({ developerId: 1, priceMWh: 85, leadDaysDelta: 0 });
-    // the site gets built over in the meantime
-    applyCommand(state, map, { type: 'build', spec: { kind: 'sub', sub: 'dist', x: 10, y: 10 } });
+    // FOOTPRINT RESERVATION: the designation holds the tile, so a build can
+    // no longer encroach on it (this is what stops the award "exploding")
+    const blocked = applyCommand(state, map, {
+      type: 'build',
+      spec: { kind: 'sub', sub: 'dist', x: 10, y: 10 },
+    });
+    expect(blocked.ok).toBe(false);
+    expect(blocked.error).toBe('a designated generation site is reserved here');
+    // …and so the award proceeds cleanly onto the reserved site
+    const res = applyCommand(state, map, {
+      type: 'acceptBid',
+      tenderId: tender.id,
+      developerId: 1,
+    });
+    expect(res.ok).toBe(true);
+    expect(tender.status).toBe('awarded');
+  });
+
+  it('award still fails if the reserved site is somehow blocked at award time', () => {
+    const map = makeTestMap(30, 30);
+    const state = newGame();
+    applyCommand(state, map, {
+      type: 'build',
+      spec: { kind: 'gen', gen: 'gasCCGT', x: 10, y: 10 },
+    });
+    const tender = state.tenders[0];
+    if (!tender) throw new Error('no tender');
+    tender.bids.push({ developerId: 1, priceMWh: 85, leadDaysDelta: 0 });
+    // simulate the anchor being lost (e.g. a map change retiring the tile):
+    // a placed asset dropped directly onto the anchor, bypassing the
+    // reservation guard, must still make the re-validation fail
+    const id = state.nextAssetId++;
+    state.assets.set(id, { id, kind: 'sub', sub: 'dist', x: 10, y: 10 });
     const res = applyCommand(state, map, {
       type: 'acceptBid',
       tenderId: tender.id,

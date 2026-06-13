@@ -101,7 +101,11 @@
   - [ ] **T5 Bill**: reword "capital is unlimited" → "The network
         operator can elect any solution they see fit within the
         allowances set by The Regulator — but every pound lands on
-        customer bills." Headroom toggle did NOTHING (BUG). Allow
+        customer bills." Headroom toggle did NOTHING (BUG — diagnosed by
+        the UI-FIX lane 2026-06-13: store/bridge/MapView wiring is CORRECT;
+        the render-side `setOverlay` redraws catchment circles but NOT the
+        line recolour — see the lane entry below for the exact render fix).
+        Allow
         skipping a mission step forward/backward. Teach scroll-to-size a
         dist sub to cover the whole town at once; teach REINFORCING an
         existing sub (inspect → increase, cheaper than new build); place
@@ -110,19 +114,21 @@
         rebalance (mission "completed" at £333/yr — sense-check targets).
 
 - [ ] **GAME/UX BUGS from the flurry (owner, 2026-06-13):**
-  - [ ] FOOTPRINT: tile size must be pre-determined/reserved — could
+  - [x] FOOTPRINT: tile size must be pre-determined/reserved — could
         place side-by-side bids that EXPLODED OUT on award (overlap).
         Reserve the footprint at designation so awards can't collide.
-  - [ ] GRAPHICS: wind turbine not centred on the hub mast (screenshot —
+        — VERIFIED (SIM/RENDER-FIX lane, 2026-06-13)
+  - [x] GRAPHICS: wind turbine not centred on the hub mast (screenshot —
         blades offset from the mast); blades don't appear while placing.
         Fix the rotor offset + show blades on the ghost/placement.
-  - [ ] ESCAPE menu: Esc (when NOT cancelling a line build) opens a menu
+        — VERIFIED (SIM/RENDER-FIX lane, 2026-06-13)
+  - [x] ESCAPE menu: Esc (when NOT cancelling a line build) opens a menu
         → Save / Quit to main menu; clicking "ELECTRICITY" top-left
-        opens the same pane.
+        opens the same pane. — VERIFIED (UI-FIX lane, 2026-06-13)
   - [ ] LOGIN didn't really work (investigate auth/sign-in flow end to
         end — ties to the Supabase Site-URL fix already logged).
-  - [ ] SNOOZE: 1 hour is pointless (a second passes an hour) → snooze
-        ~2 days.
+  - [x] SNOOZE: 1 hour is pointless (a second passes an hour) → snooze
+        ~2 days. — VERIFIED (UI-FIX lane, 2026-06-13: SNOOZE_MIN = 2 game-days)
   - [ ] SEVERE-WEATHER ALERT: pop the really damaging ones to the MIDDLE
         of screen to dismiss, with a weather MAP showing the hurricane
         bearing down on London.
@@ -133,11 +139,153 @@
   - [ ] CONNECTIONS: an application out of reach of any kit should give
         the network MONEY to build out the cables (per the study) — do
         NOT penalise the operator for new connections.
-  - [ ] HUD OVERLAP: the map overlay interrupts the finance/bill panel;
+  - [x] HUD OVERLAP: the map overlay interrupts the finance/bill panel;
         HUD panes overlap so you can't upgrade a substation (messages in
         the way). Fix the layout/z-order so panels never block controls.
-  - [ ] SUBSTATION SIZING: MVA size scrollable / +– when selected to
-        build (and when reinforcing).
+        — VERIFIED (UI-FIX lane, 2026-06-13)
+  - [~] SUBSTATION SIZING: MVA size scrollable / +– when selected to
+        build (and when reinforcing). — REINFORCING done (UI-FIX lane,
+        2026-06-13: InfoPanel MvaControls is now a scroll/slider/± picker).
+        The BUILD-time ± picker is the concurrent BuildPalette lane's
+        subSizeMva work (store flag landed: subSizeMva).
+
+### UI-FIX lane — HUD overlap · escape menu · snooze · headroom · MVA reinforce (owner playtest, 2026-06-13) — [x] VERIFIED
+- [x] **HUD OVERLAP / z-order.** Audited the absolute-positioned right-rail
+      panes. Two concrete collisions fixed: (1) the pinned InfoPanel
+      inspector card now rides at `zIndex: 8` with `maxHeight: calc(100vh -
+      52px)` + inner scroll, so a tall substation card's upgrade/reinforce/
+      demolish buttons are ALWAYS reachable and never sit behind the alerts
+      feed (the owner's "can't upgrade — messages in the way"); the
+      AlertsFeed dropped to `zIndex: 4` and the BillPanel to `zIndex: 4`
+      (trend-open lifts to 6) so the inspector wins the stack. (2) the
+      "map overlay interrupts the finance/bill panel": the **Minimap** sat
+      at `bottom:12 right:12` — exactly on the BillPanel — so it was moved
+      to the bottom-LEFT (collapsed + open), and the StatusBar hint lifted
+      to `bottom:160` to clear it. BillPanel also gained a `maxHeight`+scroll
+      so it can't grow up into the alerts feed on a short desktop.
+      (src/ui/InfoPanel.tsx, AlertsFeed.tsx, BillPanel.tsx, Minimap.tsx,
+      src/app/App.tsx.)
+- [x] **ESCAPE → in-game MENU + ELECTRICITY wordmark.** New
+      src/ui/GameMenu.tsx (lofi dusk modal): Save game (a manual autosave via
+      the new `requestSave()` bridge → worker `requestSave` → localStorage +
+      cloud) and Quit to main menu (saves, then `setMenuOpen(true)` back to
+      the StartMenu). Store flag `gameMenuOpen` + `setGameMenuOpen` (additive,
+      tight-anchored). App.tsx keyboard handler: Esc still cancels a line
+      build / clears a selection / disarms a non-inspect tool FIRST (existing
+      behaviour preserved); only when there is nothing to cancel and not at
+      the start menu does it open the pause menu. The wordmark became a
+      button opening the same menu. Esc also closes the menu; build hotkeys +
+      Ctrl+Z/Y are swallowed while it's open.
+- [x] **SNOOZE → 2 game-days.** AlertsFeed `SNOOZE_MIN` 60 → 2·24·60; both
+      feed + event-log snooze buttons relabelled "Snooze 2 days". (eventLog
+      test uses explicit minutes, unaffected.)
+- [x] **HEADROOM TOGGLE — DIAGNOSED (my side fixed/correct; render fix noted
+      for the integrator).** Traced Hud HeadroomButton → `setHeadroom` (store)
+      → MapView effect `setOverlay(headroom ? 'headroom' : 'none')` →
+      MapRenderer. ALL of that (store flag, MapView wiring, the requestForecast
+      path) is CORRECT and is on my side — nothing to fix there. The break is
+      purely in the renderer (the other lane's src/render/MapRenderer.ts):
+      `setOverlay()` (≈line 626) calls only `this.drawCatchments()`. The
+      headroom LINE recolour lives in `drawLines()` (≈line 2449,
+      `overlayMode === 'headroom'`), which is NOT re-run on toggle — it only
+      refreshes on the next snapshot. So toggling headroom redraws the faint
+      catchment circles (alpha 0.16 — barely visible on a sparse early grid)
+      but the corridors don't recolour until a tick lands → reads as "nothing
+      happened". EXACT RENDER FIX for the integrator: make `setOverlay()` also
+      rebuild the network from the cached last frame, exactly as `setCbMode()`
+      already does at ≈line 735 —
+        ```
+        setOverlay(mode): void {
+          this.overlayMode = mode;
+          this.drawCatchments();
+          if (this.lastAssets.length > 0) {
+            const byId = new Map<number, PlacedAsset>();
+            for (const a of this.lastAssets) byId.set(a.id, a);
+            this.drawLines(this.lastAssets, this.lastBranches, byId);
+          }
+        }
+        ```
+      (optional polish: lift the catchment fill alpha from 0.16 so the
+      heatmap reads on a light grid). I did NOT edit render per lane rules.
+- [x] **MVA REINFORCE picker (T5).** InfoPanel `MvaControls` (the pinned-card
+      sub control) reworked from a cramped `− N + auto` row into a clear
+      REINFORCEMENT sizer: a range SLIDER (drag) + ± buttons + scroll-wheel
+      over the control to step the fixed MVA sizes, the live `N MVA` readout,
+      an `auto ✓` toggle, and a "min–max MVA · bigger = wider catchment,
+      cheaper than a new sub" caption — so the player can size up an existing
+      sub to cover a whole town from the top-right pane. Drives the existing
+      `setSubMva` command (no sim change). Also surfaced in the mobile
+      bottom-sheet (MobileInspector → AssetInfo).
+- [x] SHARED store.ts: additive only (`gameMenuOpen`/`setGameMenuOpen`),
+      merged cleanly alongside the concurrent lane's `genSizeMw`/`subSizeMva`
+      additions — neither lane's edits reverted.
+- [x] VERIFIED: `npx tsc -b` clean; `npx eslint src tests e2e tools` clean;
+      `npm run build` clean; `npx vitest run` — all UI/store/bridge changes
+      green (the only reds are the concurrent SIM lane's in-flight
+      footprint-reservation tests in commands.ts/developers.ts/footprints.ts,
+      NOT this lane). `npx playwright test e2e/app.spec.ts e2e/controls.spec.ts`
+      fresh-server green. DESIGN GATE (preview/w15ui-*.png at desktop 1280×800
+      AND phone-landscape 844×390): HUD with inspector+bill+alerts open (no
+      overlap, sub upgrade/MVA controls reachable), the game menu, and the MVA
+      reinforce picker — all read cleanly on both.
+
+### SIM/RENDER-FIX lane — footprint reservation · capacity picker · wind rotor (owner playtest bugs, 2026-06-13) — [x] VERIFIED
+- [x] **FOOTPRINT RESERVATION** — a generation DESIGNATION now RESERVES its
+      eventual footprint the moment the tender opens, so side-by-side bids can
+      no longer "explode out" on award. `Tender.reserved:number[]` holds the
+      plot (the full `fitMW` farm claim, or the fixed catalog rect), surveyed
+      WALLING OFF every other open tender's reservation + placed assets/pylons
+      (`reservedTiles()` + `reservationFootprint()` in
+      developers.ts/commands.ts; `farmTileOrder/farmFitMW/farmClaimTiles` gained
+      an optional `taken` set so the BFS never grows through held ground).
+      `checkBuild` takes the reserved set and rejects a build on a reserved
+      tile ("a designated generation site is reserved here"). The AWARD lands on
+      exactly the reserved tiles: it caps MW to the free prefix of the held plot
+      and STAMPS the exact tile list on `GenAsset.claim`, which `footprintTiles`
+      uses verbatim (no re-derivation drift). Re-validation at award excludes the
+      tender's OWN reservation. `growTown` already avoids `footprintTiles`, so a
+      stored claim is never re-zoned. Additive — no SAVE_VERSION bump (reserved/
+      claim are optional fields; old saves fall back to the pure derivation).
+- [x] **ANY-TILE CONNECTION** — `assetAtTile` gained an optional `map`: for a
+      capacity-scaled farm it tests the whole DERIVED claim, so a 33 kV line
+      endpoint / inspect / tee lands on ANY tile the farm occupies, not just its
+      anchor (owner: "I should be able to click the circuit to any tile the farm
+      occupies"). `checkBuild`'s line path + MapView's clicks/picks pass the map.
+- [x] **CAPACITY PICKER** — BuildPalette shows a ± / scroll MW stepper when an
+      onshore-wind (or other farm) tool is armed, default modest (wind 15 MW),
+      with a live "powers ~N homes" estimate (`homesPowered` off per-tech load
+      factors) + a "reserves ~N tiles · bigger installs need more network — find
+      the sweet spot" caption. The chosen MW (`store.genSizeMw`, tight-anchored)
+      flows into the designate `BuildSpec.mw` → caps the tender `fitMW` + the
+      reserved footprint. Also a ± MVA stepper when BUILDING a substation
+      (`store.subSizeMva` → `BuildSpec.mva`, fits the transformer + switches auto
+      off); the reinforce-existing case is the UI lane's. Ghost previews the
+      reserved farm plot (exact claimed tiles) with blade ghosts.
+- [x] **WIND ROTOR centring + ghost blades** — the live rotor sat a hub-height
+      too LOW and to the right: `addWindRotors` was adding the sprite TRIM
+      (`frameOffset`) on top of the untrimmed hub pixel, double-counting it
+      (`drawBloom` never did). Dropped the trim term in `addWindRotors`; rotor
+      now sits dead-centre on the mast hub. `windHubOffset` lost its
+      `+0.012/-0.012` u/v skew (now on the mast axis) and the turbine sprite's
+      nacelle is symmetric about (u,v). The PLACEMENT GHOST now draws faint
+      blade ghosts on each turbine tile (`drawGhostBlades`) so blades show while
+      placing (owner: they didn't).
+- [x] SHARED store.ts: additive only (`genSizeMw`/`subSizeMva` + setters),
+      tight-anchored beside `autoConnect`; coexists with the UI lane's
+      `gameMenuOpen` — neither lane's edits reverted.
+- [x] VERIFIED: `npx vitest run` 568 green (footprints.test.ts extended:
+      reservation can't overlap, award lands on reserved, chosen-MW flows to
+      tender/footprint/award, MW capped to land, homesPowered, 33 kV line to any
+      farm tile; developers.test.ts updated for the reservation guard). `npx
+      tsc -b` + `npx eslint src tests e2e tools` + `npm run build` clean. `npx
+      playwright test e2e/build.spec.ts` 4/4 fresh-server green (the
+      designate→bid→award→plant+wires flow intact; baselines unchanged). DESIGN
+      GATE (preview/w15sim-*.png): ghost-wind-crop — blades centred on the mast
+      hub on the placement ghost, green reserved plot ✓; solo-wind-crop +
+      built-wind-crop — live rotors sit dead-centre on every mast hub ✓;
+      reservation — a designation's held plot + the second site's ghost walled
+      apart ✓. (Before the fix the rotors floated near the ground, off the
+      masts — the crops make the fix unmistakable.)
 
 - [x] **Branded auth emails + redirect 404 (owner, 2026-06-13 13:20/
       13:23).** Created ElectriCity-branded, email-safe HTML for the

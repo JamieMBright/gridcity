@@ -852,9 +852,12 @@ export const WIND_HUBS: Record<'onshore' | 'offshore', WindHubSpec[]> = {
   ],
 };
 
-/** Hub centre offset within the cell, device px at sprite resolution. */
+/** Hub centre offset within the cell, device px at sprite resolution. The
+ *  rotor hub sits ON the mast axis (u,v) at the nacelle's front-top, so the
+ *  live/ghost blades centre exactly on the mast (owner playtest: the rotor
+ *  was offset from the mast — the old +0.012/-0.012 skew is gone). */
 export function windHubOffset(spec: WindHubSpec): Pt {
-  return P(spec.u + 0.012, spec.v - 0.012, spec.hub + 3);
+  return P(spec.u, spec.v, spec.hub + 3);
 }
 
 /** Wind turbine towers; offshore versions stand on yellow transition
@@ -876,8 +879,9 @@ export function windTurbineTile(seed: number, offshore: boolean): Uint8ClampedAr
     // tapered tower (two stacked boxes cheat the taper)
     iso.box(u - 0.022, v - 0.022, u + 0.022, v + 0.022, offshore ? 14 : 0, hub * 0.55, COLORS.white);
     iso.box(u - 0.015, v - 0.015, u + 0.015, v + 0.015, hub * 0.55, hub, COLORS.white);
-    // nacelle
-    iso.box(u - 0.03, v - 0.02, u + 0.035, v + 0.02, hub, hub + 6, lit(COLORS.white, 0.02));
+    // nacelle — kept SYMMETRIC about the mast axis (u,v) so the rotor hub,
+    // which the renderer centres on (u,v), sits dead-centre on the nacelle
+    iso.box(u - 0.032, v - 0.02, u + 0.032, v + 0.02, hub, hub + 6, lit(COLORS.white, 0.02));
   };
 
   for (const spec of WIND_HUBS[offshore ? 'offshore' : 'onshore']) turbine(spec);

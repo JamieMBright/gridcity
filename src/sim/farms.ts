@@ -54,8 +54,21 @@ function openForFarm(map: CityMap, gen: GenType, x: number, y: number): boolean 
  *  own zone isn't open countryside), then ring-by-ring blob growth over
  *  open land, N/E/S/W neighbour order, capped at FARM_MAX_RADIUS. Wind
  *  technologies keep only the anchor-parity checkerboard for turbine
- *  spacing. */
-export function farmTileOrder(map: CityMap, gen: GenType, ax: number, ay: number): number[] {
+ *  spacing.
+ *
+ *  `taken` (tiles already occupied by other assets/pylons OR reserved by
+ *  another open tender) are skipped DURING the walk — both as claimable
+ *  tiles AND as walkable ground — so a designation's footprint never grows
+ *  through, or into, ground a neighbour already holds. The anchor itself
+ *  is always claimable (its siting was validated). Determinism is
+ *  preserved: the BFS order is still a pure function of (map, anchor, taken). */
+export function farmTileOrder(
+  map: CityMap,
+  gen: GenType,
+  ax: number,
+  ay: number,
+  taken?: ReadonlySet<number>,
+): number[] {
   const anchor = ay * map.width + ax;
   if (!isFarmGen(gen)) return [anchor];
   const spaced = gen === 'windOnshore' || gen === 'windOffshore';
@@ -76,6 +89,7 @@ export function farmTileOrder(map: CityMap, gen: GenType, ax: number, ay: number
       if (Math.max(Math.abs(nx - ax), Math.abs(ny - ay)) > FARM_MAX_RADIUS) continue;
       const i = ny * map.width + nx;
       if (visited.has(i)) continue;
+      if (taken?.has(i)) continue; // neighbour's reserved/occupied ground — wall it off
       if (!openForFarm(map, gen, nx, ny)) continue;
       visited.add(i);
       queue.push([nx, ny]);
@@ -86,11 +100,18 @@ export function farmTileOrder(map: CityMap, gen: GenType, ax: number, ay: number
 }
 
 /** The most MW a technology fits around a designated tile, capped at the
- *  catalog ask (the tender is for that plant, not an unbounded one). */
-export function farmFitMW(map: CityMap, gen: GenType, x: number, y: number): number {
+ *  catalog ask (the tender is for that plant, not an unbounded one). The
+ *  optional `taken` set excludes ground other assets/tenders already hold. */
+export function farmFitMW(
+  map: CityMap,
+  gen: GenType,
+  x: number,
+  y: number,
+  taken?: ReadonlySet<number>,
+): number {
   const per = FARM_MW_PER_TILE[gen];
   if (per === undefined) return GENS[gen].capacityMW;
-  return Math.min(GENS[gen].capacityMW, farmTileOrder(map, gen, x, y).length * per);
+  return Math.min(GENS[gen].capacityMW, farmTileOrder(map, gen, x, y, taken).length * per);
 }
 
 /** Tiles a farm of `mw` claims: the BFS-order prefix. ceil(mw/density),
@@ -101,15 +122,38 @@ export function farmClaimTiles(
   x: number,
   y: number,
   mw: number,
+  taken?: ReadonlySet<number>,
 ): number[] {
   const per = FARM_MW_PER_TILE[gen];
   if (per === undefined) return [y * map.width + x];
   const n = Math.max(1, Math.ceil(mw / per));
-  return farmTileOrder(map, gen, x, y).slice(0, n);
+  return farmTileOrder(map, gen, x, y, taken).slice(0, n);
 }
 
 /** Effective capacity of a placed generator, MW — the awarded (land-
  *  capped) figure when stamped, else the catalog plant. */
 export function assetMW(a: { gen: GenType; mw?: number | undefined }): number {
   return a.mw ?? GENS[a.gen].capacityMW;
+}
+
+/** Rough load-factor per generation technology — the share of nameplate a
+ *  unit actually delivers on average. Game-chunky, in the right ballpark
+ *  for GB (onshore ~30%, offshore ~45%, solar ~11%, firm plant high). Only
+ *  used for the "powers ~N homes" picker estimate, never the sim. */
+const LOAD_FACTOR: Partial<Record<GenType, number>> = {
+  windOnshore: 0.3,
+  windOffshore: 0.45,
+  solarFarm: 0.11,
+};
+
+/** Average domestic draw, kW per home (≈3,500 kWh/yr diversified). The
+ *  capacity-picker's "powers ~N homes" headline (a planning rule of thumb,
+ *  not the dispatch model). */
+export const HOME_AVG_KW = 0.4;
+
+/** Rough homes a farm of `mw` powers, for the capacity picker's live
+ *  estimate: nameplate × load factor / average home draw. */
+export function homesPowered(gen: GenType, mw: number): number {
+  const lf = LOAD_FACTOR[gen] ?? 0.5;
+  return Math.round((mw * 1000 * lf) / HOME_AVG_KW);
 }

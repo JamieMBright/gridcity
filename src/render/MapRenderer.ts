@@ -180,6 +180,15 @@ export type Ghost =
       sprite?: string | undefined;
       radius?: number | undefined;
       fp?: [number, number] | undefined;
+      /** FOOTPRINT-RESERVATION preview: the EXACT tile indices a farm
+       *  designation will reserve (its capacity-scaled claim). When present
+       *  the ghost outlines these tiles instead of the fp rect, so the
+       *  player sees the plot a sized onshore-wind/solar tender will hold.
+       *  For wind, blade ghosts draw on each tile so the turbines are
+       *  visible while placing (owner: blades didn't show on the ghost). */
+      tiles?: number[] | undefined;
+      /** Draw the live-rotor blade ghost (wind tenders). */
+      windGen?: 'windOnshore' | 'windOffshore' | undefined;
     }
   | {
       kind: 'line';
@@ -317,6 +326,8 @@ export class MapRenderer {
   private vanSprites = new Map<number, Sprite>();
   private ghostG = new Graphics();
   private ghostSprite: Sprite | undefined;
+  /** Per-tile ghost sprites for a multi-tile farm RESERVATION preview. */
+  private ghostSprites: Sprite[] = [];
   private textures = new Map<string, Texture>();
   private frameSize = new Map<string, { w: number; h: number }>();
   /** Per-sprite trim offset (transparent left/top margin dropped from the
@@ -626,6 +637,16 @@ export class MapRenderer {
   setOverlay(mode: 'none' | 'headroom' | 'forecast'): void {
     this.overlayMode = mode;
     this.drawCatchments();
+    // the headroom overlay recolours the LINES by loading headroom, so
+    // toggling it must refresh them off the cached frame immediately —
+    // otherwise the recolour waits for the next snapshot and the toggle
+    // looks dead (owner playtest). Mirror setCbMode's rebuild.
+    if (this.lastAssets.length > 0) {
+      const byId = new Map<number, PlacedAsset>();
+      for (const a of this.lastAssets) byId.set(a.id, a);
+      this.drawLines(this.lastAssets, this.lastBranches, byId);
+      this.drawSubRings(this.lastAssets);
+    }
   }
 
   setForecastRows(rows: Array<{ subId: number; yearsToOverload: number }>): void {
@@ -2228,33 +2249,68 @@ export class MapRenderer {
       this.ghostSprite.destroy();
       this.ghostSprite = undefined;
     }
+    for (const s of this.ghostSprites) s.destroy();
+    this.ghostSprites = [];
     if (!ghost) return;
 
     if (ghost.kind === 'tile') {
       const ok = ghost.ok;
-      const [fw, fh] = ghost.fp ?? [1, 1];
-      for (let dy = 0; dy < fh; dy++) {
-        for (let dx = 0; dx < fw; dx++) {
-          this.diamond(this.ghostG, ghost.x + dx, ghost.y + dy, 1.0);
-          this.ghostG.fill({ color: ok ? this.okColor : this.dangerColor, alpha: 0.3 });
-          this.diamond(this.ghostG, ghost.x + dx, ghost.y + dy, 1.0);
+      const map = this.map;
+      // a farm RESERVATION preview outlines its exact claimed tiles (the
+      // plot the designation will hold); everything else outlines the fp
+      // rect. The wind/solar art is the SAME single-tile sprite stamped per
+      // claimed tile, with blade ghosts on the turbine tiles.
+      const claim = ghost.tiles;
+      if (claim && claim.length > 0 && map) {
+        for (const i of claim) {
+          const tx = i % map.width;
+          const ty = Math.floor(i / map.width);
+          this.diamond(this.ghostG, tx, ty, 1.0);
+          this.ghostG.fill({ color: ok ? this.okColor : this.dangerColor, alpha: 0.28 });
+          this.diamond(this.ghostG, tx, ty, 1.0);
           this.ghostG.stroke({ color: ok ? this.okColor : this.dangerColor, width: 2 * RES, alpha: 0.9 });
+          if (ghost.sprite && ok) {
+            const tex = this.textures.get(ghost.sprite);
+            if (tex) {
+              const s = new Sprite(tex);
+              const c = this.tileCentre(tx, ty);
+              s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
+              this.applyTrim(s, ghost.sprite);
+              s.alpha = 0.6;
+              s.zIndex = tx + ty;
+              this.world.addChild(s);
+              this.ghostSprites.push(s);
+              if (ghost.windGen) this.drawGhostBlades(c, ghost.windGen);
+            }
+          }
         }
-      }
-      if (ghost.radius !== undefined && ok) {
-        this.tileCircle(this.ghostG, ghost.x, ghost.y, ghost.radius);
-        this.ghostG.stroke({ color: 0xffb066, width: 2 * RES, alpha: 0.55 });
-      }
-      if (ghost.sprite && ok) {
-        const tex = this.textures.get(ghost.sprite);
-        if (tex) {
-          const s = new Sprite(tex);
-          const c = this.tileCentre(ghost.x, ghost.y);
-          s.position.set(c.x - fh * HALF_W, c.y - HALF_H - (CELL_H - FLOOR_H));
-          this.applyTrim(s, ghost.sprite);
-          s.alpha = 0.65;
-          this.world.addChild(s);
-          this.ghostSprite = s;
+      } else {
+        const [fw, fh] = ghost.fp ?? [1, 1];
+        for (let dy = 0; dy < fh; dy++) {
+          for (let dx = 0; dx < fw; dx++) {
+            this.diamond(this.ghostG, ghost.x + dx, ghost.y + dy, 1.0);
+            this.ghostG.fill({ color: ok ? this.okColor : this.dangerColor, alpha: 0.3 });
+            this.diamond(this.ghostG, ghost.x + dx, ghost.y + dy, 1.0);
+            this.ghostG.stroke({ color: ok ? this.okColor : this.dangerColor, width: 2 * RES, alpha: 0.9 });
+          }
+        }
+        if (ghost.radius !== undefined && ok) {
+          this.tileCircle(this.ghostG, ghost.x, ghost.y, ghost.radius);
+          this.ghostG.stroke({ color: 0xffb066, width: 2 * RES, alpha: 0.55 });
+        }
+        if (ghost.sprite && ok) {
+          const tex = this.textures.get(ghost.sprite);
+          if (tex) {
+            const s = new Sprite(tex);
+            const c = this.tileCentre(ghost.x, ghost.y);
+            s.position.set(c.x - fh * HALF_W, c.y - HALF_H - (CELL_H - FLOOR_H));
+            this.applyTrim(s, ghost.sprite);
+            s.alpha = 0.65;
+            this.world.addChild(s);
+            this.ghostSprite = s;
+            // blades on the placement ghost (owner: they didn't show)
+            if (ghost.windGen) this.drawGhostBlades(c, ghost.windGen);
+          }
         }
       }
     } else if (ghost.kind === 'line') {
@@ -2374,6 +2430,27 @@ export class MapRenderer {
     }
   }
 
+  /** Static blade ghosts on a turbine tile for the PLACEMENT ghost (owner:
+   *  blades didn't show while placing). Same hub geometry as the live
+   *  rotors, drawn faint into the ghost graphics — centred on the mast hub. */
+  private drawGhostBlades(c: { x: number; y: number }, gen: 'windOnshore' | 'windOffshore'): void {
+    for (const spec of WIND_HUBS[gen === 'windOffshore' ? 'offshore' : 'onshore']) {
+      const [hx, hy] = windHubOffset(spec);
+      // the hub offset is in UNtrimmed sprite-pixel space, which maps to the
+      // sprite's placement base (c.x-HALF_W, c.y+HALF_H-CELL_H) directly — no
+      // trim term (matching drawBloom; adding it pushed the rotor low/right)
+      const cx = c.x - HALF_W + hx;
+      const cy = c.y + HALF_H - CELL_H + hy;
+      const len = spec.bladePx * RES;
+      for (let b = 0; b < 3; b++) {
+        const ang = (b * 2 * Math.PI) / 3 - Math.PI / 6;
+        this.ghostG.moveTo(cx, cy).lineTo(cx + Math.cos(ang) * len, cy + Math.sin(ang) * len * 0.92);
+      }
+      this.ghostG.stroke({ color: 0xf4f1ea, width: 2.2 * RES, alpha: 0.75, cap: 'round' });
+      this.ghostG.circle(cx, cy, 2.6 * RES).fill({ color: 0xff8a1e, alpha: 0.85 });
+    }
+  }
+
   /** Live-spinning rotors over a baked turbine tile centred at `c`. */
   private addWindRotors(
     assetId: number,
@@ -2381,9 +2458,10 @@ export class MapRenderer {
     c: { x: number; y: number },
     z: number,
   ): void {
-    // the rotor hub offsets are measured against the turbine sprite's
-    // UNtrimmed canvas origin, so add that sprite's trim back in
-    const wo = this.frameOffset.get(gen === 'windOffshore' ? 'gen_windoff' : 'gen_windon');
+    // the hub offset is in UNtrimmed sprite-pixel space, which maps to the
+    // sprite's placement base (c.x-HALF_W, c.y+HALF_H-CELL_H) directly — the
+    // old "+ trim" term pushed the rotor a hub-height too low and to the
+    // right (the owner's "not centred on the mast"). drawBloom never added it.
     for (const spec of WIND_HUBS[gen === 'windOffshore' ? 'offshore' : 'onshore']) {
       const [hx, hy] = windHubOffset(spec);
       const rotor = new Graphics() as RotorG;
@@ -2394,7 +2472,7 @@ export class MapRenderer {
       }
       rotor.stroke({ color: 0xf4f1ea, width: 2.2 * RES, cap: 'round' });
       rotor.circle(0, 0, 2.6 * RES).fill(0xff8a1e);
-      rotor.position.set(c.x - HALF_W + hx + (wo?.ox ?? 0), c.y + HALF_H - CELL_H + hy + (wo?.oy ?? 0));
+      rotor.position.set(c.x - HALF_W + hx, c.y + HALF_H - CELL_H + hy);
       rotor.scale.y = 0.92;
       rotor.zIndex = z + 0.1;
       rotor.spin = 1;

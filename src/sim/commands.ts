@@ -28,7 +28,13 @@ import { applyClaimResponse, type ClaimResponse } from './events/litigation';
 import { applyReplaceAsset, applyScheduleMaintenance } from './reliability/ageing';
 import { applyStormPrep } from './reliability/stormprep';
 import { applySetSmartCharging } from './customers/smartCharging';
-import { bumpMood, developerOf, TENDER_OPEN_DAYS, type Tender } from './events/developers';
+import {
+  bumpMood,
+  developerOf,
+  reservedTiles,
+  TENDER_OPEN_DAYS,
+  type Tender,
+} from './events/developers';
 import { MAX_VANS } from './fleet/fleet';
 import type { VoltageLevel } from './grid/types';
 import { placePylons, priceLine, pylonSiteOk, routeTiles } from './cost';
@@ -132,10 +138,16 @@ export type Command =
   | { type: 'redo' };
 
 export type BuildSpec =
-  | { kind: 'gen'; gen: GenType; x: number; y: number }
+  /** `mw`: the player's chosen size for a CAPACITY-PICKED farm tender
+   *  (BuildPalette). Caps the tender's fitMW and the reserved footprint, so
+   *  a modest onshore-wind ask reserves a modest plot. Absent = the full
+   *  land fit (the old behaviour), or fixed-plant catalog capacity. */
+  | { kind: 'gen'; gen: GenType; x: number; y: number; mw?: number | undefined }
   /** `autoConnect`: after placing, run a circuit from each of the sub's
-   *  bays to the nearest asset with a matching bay (palette setting). */
-  | { kind: 'sub'; sub: SubType; x: number; y: number; autoConnect?: boolean | undefined }
+   *  bays to the nearest asset with a matching bay (palette setting).
+   *  `mva`: chosen transformer rating at build time (BuildPalette ± picker;
+   *  must be one of the sub's mvaSteps) — absent leaves it on auto. */
+  | { kind: 'sub'; sub: SubType; x: number; y: number; autoConnect?: boolean | undefined; mva?: number | undefined }
   | { kind: 'depot'; x: number; y: number }
   | {
       kind: 'line';
@@ -181,9 +193,20 @@ export function assetAtTile(
   assets: Iterable<PlacedAsset>,
   x: number,
   y: number,
+  map?: CityMap,
 ): PlacedAsset | undefined {
   for (const a of assets) {
     if (a.kind === 'line') continue;
+    // capacity-scaled farms occupy their whole DERIVED claim, not just the
+    // catalog rect — so a line endpoint / inspect / tee can land on ANY tile
+    // the awarded farm sits on (owner: "I should be able to click the circuit
+    // to any tile the farm occupies"). Needs the map to derive the claim;
+    // callers without one fall back to the catalog footprint (back-compat).
+    if (map && a.kind === 'gen' && a.mw !== undefined && isFarmGen(a.gen)) {
+      const i = y * map.width + x;
+      if (farmClaimTiles(map, a.gen, a.x, a.y, a.mw).includes(i)) return a;
+      continue;
+    }
     const [fw, fh] = assetFootprint(a);
     if (x >= a.x && x < a.x + fw && y >= a.y && y < a.y + fh) return a;
   }
@@ -196,12 +219,40 @@ export function assetAtTile(
 export function footprintTiles(map: CityMap, a: PlacedAsset): number[] {
   if (a.kind === 'line') return [];
   if (a.kind === 'gen' && a.mw !== undefined && isFarmGen(a.gen)) {
+    // an awarded farm carries its EXACT reserved plot — use it verbatim so
+    // the occupied tiles match what was reserved; older saves with no claim
+    // fall back to the pure anchor+MW derivation (unchanged)
+    if (a.claim && a.claim.length > 0) return a.claim;
     return farmClaimTiles(map, a.gen, a.x, a.y, a.mw);
   }
   const [fw, fh] = assetFootprint(a);
   const out: number[] = [];
   for (let dy = 0; dy < fh; dy++) {
     for (let dx = 0; dx < fw; dx++) out.push((a.y + dy) * map.width + a.x + dx);
+  }
+  return out;
+}
+
+/** The footprint a generation DESIGNATION reserves on the map: a farm
+ *  reserves its full land-fit claim (the most it could ever award),
+ *  fixed-footprint plant its catalog rect. Honours `taken` (other tenders'
+ *  reservations + occupied ground) so a fresh designation can only hold
+ *  ground nobody else does. Pure function of map + anchor + taken. */
+export function reservationFootprint(
+  map: CityMap,
+  gen: GenType,
+  x: number,
+  y: number,
+  fitMW: number | undefined,
+  taken?: ReadonlySet<number>,
+): number[] {
+  if (isFarmGen(gen) && fitMW !== undefined) {
+    return farmClaimTiles(map, gen, x, y, fitMW, taken);
+  }
+  const [fw, fh] = GENS[gen].footprint ?? [1, 1];
+  const out: number[] = [];
+  for (let dy = 0; dy < fh; dy++) {
+    for (let dx = 0; dx < fw; dx++) out.push((y + dy) * map.width + x + dx);
   }
   return out;
 }
@@ -352,11 +403,15 @@ export function siteErrorAt(
   return undefined;
 }
 
-/** Validate and price a build without mutating anything. */
+/** Validate and price a build without mutating anything. `reserved` are
+ *  tiles held by open generation tenders (their pending footprints): a new
+ *  build/designation can't land on them, so side-by-side designations can
+ *  never collide on award. */
 export function checkBuild(
   map: CityMap,
   assets: Iterable<PlacedAsset>,
   spec: BuildSpec,
+  reserved?: ReadonlySet<number>,
 ): BuildCheck {
   const fail = (error: string): BuildCheck => ({ ok: false, error, capexK: 0, lengthTiles: 0 });
 
@@ -380,12 +435,12 @@ export function checkBuild(
     }
     for (let dy = 0; dy < fh; dy++) {
       for (let dx = 0; dx < fw; dx++) {
+        const i = (spec.y + dy) * map.width + spec.x + dx;
         const siteError = siteErrorAt(map, spec, spec.x + dx, spec.y + dy);
         if (siteError) return fail(siteError);
-        if (occupied.has((spec.y + dy) * map.width + spec.x + dx))
-          return fail('tile already occupied');
-        if (pylonTiles.has((spec.y + dy) * map.width + spec.x + dx))
-          return fail('an overhead-line support stands here');
+        if (occupied.has(i)) return fail('tile already occupied');
+        if (pylonTiles.has(i)) return fail('an overhead-line support stands here');
+        if (reserved?.has(i)) return fail('a designated generation site is reserved here');
       }
     }
     const capexK =
@@ -397,10 +452,11 @@ export function checkBuild(
     return { ok: true, capexK, lengthTiles: 0 };
   }
 
-  // line: both endpoints must be assets carrying this voltage level
+  // line: both endpoints must be assets carrying this voltage level — and
+  // a multi-tile farm can be connected on ANY tile it occupies (map-aware)
   const assetList = [...assets];
-  const endA = assetAtTile(assetList, spec.ax, spec.ay);
-  const endB = assetAtTile(assetList, spec.bx, spec.by);
+  const endA = assetAtTile(assetList, spec.ax, spec.ay, map);
+  const endB = assetAtTile(assetList, spec.bx, spec.by, map);
   if (!endA || !endB) return fail('lines must run between two assets');
   if (endA.id === endB.id) return fail('a line needs two distinct endpoints');
   if (!assetLevels(endA).includes(spec.level))
@@ -483,7 +539,10 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
 
     case 'build': {
       const spec = cmd.spec;
-      const check = checkBuild(map, state.assets.values(), spec);
+      // open tenders hold their reserved footprints — a build can't land on
+      // them (and the designation below adds its own to the set)
+      const reserved = reservedTiles(state.tenders);
+      const check = checkBuild(map, state.assets.values(), spec, reserved);
       if (!check.ok) return { ok: false, error: check.error };
       if (spec.kind === 'gen' && spec.gen === 'interconnector') {
         // interconnectors are PLAYER-OWNED network assets, not developer
@@ -515,10 +574,29 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
         // the operator doesn't build power stations: designating a site
         // opens a tender that developers bid on (accepted via acceptBid)
         const g = GENS[spec.gen];
-        // farm techs: developers bid what FITS — survey the contiguous
-        // open land around the site now, while the map is in hand, and
-        // stamp the MW cap on the tender for every bid to respect
-        const fitMW = isFarmGen(spec.gen) ? farmFitMW(map, spec.gen, spec.x, spec.y) : undefined;
+        // ground already spoken for: placed assets + their footprints,
+        // overhead supports, and OTHER open tenders' reservations. The farm
+        // survey walls off all of it so a new designation only ever holds
+        // ground nobody else does.
+        const taken = new Set<number>(reserved);
+        for (const i of pylonTilesOf(state.assets.values())) taken.add(i);
+        for (const a of state.assets.values()) {
+          for (const i of footprintTiles(map, a)) taken.add(i);
+        }
+        // farm techs: developers bid what FITS — survey the contiguous open
+        // land around the site now, capped by the player's CHOSEN size
+        // (capacity picker) when given, then RESERVE that whole footprint so
+        // a second side-by-side designation can't overlap and the award
+        // lands exactly here (no "explosion").
+        let fitMW: number | undefined;
+        let footprint: number[];
+        if (isFarmGen(spec.gen)) {
+          const land = farmFitMW(map, spec.gen, spec.x, spec.y, taken);
+          fitMW = spec.mw !== undefined ? Math.max(1, Math.min(spec.mw, land)) : land;
+          footprint = reservationFootprint(map, spec.gen, spec.x, spec.y, fitMW, taken);
+        } else {
+          footprint = reservationFootprint(map, spec.gen, spec.x, spec.y, undefined, taken);
+        }
         const tender: Tender = {
           id: state.nextAppId++,
           gen: spec.gen,
@@ -528,6 +606,7 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
           closesMin: state.simTimeMin + TENDER_OPEN_DAYS * 1440,
           bids: [],
           status: 'open',
+          reserved: footprint,
           ...(fitMW !== undefined ? { fitMW } : {}),
         };
         state.tenders.push(tender);
@@ -536,7 +615,7 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
           'info',
           `site designated for ${g.name} — inviting developer bids${
             fitMW !== undefined && fitMW < g.capacityMW
-              ? ` (the land fits ~${fitMW} MW of the ${g.capacityMW} MW ask)`
+              ? ` (${footprint.length}-tile plot, ~${fitMW} MW of the ${g.capacityMW} MW ask)`
               : ''
           }`,
           spec.x,
@@ -546,7 +625,13 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       }
       const id = state.nextAssetId++;
       if (spec.kind === 'sub') {
-        // builtAtMin: new kit is new — derived health starts at 100
+        // builtAtMin: new kit is new — derived health starts at 100. A
+        // chosen MVA (BuildPalette ± picker) fits that transformer at build
+        // and switches auto-reinforcement off; an unlisted size is ignored
+        // (stays on auto), so a bad value can never wedge the build.
+        const steps = SUBS[spec.sub].mvaSteps;
+        const sizeMva =
+          spec.mva !== undefined && steps?.includes(spec.mva) ? spec.mva : undefined;
         state.assets.set(id, {
           id,
           kind: 'sub',
@@ -554,6 +639,7 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
           x: spec.x,
           y: spec.y,
           builtAtMin: state.simTimeMin,
+          ...(sizeMva !== undefined ? { mva: sizeMva, mvaAuto: false } : {}),
         });
         if (spec.autoConnect) autoConnectSub(state, map, id);
       } else if (spec.kind === 'depot') {
@@ -941,13 +1027,16 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       const bid = tender.bids.find((b) => b.developerId === cmd.developerId);
       if (!bid) return { ok: false, error: 'no bid from that developer' };
       const g = GENS[tender.gen];
-      // re-validate at award time: the site may have been built over
-      const check = checkBuild(map, state.assets.values(), {
-        kind: 'gen',
-        gen: tender.gen,
-        x: tender.x,
-        y: tender.y,
-      });
+      // re-validate the anchor at award time: the site may have been built
+      // over. OTHER open tenders' reservations still block, but NOT this
+      // tender's own (it's awarding into the plot it has held all along).
+      const otherReserved = reservedTiles(state.tenders.filter((t) => t.id !== tender.id));
+      const check = checkBuild(
+        map,
+        state.assets.values(),
+        { kind: 'gen', gen: tender.gen, x: tender.x, y: tender.y },
+        otherReserved,
+      );
       if (!check.ok) {
         pushEvent(
           state,
@@ -958,24 +1047,31 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
         );
         return { ok: false, error: check.error };
       }
-      // farm awards claim their capacity-proportional tile set: cap the
-      // bid's MW to the largest BFS PREFIX of the claim still free of
-      // other assets/pylons (the site can have tightened since bidding)
+      // farm awards land on the RESERVED plot the designation held: cap the
+      // bid's MW to the largest free PREFIX of that reservation (assets and
+      // OTHER tenders only — never this tender's own hold). The reservation
+      // was claimed at designation so nothing should have taken it, but town
+      // growth can re-zone, so we still walk the prefix for safety.
       let awardMW: number | undefined;
+      let awardClaim: number[] | undefined;
       if (bid.mw !== undefined && isFarmGen(tender.gen)) {
         const per = FARM_MW_PER_TILE[tender.gen] ?? 1;
-        const taken = pylonTilesOf(state.assets.values());
+        const taken = new Set<number>(otherReserved);
+        for (const i of pylonTilesOf(state.assets.values())) taken.add(i);
         for (const a of state.assets.values()) {
           for (const i of footprintTiles(map, a)) taken.add(i);
         }
+        const plot = tender.reserved ?? farmTileOrder(map, tender.gen, tender.x, tender.y);
         let free = 0;
-        for (const i of farmTileOrder(map, tender.gen, tender.x, tender.y)) {
+        for (const i of plot) {
           if (taken.has(i)) break;
           free++;
         }
-        // checkBuild passed for the anchor, so free >= 1 — at least one
-        // tile's worth of plant always lands
+        // the anchor re-validated above, so free >= 1 — at least one tile's
+        // worth of plant always lands
         awardMW = Math.min(bid.mw, free * per);
+        // land on exactly the reserved tiles (the held plot's free prefix)
+        awardClaim = plot.slice(0, Math.max(1, Math.ceil(awardMW / per)));
       }
       const id = state.nextAssetId++;
       state.assets.set(id, {
@@ -988,6 +1084,7 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
         ppaMWh: bid.priceMWh,
         liveAtMin: state.simTimeMin, // construction is instant: award → online
         ...(awardMW !== undefined ? { mw: awardMW } : {}),
+        ...(awardClaim !== undefined ? { claim: awardClaim } : {}),
       });
       tender.status = 'awarded';
       for (const b of tender.bids) {

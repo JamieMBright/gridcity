@@ -184,6 +184,13 @@ export function undoTo(depth: number): void {
   send({ type: 'undoTo', depth });
 }
 
+/** Trigger a manual autosave (the in-game menu's Save). The worker posts a
+ *  normal `saveData` the bridge routes to localStorage + the cloud, exactly
+ *  like the periodic autosave. */
+export function requestSave(): void {
+  send({ type: 'requestSave' });
+}
+
 /** Pending callback for the next named-slot save payload (#34). */
 let slotSaveCb: ((data: unknown) => void) | undefined;
 
