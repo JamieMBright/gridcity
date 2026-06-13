@@ -6,22 +6,27 @@
 // and the right chip column on both desktop and phone-landscape.
 
 import { useAppStore } from '../app/store';
+import { useIsMobile } from '../app/useIsMobile';
 import { buildLabel } from './buildLabel';
 import { theme } from './theme';
 
 export function BuildLabelChip() {
   const tool = useAppStore((s) => s.tool);
+  const isMobile = useIsMobile();
   const label = buildLabel(tool);
   if (!label) return null;
   const demolish = tool.t === 'demolish';
+  // mobile: sit just right of the build rail (above the build pane), clear
+  // of the centred market ticker it used to collide with. desktop: centred.
+  const place: React.CSSProperties = isMobile
+    ? { top: 'calc(26px + var(--sai-t))', left: 'calc(52px + var(--sai-l))' }
+    : { top: 50, left: '50%', transform: 'translateX(-50%)' };
   return (
     <div
       data-tour="build-label"
       style={{
         position: 'absolute',
-        top: 50,
-        left: '50%',
-        transform: 'translateX(-50%)',
+        ...place,
         zIndex: 14,
         display: 'flex',
         alignItems: 'center',

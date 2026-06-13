@@ -9,13 +9,27 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="ElectriCity" />
     <meta name="theme-color" content="#101630" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <meta
       name="description"
       content="ElectriCity — power a stylized London as its electricity network operator."
     />
     <title>ElectriCity</title>
     <style>
+      /* The map canvas fills the screen edge-to-edge (viewport-fit=cover);
+         the HUD chrome insets itself off the notch / home indicator using
+         these vars. They resolve to the device safe-area on iOS and to 0 in
+         a normal browser. A test harness can override them (setProperty) to
+         simulate a notched device for screenshots. */
+      :root {
+        --sai-t: env(safe-area-inset-top, 0px);
+        --sai-r: env(safe-area-inset-right, 0px);
+        --sai-b: env(safe-area-inset-bottom, 0px);
+        --sai-l: env(safe-area-inset-left, 0px);
+      }
       html,
       body,
       #root {

@@ -100,9 +100,9 @@ function NewsTicker() {
       onClick={() => shown.target && requestPan(shown.target.x, shown.target.y)}
       style={{
         position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
+        top: 'var(--sai-t)',
+        left: 'var(--sai-l)',
+        right: 'var(--sai-r)',
         height: 22,
         overflow: 'hidden',
         background: 'rgba(10, 14, 34, 0.92)',
@@ -141,7 +141,7 @@ function StormBanner() {
       style={{
         ...panelStyle,
         position: 'absolute',
-        top: 64,
+        top: 'calc(64px + var(--sai-t))',
         left: '50%',
         transform: 'translateX(-50%)',
         display: 'flex',
@@ -210,7 +210,7 @@ function MarketTicker() {
       style={{
         ...panelStyle,
         position: 'absolute',
-        top: 28,
+        top: 'calc(28px + var(--sai-t))',
         left: '50%',
         transform: 'translateX(-50%)',
         display: 'flex',
@@ -714,14 +714,16 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
       style={{
         ...panelStyle,
         position: 'absolute',
-        bottom: compact ? 6 : 12,
+        bottom: compact ? 'calc(6px + var(--sai-b))' : 'calc(12px + var(--sai-b))',
         left: '50%',
         transform: 'translateX(-50%)',
         display: 'flex',
         alignItems: 'center',
         gap: compact ? 4 : 10,
         padding: compact ? '4px 8px' : '6px 12px',
-        maxWidth: 'calc(100vw - 8px)',
+        // keep clear of the safe-area AND the bottom-left minimap pill (it
+        // sits at left:12 + inset, ~88px wide) so the date never hides
+        maxWidth: 'calc(100vw - 8px - var(--sai-l) - var(--sai-r))',
         whiteSpace: 'nowrap',
         fontSize: compact ? 11 : undefined,
       }}

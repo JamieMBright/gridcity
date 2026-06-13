@@ -96,9 +96,9 @@ function BuildRail() {
       style={{
         ...panelStyle,
         position: 'absolute',
-        top: 44,
-        bottom: 44,
-        left: 4,
+        top: 'calc(44px + var(--sai-t))',
+        bottom: 'calc(44px + var(--sai-b))',
+        left: 'calc(4px + var(--sai-l))',
         width: 44,
         display: 'flex',
         flexDirection: 'column',
@@ -170,8 +170,8 @@ function ExpandToggle({ open, onToggle }: { open: boolean; onToggle: () => void 
         position: 'absolute',
         // tucked just outside the 44px rail, fixed to the top of the
         // build column — never scrolls with the rail, never overlaps it
-        top: 44,
-        left: 50,
+        top: 'calc(44px + var(--sai-t))',
+        left: 'calc(50px + var(--sai-l))',
         width: 30,
         height: 40,
         zIndex: 6,
@@ -280,11 +280,11 @@ function Chip({
 
 const sheetFrame: React.CSSProperties = {
   position: 'absolute',
-  top: 44,
-  right: 4,
+  top: 'calc(44px + var(--sai-t))',
+  right: 'calc(4px + var(--sai-r))',
   left: 'auto',
   bottom: 'auto',
-  width: 'min(300px, calc(100vw - 60px))',
+  width: 'min(300px, calc(100vw - 60px - var(--sai-l) - var(--sai-r)))',
   maxHeight: 'calc(100dvh - 100px)',
   overflowY: 'auto',
 };
@@ -318,8 +318,8 @@ export function MobileChrome() {
       <div
         style={{
           position: 'absolute',
-          top: 44,
-          right: 4,
+          top: 'calc(44px + var(--sai-t))',
+          right: 'calc(4px + var(--sai-r))',
           display: 'flex',
           flexDirection: 'column',
           gap: 4,
