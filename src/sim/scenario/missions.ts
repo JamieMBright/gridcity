@@ -326,6 +326,15 @@ export const MISSIONS: Mission[] = [
       },
       {
         text:
+          'A quick primer before you wire homes. Power travels at HIGH voltage and is stepped ' +
+          'DOWN near where it is used, through SUBSTATIONS: a Bulk Supply Point (400/132 kV) ' +
+          'feeds a Grid substation (132/33 kV), which feeds a DISTRIBUTION substation ' +
+          '(33 kV → the low voltage in your sockets). Tiny Alderbrook only needs that last ' +
+          'one.',
+        focus: M1_VILLAGE,
+      },
+      {
+        text:
           'Homes connect through a DISTRIBUTION SUBSTATION (33 kV/LV). Place one among ' +
           'the village houses — its service ring must cover them.',
         done: (s) => s.assets.some((a) => a.kind === 'sub' && a.sub === 'dist' && !a.idno),
