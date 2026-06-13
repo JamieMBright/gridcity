@@ -149,7 +149,7 @@ function AutoConnectToggle() {
   return (
     <button
       onClick={() => setAutoConnect(!on)}
-      title="Placing a substation automatically connects it to the nearest compatible bays"
+      title="Placing a substation automatically connects it to the nearest compatible bays (A)"
       style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -166,7 +166,7 @@ function AutoConnectToggle() {
         textAlign: 'left',
       }}
     >
-      <span>auto-connect on placement</span>
+      <span>auto-connect on placement (A)</span>
       <span
         style={{
           flex: 'none',
