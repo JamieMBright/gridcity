@@ -32,15 +32,28 @@ import { sampleRoute } from '../sim/map/routes';
 import { CUSTOMERS_PER_TILE, type CityMap, type RouteClass, type Zone } from '../sim/map/types';
 import { COV, type BranchView } from '../sim/tick';
 import { getAtlas } from './atlasCache';
-import { NAMED_PLACES, TOWNS } from '../data/londonMap';
+import { AIRPORTS, NAMED_PLACES, TOWNS } from '../data/londonMap';
+import { AIR_MAX_BAND, emitFlightArcs, emitPlanes } from './airLayer';
 import {
   deckLiftWorldPx,
+  emitBoatWakes,
   emitRouteRibbons,
   zoomKeyFor,
+  WAKE_COLOR,
   type RibbonLayer,
+  type WakeBoat,
   type ZoomKey,
 } from './routeRibbons';
 import { emitShoreline } from './shoreline';
+import {
+  mixRgb,
+  sceneGrade,
+  seasonOf,
+  seasonTintFor,
+  type SceneGrade,
+  type Season,
+  type WeatherLike,
+} from './grade';
 import { CELL_H, CELL_W, FLOOR_H, RES } from './sprites/iso';
 import { WIND_HUBS, windHubOffset } from './sprites/networkSprites';
 import { groundSpriteFor, structureSpriteFor } from './tileChooser';
@@ -193,6 +206,8 @@ interface Vehicle {
   /** Trailing carriages (trains). */
   cars: Graphics[];
   kind: 'car' | 'train' | 'boat';
+  /** Hull length in world px (boats — scales the wake). */
+  len?: number;
 }
 
 interface LineAnim {
@@ -221,12 +236,21 @@ export class MapRenderer {
   private shoreG = new Graphics();
   /** Boats sail UNDER bridge decks: their layer sits below the routes. */
   private boatLayer = new Container();
+  /** Per-frame V-wakes trailing the barges; sits just under the hulls. */
+  private wakeG = new Graphics();
   /** Holds the active zoom band's ribbon Graphics (swapped, never restyled). */
   private routesLayer = new Container();
   /** Cars + trains: over the carriageways and bridge decks... */
   private roadVehicleLayer = new Container();
   /** ...but behind the near-side bridge parapets. */
   private bridgeTopLayer = new Container();
+  /** P7 air layer: flight arcs + planes + altitude shadows, above the
+   *  structures (a plane's shadow sweeping the rooftops is the point). */
+  private airLayer = new Container();
+  private airArcsG = new Graphics();
+  private airPlanesG = new Graphics();
+  /** Deterministic animation clock for the air fleet (no RNG anywhere). */
+  private airTime = 0;
   private zoomKey: ZoomKey | undefined;
   private bandCache = new Map<string, { routes: Graphics; bridgeTop: Graphics; stamp: number }>();
   private bandStamp = 0;
@@ -291,6 +315,37 @@ export class MapRenderer {
   private flowPhase = 0;
   private bobPhase = 0;
 
+  // --- lofi atmosphere (#41/#42/#44): sky, grade, glow, rain, vignette ---
+  /** Screen-space sky gradient behind the world. */
+  private skyG = new Graphics();
+  /** The grade lands as a container TINT on the world-fabric layers
+   *  (free on the GPU — no blend pass, reliable under software GL where
+   *  Pixi's multiply silently no-ops). Diagnostic layers — coverage
+   *  warnings, pins, selection, labels — stay untinted so alerts keep
+   *  their colour language at night (readability doctrine). */
+  private gradeTinted = false;
+  /** Additive light layer ABOVE the tinted world — mirrors the camera
+   *  transform so energized windows + kit bloom shine through the night. */
+  private glowWorld = new Container();
+  private lightsSprite: Sprite | undefined;
+  private bloomG = new Graphics();
+  /** Wet sheen + rain streaks + lightning, screen-space. */
+  private sheenG = new Graphics();
+  private rainG = new Graphics();
+  private flashG = new Graphics();
+  private vignette: Sprite | undefined;
+  private atmoTime = 12 * 60;
+  private atmoWeather: WeatherLike = { cloud: 0.35, wind: 0.4 };
+  private atmoOverride = false;
+  private grade: SceneGrade | undefined;
+  private gradeKey = '';
+  private seasonNow: Season | undefined;
+  private rainDrops: Array<{ x: number; y: number; s: number; l: number }> = [];
+  private flashTimer = 8;
+  private flashAlpha = 0;
+  private reducedMotion =
+    typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   onHover: ((tile: TileHover | undefined) => void) | undefined;
   onTileClick: ((tile: TileHover) => void) | undefined;
   /** A contract pin was tapped (applications/tenders/overdue sites). */
@@ -317,7 +372,11 @@ export class MapRenderer {
     this.buildRoutePaths(map);
     this.buildWorld(map);
     this.drawShore(map);
+    // wakes paint beneath every hull spawned after this line
+    this.boatLayer.addChild(this.wakeG);
     this.spawnVehicles();
+    this.airLayer.addChild(this.airArcsG);
+    this.airLayer.addChild(this.airPlanesG);
 
     this.cityFilter.desaturate();
     this.cityFilter.brightness(0.62, true);
@@ -334,6 +393,7 @@ export class MapRenderer {
       this.routesLayer,
       this.roadVehicleLayer,
       this.bridgeTopLayer,
+      this.airLayer,
     ]) {
       layer.eventMode = 'none';
     }
@@ -344,6 +404,8 @@ export class MapRenderer {
     this.city.addChild(this.roadVehicleLayer);
     this.city.addChild(this.bridgeTopLayer);
     this.city.addChild(this.structureLayer);
+    // the air fleet flies over the buildings, under the pins/labels
+    this.city.addChild(this.airLayer);
     this.world.addChild(this.city);
     this.world.addChild(this.coverageG);
     this.world.addChild(this.smogG);
@@ -363,6 +425,30 @@ export class MapRenderer {
     this.world.addChild(this.labelLayer);
     this.world.addChild(this.ghostG);
     this.app.stage.addChild(this.world);
+
+    // atmosphere stack: sky behind the world; the grade itself tints the
+    // world-fabric layers in place (see gradeTinted); above the world the
+    // additive glow (energized windows + kit bloom ride OVER the night
+    // tint — powering an area literally makes it glow), then weather
+    // (sheen/rain/lightning) and the frame vignette. All screen-space,
+    // all non-interactive, each a single quad or a small streak batch —
+    // mobile-GPU cheap.
+    this.bloomG.blendMode = 'add';
+    this.glowWorld.addChild(this.bloomG);
+    this.vignette = new Sprite(makeVignetteTexture());
+    for (const layer of [
+      this.skyG,
+      this.glowWorld,
+      this.sheenG,
+      this.rainG,
+      this.flashG,
+      this.vignette,
+    ]) {
+      layer.eventMode = 'none';
+    }
+    this.app.stage.addChildAt(this.skyG, 0);
+    this.app.stage.addChild(this.glowWorld, this.sheenG, this.rainG, this.flashG, this.vignette);
+    this.applySeason(seasonOf(this.atmoTime));
 
     const scale = 0.5 / RES;
     const focus = this.tileCentre(66, 80);
@@ -487,7 +573,242 @@ export class MapRenderer {
   setGridView(on: boolean): void {
     this.city.filters = on ? [this.cityFilter] : [];
     this.gridViewOn = on;
+    // grid view is an engineering drawing: drop the cinematic tint so
+    // the network colours stay true
+    if (on && this.gradeTinted) {
+      for (const layer of this.gradeTargets()) layer.tint = 0xffffff;
+      this.gradeTinted = false;
+    }
+    if (!on) this.gradeKey = ''; // re-apply the grade next frame
     this.applyVehicleVisibility();
+  }
+
+  /** World-fabric layers that take the time-of-day tint. The network
+   *  (lines/flow/rings) and every diagnostic overlay stay untinted: the
+   *  grid is the hero and alerts keep their colour language at night. */
+  private gradeTargets(): Array<Container | Graphics> {
+    return [this.city, this.smogG, this.assetLayer, this.fleetLayer];
+  }
+
+  // --- atmosphere (#41 day/night grade · #42 rain & storms · #44 seasons) ----
+
+  /** Follow the sim clock + live weather (called per snapshot). */
+  setAtmosphere(simTimeMin: number, weather: WeatherLike): void {
+    if (this.atmoOverride) return;
+    this.atmoTime = simTimeMin;
+    this.atmoWeather = weather;
+    const season = seasonOf(simTimeMin);
+    if (season !== this.seasonNow) this.applySeason(season);
+  }
+
+  /** Pin the grade for screenshots/dev (test hook); undefined args clear. */
+  overrideAtmosphere(simTimeMin?: number, weather?: WeatherLike): void {
+    this.atmoOverride = simTimeMin !== undefined || weather !== undefined;
+    if (simTimeMin !== undefined) {
+      this.atmoTime = simTimeMin;
+      const season = seasonOf(simTimeMin);
+      if (season !== this.seasonNow) this.applySeason(season);
+    }
+    if (weather !== undefined) this.atmoWeather = weather;
+  }
+
+  /** Re-tint the countryside for the calendar quarter (one property write
+   *  per sprite; runs only when the season bucket flips). */
+  private applySeason(season: Season): void {
+    this.seasonNow = season;
+    const map = this.map;
+    if (!map) return;
+    for (let y = 0; y < map.height; y++) {
+      for (let x = 0; x < map.width; x++) {
+        const i = y * map.width + x;
+        const ground = this.groundSprites.get(i);
+        if (ground) {
+          ground.tint = seasonTintFor(groundSpriteFor(map, x, y), season) ?? 0xffffff;
+        }
+        const struct = this.structureSprites.get(i);
+        if (struct) {
+          const name = structureSpriteFor(map, x, y);
+          struct.tint = (name ? seasonTintFor(name, season) : undefined) ?? 0xffffff;
+        }
+      }
+    }
+  }
+
+  /** Per-frame grade: eased toward the sim's time/weather so day, dusk,
+   *  drizzle and storm arrive as fronts, not steps. Redraws the sky/wash
+   *  quads only when the eased colours actually move. */
+  private stepAtmosphere(dt: number): void {
+    const target = sceneGrade(this.atmoTime, this.atmoWeather);
+    const k = Math.min(1, 1 - Math.exp(-dt * 2.5));
+    const cur = this.grade ?? target;
+    const g: SceneGrade = {
+      skyTop: mixRgb(cur.skyTop, target.skyTop, k),
+      skyBottom: mixRgb(cur.skyBottom, target.skyBottom, k),
+      tint: mixRgb(cur.tint, target.tint, k),
+      glow: cur.glow + (target.glow - cur.glow) * k,
+      vignette: cur.vignette + (target.vignette - cur.vignette) * k,
+      rain: cur.rain + (target.rain - cur.rain) * k,
+      storm: cur.storm + (target.storm - cur.storm) * k,
+      wet: cur.wet + (target.wet - cur.wet) * k,
+    };
+    this.grade = g;
+    const w = this.app.screen.width;
+    const h = this.app.screen.height;
+    const key = `${g.skyTop},${g.skyBottom},${g.tint},${Math.round(g.wet * 40)},${w},${h}`;
+    if (key !== this.gradeKey) {
+      this.gradeKey = key;
+      this.skyG.clear();
+      const BANDS = 12;
+      for (let i = 0; i < BANDS; i++) {
+        this.skyG
+          .rect(0, (h * i) / BANDS - 1, w, h / BANDS + 2)
+          .fill(mixRgb(g.skyTop, g.skyBottom, i / (BANDS - 1)));
+      }
+      // the grade itself: tint the world fabric (no-op while grid view
+      // holds the engineering palette)
+      if (!this.gridViewOn) {
+        for (const layer of this.gradeTargets()) layer.tint = g.tint;
+        this.gradeTinted = true;
+      }
+      // wet sheen: rain-damp air catches the sky and lifts the shadows
+      this.sheenG.clear();
+      if (g.wet > 0.03) {
+        this.sheenG.rect(0, 0, w, h).fill({ color: 0xaab8d8, alpha: 0.07 * g.wet });
+      }
+    }
+    if (this.vignette) {
+      this.vignette.width = w;
+      this.vignette.height = h;
+      this.vignette.alpha = g.vignette;
+    }
+    // the glow layer rides the camera
+    this.glowWorld.position.copyFrom(this.world.position);
+    this.glowWorld.scale.copyFrom(this.world.scale);
+    const glowOn = !this.gridViewOn;
+    if (this.lightsSprite) this.lightsSprite.alpha = glowOn ? g.glow * 0.85 : 0;
+    this.bloomG.alpha = glowOn ? g.glow * 0.9 : 0;
+    this.stepRain(dt, g, w, h);
+  }
+
+  /** Cosy streaked drizzle → storm downpour, plus the occasional distant
+   *  lightning wash. Capped streak count; respects reduced-motion. */
+  private stepRain(dt: number, g: SceneGrade, w: number, h: number): void {
+    const want = this.reducedMotion || g.rain < 0.05 ? 0 : Math.round(36 + 130 * g.rain);
+    while (this.rainDrops.length < want) {
+      this.rainDrops.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        s: 0.7 + Math.random() * 0.6,
+        l: 9 + Math.random() * 13,
+      });
+    }
+    if (this.rainDrops.length > want) this.rainDrops.length = want;
+    this.rainG.clear();
+    if (want > 0) {
+      const slant = 0.18 + 0.45 * g.storm;
+      const speed = (520 + 560 * g.storm) * dt;
+      for (const d of this.rainDrops) {
+        d.y += speed * d.s;
+        d.x -= speed * d.s * slant;
+        if (d.y > h + 20) {
+          d.y = -20 - Math.random() * 30;
+          d.x = Math.random() * (w * (1 + slant));
+        }
+        if (d.x < -30) d.x += w + 60;
+        this.rainG.moveTo(d.x, d.y).lineTo(d.x + d.l * slant, d.y + d.l);
+      }
+      this.rainG.stroke({
+        color: 0xbfc8e8,
+        width: 1.1,
+        alpha: 0.2 + 0.16 * g.storm,
+        cap: 'round',
+      });
+    }
+    if (g.storm > 0.5 && !this.reducedMotion) {
+      this.flashTimer -= dt;
+      if (this.flashTimer <= 0) {
+        this.flashAlpha = 0.5 + Math.random() * 0.3;
+        this.flashTimer = 7 + Math.random() * 16;
+      }
+    }
+    if (this.flashAlpha > 0.005) {
+      this.flashAlpha *= Math.exp(-dt * 7);
+      this.flashG.clear();
+      this.flashG.rect(0, 0, w, h).fill({ color: 0xf4ecff, alpha: this.flashAlpha * 0.3 });
+    } else if (this.flashAlpha !== 0) {
+      this.flashAlpha = 0;
+      this.flashG.clear();
+    }
+  }
+
+  /** Warm-window light field: one texel per energized customer tile,
+   *  stretched onto the iso plane (the suitability-overlay trick). The
+   *  linear filter melts it into soft pools of dusk light over powered
+   *  districts; unpowered streets stay cold and dark. */
+  private rebuildLights(coverage: Uint8Array): void {
+    const map = this.map;
+    if (this.lightsSprite) {
+      this.lightsSprite.destroy({ texture: true });
+      this.lightsSprite = undefined;
+    }
+    if (!map) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = map.width;
+    canvas.height = map.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const img = ctx.createImageData(map.width, map.height);
+    let any = false;
+    for (let i = 0; i < coverage.length; i++) {
+      if (coverage[i] !== COV.on) continue;
+      const cust = map.customers[i] ?? 0;
+      if (cust <= 0) continue;
+      any = true;
+      img.data[i * 4] = 255;
+      img.data[i * 4 + 1] = 193;
+      img.data[i * 4 + 2] = 110;
+      img.data[i * 4 + 3] = Math.min(220, 88 + cust);
+    }
+    if (!any) return;
+    ctx.putImageData(img, 0, 0);
+    const sprite = new Sprite(Texture.from(canvas));
+    sprite.setFromMatrix(new Matrix(HALF_W, HALF_H, -HALF_W, HALF_H, 0, -HALF_H));
+    sprite.blendMode = 'add';
+    sprite.alpha = this.grade ? this.grade.glow * 0.85 : 0;
+    this.glowWorld.addChildAt(sprite, 0);
+    this.lightsSprite = sprite;
+  }
+
+  /** Gentle bloom halos on substations + turbine hubs (additive, scaled
+   *  by the dusk glow — by day they vanish). */
+  private drawBloom(assets: PlacedAsset[]): void {
+    this.bloomG.clear();
+    const halo = (x: number, y: number, r: number): void => {
+      for (const [mul, a] of [
+        [1.8, 0.045],
+        [1.1, 0.08],
+        [0.55, 0.13],
+      ] as const) {
+        this.bloomG.ellipse(x, y, r * mul, r * mul * 0.55).fill({ color: 0xffc878, alpha: a });
+      }
+    };
+    for (const a of assets) {
+      if (a.kind === 'sub') {
+        if (a.sub === 'tee') continue;
+        const [fw, fh] = SUBS[a.sub].footprint ?? [1, 1];
+        const c = this.tileCentre(a.x + (fw - 1) / 2, a.y + (fh - 1) / 2);
+        halo(c.x, c.y - 12 * RES, (13 + 6 * Math.max(fw, fh)) * RES);
+      } else if (
+        a.kind === 'gen' &&
+        (a.gen === 'windOnshore' || a.gen === 'windOffshore')
+      ) {
+        const c = this.tileCentre(a.x, a.y);
+        for (const spec of WIND_HUBS[a.gen === 'windOffshore' ? 'offshore' : 'onshore']) {
+          const [hx, hy] = windHubOffset(spec);
+          halo(c.x - HALF_W + hx, c.y + HALF_H - CELL_H + hy, 8 * RES);
+        }
+      }
+    }
   }
 
   /** While the line tool is armed: ring every asset with a bay at that
@@ -646,6 +967,7 @@ export class MapRenderer {
       this.coverageHash = hash;
       this.spawnPulses(coverage);
       this.drawCoverage(coverage);
+      this.rebuildLights(coverage);
       this.prevCoverage = coverage.slice();
     }
   }
@@ -693,18 +1015,21 @@ export class MapRenderer {
   private paintTile(map: CityMap, x: number, y: number): void {
     const i = y * map.width + x;
     const c = this.tileCentre(x, y);
-    const ground = this.textures.get(groundSpriteFor(map, x, y));
+    const groundName = groundSpriteFor(map, x, y);
+    const ground = this.textures.get(groundName);
     if (ground) {
       const s = new Sprite(ground);
       s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
+      if (this.seasonNow) s.tint = seasonTintFor(groundName, this.seasonNow) ?? 0xffffff;
       this.terrainLayer.addChild(s);
       this.groundSprites.set(i, s);
     }
     const structName = structureSpriteFor(map, x, y);
     const struct = structName ? this.textures.get(structName) : undefined;
-    if (struct) {
+    if (struct && structName) {
       const s = new Sprite(struct);
       s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
+      if (this.seasonNow) s.tint = seasonTintFor(structName, this.seasonNow) ?? 0xffffff;
       s.zIndex = x + y;
       this.structureLayer.addChild(s);
       this.structureSprites.set(i, s);
@@ -825,6 +1150,7 @@ export class MapRenderer {
     this.bridgeTopLayer.removeChildren();
     this.bridgeTopLayer.addChild(entry.bridgeTop);
     this.applyVehicleVisibility();
+    this.applyAirBand();
   }
 
   /** Vehicles declutter with the ribbons: sub-pixel traffic at the far
@@ -833,6 +1159,28 @@ export class MapRenderer {
     const show = !this.gridViewOn && (this.zoomKey?.band ?? 2) >= 1;
     this.roadVehicleLayer.visible = show;
     this.boatLayer.visible = show;
+  }
+
+  /** Airports that exist on the active map (tutorial mini-maps have none,
+   *  so their skies stay empty). */
+  private airports(): typeof AIRPORTS {
+    const map = this.map;
+    if (!map) return [];
+    return AIRPORTS.filter((a) => a.x < map.width && a.y < map.height);
+  }
+
+  /** Planes declutter IN from the mid band outward; the static flight-arc
+   *  dashes rebuild per band so their screen-px floors stay honest. */
+  private applyAirBand(): void {
+    const airports = this.airports();
+    const show = airports.length > 0 && (this.zoomKey?.band ?? 2) <= AIR_MAX_BAND;
+    this.airLayer.visible = show;
+    if (!show) return;
+    const scale = this.zoomKey?.scale ?? this.world.scale.x;
+    this.airArcsG.clear();
+    emitFlightArcs(airports, scale, (pts, color, alpha) => {
+      this.airArcsG.poly(pts).fill({ color, alpha });
+    });
   }
 
   /** Point + unit tangent at distance d along a path. */
@@ -896,6 +1244,7 @@ export class MapRenderer {
             g: hull,
             cars: [],
             kind: 'boat',
+            len: L,
           });
         }
         continue;
@@ -989,9 +1338,12 @@ export class MapRenderer {
     if (this.destroyed || !this.map) return;
     this.applyZoomBand();
     this.stepVehicles(dt);
+    this.stepWakes();
+    this.stepAir(dt);
     this.stepRotors(dt);
     this.stepFlow(dt);
     this.stepPulses(dt);
+    this.stepAtmosphere(dt);
     this.bobPhase += dt;
     {
       // labels: visible zoomed out, gone close in; constant screen size
@@ -1021,6 +1373,46 @@ export class MapRenderer {
       pin.ring.scale.set(0.35 + k * 1.5);
       pin.ring.alpha = Math.max(0, 0.9 * (1 - k));
     }
+  }
+
+  /** P6: foam V-wakes trailing the barges — one Graphics rebuilt per
+   *  frame, ONLY while boats are visible at a band that shows wakes
+   *  (Z2+); the emitter caps the quad count. */
+  private stepWakes(): void {
+    if (!this.boatLayer.visible || (this.zoomKey?.band ?? 2) < 2) {
+      this.wakeG.clear();
+      return;
+    }
+    this.wakeG.clear();
+    const boats: WakeBoat[] = [];
+    for (const v of this.vehicles) {
+      if (v.kind !== 'boat') continue;
+      const p = this.pointAt(v.path, v.s);
+      if (!p) continue;
+      const lane = 4 * RES * v.dir;
+      boats.push({
+        x: p.x - p.ny * lane,
+        y: p.y + p.nx * lane,
+        nx: p.nx * v.dir,
+        ny: p.ny * v.dir,
+        size: v.len ?? 10 * RES,
+      });
+    }
+    emitBoatWakes(boats, (pts, alpha) => {
+      this.wakeG.poly(pts).fill({ color: WAKE_COLOR, alpha });
+    });
+  }
+
+  /** P7: the air fleet — deterministic positions off the animation clock
+   *  (pure functions, no RNG), redrawn per frame only while the layer is
+   *  visible at the band. A handful of polys. */
+  private stepAir(dt: number): void {
+    this.airTime += dt;
+    if (!this.airLayer.visible) return;
+    this.airPlanesG.clear();
+    emitPlanes(this.airports(), this.airTime, this.world.scale.x, (pts, color, alpha) => {
+      this.airPlanesG.poly(pts).fill({ color, alpha });
+    });
   }
 
   private stepRotors(dt: number): void {
@@ -1359,6 +1751,7 @@ export class MapRenderer {
     this.assetLayer.removeChildren().forEach((c) => c.destroy());
     this.rotors = [];
     this.drawSubRings(assets);
+    this.drawBloom(assets);
     const map = this.map;
     for (const a of assets) {
       if (a.kind === 'line') {
@@ -1831,6 +2224,31 @@ function batchedFill(pick: (layer: RibbonLayer) => Graphics): {
     },
     flush,
   };
+}
+
+/** Soft radial frame vignette baked once to a small canvas; the sprite is
+ *  stretched to the screen and its alpha graded per frame. */
+function makeVignetteTexture(): Texture {
+  const SIZE = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return Texture.EMPTY;
+  const grad = ctx.createRadialGradient(
+    SIZE / 2,
+    SIZE / 2,
+    SIZE * 0.32,
+    SIZE / 2,
+    SIZE / 2,
+    SIZE * 0.72,
+  );
+  grad.addColorStop(0, 'rgba(10, 8, 28, 0)');
+  grad.addColorStop(0.7, 'rgba(10, 8, 28, 0.45)');
+  grad.addColorStop(1, 'rgba(10, 8, 28, 1)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, SIZE, SIZE);
+  return Texture.from(canvas);
 }
 
 /** Chevrons ride brighter than the line they sit on. */

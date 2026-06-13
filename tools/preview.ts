@@ -2,21 +2,30 @@
 // the art can be reviewed without booting the game:
 //   npx tsx tools/preview.ts [x0 y0 x1 y1 [scale [name]]] → preview/{atlas,<name|city>}.png
 //   npx tsx tools/preview.ts sprite <name...>             → preview/sprite_<name>.png
-// Composites ground → smoothed shoreline → transport ribbons → structures,
-// in the renderer's painter order. The shoreline + ribbon geometry comes
-// from the SAME shared emitters the game renderer uses (routeRibbons /
-// shoreline), rasterised here in software — so the art-review loop is
-// never blind to transport. The zoom band is derived from the downscale
-// factor exactly like the in-game camera scale (s = 1/scale).
+// Composites ground → smoothed shoreline → transport ribbons → structures
+// → air layer, in the renderer's painter order. The shoreline + ribbon +
+// air geometry comes from the SAME shared emitters the game renderer uses
+// (routeRibbons / shoreline / airLayer), rasterised here in software — so
+// the art-review loop is never blind to transport. The zoom band is derived
+// from the downscale factor exactly like the in-game camera scale (s = 1/scale).
 
 import { deflateSync } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { buildAtlas, type SpriteAtlas } from '../src/render/sprites/atlas';
 import { CELL_H, CELL_W, FLOOR_H } from '../src/render/sprites/iso';
+import { AIR_MAX_BAND, emitFlightArcs, emitPlanes } from '../src/render/airLayer';
 import { emitRouteRibbons, zoomKeyFor } from '../src/render/routeRibbons';
 import { emitShoreline } from '../src/render/shoreline';
 import { groundSpriteFor, structureSpriteFor } from '../src/render/tileChooser';
-import { buildLondonMap } from '../src/data/londonMap';
+import { seasonTintFor, type Season } from '../src/render/grade';
+import { AIRPORTS, buildLondonMap } from '../src/data/londonMap';
+
+/** SEASON=winter|spring|summer|autumn applies the renderer's seasonal
+ *  field tints to the composited crop (ROADMAP #44 review loop). */
+const SEASON = ((): Season | undefined => {
+  const s = process.env.SEASON;
+  return s === 'winter' || s === 'spring' || s === 'summer' || s === 'autumn' ? s : undefined;
+})();
 
 function crc32(buf: Uint8Array): number {
   let c = ~0;
@@ -84,7 +93,8 @@ function downscale(
   return { img: out, w: W, h: H };
 }
 
-/** Alpha-blend one atlas frame onto the canvas at (px, py). */
+/** Alpha-blend one atlas frame onto the canvas at (px, py); an optional
+ *  0xRRGGBB multiply tint mirrors Sprite.tint (the season repaint). */
 function blit(
   atlas: SpriteAtlas,
   name: string,
@@ -93,9 +103,13 @@ function blit(
   H: number,
   px: number,
   py: number,
+  tint?: number,
 ): void {
   const frame = atlas.frames.get(name);
   if (!frame) return;
+  const tr = tint === undefined ? 1 : ((tint >> 16) & 0xff) / 255;
+  const tg = tint === undefined ? 1 : ((tint >> 8) & 0xff) / 255;
+  const tb = tint === undefined ? 1 : (tint & 0xff) / 255;
   for (let yy = 0; yy < frame.h; yy++) {
     for (let xx = 0; xx < frame.w; xx++) {
       const so = ((frame.y + yy) * atlas.width + frame.x + xx) * 4;
@@ -105,9 +119,9 @@ function blit(
       const dy = py + yy;
       if (dx < 0 || dx >= W || dy < 0 || dy >= H) continue;
       const o = (dy * W + dx) * 4;
-      for (let c = 0; c < 3; c++) {
-        img[o + c] = (atlas.pixels[so + c] ?? 0) * sa + (img[o + c] ?? 0) * (1 - sa);
-      }
+      img[o] = (atlas.pixels[so] ?? 0) * tr * sa + (img[o] ?? 0) * (1 - sa);
+      img[o + 1] = (atlas.pixels[so + 1] ?? 0) * tg * sa + (img[o + 1] ?? 0) * (1 - sa);
+      img[o + 2] = (atlas.pixels[so + 2] ?? 0) * tb * sa + (img[o + 2] ?? 0) * (1 - sa);
       img[o + 3] = 255;
     }
   }
@@ -251,7 +265,7 @@ function main(): void {
         if (!name) continue;
         const px = originX + (cx - cy) * HW - HW;
         const py = (cx + cy) * HH;
-        blit(atlas, name, img, W, H, px, py);
+        blit(atlas, name, img, W, H, px, py, SEASON ? seasonTintFor(name, SEASON) : undefined);
       }
     }
   };
@@ -296,6 +310,30 @@ function main(): void {
   console.log(`transport: zoom band Z${key.band} (s=${sEff.toFixed(3)})`);
 
   tilePass('structure');
+
+  // the air layer (P7) flies over the structures — same emitters as the
+  // game renderer, at a fixed deterministic time so a crop can be
+  // eyeballed. Lifted geometry unprojects off its ground tile, so the
+  // crop test gets a generous tolerance.
+  if (key.band <= AIR_MAX_BAND) {
+    const inAirCrop = (pts: number[]): boolean => {
+      for (let i = 0; i < pts.length; i += 2) {
+        const wx = pts[i] ?? 0;
+        const wy = pts[i + 1] ?? 0;
+        const u = (wx / HW + wy / HH) / 2;
+        const v = (wy / HH - wx / HW) / 2;
+        if (u >= x0 - 9 && u <= x1 + 9 && v >= y0 - 9 && v <= y1 + 9) return true;
+      }
+      return false;
+    };
+    const airSink = (pts: number[], color: number, alpha: number): void => {
+      if (inAirCrop(pts)) fillPoly(img, W, H, shift(pts), color, alpha);
+    };
+    const AIR_T = 26; // seconds into the loop: departures mid-climb
+    emitFlightArcs(AIRPORTS, sEff, airSink);
+    emitPlanes(AIRPORTS, AIR_T, sEff, airSink);
+    console.log(`air: ${AIRPORTS.length} airport(s) at t=${AIR_T}s`);
+  }
   const sc = downscale(img, W, H, scale);
   writeFileSync(`preview/${outName}.png`, encodePng(sc.w, sc.h, sc.img));
   console.log(`preview/${outName}.png   tiles (${x0},${y0})–(${x1},${y1}) at ${sc.w}x${sc.h}`);

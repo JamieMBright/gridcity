@@ -283,6 +283,8 @@ export function MapView() {
         snapshot.weather.wind,
         snapshot.sites ?? [],
       );
+      // golden-hour grade + seasons + rain follow the sim clock/weather
+      r?.setAtmosphere(snapshot.simTimeMin, snapshot.weather);
     }
   }, [snapshot]);
 

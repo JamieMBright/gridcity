@@ -12,20 +12,119 @@
 
 ## Open
 
-- [ ] **LOFI BEAUTY PASS (owner, 2026-06-12 21:04): "I've empowered you
+- [ ] **Campaign IS the tutorial + mission-1 wind step stalled (owner,
+      2026-06-13 00:22)**: "The campaign mode should be the tutorial
+      really. The instruction was to [designate] onshore wind, but
+      nothing happened when i did, and so i just had to skip tutorial."
+  - [ ] Restructure: the start-menu TUTORIAL entry launches campaign
+        mission 1 (First Light); retire the separate london tutorial
+        strip (sandbox new game starts clean, missions carry the
+        teaching). Campaign progress/locks unchanged.
+  - [ ] BUG repro + fix — ROOT CAUSE per owner follow-up (00:25): "the
+        tutorial wasn't locked/centred on the available bit of land" —
+        on mission start the CAMERA never fitted the tiny mission map,
+        so the village/ridge sat off-screen and wind clicks landed on
+        nothing useful. Fix: starting a mission centres + zoom-fits the
+        camera on the mission map and CLAMPS pan to its bounds; steps
+        may pan to their focus (step 2 → the western ridge). Also keep
+        the hardening: loud siting refusals, suitability shading
+        verified on mission maps. Regression e2e through the REAL tap
+        flow at phone-landscape (not sendCommand), asserting the
+        village is in view on mission start.
+  - [ ] Progressive disclosure (owner, 00:28: "Ideally there would only
+        be the minimum available things at that step. Eg only onshore
+        wind is available… Everything else is irrelevant until you've
+        actually learned about it"): missions declare per-step/mission
+        UNLOCKS — the palette shows only the allowed build types (m1:
+        onshore wind → dist sub → 33 kV line as the steps reach them),
+        HUD surfaces (balance/headroom/N-1/forecast/goal chip/bill/KPI
+        buttons) hidden until the mission that teaches them, ambient
+        news/event flow quieted on missions. Sandbox keeps the full
+        HUD.
+  - [ ] HUD TOUR option (owner: "a tour of the hud option as it is
+        complicated to use"): pulls ROADMAP #40 coach marks forward —
+        a guided spotlight walkthrough of the HUD (bill corner, clock/
+        speed, palette, inbox, balance, KPIs…), launchable from the
+        menu/help, dismissible, once-flagged in localStorage.
+
+- [x] **LOFI BEAUTY PASS (owner, 2026-06-12 21:04): "I've empowered you
       with lots of design skills. I want you to use them all to make
-      the game more beautiful on that lofi aesthetic."** — a dedicated
-      art-direction wave on the cosy golden-hour lofi look (CLAUDE.md
-      vibe: sunset oranges, dusty pinks, muted purples, deep navy
-      shadows, warm lit windows, soft long shadows). Pulls forward
-      roadmap #41 day/night sky grading, #42 rain & storm visuals,
-      #44 seasonal field art; plus a world-grade pass (palette
-      harmonisation across sprite families, window-glow/bloom, lamp
-      pools, vignette) and a UI polish pass (theme tokens, panel
-      glass, type rhythm). Method: render real previews/screenshots,
-      LOOK at them, iterate — judged on images, not claims. Runs with/
-      after the transport overhaul (same renderer files; the overhaul
-      sets road/rail/water looks, beauty pass grades the whole frame).
+      the game more beautiful on that lofi aesthetic."** BUILT (Wave 6
+      beauty lane); the vendored skill packs were read first and drove
+      the choices (color-theory: one analogous sunset ramp + WCAG
+      floors; environment-art: colour scripting + hero-contrast
+      hierarchy; game-ui-design: touch targets + readability;
+      frontend-design: glass/type rhythm; pixel-art silhouette/ramp
+      doctrine for the tint work):
+  - [x] #41 day/night grading: new `src/render/grade.ts`, a PURE
+        colour script keyed off simTimeMin + live weather — golden
+        arc navy night → pink dawn → soft warm day (NEVER noon-white)
+        → gold → sunset orange → purple dusk; dawn/dusk hours ride
+        seasonFactor (midwinter dusk ~16:30, midsummer ~22:00).
+        Applied in MapRenderer as a CONTAINER TINT on the world fabric
+        (city/smog/assets/fleet — no extra GPU pass, and reliable
+        where Pixi's multiply blend silently no-ops under software
+        GL); network lines + alert overlays stay UNTINTED so the grid
+        reads as the hero at night. Plus: screen-space sky gradient,
+        baked radial vignette, and an ADDITIVE glow layer above the
+        tint — an energized-window light field (1 texel per powered
+        customer tile, the suitability-matrix trick, melts into soft
+        pools under linear filtering) + gentle bloom halos on subs and
+        turbine hubs. Powering a district literally makes it glow;
+        unpowered streets stay cold and dark. Grade eases (~2.5/s
+        exp) so time-skips arrive as fronts; grid view drops the tint
+        (true engineering colours). The old static CSS wash + vignette
+        divs in App.tsx came out — superseded by the live grade.
+  - [x] #42 rain & storms: pooled streak layer (≤~170 wind-slanted
+        strokes, screen-space, redrawn only while raining;
+        prefers-reduced-motion disables) keyed off the windy-wet
+        regime + cloud; storms grade darker/cooler with heavier,
+        faster rain and an occasional decaying lightning wash; a wet
+        sheen lifts the shadows. Rainy-day-cosy, never horror-dark —
+        luminance floors unit-pinned.
+  - [x] #44 seasonal fields: `seasonOf` + `seasonTintFor` multiply
+        ramps over crop/grass/canopy sprite families (winter
+        drab/bare-plough, spring green flush, summer gold = the base
+        art, autumn stubble + amber trees; built fabric never tints).
+        Renderer re-tints on the quarter flip (one property write per
+        sprite); tools/preview.ts gained SEASON=… parity so the
+        review loop sees the seasons.
+  - [x] World palette harmonised onto the sunset ramp
+        (sprites/palette.ts): water dustier (#4878b8/#345492), water
+        glints now WARM sunset peach (#f0c391 — was noon-cyan, the
+        biggest off-ramp outlier), tower glass reflects the dusk
+        (#b4b4d8, was cold sky-blue). Atlas cache self-invalidates
+        via the existing code fingerprint.
+  - [x] UI polish: theme.ts → dusk-glass panelStyle (navy→purple
+        gradient + backdrop blur + warm gold hairline + inset
+        highlight + letter-spacing), shared headingStyle small-caps
+        rhythm; slate token lifted #6b7591→#8d97b4 (muted text was
+        3.9:1 on navy — below AA; now 6.1:1, pinned in tests). Mobile
+        chrome touch targets: panel chips 36→42 px, build-rail
+        buttons 36→40 px (the 44 pt floor), InfoPanel frame cleared
+        of the wider chips. Test hook gained a render-only
+        `setAtmosphere` override for screenshot staging (sim
+        untouched; determinism unaffected — everything is render-side
+        off existing snapshot fields).
+  - [x] VERIFIED: tests/grade.test.ts (13) — arc anchors incl.
+        never-harsh-noon + cosy-night/storm luminance floors,
+        season-shifted dusk, rain/storm/wet mapping, season buckets,
+        tint families + built-fabric exclusion, WCAG helpers + theme
+        token contrast pins. Full `npx vitest run` 342 green;
+        `npx tsc -b`, `npx eslint src tests e2e tools`,
+        `npm run build` clean; e2e app.spec + controls.spec green on
+        a fresh server. IMAGES INSPECTED — and pixel-averaged to
+        confirm the grade objectively (small thumbnails fooled the
+        eye once): preview/beauty_{day,golden,sunset,dusk,night,
+        rain_day,storm,rain_dusk}.png via the new SHOTS=1
+        e2e/beautyshots.helper.spec.ts (night: powered terraces glow
+        warm beside a bloomed substation while the forest sits cold;
+        storm: slanted streaks with lit windows shining through);
+        preview/beauty_fields_{winter,spring,summer,autumn}.png;
+        preview/beauty_central_after.png + beauty_thames_close.png;
+        preview/beauty_ui_{desktop,mobile}*.png. Perf: tint = zero
+        extra passes; new layers total 1 sprite + 1 gradient + 1
+        vignette quad + streaks only while raining.
 
 - [ ] **Mobile/desktop design principle (owner, 2026-06-12 21:14)**:
       added to CLAUDE.md design principles — everything must work
@@ -39,14 +138,20 @@
         menuOpen keeps the menus usable portrait), mounted in App.tsx;
         e2e/campaign.spec.ts flips 844×390 ↔ 390×844 with hasTouch and
         asserts the overlay appears and clears.
-  - [ ] Audit pass: existing panels (Bill/Balance/Info/Inbox/KPI) at a
-        phone-landscape viewport (~844×390) — fold into the lofi
-        beauty-pass wave's checklist.
+  - [x] Audit pass: existing panels (Bill/Balance/Info/Inbox/KPI) at a
+        phone-landscape viewport (~844×390) — DONE with the lofi
+        beauty pass (Wave 6): screenshots at 844×390 (true coarse-
+        pointer emulation) AND 1280×800 via SHOTS=1
+        e2e/beautyshots.helper.spec.ts → preview/beauty_ui_*.png, all
+        inspected (panels read, nothing clips, glass chrome coherent
+        with the dusk world); touch-target fixes shipped (chips 42 px,
+        rail 40 px, InfoPanel clears the chip column).
 
-- [ ] **TRANSPORT OVERHAUL (owner, 2026-06-12, with screenshot): "The
+- [x] **TRANSPORT OVERHAUL (owner, 2026-06-12, with screenshot): "The
       roads are still goofy as shit. Real overhaul rethink of how to
       get a really realistic looking road, rail, boat, and air
-      network."** — supersedes incremental road tweaks. Owner's
+      network."** — supersedes incremental road tweaks. COMPLETE:
+      P0–P4 (Wave 5) + P5–P7 (Wave 6) all shipped; sub-items below. Owner's
       screenshot (zoomed-out city): roads read as thin noisy squiggles,
       no visible hierarchy/junctions, river blobby, rail invisible.
       Plan: deep design pass FIRST (read-only audit of routes→raster→
@@ -108,9 +213,67 @@
             in-game shots (preview/shot-transport-*.png via new
             SHOTS=1 e2e/transportshots.helper.spec.ts). Emission ≤35 ms/
             band, derivation 100 ms once, shoreline 44 ms once.
-      - [ ] P5 rail identity (far-zoom cross-ticks, station platforms),
-            P6 boat wakes/dock polish, P7 air layer (AIRPORTS export,
-            arcs, planes + shadows) — next wave; P5–P7 of the doc.
+      - [x] P5–P7 (Wave 6 transport lane): P5 rail identity — far-zoom
+            cross-tick symbology (railFar line + cream ticks every
+            1.5 t at Z0/Z1; Z2 ticks ride the ballast; Z3+ keeps
+            ballast bed + sleeper ticks + twin steel) and DERIVED
+            station platform slabs (TransportGeometry.stations: rail
+            path within 1.6 t of an lm_station landmark → 1.4 t
+            casing+slab on the landmark side, canopy strip at Z3+,
+            termini fans deduped — 16 slabs on London, no data
+            change); P6 boat wakes — emitBoatWakes in routeRibbons.ts
+            (pure world-px V-wakes: two diverging 3-segment foam arms
+            per barge fading astern, WAKE_MAX_SEGS=60 cap) drawn into
+            wakeG UNDER the hulls in boatLayer, rebuilt per frame only
+            while boats are visible at Z2+; P7 air layer — additive
+            AIRPORTS export in londonMap.ts (Heathrow only; render-side
+            scenery, never serialized, NO SAVE_VERSION bump) +
+            src/render/airLayer.ts (pure deterministic quadratic arcs,
+            2 westerly departures + 2 easterly arrivals, altitude
+            profile + map-edge fade, NO RNG): emitFlightArcs faint
+            lifted dashes per band + emitPlanes (altitude-scaled
+            ground shadow displaced z·(−0.55,+0.3), cream silhouette +
+            orange tailfin, screen-px size floor), mounted above
+            structureLayer in city, eventMode 'none', planes declutter
+            IN from the mid band outward (bands 0–2), tutorial
+            mini-maps get empty skies; preview.ts composites the same
+            air emitters (parity doctrine). PLUS the exposed map-data
+            debt: the two authored staircase lanes near Dartford
+            re-laid in londonMap.ts — "Tilbury → Grays → the A13"
+            ([[182,92],[178,90],[177,85]] → axis-aligned lattice runs
+            [[182,92],[178,92],[178,90],[178,85],[177,85]]) and
+            "Gravesend → Hoo" ([[188,106],[206,110]] → in-town row run
+            + open-marsh sweep [[188,106],[198,106],[203,108],
+            [206,110]]); endpoints/junctions preserved, road raster
+            stays gameplay-valid (map invariant suite green), no
+            SAVE_VERSION bump (routes/raster are not serialized; both
+            corridors keep their tiles ±1).
+      - [x] VERIFIED (Wave 6 transport lane): tests extended —
+            routeRibbons.test.ts (rail tick emission per band +
+            perpendicular orientation + spacing count, Z3 sleeper
+            switchover, station slab derivation determinism/side/
+            range/dedupe, wake fade + BEHIND-the-boat + cap +
+            determinism) and new tests/airLayer.test.ts (11: AIRPORTS
+            shape/bounds, never in a serialized save, 4 deterministic
+            arcs flying the westerly operation, altitude endpoints,
+            planeAt purity + duration periodicity + unit tangent +
+            edge fade, arc/plane emission determinism + bounded counts
+            + shadow-before-silhouette + lift above shadow). Full
+            `npx vitest run` 342/342; tsc/eslint/build clean;
+            e2e undo+build green on a fresh server. IMAGES INSPECTED:
+            preview re-renders (after_m25_heathrow — plane + arc over
+            the climb-out, after_estuary_dartford/southend_far — rail
+            now reads line+ticks, never thin-street; lane_grays_after/
+            lane_gravesend_after — staircases gone, clean lattice runs;
+            _stations crop — Dartford platform slab beside the line)
+            and in-game frames (shot-transport-* incl. barge V-wakes on
+            the estuary and the white silhouette + tailfin climbing out
+            of Heathrow; transportshots helper now pins a midday grade
+            via the beauty lane's setAtmosphere hook so transport is
+            judged in daylight). Known residual (out of lane scope —
+            arterial, not lane): the A2's in-town lattice jogs through
+            Gravesend still read wiggly at Z3; doctrine-compliant but
+            worth a future waypoint pass.
 
 - [ ] **"Do all" campaign (owner, 2026-06-12): implement ROADMAP.md in
       full**, tier by tier in gated waves. SHIPPED: Wave 1+1b (#1
@@ -123,16 +286,18 @@
       windows). WAVE 4 complete pending gate (→ PR #22): TUTORIAL
       CAMPAIGN + rotate prompt + stale-save bug fix, #18 smart
       charging, #24 ToU tariffs, #19 capacitor banks, #23 hydrogen;
-      transport-overhaul design doc shipped alongside. WAVE 5 complete
-      pending gate (→ PR #23): TRANSPORT OVERHAUL P0–P4 (ground-plane
-      cased ribbons, zoom declutter, junctions/roundabouts, bridges as
-      structures, smoothed shorelines) + GENERATION FOOTPRINTS (6-tower
-      coal campus, bids-what-fits land caps). Wave 6 next: LOFI BEAUTY
-      PASS (+#41/#42/#44 + mobile-landscape audit, using the installed
-      design skills) + transport P5–P7 (rail identity, boat wakes, air
-      layer); then Tier 2 remainder (#21 heat networks, #22 scenario
-      seeds, owner items #53–#55) and Tiers 3–4. Items tick off in
-      ROADMAP.md with PR links as they land.
+      transport-overhaul design doc shipped alongside; Wave 5 (PR #23:
+      transport P0–P4 + generation footprints). WAVE 6 complete
+      pending gate (→ PR #24): LOFI BEAUTY PASS (#41 grading, #42
+      rain/storms, #44 seasonal fields, palette harmonisation, UI
+      polish + mobile audit, AA contrast fix) + transport P5–P7 (rail
+      symbology + stations, boat wakes, Heathrow air layer, Dartford
+      lanes re-laid) — TRANSPORT OVERHAUL owner entry complete. Wave 7
+      next (flagship): TUTORIAL OVERHAUL — campaign IS the tutorial,
+      mission camera lock, progressive disclosure, HUD tour (#40
+      pulled forward). Then Tier 2 remainder (#21 heat networks, #22
+      scenario seeds, owner items #53–#55) and Tiers 3–4. Items tick
+      off in ROADMAP.md with PR links as they land.
 
 - [ ] **Map recognisability pass 2** (owner can't model 1M properties; keep it
       sensible/enjoyable): continue tuning until London "reads" at a glance.

@@ -17,10 +17,11 @@ export const COLORS = {
   trunk: hex('#6f4a33'),
   sand: hex('#e8cf9e'),
 
-  // water
-  water: hex('#3d7ec2'),
-  waterDeep: hex('#2c5fa3'),
-  waterGlint: hex('#9fd0e8'),
+  // water — dusty late-light blue, glints catch the sunset (warm, not
+  // noon-cyan: the whole gamut stays on the golden-hour ramp)
+  water: hex('#4878b8'),
+  waterDeep: hex('#345492'),
+  waterGlint: hex('#f0c391'),
 
   // fabric
   road: hex('#5d5a6e'),
@@ -53,7 +54,7 @@ export const COLORS = {
   glassDark: hex('#27324d'),
   glassLit: hex('#ffd277'),
   glassHot: hex('#ffb347'),
-  glassSky: hex('#a8cbe0'),
+  glassSky: hex('#b4b4d8'), // towers reflect the dusk, not a noon sky
   glassSunset: hex('#e8a0a8'),
   steel: hex('#9aa4b5'),
   steelDark: hex('#6e7888'),

@@ -1,5 +1,12 @@
 // ElectriCity design tokens — UK Power Networks-inspired palette with a
-// lofi golden-hour cast. Single source of truth for all UI colour.
+// lofi golden-hour cast. Single source of truth for all UI colour. The
+// chrome belongs to the same dusk world as the map: deep navy glass,
+// warm gold accents, dusty pink alerts.
+//
+// Contrast discipline (colour-theory pass, 2026-06): every text token is
+// checked against the panel navy — offWhite 15.5:1 (AAA), slate 6.1:1
+// (AA body), gold 11:1, danger 5.5:1. Hierarchy comes from size/weight,
+// never from dropping below 4.5:1 (tests/grade.test.ts pins these).
 
 export const theme = {
   // Brand
@@ -7,7 +14,7 @@ export const theme = {
   navyLight: '#1d2547', // raised panels, hover
   orange: '#ff8a1e', // accents, CTAs, alerts, the vans
   orangeSoft: '#ffb066', // secondary accent, glows
-  slate: '#6b7591', // secondary UI, muted text
+  slate: '#8d97b4', // secondary UI, muted text (AA on navy)
   offWhite: '#f2efe8', // primary text, light surfaces
 
   // Lofi sunset ambience
@@ -24,14 +31,30 @@ export const theme = {
   font: "'Iosevka', 'JetBrains Mono', ui-monospace, 'Cascadia Code', Menlo, monospace",
 } as const;
 
-/** Standard floating panel chrome. */
+/** Standard floating panel chrome: dusk glass — a navy→purple gradient
+ *  with a frosted blur and a warm hairline, so the HUD reads as part of
+ *  the golden-hour world instead of flat slabs over it. */
 export const panelStyle: React.CSSProperties = {
-  background: `${theme.navy}e6`,
-  border: `1px solid ${theme.navyLight}`,
-  borderRadius: 8,
+  background:
+    'linear-gradient(168deg, rgba(18, 24, 52, 0.88) 0%, rgba(16, 22, 48, 0.92) 55%, rgba(34, 25, 58, 0.9) 100%)',
+  backdropFilter: 'blur(9px)',
+  WebkitBackdropFilter: 'blur(9px)',
+  border: '1px solid rgba(245, 196, 105, 0.14)',
+  borderRadius: 10,
+  boxShadow: '0 10px 28px rgba(6, 8, 18, 0.5), inset 0 1px 0 rgba(242, 239, 232, 0.06)',
   color: theme.offWhite,
   fontFamily: theme.font,
   fontSize: 13,
+  letterSpacing: 0.2,
+};
+
+/** Panel section heading: small caps rhythm shared across the HUD. */
+export const headingStyle: React.CSSProperties = {
+  color: theme.gold,
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: 1.6,
+  textTransform: 'uppercase',
 };
 
 export function fmtMoneyK(k: number): string {
