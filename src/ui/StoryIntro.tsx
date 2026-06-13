@@ -41,55 +41,35 @@ export function StoryIntro() {
         zIndex: 20,
         background: 'rgba(6, 8, 20, 0.82)',
         display: 'flex',
-        alignItems: 'center',
+        // top-aligned + scrollable so the action buttons are always
+        // reachable on a short phone-landscape viewport (the centred
+        // letter pushed "rebuild it" off-screen and blocked mobile play)
+        alignItems: 'flex-start',
         justifyContent: 'center',
+        overflowY: 'auto',
+        padding: '24px 0',
         fontFamily: theme.font,
       }}
     >
-      <div style={{ width: 'min(520px, 92vw)', color: theme.offWhite }}>
-        {!last && (
-          <>
-            <div style={{ color: theme.orange, fontSize: 12, letterSpacing: '0.18em' }}>
-              {current.title.toUpperCase()}
-            </div>
-            <div style={{ fontSize: 16, lineHeight: 1.7, marginTop: 12 }}>{current.body}</div>
-          </>
-        )}
+      <div style={{ width: 'min(520px, 92vw)', margin: 'auto', color: theme.offWhite }}>
+        <div style={{ color: theme.orange, fontSize: 12, letterSpacing: '0.18em' }}>
+          {current.title.toUpperCase()}
+        </div>
+        <div style={{ fontSize: 16, lineHeight: 1.7, marginTop: 12 }}>{current.body}</div>
         {last && (
           <div
             style={{
-              background: '#f0ead8',
-              color: '#22243a',
-              borderRadius: 4,
-              padding: '26px 30px',
-              boxShadow: '0 18px 60px rgba(0,0,0,0.6)',
-              lineHeight: 1.65,
+              marginTop: 16,
+              borderLeft: `2px solid ${theme.orange}`,
+              paddingLeft: 14,
               fontSize: 13.5,
+              lineHeight: 1.6,
+              color: theme.slate,
             }}
           >
-            <div style={{ fontWeight: 800, letterSpacing: '0.12em', fontSize: 12 }}>
-              OFGEM · OFFICE OF GAS AND ELECTRICITY MARKETS
-            </div>
-            <div style={{ marginTop: 14 }}>
-              Dear Operator,
-              <br />
-              <br />
-              Following last night&apos;s <i>occurrence</i>, you are hereby licensed to rebuild
-              and operate the distribution and transmission network for the London licence
-              area, effective immediately.
-              <br />
-              <br />
-              We have approved <b>{fmtMoneyK(ALLOWANCE_Y1_K)}</b> of network expenditure for
-              your first year. We expect customer minutes lost below{' '}
-              <b>{targets.cml} CML</b> by the time year 2 begins. Allowances hereafter will be
-              set through the usual price control.
-              <br />
-              <br />
-              The lights are your problem now.
-              <br />
-              <br />
-              <i>— The Authority</i>
-            </div>
+            Year-1 network allowance <b style={{ color: theme.offWhite }}>{fmtMoneyK(ALLOWANCE_Y1_K)}</b>
+            {' · '}customer minutes lost below{' '}
+            <b style={{ color: theme.offWhite }}>{targets.cml} CML</b> by year 2.
           </div>
         )}
         <div style={{ display: 'flex', gap: 10, marginTop: 22, justifyContent: 'center' }}>

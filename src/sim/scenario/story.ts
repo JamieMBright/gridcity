@@ -26,8 +26,13 @@ export const STORY_BEATS: Array<{ title: string; body: string }> = [
       'no longer has anywhere to flow.',
   },
   {
-    title: 'The letter',
-    body: '', // rendered as the Ofgem letter component
+    title: 'Your mandate',
+    body:
+      'By dawn Ofgem had licensed you to rebuild and operate the network ' +
+      'for the whole London area, effective immediately — no ceremony, no ' +
+      'handover, just a number for the first year and a reliability target ' +
+      'to hit before year two. The lights, the letter ends, are your ' +
+      'problem now.',
   },
 ];
 
