@@ -61,12 +61,90 @@ const COV_BADGE: Record<number, { label: string; color: string }> = {
   [COV.off]: { label: 'blackout', color: theme.danger },
 };
 
-export function InfoPanel({ frame }: { frame?: React.CSSProperties } = {}) {
+/** One pinned inspector card: primary or the compare slot (#31). The
+ *  compare slot carries a tinted rail + label so the two cards read as a
+ *  pair; the primary card carries the "compare" affordance that arms the
+ *  pick. Both share the same rows via LineInfo / AssetInfo. */
+function PinnedCard({
+  assetId,
+  lineId,
+  lineAt,
+  slot,
+  frame,
+  onClose,
+}: {
+  assetId: number | undefined;
+  lineId: number | undefined;
+  lineAt?: { x: number; y: number } | undefined;
+  slot: 'primary' | 'compare';
+  frame: React.CSSProperties;
+  onClose: () => void;
+}) {
+  const comparePicking = useAppStore((s) => s.comparePicking);
+  const setComparePicking = useAppStore((s) => s.setComparePicking);
+  const tint = slot === 'compare' ? theme.gold : theme.orange;
+  return (
+    <div
+      style={{
+        ...frame,
+        // a slim coloured rail tells the two cards apart at a glance
+        borderLeft: `3px solid ${tint}`,
+      }}
+    >
+      <CloseX onClick={onClose} />
+      {slot === 'compare' && (
+        <div style={{ color: theme.gold, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 2 }}>
+          compare
+        </div>
+      )}
+      {lineId !== undefined ? (
+        <LineInfo assetId={lineId} atOverride={lineAt} />
+      ) : assetId !== undefined ? (
+        <AssetInfo assetId={assetId} />
+      ) : null}
+      {slot === 'primary' && (
+        <button
+          onClick={() => setComparePicking(!comparePicking)}
+          title="Pin a second asset beside this one to compare them"
+          style={{
+            marginTop: 8,
+            width: '100%',
+            padding: '4px 8px',
+            borderRadius: 5,
+            border: `1px solid ${comparePicking ? theme.gold : theme.navyLight}`,
+            background: comparePicking ? 'rgba(245, 196, 105, 0.14)' : 'transparent',
+            color: comparePicking ? theme.gold : theme.slate,
+            fontFamily: theme.font,
+            fontSize: 11,
+            cursor: 'pointer',
+          }}
+        >
+          {comparePicking ? '⊟ click another asset to compare…' : '⊞ compare with another'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+export function InfoPanel({
+  frame,
+  hidePinned = false,
+}: {
+  frame?: React.CSSProperties;
+  /** Mobile routes pins through the bottom-sheet (#35), so it asks the
+   *  right-rail card to render only the hover/tap tile info, never the
+   *  pinned card. Desktop leaves this false — unchanged. */
+  hidePinned?: boolean;
+} = {}) {
   const hovered = useAppStore((s) => s.hoveredTile);
   const snapshot = useAppStore((s) => s.snapshot);
   const selectedAsset = useAppStore((s) => s.selectedAsset);
   const selectedLine = useAppStore((s) => s.selectedLine);
+  const compareAsset = useAppStore((s) => s.compareAsset);
+  const compareLine = useAppStore((s) => s.compareLine);
+  const compareLineAt = useAppStore((s) => s.compareLineAt);
   const setSelected = useAppStore((s) => s.setSelected);
+  const clearCompare = useAppStore((s) => s.clearCompare);
 
   // an inspect CLICK pins the card: it stays up (and clickable) while
   // the player works the controls, instead of vanishing with the hover
@@ -81,27 +159,60 @@ export function InfoPanel({ frame }: { frame?: React.CSSProperties } = {}) {
     lineHeight: 1.5,
     ...frame,
   };
-  if (snapshot && selectedLine !== undefined) {
-    const line = snapshot.assets.find((a) => a.id === selectedLine);
-    if (line && line.kind === 'line') {
-      return (
-        <div style={pinnedFrame}>
-          <CloseX onClick={() => setSelected({})} />
-          <LineInfo assetId={selectedLine} />
-        </div>
-      );
-    }
-  }
-  if (snapshot && selectedAsset !== undefined) {
-    const asset = snapshot.assets.find((a) => a.id === selectedAsset);
-    if (asset && asset.kind !== 'line') {
-      return (
-        <div style={pinnedFrame}>
-          <CloseX onClick={() => setSelected({})} />
-          <AssetInfo assetId={selectedAsset} />
-        </div>
-      );
-    }
+
+  const primaryLine = snapshot && selectedLine !== undefined
+    ? snapshot.assets.find((a) => a.id === selectedLine && a.kind === 'line')
+    : undefined;
+  const primaryAsset = snapshot && selectedAsset !== undefined
+    ? snapshot.assets.find((a) => a.id === selectedAsset && a.kind !== 'line')
+    : undefined;
+  const hasPrimary = primaryLine !== undefined || primaryAsset !== undefined;
+
+  // mobile: a pin exists but the right-rail card defers to the bottom-sheet
+  if (hasPrimary && hidePinned) return null;
+
+  if (hasPrimary) {
+    const compareLineA = snapshot && compareLine !== undefined
+      ? snapshot.assets.find((a) => a.id === compareLine && a.kind === 'line')
+      : undefined;
+    const compareAssetA = snapshot && compareAsset !== undefined
+      ? snapshot.assets.find((a) => a.id === compareAsset && a.kind !== 'line')
+      : undefined;
+    const hasCompare = compareLineA !== undefined || compareAssetA !== undefined;
+    // the compare card sits to the LEFT of the primary (the primary keeps
+    // its home on the right rail). The width keeps each readable; on a
+    // narrow phone the mobile sheet takes over (App routes that), so the
+    // side-by-side is a desktop affordance.
+    const cardWidth = (frame?.width as number | undefined) ?? 240;
+    const gap = 8;
+    const compareFrame: React.CSSProperties = {
+      ...pinnedFrame,
+      right: typeof cardWidth === 'number' ? cardWidth + gap + 12 : undefined,
+    };
+    return (
+      <>
+        {hasCompare && (
+          <PinnedCard
+            slot="compare"
+            assetId={compareAssetA?.id}
+            lineId={compareLineA?.id}
+            lineAt={compareLineAt}
+            frame={compareFrame}
+            onClose={clearCompare}
+          />
+        )}
+        <PinnedCard
+          slot="primary"
+          assetId={primaryAsset?.id}
+          lineId={primaryLine?.id}
+          frame={pinnedFrame}
+          onClose={() => {
+            setSelected({});
+            clearCompare();
+          }}
+        />
+      </>
+    );
   }
 
   if (!hovered) return null;
@@ -286,10 +397,11 @@ const ACTION_BTN: React.CSSProperties = {
 
 /** Pinned card for a clicked line span: what it is, how hard it works,
  *  what's left in it — and the underground-rebuild quote. */
-function LineInfo({ assetId }: { assetId: number }) {
+export function LineInfo({ assetId, atOverride }: { assetId: number; atOverride?: { x: number; y: number } | undefined }) {
   const snapshot = useAppStore((s) => s.snapshot);
   const setSelected = useAppStore((s) => s.setSelected);
-  const at = useAppStore((s) => s.selectedLineAt);
+  const selectedAt = useAppStore((s) => s.selectedLineAt);
+  const at = atOverride ?? selectedAt;
   if (!snapshot) return null;
   const line = snapshot.assets.find((a) => a.id === assetId);
   if (!line || line.kind !== 'line') return null;
@@ -439,7 +551,7 @@ function LineInfo({ assetId }: { assetId: number }) {
   );
 }
 
-function AssetInfo({ assetId }: { assetId: number }) {
+export function AssetInfo({ assetId }: { assetId: number }) {
   const snapshot = useAppStore((s) => s.snapshot);
   if (!snapshot) return null;
   const asset = snapshot.assets.find((a) => a.id === assetId);

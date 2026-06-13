@@ -14,6 +14,7 @@ import { BuildPalette } from './BuildPalette';
 import { FleetPanel } from './FleetPanel';
 import { InboxPanel } from './InboxPanel';
 import { InfoPanel } from './InfoPanel';
+import { MobileInspector } from './MobileInspector';
 import { panelStyle, theme } from './theme';
 import { useUnlockGate } from './unlocks';
 import {
@@ -381,12 +382,15 @@ export function MobileChrome() {
         <AlertsFeed frame={{ ...sheetFrame, maxHeight: 'calc(100dvh - 100px)', width: 'min(320px, calc(100vw - 60px))' }} />
       )}
 
-      {/* tap-to-inspect details, tucked under the chip column */}
+      {/* tap-to-inspect: a hovered tile's quick info rides the top-right
+          card; a PINNED asset/line opens the thumb-reach bottom-sheet (#35) */}
       {sheet === undefined && tool.t === 'inspect' && (
         <InfoPanel
+          hidePinned
           frame={{ top: 44, right: 52, width: 'min(230px, calc(100vw - 112px))', fontSize: 12 }}
         />
       )}
+      {sheet === undefined && <MobileInspector />}
     </>
   );
 }

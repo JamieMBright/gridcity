@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { hotkeyLabel } from '../app/hotkeys';
 import { useAppStore, type Tool } from '../app/store';
 import {
@@ -10,6 +11,16 @@ import {
   type SubType,
 } from '../sim/catalog';
 import type { VoltageLevel } from '../sim/grid/types';
+import type { PlacedAsset } from '../sim/assets';
+import {
+  buildTemplate,
+  deleteTemplate,
+  listTemplates,
+  saveTemplate,
+  type BuildTemplate,
+  type CapturedLine,
+  type CapturedSub,
+} from '../persistence/templateStore';
 import { fmtMoneyK, panelStyle, theme } from './theme';
 import { useUnlockGate } from './unlocks';
 import {
@@ -160,6 +171,199 @@ function AutoConnectToggle() {
   );
 }
 
+/** Build templates (#37): capture the session's recent substations (and
+ *  the lines among them) into a named pattern, and stamp saved patterns
+ *  elsewhere. The capture reads the recent-placement buffer the store
+ *  fills off the snapshot; lines are recovered from the snapshot. */
+function TemplateSection() {
+  const recent = useAppStore((s) => s.recentSubPlacements);
+  const snapshot = useAppStore((s) => s.snapshot);
+  const setPaste = useAppStore((s) => s.setPasteTemplate);
+  const setToast = useAppStore((s) => s.setToast);
+  // listTemplates reads localStorage; a local version counter re-reads it
+  // after save/delete without a store dependency
+  const [rev, setRev] = useState(0);
+  const [naming, setNaming] = useState(false);
+  const [name, setName] = useState('');
+  const templates: BuildTemplate[] = listTemplates();
+  void rev;
+
+  // the last few operator subs placed this session, in order; cap at 6 so
+  // a template stays a small, intentional motif (not the whole network)
+  const captureIds = recent.slice(-6);
+  const canCapture = captureIds.length > 0 && snapshot !== undefined;
+
+  const doSave = (): void => {
+    if (!snapshot) return;
+    const idSet = new Set(captureIds);
+    const subs: CapturedSub[] = [];
+    for (const a of snapshot.assets as PlacedAsset[]) {
+      if (a.kind === 'sub' && idSet.has(a.id) && a.sub !== 'tee' && !a.idno) {
+        subs.push({ id: a.id, sub: a.sub, x: a.x, y: a.y });
+      }
+    }
+    // lines whose BOTH endpoints are in the captured sub set
+    const lines: CapturedLine[] = [];
+    for (const a of snapshot.assets as PlacedAsset[]) {
+      if (a.kind === 'line' && idSet.has(a.a) && idSet.has(a.b)) {
+        lines.push({ level: a.level, build: a.build, a: a.a, b: a.b });
+      }
+    }
+    const tpl = buildTemplate(name, subs, lines);
+    if (!tpl) {
+      setToast('nothing to save — place a substation or two first');
+      return;
+    }
+    saveTemplate(tpl);
+    setName('');
+    setNaming(false);
+    setRev((n) => n + 1);
+    setToast(`saved template "${tpl.name}"`);
+  };
+
+  return (
+    <Section title="Templates">
+      {templates.length === 0 && !naming && (
+        <div style={{ margin: '0 9px 4px', fontSize: 10.5, color: theme.slate, lineHeight: 1.5 }}>
+          save a motif (e.g. grid sub + 33 kV feeder + dist sub) and stamp it elsewhere
+        </div>
+      )}
+      {templates.map((t) => {
+        const subN = t.members.filter((m) => m.kind === 'sub').length;
+        const lineN = t.members.filter((m) => m.kind === 'line').length;
+        return (
+          <div
+            key={t.id}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 9px', margin: '2px 0' }}
+          >
+            <button
+              onClick={() => setPaste(t)}
+              title={`Stamp "${t.name}" — ${subN} sub${subN > 1 ? 's' : ''}${lineN ? `, ${lineN} feeder${lineN > 1 ? 's' : ''}` : ''}`}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: 6,
+                padding: '4px 7px',
+                borderRadius: 5,
+                border: `1px solid ${theme.navyLight}`,
+                background: 'transparent',
+                color: theme.offWhite,
+                fontFamily: theme.font,
+                fontSize: 11,
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                ⊞ {t.name}
+              </span>
+              <span style={{ flex: 'none', color: theme.slate }}>
+                {subN}s{lineN ? `·${lineN}f` : ''}
+              </span>
+            </button>
+            <button
+              aria-label={`delete template ${t.name}`}
+              title="Delete template"
+              onClick={() => {
+                deleteTemplate(t.id);
+                setRev((n) => n + 1);
+              }}
+              style={{
+                flex: 'none',
+                width: 22,
+                height: 22,
+                padding: 0,
+                borderRadius: 5,
+                border: `1px solid ${theme.navyLight}`,
+                background: 'transparent',
+                color: theme.slate,
+                fontFamily: theme.font,
+                fontSize: 12,
+                cursor: 'pointer',
+              }}
+            >
+              ×
+            </button>
+          </div>
+        );
+      })}
+      {naming ? (
+        <div style={{ display: 'flex', gap: 4, padding: '2px 9px' }}>
+          <input
+            autoFocus
+            value={name}
+            placeholder={`name (${captureIds.length} sub${captureIds.length > 1 ? 's' : ''})`}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') doSave();
+              if (e.key === 'Escape') {
+                setNaming(false);
+                setName('');
+              }
+            }}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              padding: '4px 7px',
+              borderRadius: 5,
+              border: `1px solid ${theme.gold}`,
+              background: 'rgba(0,0,0,0.25)',
+              color: theme.offWhite,
+              fontFamily: theme.font,
+              fontSize: 11,
+            }}
+          />
+          <button
+            onClick={doSave}
+            style={{
+              flex: 'none',
+              padding: '4px 9px',
+              borderRadius: 5,
+              border: 'none',
+              background: theme.gold,
+              color: theme.navy,
+              fontFamily: theme.font,
+              fontSize: 11,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            save
+          </button>
+        </div>
+      ) : (
+        <button
+          disabled={!canCapture}
+          onClick={() => setNaming(true)}
+          title={
+            canCapture
+              ? 'Bundle the substations you just placed (and the lines between them) into a reusable template'
+              : 'Place a substation or two first, then save them as a template'
+          }
+          style={{
+            margin: '2px 9px',
+            width: 'calc(100% - 18px)',
+            padding: '5px 8px',
+            borderRadius: 5,
+            border: `1px dashed ${canCapture ? theme.gold : theme.navyLight}`,
+            background: 'transparent',
+            color: canCapture ? theme.gold : theme.slate,
+            opacity: canCapture ? 1 : 0.6,
+            fontFamily: theme.font,
+            fontSize: 11,
+            cursor: canCapture ? 'pointer' : 'default',
+            textAlign: 'left',
+          }}
+        >
+          + save my last {captureIds.length || ''} build{captureIds.length === 1 ? '' : 's'} as a template
+        </button>
+      )}
+    </Section>
+  );
+}
+
 const GEN_ORDER: GenType[] = [
   'gasCCGT',
   'gasPeaker',
@@ -280,6 +484,7 @@ export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
         <ToolButton tool={{ t: 'inspect' }} label="Inspect" Icon={IconInspect} />
         <ToolButton tool={{ t: 'demolish' }} label="Demolish" Icon={IconDemolish} />
       </Section>
+      <TemplateSection />
       {ghost && (
         <div
           style={{

@@ -300,7 +300,12 @@ function buildSpriteCells(): Map<string, Cell> {
   set('pylon_400', pylon400Tile(241));
   set('pylon_132', pylon132Tile(242));
   set('pole_33', pole33Tile(243));
-  set('construction', constructionTile(244));
+  // construction-site variants by build-progress quartile (#43): the
+  // MapRenderer picks construction_0..3 from the remaining lead-time;
+  // 'construction' stays as the late/default alias for any caller that
+  // doesn't know the stage.
+  set('construction', constructionTile(244, 3));
+  for (let s = 0; s < 4; s++) set(`construction_${s}`, constructionTile(244, s));
   return m;
 }
 

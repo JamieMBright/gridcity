@@ -4,7 +4,9 @@ import { BalancePanel } from '../ui/BalancePanel';
 import { BillPanel } from '../ui/BillPanel';
 import { BuildLabelChip } from '../ui/BuildLabelChip';
 import { BuildPalette } from '../ui/BuildPalette';
+import { CameraBookmarks } from '../ui/CameraBookmarks';
 import { FleetPanel } from '../ui/FleetPanel';
+import { HotkeyHelp } from '../ui/HotkeyHelp';
 import { Hud } from '../ui/Hud';
 import { HudTour } from '../ui/HudTour';
 import { DirectoratesPanel } from '../ui/DirectoratesPanel';
@@ -15,11 +17,13 @@ import { MapView } from '../ui/MapView';
 import { Minimap } from '../ui/Minimap';
 import { MobileChrome } from '../ui/MobileChrome';
 import { NetZeroPanel } from '../ui/NetZeroPanel';
+import { PhotoMode } from '../ui/PhotoMode';
 import { RotatePrompt } from '../ui/RotatePrompt';
 import { SavesPanel } from '../ui/SavesPanel';
 import { SearchBox } from '../ui/SearchBox';
 import { StartMenu } from '../ui/StartMenu';
 import { StoryIntro } from '../ui/StoryIntro';
+import { TemplatePaste } from '../ui/TemplatePaste';
 import { Tutorial } from '../ui/Tutorial';
 import { UndoHistory } from '../ui/UndoHistory';
 import { panelStyle, theme } from '../ui/theme';
@@ -138,6 +142,14 @@ function useKeyboard(): void {
         }
         return;
       }
+      // the hotkey cheat-sheet (#29): ? toggles it from anywhere in-game.
+      // '?' is Shift+/ on most layouts — match the printed glyph, not the
+      // physical key, so it works regardless of keyboard locale.
+      if (e.key === '?') {
+        if (!s.menuOpen) s.setHelpOpen(!s.helpOpen);
+        return;
+      }
+      if (s.helpOpen) return; // the overlay swallows other keys while open
       if (s.menuOpen) return;
       const key = e.key.toLowerCase();
       if (key === 'g') {
@@ -213,6 +225,10 @@ export function App() {
   // in via the collapse toggle (owner: cleaner look on desktop too).
   const compact = isMobile || hudCollapsed;
   const menuOpen = useAppStore((s) => s.menuOpen);
+  // photo mode (#48, RENDER/POLISH lane): hide ALL chrome for a clean frame.
+  // chrome = the normal in-world HUD condition with photo mode subtracted.
+  const photoMode = useAppStore((s) => s.photoMode);
+  const chrome = !menuOpen && !photoMode;
   // campaign missions hide the London-specific chrome (place search)
   const inMission = useAppStore((s) => s.scenarioId !== 'london');
   // progressive disclosure: a mission shows only the panels it teaches
@@ -225,7 +241,7 @@ export function App() {
       {/* the golden-hour grade + vignette are drawn BY the renderer now
           (render/grade.ts, #41): they follow the sim clock and weather,
           so the old static CSS washes came out. */}
-      {!menuOpen &&
+      {chrome &&
         (compact ? (
           <>
             {/* desktop collapse reuses the proven compact icon-rail +
@@ -247,13 +263,19 @@ export function App() {
             <StatusBar />
           </>
         ))}
-      {!menuOpen && <BuildLabelChip />}
-      {!menuOpen && <Hud compact={compact} />}
-      {!menuOpen && <Minimap />}
-      <Toast />
-      <Tutorial />
-      {!menuOpen && <BalancePanel />}
-      {!menuOpen && <UndoHistory />}
+      {chrome && <BuildLabelChip />}
+      {chrome && <Hud compact={compact} />}
+      {chrome && <Minimap />}
+      {/* RENDER/POLISH lane (#38/#48): camera bookmarks + photo mode, both
+          self-contained floating controls; bookmarks hide themselves in
+          photo mode, PhotoMode owns the clean-frame bar. FLAGGED additive
+          mount (App.tsx is shared with the UI lane). */}
+      {chrome && <CameraBookmarks />}
+      {!menuOpen && <PhotoMode />}
+      {!photoMode && <Toast />}
+      {!photoMode && <Tutorial />}
+      {chrome && <BalancePanel />}
+      {chrome && <UndoHistory />}
       <StoryIntro />
       <KpiDashboard />
       <NetZeroPanel />
@@ -263,6 +285,8 @@ export function App() {
       <SavesPanel />
       <RotatePrompt />
       <HudTour />
+      <HotkeyHelp />
+      {chrome && <TemplatePaste />}
     </div>
   );
 }

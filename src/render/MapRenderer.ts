@@ -64,6 +64,7 @@ import { CELL_H, CELL_W, FLOOR_H, RES } from './sprites/iso';
 import { levelPalette, type CbMode } from '../ui/cbPalette';
 import { WIND_HUBS, windHubOffset } from './sprites/networkSprites';
 import { groundSpriteFor, structureSpriteFor } from './tileChooser';
+import { constructionSpriteFor, constructionStage } from './construction';
 
 const HALF_W = CELL_W / 2;
 const HALF_H = FLOOR_H / 2;
@@ -1260,18 +1261,21 @@ export class MapRenderer {
     // conversions keep the asset id but change its look: bake the bits
     // that pick a sprite (construction, line build, GIS) into the signature
     const sig = assets
-      .map(
-        (a) =>
-          `${a.id}:${a.kind}:${
-            a.kind === 'gen' && (a.liveAtMin ?? 0) > simTimeMin
-              ? 'c'
-              : a.kind === 'line'
-                ? a.build
-                : a.kind === 'sub' && a.underground
-                  ? 'u'
-                  : ''
-          }`,
-      )
+      .map((a) => {
+        const liveAt = (a as { liveAtMin?: number | undefined }).liveAtMin;
+        const building = (a.kind === 'gen' || a.kind === 'sub') && (liveAt ?? 0) > simTimeMin;
+        if (building) {
+          // bake the progress STAGE in so the site advances as it builds
+          const lead =
+            a.kind === 'gen'
+              ? (GENS[a.gen].planningDays + GENS[a.gen].buildDays) * 1440
+              : undefined;
+          return `${a.id}:${a.kind}:c${constructionStage((liveAt ?? 0) - simTimeMin, lead)}`;
+        }
+        const variant =
+          a.kind === 'line' ? a.build : a.kind === 'sub' && a.underground ? 'u' : '';
+        return `${a.id}:${a.kind}:${variant}`;
+      })
       .join(',');
     if (sig !== this.assetSignature) {
       this.assetSignature = sig;
@@ -1323,6 +1327,60 @@ export class MapRenderer {
       this.app.screen.height / 2 - c.y * s,
     );
     this.applyLockClamp();
+  }
+
+  // --- camera bookmarks (#38) ------------------------------------------------
+  // The bookmarks panel (src/ui/CameraBookmarks.tsx) needs to read the
+  // current view and restore a saved one. getCamera() reports the TILE at
+  // the screen centre plus the live zoom (the inverse of panTo/setZoom);
+  // jumpToCamera() restores both. Stored client-side by the panel.
+
+  /** The current camera as a save-able bookmark: the tile under the screen
+   *  centre + the live zoom scale. Undefined before init / after teardown. */
+  getCamera(): { x: number; y: number; zoom: number } | undefined {
+    if (this.destroyed || !this.app.renderer) return undefined;
+    const s = this.world.scale.x;
+    if (s <= 0) return undefined;
+    // world-pixel under the screen centre, then unproject to a tile
+    const wx = (this.app.screen.width / 2 - this.world.x) / s;
+    const wy = (this.app.screen.height / 2 - this.world.y) / s;
+    const u = wx / HALF_W;
+    const t = wy / HALF_H;
+    return { x: (u + t) / 2, y: (t - u) / 2, zoom: s };
+  }
+
+  /** Restore a saved bookmark: set the zoom, then centre the tile. */
+  jumpToCamera(x: number, y: number, zoom: number): void {
+    if (this.destroyed || !this.app.renderer) return;
+    this.world.scale.set(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom)));
+    this.panTo(x, y);
+  }
+
+  // --- photo mode (#48) ------------------------------------------------------
+  // A clean-frame capture: the UI honours photoMode by hiding all chrome,
+  // and PhotoMode.tsx calls capturePhoto() to pull the live Pixi canvas
+  // into a PNG. A gentle golden-hour grade can be pinned for the shot via
+  // overrideAtmosphere(); the capture grabs whatever is on screen, sky +
+  // grade + glow + vignette included, so the download matches the view.
+
+  /** Extract the current rendered frame to a PNG blob (or undefined if the
+   *  renderer is gone). Forces one render first so the latest camera/grade
+   *  is captured. The extracted canvas already carries the devicePixelRatio
+   *  resolution the app was inited at, so a HiDPI display yields a crisp 2×
+   *  shot for free. */
+  async capturePhoto(): Promise<Blob | undefined> {
+    if (this.destroyed || !this.app.renderer) return undefined;
+    // make sure the freshest frame (camera/grade) is on the GPU
+    this.app.renderer.render(this.app.stage);
+    const canvas = this.app.renderer.extract.canvas(this.app.stage) as HTMLCanvasElement;
+    if (typeof canvas.toBlob !== 'function') {
+      // OffscreenCanvas path (rare): convertToBlob
+      const oc = canvas as unknown as { convertToBlob?: () => Promise<Blob> };
+      return oc.convertToBlob ? oc.convertToBlob() : undefined;
+    }
+    return new Promise<Blob | undefined>((resolve) => {
+      canvas.toBlob((b) => resolve(b ?? undefined), 'image/png');
+    });
   }
 
   private fitOpts(paddingPx: number): {
@@ -2243,9 +2301,19 @@ export class MapRenderer {
         }
         continue;
       }
-      const building = a.kind === 'gen' && (a.liveAtMin ?? 0) > simTimeMin;
+      // under construction: any plant/substation whose commission minute is
+      // still in the future draws as a building site (#43), staged by how
+      // far through its lead time it is. Subs carry no liveAtMin today (they
+      // build instantly) but the check is generic so a future lead-time sub
+      // reads the same way.
+      const liveAt = (a as { liveAtMin?: number | undefined }).liveAtMin;
+      const building = (a.kind === 'gen' || a.kind === 'sub') && (liveAt ?? 0) > simTimeMin;
+      const leadMin =
+        a.kind === 'gen'
+          ? (GENS[a.gen].planningDays + GENS[a.gen].buildDays) * 1440
+          : undefined;
       const name = building
-        ? 'construction'
+        ? constructionSpriteFor(constructionStage((liveAt ?? 0) - simTimeMin, leadMin))
         : a.kind === 'gen'
           ? GEN_SPRITE[a.gen]
           : a.kind === 'sub'
@@ -2285,7 +2353,8 @@ export class MapRenderer {
       const s = new Sprite(tex);
       const c = this.tileCentre(a.x, a.y);
       // GIS rebuilds swap to single-tile vault art: centre that on the plot
-      const tinyArtOnPlot = a.kind === 'sub' && a.underground === true && (fw > 1 || fh > 1);
+      const tinyArtOnPlot =
+        !building && a.kind === 'sub' && a.underground === true && (fw > 1 || fh > 1);
       if (!building && !tinyArtOnPlot && (fw > 1 || fh > 1)) {
         s.position.set(c.x - fh * HALF_W, c.y - HALF_H - (CELL_H - FLOOR_H));
       } else if (tinyArtOnPlot) {

@@ -32,6 +32,10 @@ export function describeCommand(cmd: Command, before: GameState): string {
     }
     case 'buildPath':
       return `built ${cmd.level} kV ${cmd.build === 'underground' ? 'cable' : 'line'} (${cmd.waypoints.length + 1} legs)`;
+    case 'placeTemplate':
+      return `stamped a template (${cmd.subs.length} sub${cmd.subs.length > 1 ? 's' : ''}${
+        cmd.lines.length ? ` + ${cmd.lines.length} feeder${cmd.lines.length > 1 ? 's' : ''}` : ''
+      })`;
     case 'tee':
       return `teed ${cmd.build === 'underground' ? 'cable' : 'line'} into a circuit`;
     case 'demolish': {
