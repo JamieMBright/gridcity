@@ -6,7 +6,8 @@
 /** Ofgem's year-1 allowed revenue for the rebuild, £k (network capex). */
 export const ALLOWANCE_Y1_K = 250_000;
 
-/** The opening beats, shown letterboxed and skippable on a new game. */
+/** The opening beats, shown letterboxed and skippable on a new game.
+ *  Kept to TWO beats — the cold open, then the Ofgem mandate. */
 export const STORY_BEATS: Array<{ title: string; body: string }> = [
   {
     title: '03:47, last night',
@@ -14,25 +15,18 @@ export const STORY_BEATS: Array<{ title: string; body: string }> = [
       'At 03:47 every substation alarm in the licence area fired at once — ' +
       'and then went silent. Not tripped. Gone. Dawn found empty fields ' +
       'where four hundred kilovolts used to hum: no towers, no cables, no ' +
-      'transformers. No debris. Not a single bolt left behind.',
-  },
-  {
-    title: 'A mighty strange occurrence',
-    body:
-      'The inquiry will take years and explain nothing. The select ' +
-      'committee will use the words "unprecedented" and "concerning". ' +
-      'Nine million people use a different word: dark. The city, the ' +
-      'towns, the estuary — every one of them is waiting for power that ' +
-      'no longer has anywhere to flow.',
+      'transformers, not a single bolt left behind. Nine million people ' +
+      'have one word for it: dark.',
   },
   {
     title: 'Your mandate',
     body:
-      'By dawn Ofgem had licensed you to rebuild and operate the network ' +
-      'for the whole London area, effective immediately — no ceremony, no ' +
-      'handover, just a number for the first year and a reliability target ' +
-      'to hit before year two. The lights, the letter ends, are your ' +
-      'problem now.',
+      'By dawn Ofgem had licensed you to rebuild and operate the whole ' +
+      'London network, effective immediately. The lights are your problem ' +
+      'now. You have an allowance for year one and a reliability target to ' +
+      'hit before year two — but for the first three months the regulator ' +
+      'freezes every metric while you rebuild: reliability, constraint ' +
+      'costs and the report card are all paused. Start switching it on.',
   },
 ];
 

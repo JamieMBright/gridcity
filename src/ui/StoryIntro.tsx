@@ -70,6 +70,11 @@ export function StoryIntro() {
             Year-1 network allowance <b style={{ color: theme.offWhite }}>{fmtMoneyK(ALLOWANCE_Y1_K)}</b>
             {' · '}customer minutes lost below{' '}
             <b style={{ color: theme.offWhite }}>{targets.cml} CML</b> by year 2.
+            <div style={{ marginTop: 6, color: theme.gold }}>
+              Grace period: all performance metrics — reliability (CI/CML), constraint
+              costs and the RIIO report card — are <b>frozen for your first 3 months</b>{' '}
+              while you rebuild.
+            </div>
           </div>
         )}
         <div style={{ display: 'flex', gap: 10, marginTop: 22, justifyContent: 'center' }}>

@@ -8,7 +8,9 @@ test.describe('building on the map', () => {
     test.slow(); // waits real seconds for developer bids at 16x
     await boot(page);
     await pause(page);
-    // a fresh game is seeded with the iDNO estate substations
+    // a fresh game is seeded with ONLY the iDNO estate substations (the grid
+    // is otherwise blank — no pre-existing generation any more, owner playtest
+    // 2026-06-13). The deltas below are relative to this `base`.
     const base = await assetCount(page);
     const [a, b] = await openLand(page, 2);
     expect(a && b).toBeTruthy();

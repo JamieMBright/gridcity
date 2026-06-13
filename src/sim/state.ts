@@ -21,7 +21,7 @@ import {
   type PeriodState,
   type ReportCard,
 } from './regulation/riio';
-import { EXISTING_GENERATION, NEW_ESTATES } from '../data/londonMap';
+import { NEW_ESTATES } from '../data/londonMap';
 import { getScenario, profileOf } from '../data/cityRegistry';
 import type { ResolvedProfile } from './powerProfile';
 import { Rng } from './rng';
@@ -315,7 +315,9 @@ export function newContext(scenarioId = 'london'): SimContext {
 export function seedScenario(state: GameState, ctx: SimContext): void {
   const { map } = ctx;
 
-  // (a) new-build estates arrive with the iDNO's transformer already in
+  // (a) new-build estates arrive with the iDNO's transformer already in.
+  // These are CUSTOMER DEMAND sites awaiting connection (load, not
+  // generation) — they stay (owner: keep the iDNO estates as demand).
   for (const e of NEW_ESTATES) {
     const id = state.nextAssetId++;
     state.assets.set(id, {
@@ -329,21 +331,11 @@ export function seedScenario(state: GameState, ctx: SimContext): void {
       idno: true,
     });
   }
-  // (a2) the real-world foundations: generation already on the system,
-  // developer-owned and operational — it just needs your wires
-  let devIx = 0;
-  for (const g of EXISTING_GENERATION) {
-    const id = state.nextAssetId++;
-    state.assets.set(id, {
-      id,
-      kind: 'gen',
-      gen: g.gen,
-      x: g.x,
-      y: g.y,
-      developer: (devIx++ % 6) + 1,
-      liveAtMin: 0,
-    });
-  }
+  // NOTHING PRE-EXISTING ON THE MAP (owner playtest, 2026-06-13: "forget all
+  // about actual generation and the ECR. All of it vanished in the
+  // vanishing."). The player starts with a TRULY BLANK grid — no seeded
+  // estuary CCGTs / Lea peaker / Essex solar/wind. (Missions keep their own
+  // scripted seeding in scenario/missions.ts — untouched.)
   state.assetsVersion++;
 
   // (b) starter generation applications through the normal machinery
@@ -418,13 +410,21 @@ export function seedScenario(state: GameState, ctx: SimContext): void {
 
 // --- save / load -----------------------------------------------------------
 
-export const SAVE_VERSION = 12;
+export const SAVE_VERSION = 13;
 
 /** Guard for untrusted save payloads; lives beside SAVE_VERSION so the two
  *  can never drift apart again (a stale guard silently discarded saves). */
 export function isSaveData(d: unknown): d is SaveData {
   if (typeof d !== 'object' || d === null) return false;
   const v = (d as { v?: unknown }).v;
+  // v13: landmark RESIZE pass (owner playtest, 2026-06-13) — the hero venues
+  // grew from 1×1 dots to dominant multi-tile footprints: the Olympic Stadium
+  // (3×3) and Wembley (2×2) in/near Stratford, the O2/Millennium Dome (3×3) on
+  // the Greenwich peninsula, and ExCeL stretched to a 3×1. Their reservations
+  // now claim extra `landmark` tiles (protected building-exclusion fabric), so
+  // a v12 asset could sit on what is now a protected venue precinct — v12
+  // saves are retired here. (The Orbit/Westfield/VeloPark shifted a tile to
+  // clear the bigger stadium, too.)
   // v12: Queen Elizabeth Olympic Park, Stratford — the four 2012 heroes
   // (VeloPark, Olympic Stadium, ArcelorMittal Orbit, Westfield Stratford
   // City) are stamped into the `landmark` raster on the east Lea bank and the
@@ -445,11 +445,11 @@ export function isSaveData(d: unknown): d is SaveData {
   // network assets can sit on what is now water, carriageway or protected
   // fabric. (v9 re-laid streets on the tile-edge lattice; v8 moved the
   // whole geography; v7 the id scheme.)
-  return typeof v === 'number' && v >= 12 && v <= SAVE_VERSION;
+  return typeof v === 'number' && v >= 13 && v <= SAVE_VERSION;
 }
 
 export interface SaveData {
-  v: 12;
+  v: 13;
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;

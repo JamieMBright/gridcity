@@ -566,36 +566,46 @@ export function towerBridgeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
-/** The Olympic bowl: sweeping white ring over an orange seat line. */
+/** The Olympic Stadium bowl: a HUGE sweeping white ring over an orange seat
+ *  line. The real London Stadium seats 60–80k and dominates the park — so it
+ *  is a dominant 3×3 footprint (owner playtest, 2026-06-13: "the Olympic
+ *  Stadium is enormous"), SW-anchored like the other big precincts. The bowl
+ *  fills the whole footprint with a ring of floodlight masts around it. */
+export const STADIUM_W = 3;
+export const STADIUM_H = 3;
 export function stadiumTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso();
+  const iso = new Iso(STADIUM_W, STADIUM_H, { swAnchor: true });
   void seed;
-  const [cx, cyB] = P(0.5, 0.5, 0);
+  const [cx, cyB] = iso.P(STADIUM_W / 2, STADIUM_H / 2, 0);
   const ringPts = (rx: number, ry: number, lift: number): Pt[] => {
     const pts: Pt[] = [];
-    for (let i = 0; i <= 30; i++) {
-      const a = (i / 30) * Math.PI * 2;
+    for (let i = 0; i <= 40; i++) {
+      const a = (i / 40) * Math.PI * 2;
       pts.push([cx + Math.cos(a) * rx, cyB - lift + Math.sin(a) * ry]);
     }
     return pts;
   };
-  const RX = 0.42 * (CELL_W / 2);
+  // radius scales with the multi-tile span (3 tiles wide on each iso axis)
+  const RX = 0.46 * STADIUM_W * (CELL_W / 2);
   const RY = RX * 0.5;
-  iso.shadow(0.16, 0.3, 0.86, 0.74, 0.16, 0.2);
+  const WALL = 30 * RES;
+  iso.shadow(0.2, 0.4, STADIUM_W - 0.2, STADIUM_H - 0.3, 0.2, 0.22);
   // bowl wall
-  iso.r.poly([...ringPts(RX, RY, 0), ...ringPts(RX, RY, 16 * RES).reverse()], COLORS.white);
+  iso.r.poly([...ringPts(RX, RY, 0), ...ringPts(RX, RY, WALL).reverse()], COLORS.white);
   // seating ring + pitch
-  iso.r.poly(ringPts(RX * 0.92, RY * 0.92, 16 * RES), COLORS.orange);
-  iso.r.poly(ringPts(RX * 0.62, RY * 0.62, 14 * RES), darken(COLORS.orange, 0.25));
-  iso.r.poly(ringPts(RX * 0.5, RY * 0.5, 12 * RES), hex('#5f9e4e'));
-  iso.r.polyline(ringPts(RX, RY, 16 * RES), INK_W, INK, true);
+  iso.r.poly(ringPts(RX * 0.92, RY * 0.92, WALL), COLORS.orange);
+  iso.r.poly(ringPts(RX * 0.62, RY * 0.62, WALL - 2 * RES), darken(COLORS.orange, 0.25));
+  iso.r.poly(ringPts(RX * 0.5, RY * 0.5, WALL - 4 * RES), hex('#5f9e4e'));
+  iso.r.polyline(ringPts(RX, RY, WALL), INK_W, INK, true);
   iso.r.polyline(ringPts(RX, RY, 0), INK_W * 0.8, alpha(INK, 0.55), true);
-  // floodlight masts
-  for (const a of [0.8, 2.4, 4.0, 5.5]) {
-    const sx = cx + Math.cos(a) * RX * 1.04;
-    const sy = cyB + Math.sin(a) * RY * 1.04;
-    iso.r.line([sx, sy], [sx, sy - 26 * RES], 0.9 * RES, COLORS.steelDark);
-    iso.r.rect(sx - 2 * RES, sy - 29 * RES, sx + 2 * RES, sy - 26 * RES, COLORS.glassLit);
+  // the white roof-ring cable truss catching the gleam on its sun side
+  iso.gleam([cx + RX * 0.2, cyB - RY * 0.78 - WALL], [cx + RX * 0.9, cyB - RY * 0.2 - WALL], 1.4 * RES);
+  // floodlight masts around the rim
+  for (const a of [0.5, 1.4, 2.3, 3.2, 4.1, 5.0, 5.9]) {
+    const sx = cx + Math.cos(a) * RX * 1.03;
+    const sy = cyB + Math.sin(a) * RY * 1.03;
+    iso.r.line([sx, sy], [sx, sy - 34 * RES], 1.0 * RES, COLORS.steelDark);
+    iso.r.rect(sx - 2.4 * RES, sy - 38 * RES, sx + 2.4 * RES, sy - 34 * RES, COLORS.glassLit);
   }
   return iso.build();
 }
@@ -772,34 +782,37 @@ export function powerstationTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
  *  silhouette read from far zoom. A compact 1×1: a low white seating bowl
  *  with a green pitch and the parabolic arch leaning over it, its sun-facing
  *  limb catching the gleam. */
+export const WEMBLEY_W = 2;
+export const WEMBLEY_H = 2;
 export function wembleyTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso();
+  const iso = new Iso(WEMBLEY_W, WEMBLEY_H, { swAnchor: true });
   void seed;
-  const [cx, cyB] = P(0.5, 0.52, 0);
-  const RX = 0.44 * (CELL_W / 2);
+  const [cx, cyB] = iso.P(WEMBLEY_W / 2, WEMBLEY_H / 2, 0);
+  const RX = 0.46 * WEMBLEY_W * (CELL_W / 2);
   const RY = RX * 0.5;
+  const WALL = 22 * RES;
   const ring = (rx: number, ry: number, lift: number): Pt[] => {
     const pts: Pt[] = [];
-    for (let i = 0; i <= 28; i++) {
-      const a = (i / 28) * Math.PI * 2;
+    for (let i = 0; i <= 32; i++) {
+      const a = (i / 32) * Math.PI * 2;
       pts.push([cx + Math.cos(a) * rx, cyB - lift + Math.sin(a) * ry]);
     }
     return pts;
   };
-  iso.shadow(0.16, 0.32, 0.86, 0.74, 0.16, 0.2);
+  iso.shadow(0.18, 0.34, WEMBLEY_W - 0.14, WEMBLEY_H - 0.26, 0.18, 0.2);
   // the white bowl + roof ring, an orange seat band, the green pitch
-  iso.r.poly([...ring(RX, RY, 0), ...ring(RX, RY, 16 * RES).reverse()], COLORS.white);
-  iso.r.poly(ring(RX * 0.92, RY * 0.92, 16 * RES), lighten(COLORS.steel, 0.2));
-  iso.r.poly(ring(RX * 0.78, RY * 0.78, 14 * RES), COLORS.orange);
-  iso.r.poly(ring(RX * 0.6, RY * 0.6, 12 * RES), darken(COLORS.orange, 0.28));
-  iso.r.poly(ring(RX * 0.48, RY * 0.48, 11 * RES), hex('#5f9e4e'));
-  iso.r.polyline(ring(RX, RY, 16 * RES), INK_W, INK, true);
+  iso.r.poly([...ring(RX, RY, 0), ...ring(RX, RY, WALL).reverse()], COLORS.white);
+  iso.r.poly(ring(RX * 0.92, RY * 0.92, WALL), lighten(COLORS.steel, 0.2));
+  iso.r.poly(ring(RX * 0.78, RY * 0.78, WALL - 2 * RES), COLORS.orange);
+  iso.r.poly(ring(RX * 0.6, RY * 0.6, WALL - 4 * RES), darken(COLORS.orange, 0.28));
+  iso.r.poly(ring(RX * 0.48, RY * 0.48, WALL - 5 * RES), hex('#5f9e4e'));
+  iso.r.polyline(ring(RX, RY, WALL), INK_W, INK, true);
   iso.r.polyline(ring(RX, RY, 0), INK_W * 0.7, alpha(INK, 0.5), true);
   // THE ARCH: a tall white parabola leaning over the bowl, NW→SE
   const aL: Pt = [cx - RX * 1.0, cyB - 8 * RES];
   const aR: Pt = [cx + RX * 0.66, cyB - RY * 0.4 - 6 * RES];
   const apexX = cx - RX * 0.16;
-  const apexY = cyB - 78 * RES;
+  const apexY = cyB - 108 * RES;
   const archPt = (t: number): Pt => {
     const m = 1 - t;
     return [
@@ -813,55 +826,67 @@ export function wembleyTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
     iso.r.line(p, [cx + Math.cos(rA) * RX * 0.9, cyB - 13 * RES + Math.sin(rA) * RY * 0.9], 0.45 * RES, alpha(COLORS.steel, 0.6));
   }
   const archPoly: Pt[] = [];
-  for (let i = 0; i <= 20; i++) archPoly.push(archPt(i / 20));
-  iso.r.polyline(archPoly, 2.8 * RES, COLORS.white);
+  for (let i = 0; i <= 24; i++) archPoly.push(archPt(i / 24));
+  iso.r.polyline(archPoly, 5.0 * RES, COLORS.white);
   iso.r.polyline(archPoly, INK_W * 0.6, alpha(INK, 0.55));
-  iso.gleam(archPt(0.5), archPt(0.8), 1.3 * RES);
+  iso.gleam(archPt(0.5), archPt(0.8), 1.8 * RES);
   return iso.build();
 }
 
-/** THE O2 / DOME on Greenwich peninsula: a great white tented canopy on a
- *  ring of tall yellow masts, cables radiating to the dome — a compact 1×1
- *  hero. The sun-facing mast tips catch the gleam. */
+/** THE O2 / Millennium Dome on Greenwich peninsula: a GREAT white tented
+ *  canopy on a ring of tall yellow masts, cables radiating to the dome. The
+ *  real thing is one of the largest dome structures on earth (365 m across,
+ *  twelve 100 m masts) and dwarfs everything around it — so it is a dominant
+ *  3×3 footprint (owner playtest, 2026-06-13: "the O2 is enormous"), SW-
+ *  anchored. The masts spike high past the canopy rim. */
+export const O2_W = 3;
+export const O2_H = 3;
 export function o2domeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso();
+  const iso = new Iso(O2_W, O2_H, { swAnchor: true });
   void seed;
-  const [cx, cyB] = P(0.5, 0.52, 0);
-  const R = 0.5 * (CELL_W / 2);
+  const [cx, cyB] = iso.P(O2_W / 2, O2_H / 2, 0);
+  const R = 0.5 * O2_W * (CELL_W / 2);
   const ZR = R * 0.46;
-  const domeH = 26 * RES;
-  iso.shadow(0.14, 0.32, 0.88, 0.76, 0.18, 0.2);
+  // a tall billowing canopy so the dome READS as a dome, not a flat disc, and
+  // stands proud of the surrounding terraces (owner playtest: it must dominate)
+  const domeH = 64 * RES;
+  iso.shadow(0.18, 0.4, O2_W - 0.14, O2_H - 0.24, 0.2, 0.2);
+  // a smooth dome profile point: rim at angle a, lifted onto the canopy by a
+  // cosine of its radial fraction (1 at centre → 0 at rim)
   const dome = (s: number, lift: number): Pt[] => {
     const pts: Pt[] = [];
-    for (let i = 0; i <= 26; i++) {
-      const a = (i / 26) * Math.PI * 2;
+    for (let i = 0; i <= 40; i++) {
+      const a = (i / 40) * Math.PI * 2;
       pts.push([cx + Math.cos(a) * R * s, cyB - lift + Math.sin(a) * ZR * s]);
     }
     return pts;
   };
-  iso.r.poly([...dome(1, 4 * RES), ...dome(1, 0).reverse()], shaded(COLORS.white, 0.12));
-  iso.r.poly(dome(1, 4 * RES), hex('#e6e3df'));
-  iso.r.poly(
-    dome(0.6, 4 * RES).map(([x, y]): Pt => [x + R * 0.08, y - domeH * 0.7]),
-    COLORS.white,
-  );
-  const apex: Pt = [cx + R * 0.05, cyB - 4 * RES - domeH];
-  for (let i = 0; i < 12; i++) {
-    const a = (i / 12) * Math.PI * 2;
-    const e: Pt = [cx + Math.cos(a) * R, cyB - 4 * RES + Math.sin(a) * ZR];
-    iso.r.line(apex, e, 0.5 * RES, alpha(hex('#c9c6cf'), 0.7));
+  // build the bulging top surface as concentric rings lifted by a dome curve
+  // (so the white canopy is a solid swelling cap, not a flat lid)
+  iso.r.poly([...dome(1, 6 * RES), ...dome(1, 0).reverse()], shaded(COLORS.white, 0.12));
+  for (let ring = 5; ring >= 0; ring--) {
+    const s = ring / 5; // 1 (rim) → 0 (apex)
+    const lift = 6 * RES + domeH * Math.sqrt(1 - s * s); // hemispherical rise
+    const shade = ring >= 4 ? hex('#e6e3df') : ring >= 2 ? hex('#f0eeea') : COLORS.white;
+    iso.r.poly(dome(Math.max(s, 0.02), lift), shade);
   }
-  iso.r.polyline(dome(1, 4 * RES), INK_W * 0.8, alpha(INK, 0.6), true);
-  // the twelve yellow masts spiking past the rim, cable-stayed
+  const apex: Pt = [cx + R * 0.04, cyB - 6 * RES - domeH];
+  // the radial seam-cables fanning over the canopy
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    const e: Pt = [cx + Math.cos(a) * R, cyB - 6 * RES + Math.sin(a) * ZR];
+    iso.r.line(apex, e, 0.5 * RES, alpha(hex('#c9c6cf'), 0.6));
+  }
+  iso.r.polyline(dome(1, 6 * RES), INK_W * 0.8, alpha(INK, 0.6), true);
+  // the twelve tall yellow masts spiking high past the rim, cable-stayed
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2 + 0.26;
     const bx = cx + Math.cos(a) * R * 1.02;
-    const by = cyB - 2 * RES + Math.sin(a) * ZR * 1.02;
-    const tx = bx + Math.cos(a) * 4 * RES;
-    const ty = by - 22 * RES;
-    iso.r.line([bx, by], [tx, ty], 1.1 * RES, COLORS.orange);
-    iso.r.line([tx, ty], apex, 0.4 * RES, alpha(COLORS.steel, 0.55));
-    if (Math.cos(a) > 0.2) iso.glint([tx, ty], 1.6 * RES);
+    const by = cyB - 3 * RES + Math.sin(a) * ZR * 1.02;
+    const tx = bx + Math.cos(a) * 8 * RES;
+    const ty = by - 78 * RES;
+    iso.r.line([bx, by], [tx, ty], 1.6 * RES, COLORS.orange);
+    iso.r.line([tx, ty], apex, 0.4 * RES, alpha(COLORS.steel, 0.5));
   }
   return iso.build();
 }
@@ -949,33 +974,41 @@ export function allypallyTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 }
 
 /** ExCeL / ROYAL DOCKS: long parallel exhibition halls with their barrel
- *  roofs beside the dock water — a broad low industrial hero on a 2×1. */
+ *  roofs beside the dock water. The real ExCeL is ~1 km of halls along the
+ *  Royal Victoria Dock — so it's a long 3×1 hero (owner playtest, 2026-06-13:
+ *  honest relative scale), SW-anchored. */
+export const EXCEL_W = 3;
+export const EXCEL_H = 1;
 export function excelTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso(2, 1, { swAnchor: true });
+  const iso = new Iso(EXCEL_W, EXCEL_H, { swAnchor: true });
   void seed;
   const HALL = hex('#d4dae2');
-  iso.shadow(0.1, 0.16, 1.86, 0.88, 0.2, 0.2);
+  const X0 = 0.14;
+  const X1 = EXCEL_W - 0.14;
+  const XW0 = 0.1;
+  const XW1 = EXCEL_W - 0.1;
+  iso.shadow(XW0, 0.16, XW1 - 0.04, 0.88, 0.2, 0.2);
   // a strip of dock water along the south edge (the Royal Docks)
-  iso.quad(0.1, 0.86, 1.9, 0.99, 0, COLORS.waterDeep, COLORS.water);
-  iso.r.line(iso.P(0.1, 0.86, 0), iso.P(1.9, 0.86, 0), INK_W * 0.6, alpha(COLORS.waterGlint, 0.5));
+  iso.quad(XW0, 0.86, XW1, 0.99, 0, COLORS.waterDeep, COLORS.water);
+  iso.r.line(iso.P(XW0, 0.86, 0), iso.P(XW1, 0.86, 0), INK_W * 0.6, alpha(COLORS.waterGlint, 0.5));
   // the two long halls, each with a curved barrel roof + clerestory band
   for (const v0 of [0.2, 0.52] as const) {
     const v1 = v0 + 0.26;
-    iso.box(0.14, v0, 1.84, v1, 0, 18, HALL);
+    iso.box(X0, v0, X1, v1, 0, 18, HALL);
     const ridge = 24;
     const vm = (v0 + v1) / 2;
     iso.r.poly(
-      [iso.P(0.14, v0, 18), iso.P(1.84, v0, 18), iso.P(1.84, vm, ridge), iso.P(0.14, vm, ridge)],
+      [iso.P(X0, v0, 18), iso.P(X1, v0, 18), iso.P(X1, vm, ridge), iso.P(X0, vm, ridge)],
       top(HALL, 0.3),
     );
     iso.r.poly(
-      [iso.P(0.14, vm, ridge), iso.P(1.84, vm, ridge), iso.P(1.84, v1, 18), iso.P(0.14, v1, 18)],
+      [iso.P(X0, vm, ridge), iso.P(X1, vm, ridge), iso.P(X1, v1, 18), iso.P(X0, v1, 18)],
       lit(HALL, 0.04),
     );
-    iso.r.line(iso.P(0.14, vm, ridge), iso.P(1.84, vm, ridge), INK_W * 0.6, alpha(INK, 0.5));
-    iso.windowsLeft(v1, 0.2, 1.78, 7, 15, 13, alpha(COLORS.glassSky, 0.9), undefined);
-    iso.r.poly([iso.P(0.2, v1, 7), iso.P(1.76, v1, 7), iso.P(1.76, v1, 4), iso.P(0.2, v1, 4)], COLORS.orange);
-    iso.gleam(iso.P(0.95, vm, ridge), iso.P(1.84, vm, ridge), 1.0 * RES);
+    iso.r.line(iso.P(X0, vm, ridge), iso.P(X1, vm, ridge), INK_W * 0.6, alpha(INK, 0.5));
+    iso.windowsLeft(v1, X0 + 0.06, X1 - 0.06, 11, 15, 13, alpha(COLORS.glassSky, 0.9), undefined);
+    iso.r.poly([iso.P(X0 + 0.06, v1, 7), iso.P(X1 - 0.08, v1, 7), iso.P(X1 - 0.08, v1, 4), iso.P(X0 + 0.06, v1, 4)], COLORS.orange);
+    iso.gleam(iso.P(EXCEL_W * 0.5, vm, ridge), iso.P(X1, vm, ridge), 1.0 * RES);
   }
   return iso.build();
 }

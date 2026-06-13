@@ -264,20 +264,12 @@ export const NAMED_PLACES: Array<{ x: number; y: number; name: string }> = [
   { x: 137, y: 72, name: 'Westfield Stratford' },
 ];
 
-/** Generation already on the system when the game opens — the real-world
- *  foundations (estuary gas, Lea-side plant, Essex solar/wind), developer
- *  owned and operational, just waiting for someone to wire them in. The
- *  owner's Embedded Capacity Register extract can replace this list. */
-export const EXISTING_GENERATION: Array<{
-  gen: 'gasCCGT' | 'gasPeaker' | 'solarFarm' | 'windOnshore';
-  x: number;
-  y: number;
-}> = [
-  { gen: 'gasCCGT', x: 204, y: 70 }, // Coryton/Tilbury analog on the estuary
-  { gen: 'gasPeaker', x: 128, y: 40 }, // Enfield analog up the Lea
-  { gen: 'solarFarm', x: 192, y: 88 }, // Essex field array
-  { gen: 'windOnshore', x: 228, y: 46 }, // turbines above the creek
-];
+// NOTE: EXISTING_GENERATION (the seeded estuary CCGTs / Lea peaker / Essex
+// solar+wind that used to come pre-built on the system) was REMOVED on the
+// 2026-06-13 playtest pass — the owner asked for a truly blank starting grid
+// ("forget all about actual generation and the ECR. All of it vanished in the
+// vanishing."). The player now builds everything from scratch; the iDNO
+// new-build ESTATES (NEW_ESTATES) remain as customer DEMAND awaiting a wire.
 
 // --- Builder ---------------------------------------------------------------
 
@@ -696,6 +688,14 @@ export function buildLondonMap(): CityMap {
   zoneRect(132, 65, 139, 73, ZONE.park);
   zoneRect(130, 100, 137, 104, ZONE.park); // Greenwich park
   zoneRect(126, 108, 132, 113, ZONE.park); // Dulwich
+  // Wembley: a green apron around the (now 2×2) stadium + arch so the hero
+  // stands proud of the surrounding terraces/council blocks (owner playtest,
+  // 2026-06-13: the venues must read as dominant landmarks).
+  zoneRect(85, 57, 91, 63, ZONE.park);
+  // The O2 / Millennium Dome: the Greenwich peninsula tip is open ground
+  // (car parks + plaza) around the dome — clear an apron so the enormous 3×3
+  // canopy isn't swamped by the terraces to its south/west.
+  zoneRect(137, 88, 143, 93, ZONE.park);
   // golf courses fringing the suburbs and towns
   for (const [cx, cy, r] of [
     [70, 58, 2], [44, 64, 1.8], [100, 34, 1.8], [148, 70, 2],
@@ -1218,9 +1218,11 @@ export function buildLondonMap(): CityMap {
   // Orbit between it and Westfield, the Westfield Stratford City retail mass
   // to the south-east beside the park.
   placeLandmark(133, 66, LANDMARK.velodrome); // Lee Valley VeloPark, N
-  placeLandmark(134, 69, LANDMARK.stadium); // the Olympic Stadium bowl, centre
-  placeLandmark(136, 68, LANDMARK.orbit); // the ArcelorMittal Orbit, the tower
-  placeLandmarkRect(136, 71, 2, 2, LANDMARK.westfield); // Westfield Stratford City, SE
+  // the Olympic Stadium bowl, centre — a dominant 3×3 (owner playtest): the
+  // real London Stadium is enormous. Reserve its precinct (anchor 133,68).
+  placeLandmarkRect(133, 68, 3, 3, LANDMARK.stadium);
+  placeLandmark(137, 68, LANDMARK.orbit); // the ArcelorMittal Orbit, the tower (E of the bowl)
+  placeLandmarkRect(137, 72, 2, 2, LANDMARK.westfield); // Westfield Stratford City, SE
   placeLandmark(118, 58, LANDMARK.arena); // north London ground
   placeLandmark(106, 110, LANDMARK.arena); // south London ground
   placeLandmark(98, 74, LANDMARK.mall); // the western Westfield (Shepherd's Bush)
@@ -1228,11 +1230,15 @@ export function buildLondonMap(): CityMap {
   placeLandmark(115, 65, LANDMARK.zoo);
   // Wave 9 heroes (map-overhaul §5: "many are missing") at true positions.
   // Multi-tile ones reserve their precinct; the rest take a single anchor.
-  placeLandmark(88, 60, LANDMARK.wembley); // the arch, NW
-  placeLandmark(140, 90, LANDMARK.o2dome); // Greenwich peninsula
+  // Wembley: the great arch + bowl, a dominant 2×2 (owner playtest), NW
+  placeLandmarkRect(87, 59, 2, 2, LANDMARK.wembley);
+  // The O2 / Millennium Dome: ENORMOUS — a dominant 3×3 on the Greenwich
+  // peninsula (owner playtest, 2026-06-13). Anchor at 139,89 keeps it centred
+  // near its true spot, clear of the Thames just to its north.
+  placeLandmarkRect(139, 89, 3, 3, LANDMARK.o2dome);
   placeLandmark(118, 118, LANDMARK.palacemast); // Crystal Palace, S ridge
   placeLandmarkRect(112, 52, 2, 1, LANDMARK.allypally); // Alexandra Palace, N hill
-  placeLandmarkRect(149, 85, 2, 1, LANDMARK.excel); // ExCeL / Royal Docks, E
+  placeLandmarkRect(149, 85, 3, 1, LANDMARK.excel); // ExCeL / Royal Docks, E (long 3×1)
   placeLandmark(86, 96, LANDMARK.kewhouse); // Kew Palm House by the bend
   placeLandmark(112, 72, LANDMARK.bttower); // BT Tower, West End spike
   // the Gherkin: a single CBD tile gets its own id (no neighbour demotion —

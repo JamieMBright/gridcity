@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { AlertsFeed, EventLog } from '../ui/AlertsFeed';
 import { BalancePanel } from '../ui/BalancePanel';
 import { BillPanel } from '../ui/BillPanel';
+import { BuildLabelChip } from '../ui/BuildLabelChip';
 import { BuildPalette } from '../ui/BuildPalette';
 import { FleetPanel } from '../ui/FleetPanel';
 import { Hud } from '../ui/Hud';
@@ -246,6 +247,7 @@ export function App() {
             <StatusBar />
           </>
         ))}
+      {!menuOpen && <BuildLabelChip />}
       {!menuOpen && <Hud compact={compact} />}
       {!menuOpen && <Minimap />}
       <Toast />

@@ -31,6 +31,8 @@ import {
   churchTile,
   datacentreTile,
   domeTile,
+  EXCEL_H,
+  EXCEL_W,
   excelTile,
   eyeTile,
   fortressTile,
@@ -40,6 +42,8 @@ import {
   heathrowTile,
   kewhouseTile,
   mallTile,
+  O2_H,
+  O2_W,
   o2domeTile,
   orbitTile,
   palacemastTile,
@@ -49,12 +53,16 @@ import {
   sewageTile,
   skyscraperTile,
   spireTile,
+  STADIUM_H,
+  STADIUM_W,
   stadiumTile,
   stationTile,
   towerBridgeTile,
   townhallTile,
   velodromeTile,
   watertowerTile,
+  WEMBLEY_H,
+  WEMBLEY_W,
   wembleyTile,
   westfieldTile,
   zooTile,
@@ -239,18 +247,18 @@ function buildSpriteCells(): Map<string, Cell> {
   set('lm_gherkin', gherkinTile(223));
   set('lm_fortress', fortressTile(215));
   set('lm_bridge', towerBridgeTile(216), 1, 4, true);
-  set('lm_stadium', stadiumTile(217));
+  set('lm_stadium', stadiumTile(217), STADIUM_W, STADIUM_H, true);
   set('lm_arena', arenaTile(218));
   set('lm_mall', mallTile(219));
   set('lm_zoo_0', zooTile(220, 0));
   set('lm_zoo_1', zooTile(221, 1));
   set('lm_power', powerstationTile(222), 2, 2, true);
   // Wave 9 heroes (map-overhaul §5)
-  set('lm_wembley', wembleyTile(311));
-  set('lm_o2dome', o2domeTile(312));
+  set('lm_wembley', wembleyTile(311), WEMBLEY_W, WEMBLEY_H, true);
+  set('lm_o2dome', o2domeTile(312), O2_W, O2_H, true);
   set('lm_palacemast', palacemastTile(313));
   set('lm_allypally', allypallyTile(314), 2, 1, true);
-  set('lm_excel', excelTile(315), 2, 1, true);
+  set('lm_excel', excelTile(315), EXCEL_W, EXCEL_H, true);
   set('lm_kewhouse', kewhouseTile(316));
   set('lm_bttower', bttowerTile(317));
   set('lm_heathrow', heathrowTile(318), HEATHROW_W, HEATHROW_H, true);

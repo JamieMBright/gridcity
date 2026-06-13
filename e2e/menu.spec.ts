@@ -18,7 +18,9 @@ test.describe('start menu, tutorial, KPI dashboard', () => {
     await expect(page.getByText('power a stylized London')).toBeVisible();
     await clickButton(page, 'new game');
     await expect.poll(() => store<boolean>(page, '(s) => s.menuOpen')).toBe(false);
-    // a fresh game is seeded: the iDNO estate substations are already in
+    // a fresh game keeps the iDNO estate substations (customer demand
+    // awaiting connection) but NO generation — the grid vanished, so the
+    // map starts blank of any pre-existing plant
     await expect
       .poll(() =>
         store<number>(
@@ -31,10 +33,10 @@ test.describe('start menu, tutorial, KPI dashboard', () => {
       .poll(() =>
         store<number>(
           page,
-          "(s) => s.snapshot.assets.filter((a) => a.kind === 'gen' && a.developer).length",
+          "(s) => s.snapshot.assets.filter((a) => a.kind === 'gen').length",
         ),
       )
-      .toBe(4); // the existing-generation foundations
+      .toBe(0); // nothing pre-existing — the blank grid (the Vanishing)
     await expect
       .poll(() =>
         store<number>(
