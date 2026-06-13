@@ -16,6 +16,7 @@ import {
   type Tender,
 } from '../sim/events/developers';
 import { CONSTRAINT_COMP_K } from '../sim/market/dispatch';
+import { FirmFlexCompare } from './FirmFlexCompare';
 import { fmtMoneyK, panelStyle, theme } from './theme';
 
 const btn = (color: string): React.CSSProperties => ({
@@ -198,6 +199,11 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
         padding: '8px 12px',
         fontSize: 12,
         lineHeight: 1.5,
+        // sit ABOVE the alerts feed (zIndex 4) — the inbox is interactive
+        // (run study / offer firm·flex / decline) and its taller open-app
+        // card with the firm/flex comparison overlaps the alerts band, so
+        // it must win the stack (matches the pinned-inspector doctrine)
+        zIndex: 5,
         ...frame,
       }}
     >
@@ -333,29 +339,34 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
                   {a.mw} MW {isGen ? 'generation' : 'new demand'} · decide in{' '}
                   {daysLeft.toFixed(0)}d
                 </div>
-                {study && (
-                  <div style={{ fontSize: 11, marginTop: 3, lineHeight: 1.45 }}>
-                    {study.ok && study.bayName !== undefined && (
-                      <div style={{ color: theme.slate }}>
-                        study: {study.level} kV line to {study.bayName} ({study.distKm} km,{' '}
-                        {fmtMoneyK(study.lineCapexK ?? 0)})
-                      </div>
-                    )}
+                {study && study.ok && study.bayName !== undefined && (
+                  <div style={{ fontSize: 11, marginTop: 3, color: theme.slate }}>
+                    study: {study.level} kV line to {study.bayName} ({study.distKm} km,{' '}
+                    {fmtMoneyK(study.lineCapexK ?? 0)})
+                  </div>
+                )}
+                {study && study.impacts.length > 0 && (
+                  <div style={{ fontSize: 11, marginTop: 2, lineHeight: 1.45 }}>
                     {study.impacts.map((imp, i) => (
                       <div key={i} style={{ color: theme.danger }}>
                         ⚠ {imp.label}: {imp.beforePct}% → {imp.afterPct}%
                       </div>
                     ))}
-                    <div
-                      style={{
-                        color: study.ok && study.impacts.length === 0 ? theme.ok : theme.orangeSoft,
-                      }}
-                    >
-                      {study.recommendation}
-                    </div>
                   </div>
                 )}
-                <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
+                {/* side-by-side firm/flex tradeoff (T4) — cards carry the
+                    accept buttons; the loose study + decline buttons stay */}
+                <FirmFlexCompare
+                  study={study}
+                  isGen={isGen}
+                  onFirm={() =>
+                    sendCommand({ type: 'respondApplication', appId: a.id, response: 'firm' })
+                  }
+                  onFlex={() =>
+                    sendCommand({ type: 'respondApplication', appId: a.id, response: 'flex' })
+                  }
+                />
+                <div style={{ display: 'flex', gap: 4, marginTop: 5 }}>
                   {!study && (
                     <button
                       style={btn(theme.orangeSoft)}
@@ -363,26 +374,6 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
                       onClick={() => requestStudy(a.id)}
                     >
                       ⚖ study
-                    </button>
-                  )}
-                  <button
-                    style={btn(theme.ok)}
-                    title="Full access; you compensate them if constrained off"
-                    onClick={() =>
-                      sendCommand({ type: 'respondApplication', appId: a.id, response: 'firm' })
-                    }
-                  >
-                    firm
-                  </button>
-                  {isGen && (
-                    <button
-                      style={btn(theme.gold)}
-                      title="Curtailable connection — no compensation owed"
-                      onClick={() =>
-                        sendCommand({ type: 'respondApplication', appId: a.id, response: 'flex' })
-                      }
-                    >
-                      flexible
                     </button>
                   )}
                   <button
