@@ -172,18 +172,20 @@ async function main(): Promise<void> {
     }
   }
 
-  // --- roads: thin streets that CUT THROUGH (stamp + suppress building) ----
+  // --- roads: the FULL network as contiguous ribbons that CUT THROUGH -------
   const routes: TransportRoute[] = [];
   const stamp = (pts: Pt[], rc: number, hw: number): void => strokePolylineTiles(pts, hw, W, H, (x, y) => { const i = idx(x, y); if (terrain[i] !== TERRAIN.water && rc > (road[i] ?? 0)) road[i] = rc; });
-  const arterialCands: Array<{ pts: Pt[]; len: number }> = [];
   for (const r of features.roads) {
     const pts = r.pts.map(([lo, la]) => proj.toTile(lo, la));
-    if (r.cls === 'motorway') { stamp(pts, RC.motorway, 0.5); routes.push({ kind: 'motorway', pts: simplifyPath(pts, 0.5).map((p) => [p[0], p[1]]) }); }
-    else if (r.cls === 'arterial') { stamp(pts, RC.arterial, 0.32); arterialCands.push({ pts, len: pathLen(pts) }); }
-    else stamp(pts, RC.street, 0.16); // thin residential — clears the seam, no ribbon
+    const simp = simplifyPath(pts, 0.5);
+    if (simp.length < 2) continue;
+    const sp = simp.map((p): [number, number] => [p[0], p[1]]);
+    // every road is BOTH stamped (clears its tile so the street shows, not a
+    // building) AND drawn as a continuous ribbon → a contiguous network
+    if (r.cls === 'motorway') { stamp(pts, RC.motorway, 0.5); routes.push({ kind: 'motorway', pts: sp }); }
+    else if (r.cls === 'arterial') { stamp(pts, RC.arterial, 0.3); routes.push({ kind: 'arterial', pts: sp }); }
+    else { stamp(pts, RC.street, 0.14); routes.push({ kind: 'street', pts: sp }); }
   }
-  arterialCands.sort((a, b) => b.len - a.len);
-  for (const a of arterialCands.slice(0, 500)) routes.push({ kind: 'arterial', pts: simplifyPath(a.pts, 0.5).map((p) => [p[0], p[1]]) });
   for (const line of features.rivers) { const s = simplifyPath(line.map(([lo, la]) => proj.toTile(lo, la)), 0.6); if (s.length >= 2) routes.push({ kind: 'lane', pts: s.map((p) => [p[0], p[1]]) }); }
   // road tiles hold no building (the street shows through)
   for (let i = 0; i < n; i++) if ((road[i] ?? 0) >= RC.arterial) zone[i] = zone[i] === ZONE.none ? ZONE.none : ZONE.urban;
@@ -231,12 +233,6 @@ async function main(): Promise<void> {
   const x1 = arg('x1', 160);
   const y1 = arg('y1', 104);
   renderCityCrop(atlas, map, x0, y0, x1, y1, scale, `seeded-${id}`);
-}
-
-function pathLen(pts: Pt[]): number {
-  let L = 0;
-  for (let i = 0; i + 1 < pts.length; i++) L += Math.hypot(pts[i + 1]![0] - pts[i]![0], pts[i + 1]![1] - pts[i]![1]);
-  return L;
 }
 
 main().catch((e) => {
