@@ -218,14 +218,25 @@ function polyCentroidLL(poly: LLPolygon): LL | null {
   return [sx / ring.length, sy / ring.length];
 }
 
-/** A real OSM building footprint + its height in metres (0 if unknown). */
+/** A real OSM building footprint + the tags we classify it by. */
 export interface BuildingFootprint {
   poly: LLPolygon;
   heightM: number;
+  levels: number;
+  /** `building=` value (apartments/office/retail/hospital/…/yes). */
+  kind: string;
+  /** civic/POI tags that pin a special or hero. */
+  amenity?: string;
+  office?: string;
+  shop?: string;
+  tourism?: string;
+  historic?: string;
+  name?: string;
+  wikidata?: string;
 }
 
 /** Fetch EVERY building footprint in the bbox (not just the named/notable
- *  ones) — for the "blank real shapes" evaluation layer. Heavy, so cached. */
+ *  ones) — for the reality-seeded building layer. Heavy, so cached. */
 export async function fetchAllBuildings(bbox: Bbox): Promise<BuildingFootprint[]> {
   const b = `${bbox.minLat},${bbox.minLon},${bbox.maxLat},${bbox.maxLon}`;
   const query = `[out:json][timeout:240];(way["building"](${b});relation["building"]["type"="multipolygon"](${b}););out geom;`;
@@ -247,7 +258,19 @@ export async function fetchAllBuildings(bbox: Bbox): Promise<BuildingFootprint[]
         const t = el.tags ?? {};
         const levels = Number(t['building:levels'] ?? 0);
         const heightM = Number(String(t.height ?? '').replace(/[^\d.]/g, '')) || levels * 3 || 0;
-        out.push({ poly, heightM });
+        out.push({
+          poly,
+          heightM,
+          levels,
+          kind: t.building ?? 'yes',
+          ...(t.amenity ? { amenity: t.amenity } : {}),
+          ...(t.office ? { office: t.office } : {}),
+          ...(t.shop ? { shop: t.shop } : {}),
+          ...(t.tourism ? { tourism: t.tourism } : {}),
+          ...(t.historic ? { historic: t.historic } : {}),
+          ...(t.name ? { name: t.name } : {}),
+          ...(t.wikidata ? { wikidata: t.wikidata } : {}),
+        });
       }
       return out;
     } catch (err) {
