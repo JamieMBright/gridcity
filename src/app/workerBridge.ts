@@ -1,6 +1,6 @@
 import { playSfx } from '../audio/audio';
 import { currentUser } from '../online/auth';
-import { pullCloudSave, pushCloudSave, submitScore } from '../online/cloud';
+import { pullCloudSave, pushCloudSave, pushRank, submitScore, syncRank } from '../online/cloud';
 import { localStorageStore } from '../persistence/localStorageStore';
 import { pickSave } from '../persistence/saveStore';
 import type { Command } from '../sim/commands';
@@ -47,6 +47,10 @@ let freshGamePending = false;
 export function initWorker(): void {
   if (worker) return;
   worker = new Worker(new URL('../sim/worker.ts', import.meta.url), { type: 'module' });
+
+  // pull-merge the operator rank from the cloud for an already-signed-in
+  // player (no-op for guests); best-effort.
+  void syncRank();
 
   const store = useAppStore.getState();
 
@@ -111,6 +115,8 @@ export function initWorker(): void {
           // promotion the UI celebrates; guests additionally get a gentle
           // "sign in to keep your rank" nudge (never blocks play).
           const outcome = addPeriodResult(msg.snapshot.riio.lastReport.composite);
+          // sync the new career to the cloud (no-op for guests)
+          void pushRank();
           if (outcome.rankedUp) {
             s.setRankUp(outcome.after);
             playSfx('chime');

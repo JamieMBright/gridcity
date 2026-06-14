@@ -127,6 +127,31 @@ function writeCareer(rec: CareerRecord): void {
   }
 }
 
+/** Best-of merge a (cloud) record into local — points/periods take the MAX,
+ *  bestGrade the better letter. Append-only spirit: a merge never demotes.
+ *  Returns the merged record (also persisted). Used on sign-in to reconcile
+ *  a device's local career with the cloud copy. */
+const GRADE_RANK: Record<string, number> = { A: 5, B: 4, C: 3, D: 2, E: 1 };
+export function mergeCareer(remote: Partial<CareerRecord> | undefined): CareerRecord {
+  const local = readCareer();
+  if (!remote) return local;
+  const rPoints = typeof remote.points === 'number' && remote.points >= 0 ? remote.points : 0;
+  const rPeriods = typeof remote.periods === 'number' && remote.periods >= 0 ? Math.floor(remote.periods) : 0;
+  const rg = remote.bestGrade;
+  const bestOf = (a: CareerRecord['bestGrade'], b: CareerRecord['bestGrade']): CareerRecord['bestGrade'] => {
+    if (!a) return b;
+    if (!b) return a;
+    return (GRADE_RANK[a] ?? 0) >= (GRADE_RANK[b] ?? 0) ? a : b;
+  };
+  const merged: CareerRecord = {
+    points: Math.max(local.points, rPoints),
+    periods: Math.max(local.periods, rPeriods),
+    bestGrade: bestOf(local.bestGrade, rg === 'A' || rg === 'B' || rg === 'C' || rg === 'D' || rg === 'E' ? rg : undefined),
+  };
+  writeCareer(merged);
+  return merged;
+}
+
 /** The current rank + progress, derived from the persisted career. */
 export function currentRank(): RankProgress {
   return rankForPoints(readCareer().points);

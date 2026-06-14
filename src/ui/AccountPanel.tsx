@@ -17,7 +17,7 @@ import {
   verifyCode,
   type OnlineUser,
 } from '../online/auth';
-import { fetchLeaderboard, pullSettings, pushSettings, type LeaderboardRow } from '../online/cloud';
+import { fetchLeaderboard, pullSettings, pushSettings, syncRank, type LeaderboardRow } from '../online/cloud';
 import { theme } from './theme';
 
 // width:auto + maxWidth keeps the card readable on desktop yet able to
@@ -146,7 +146,11 @@ export function AccountPanel({ showBoard = true }: { showBoard?: boolean } = {})
     const u = await currentUser();
     setUser(u);
     setPhase('idle');
-    if (u) pushSettings(getAudioSettings());
+    if (u) {
+      pushSettings(getAudioSettings());
+      // reconcile this device's operator rank with the cloud on sign-in
+      void syncRank();
+    }
   };
 
   const doSignIn = async (): Promise<void> => {

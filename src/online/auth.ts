@@ -96,13 +96,23 @@ export async function signInWithPassword(
   return undefined;
 }
 
-/** Email a password-reset link. Returns undefined on success. */
+/** Email a password-reset link. Returns undefined on success. The link
+ *  redirects back to the app's /#type=recovery, handled by AuthCallback. */
 export async function resetPassword(email: string): Promise<string | undefined> {
   const sb = supabase();
   if (!sb) return 'online play is not configured';
   const { error } = await sb.auth.resetPasswordForEmail(email, {
     redirectTo: window.location.origin,
   });
+  return error?.message;
+}
+
+/** Set a new password for the user in a recovery session (the auth-callback
+ *  page after a reset link). Returns undefined on success. */
+export async function updatePassword(password: string): Promise<string | undefined> {
+  const sb = supabase();
+  if (!sb) return 'online play is not configured';
+  const { error } = await sb.auth.updateUser({ password });
   return error?.message;
 }
 
