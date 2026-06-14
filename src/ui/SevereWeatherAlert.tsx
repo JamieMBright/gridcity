@@ -33,10 +33,38 @@ export interface StormForecastRow {
 export const SEVERE_SEVERITY = 0.85;
 
 /** Only pop the alert while landfall is within this lead window
- *  (game-minutes). The regime pre-roll gives 2–6 game-days of notice; we
- *  cap the centre-screen interrupt to the final ~3 days so it lands as the
- *  storm bears down, not the instant it's first forecast far out. */
-export const SEVERE_ETA_WINDOW_MIN = 3 * 1440;
+ *  (game-minutes). In reality a network operator usually gets ~7 days'
+ *  notice of a severe storm and runs the system-prepare over that lead time
+ *  (owner, 2026-06-14), so we warn a full 7 game-days out. */
+export const SEVERE_ETA_WINDOW_MIN = 7 * 1440;
+
+/** Forecast peak GUST in km/h from the sim's wind-intensity `severity`
+ *  (0..1). Anchored to real GB storms: Beaufort gale 62–88, storm 89–117,
+ *  violent storm 103–117, hurricane-force ≥118; named UK storms commonly
+ *  gust 120–160+ km/h (e.g. Éowyn 2025), a routine windy front ~60–90. We
+ *  peg severity 0.85 (the sim's severe cut) ≈ 95 km/h and 1.0 ≈ 150, so
+ *  named storms (0.92+) land 120–160 and routine fronts sit below. */
+export function gustKmh(severity: number): number {
+  return Math.round(Math.max(50, Math.min(165, 95 + (severity - 0.85) * 367)));
+}
+
+/** Met Office-style warning level from the peak gust (km/h): YELLOW = some
+ *  low-level disruption; AMBER ≈ 60–90 mph (~100–145 km/h), significant
+ *  impact / danger to life; RED = exceptional, ~145+ km/h. */
+export type WarnLevel = 'yellow' | 'amber' | 'red';
+export function warningLevel(gust: number): WarnLevel {
+  if (gust >= 145) return 'red';
+  if (gust >= 100) return 'amber';
+  return 'yellow';
+}
+
+/** Colour + label for a warning level (the hazardous yellow→amber→red
+ *  branding the public sees). */
+export const WARN_STYLE: Record<WarnLevel, { color: string; label: string }> = {
+  yellow: { color: '#e9c84a', label: 'YELLOW WARNING' },
+  amber: { color: '#ff8a1e', label: 'AMBER WARNING' },
+  red: { color: '#e0697a', label: 'RED WARNING' },
+};
 
 /** Is this forecast row a severe storm bearing down within the window?
  *  `nowMin` = snapshot.simTimeMin; etaMin is the absolute window-open
@@ -93,9 +121,7 @@ export function formatEta(remainingMin: number): string {
  *  severity-tinted swirl. Pure SVG, scales to its box. The viewBox is the
  *  schematic plan — there's no storm x/y in the data, so the geometry is
  *  fixed and reads clearly rather than literal. */
-function WeatherMap({ severity, etaLabel }: { severity: number; etaLabel: string }) {
-  // hotter swirl for a fiercer storm
-  const swirl = severity >= 0.95 ? theme.danger : theme.sunset;
+function WeatherMap({ swirl, etaLabel }: { swirl: string; etaLabel: string }) {
   return (
     <svg
       viewBox="0 0 320 180"
@@ -238,7 +264,11 @@ export function SevereWeatherAlert() {
 
   const remaining = storm.etaMin - nowMin;
   const etaLabel = formatEta(remaining);
-  const sevPct = Math.round(storm.severity * 100);
+  const gust = gustKmh(storm.severity);
+  const warn = warningLevel(gust);
+  const warnColor = WARN_STYLE[warn].color;
+  // fraction of the bar = gust mapped over a 50–165 km/h scale
+  const gustPct = Math.round(((gust - 50) / (165 - 50)) * 100);
 
   // already running surge crews from an earlier hire? show as confirmed.
   const surging = snapshot.fleet.vans.length > snapshot.fleet.fleetSize;
@@ -294,7 +324,7 @@ export function SevereWeatherAlert() {
           margin: 'auto',
           background:
             'linear-gradient(168deg, rgba(18,24,52,0.96) 0%, rgba(34,25,58,0.96) 100%)',
-          border: `1px solid ${theme.danger}`,
+          border: `1px solid ${warnColor}`,
           borderRadius: 14,
           boxShadow: '0 18px 48px rgba(6,8,18,0.7), inset 0 1px 0 rgba(242,239,232,0.06)',
           color: theme.offWhite,
@@ -309,13 +339,29 @@ export function SevereWeatherAlert() {
 
         {/* header */}
         <div style={{ padding: '16px 20px 10px' }}>
-          <div style={{ color: theme.danger, fontSize: 12, letterSpacing: '0.2em', fontWeight: 700 }}>
-            ⛈ SEVERE WEATHER WARNING
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {/* the hazardous Met-Office warning badge: yellow → amber → red */}
+            <span
+              style={{
+                background: warnColor,
+                color: '#10162e',
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: '0.14em',
+                padding: '2px 8px',
+                borderRadius: 5,
+              }}
+            >
+              ⚠ {WARN_STYLE[warn].label}
+            </span>
+            <span style={{ color: warnColor, fontSize: 12, letterSpacing: '0.18em', fontWeight: 700 }}>
+              WIND
+            </span>
           </div>
-          <div style={{ fontSize: 22, fontWeight: 800, marginTop: 4 }}>{storm.name}</div>
+          <div style={{ fontSize: 22, fontWeight: 800, marginTop: 6 }}>{storm.name}</div>
           <div style={{ color: theme.slate, fontSize: 12.5, marginTop: 4 }}>
-            The clock is <span style={{ color: theme.gold }}>paused</span> — get the network ready
-            before landfall.
+            ~7 days' notice — the clock is <span style={{ color: theme.gold }}>paused</span> so you
+            can run the system-prepare before landfall.
           </div>
         </div>
 
@@ -331,7 +377,7 @@ export function SevereWeatherAlert() {
           }}
         >
           <div style={{ flex: '1 1 280px', minWidth: 240 }}>
-            <WeatherMap severity={storm.severity} etaLabel={etaLabel} />
+            <WeatherMap swirl={warnColor} etaLabel={etaLabel} />
           </div>
           <div
             style={{
@@ -347,18 +393,18 @@ export function SevereWeatherAlert() {
               <div style={{ color: theme.slate, fontSize: 10.5, letterSpacing: 1.4, textTransform: 'uppercase' }}>
                 Landfall in
               </div>
-              <div style={{ color: theme.danger, fontSize: 28, fontWeight: 800, lineHeight: 1 }}>
+              <div style={{ color: warnColor, fontSize: 28, fontWeight: 800, lineHeight: 1 }}>
                 {etaLabel}
               </div>
             </div>
             <div>
               <div style={{ color: theme.slate, fontSize: 10.5, letterSpacing: 1.4, textTransform: 'uppercase' }}>
-                Forecast severity
+                Forecast peak gusts
               </div>
-              <div style={{ color: theme.sunset, fontSize: 18, fontWeight: 700 }}>
-                {sevPct}% gusts
+              <div style={{ color: warnColor, fontSize: 22, fontWeight: 800 }}>
+                {gust} <span style={{ fontSize: 13, fontWeight: 600 }}>km/h</span>
               </div>
-              {/* severity bar */}
+              {/* gust bar over a 50–165 km/h scale, tinted to the warning level */}
               <div
                 style={{
                   marginTop: 4,
@@ -370,9 +416,9 @@ export function SevereWeatherAlert() {
               >
                 <div
                   style={{
-                    width: `${sevPct}%`,
+                    width: `${gustPct}%`,
                     height: '100%',
-                    background: `linear-gradient(90deg, ${theme.gold}, ${theme.danger})`,
+                    background: `linear-gradient(90deg, ${theme.gold}, ${warnColor})`,
                   }}
                 />
               </div>
