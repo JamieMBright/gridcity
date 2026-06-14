@@ -131,6 +131,7 @@ export function buildCityFromData(d: CityData): CityMap {
     vegetation: new Uint8Array(n),
     variant: new Uint8Array(n),
     councils: d.councils,
+    ...(d.fabric ? { fabric: d.fabric } : {}),
   };
   fillDerivedLayers(map);
   return map;

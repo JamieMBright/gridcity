@@ -484,6 +484,137 @@ export function villaTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
+/**
+ * Bespoke PARIS building stock: a Haussmann apartment block. Researched from
+ * the reference photos (owner, 2026-06-14): uniform ~6-storey cream
+ * pierre-de-taille ashlar facade with a strong cornice, regular tall French
+ * windows, continuous wrought-iron *balcons filants* (typically the 2nd and
+ * top floors), and the signature steep GREY ZINC MANSARD roof with dormer
+ * windows (lucarnes) + chimney stacks. Drawn full-tile so a street of them
+ * reads as the grid-like, pale, uniform Paris the owner described.
+ */
+export function haussmannTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 36497 + variant * 131 + 7);
+  // pierre de taille — warm pale limestone, a touch of per-block variation
+  const stoneSet: RGBA[] = [hex('#e6ddc6'), hex('#e1d7bf'), hex('#eae2cd'), hex('#dcd2b8')];
+  const stone = stoneSet[variant % stoneSet.length] ?? stoneSet[0]!;
+  const zinc = hex('#6b7079'); // the grey zinc mansard + roofscape
+  const zincTop = hex('#7c828c');
+  const iron = hex('#34343d'); // balcony railings + window guards
+  const band = hex('#d8cdb1'); // string-course / cornice shadow line
+  const frame = hex('#f1ebdb');
+  const u0 = 0;
+  const u1 = 1;
+  const v0 = 0.08;
+  const v1 = 0.86;
+  const floors = 5 + (variant % 2); // 5–6 storeys, uniform along the street
+  const fh = 8.4;
+  const H = Math.round(10 + floors * fh); // top of the stone facade (cornice)
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.24);
+
+  // the limestone block
+  iso.box(u0, v0, u1, v1, 0, H, stone);
+
+  // ground floor: mark the taller porte-cochère band with a sill line
+  iso.edge(P(u0, v1, fh + 2), P(u1, v1, fh + 2), INK_W * 0.6, alpha(INK, 0.5));
+
+  // horizontal string courses between floors (the strong Parisian horizontals)
+  for (let f = 1; f <= floors; f++) {
+    const z = 10 + f * fh;
+    iso.r.line(P(u0, v1, z), P(u1, v1, z), INK_W * 0.7, alpha(band, 0.9));
+    iso.r.line(P(u1, v0, z), P(u1, v1, z), INK_W * 0.7, alpha(band, 0.9));
+  }
+
+  // regular tall French windows on both visible walls, one row per floor
+  for (let f = 0; f < floors; f++) {
+    const zb = 12 + f * fh + 1.4;
+    const zt = 12 + f * fh + fh - 1.2;
+    iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, zb, zt, 5, glass(rng, 0.45), frame);
+    iso.windowsRight(u1, v0 + 0.06, v1 - 0.06, zb, zt, 5, glass(rng, 0.4), frame);
+  }
+
+  // continuous wrought-iron balconies (balcons filants) on the 2nd + top floors
+  const balconyFloors = variant % 2 === 0 ? [1, floors - 1] : [1, floors - 2, floors - 1];
+  for (const f of balconyFloors) {
+    if (f < 1 || f >= floors) continue;
+    const z = 12 + f * fh;
+    drawBalcony(iso, u0 + 0.04, u1 - 0.04, v1, z, iron, frame);
+  }
+
+  // the cornice: a crisp protruding ledge crowning the stone
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, H - 2, H + 1.5, lighten(stone, 0.06), {
+    topC: top(stone, 0.3),
+  });
+
+  // the steep grey-zinc MANSARD roof: slopes inward from the cornice
+  const mr = 15 + (variant % 2) * 3; // mansard rise
+  const ui = 0.16; // inward inset of the mansard's flat top (u)
+  const vi = 0.12; // inward inset (v)
+  const zT = H + mr;
+  // near (left, v1) slope — shaded
+  iso.r.poly(
+    [P(u0, v1, H), P(u1, v1, H), P(u1 - ui, v1 - vi, zT), P(u0 + ui, v1 - vi, zT)],
+    shaded(zinc, 0.18),
+  );
+  // right (u1) slope — lit
+  iso.r.poly(
+    [P(u1, v0, H), P(u1, v1, H), P(u1 - ui, v1 - vi, zT), P(u1 - ui, v0 + vi, zT)],
+    lit(zinc, 0.06),
+  );
+  // the shallow leaded top
+  iso.quad(u0 + ui, v0 + vi, u1 - ui, v1 - vi, zT, zincTop);
+  // ink the mansard silhouette
+  iso.r.polyline([P(u0, v1, H), P(u0 + ui, v1 - vi, zT), P(u1 - ui, v1 - vi, zT), P(u1 - ui, v0 + vi, zT), P(u1, v0, H)], INK_W, INK);
+  iso.edge(P(u1, v1, H), P(u1 - ui, v1 - vi, zT));
+
+  // dormer windows (lucarnes) poking from the near mansard slope
+  const dormers = 3;
+  for (let i = 0; i < dormers; i++) {
+    const u = 0.2 + (i * 0.6) / (dormers - 1);
+    const vd = v1 - vi * 0.45;
+    const zd = H + mr * 0.32;
+    iso.box(u - 0.05, vd, u + 0.05, vd + 0.04, zd, zd + 8, lighten(zinc, 0.12));
+    iso.windowsLeft(vd + 0.04, u - 0.038, u + 0.038, zd + 1.5, zd + 6.5, 1, glass(rng, 0.55), frame);
+    // little zinc cap
+    iso.r.poly([P(u - 0.06, vd, zd + 8), P(u + 0.06, vd, zd + 8), P(u, vd, zd + 12)], shaded(zinc, 0.05));
+  }
+
+  // chimney stacks with pale pots along the ridge
+  for (const cu of [0.12, 0.88]) {
+    iso.box(cu - 0.03, (v0 + v1) / 2 - 0.04, cu + 0.03, (v0 + v1) / 2 + 0.04, zT, zT + 9, shaded(stone, 0.08));
+    for (const dv of [-0.03, 0.02]) {
+      iso.box(cu - 0.012, (v0 + v1) / 2 + dv, cu + 0.012, (v0 + v1) / 2 + dv + 0.022, zT + 9, zT + 13, hex('#9a8f78'), { ink: false });
+    }
+  }
+  return iso.build();
+}
+
+/** A continuous wrought-iron balcony ledge + balusters across a left wall. */
+function drawBalcony(
+  iso: Iso,
+  uA: number,
+  uB: number,
+  v: number,
+  z: number,
+  iron: RGBA,
+  rail: RGBA,
+): void {
+  const out = v + 0.03; // protrudes from the facade
+  // the stone slab the balcony sits on
+  iso.r.poly([P(uA, v, z), P(uB, v, z), P(uB, out, z), P(uA, out, z)], lighten(iron, 0.55));
+  iso.r.poly([P(uA, out, z), P(uB, out, z), P(uB, out, z - 0.8), P(uA, out, z - 0.8)], rail);
+  // the iron railing band
+  iso.r.poly([P(uA, out, z + 4.2), P(uB, out, z + 4.2), P(uB, out, z), P(uA, out, z)], alpha(iron, 0.92));
+  // top rail + balusters (ink)
+  iso.r.line(P(uA, out, z + 4.2), P(uB, out, z + 4.2), INK_W * 0.8, iron);
+  const n = 22;
+  for (let i = 0; i <= n; i++) {
+    const u = uA + ((uB - uA) * i) / n;
+    iso.r.line(P(u, out, z + 4.2), P(u, out, z + 0.4), INK_W * 0.45, alpha(iron, 0.8));
+  }
+}
+
 /** Residential tower block with colour-block walls and floor bands. */
 export function towerTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();

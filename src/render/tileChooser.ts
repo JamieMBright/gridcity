@@ -217,6 +217,12 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
   const estate = estateOf(x, y);
   const shops = ((map.flags?.[i] ?? 0) & FLAG_SHOPS) !== 0;
 
+  // bespoke per-city building stock: Paris wears uniform Haussmann blocks
+  // across its urban fabric (the pale, grid-like street walls).
+  if (map.fabric === 'paris' && (zone === ZONE.urbanCore || zone === ZONE.urban)) {
+    return `haussmann_${v % 4}`;
+  }
+
   switch (zone) {
     case ZONE.cbd:
       // the Gherkin now carries its own LANDMARK id (handled above), so the

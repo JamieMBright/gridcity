@@ -11,6 +11,7 @@ import {
   factoryTile,
   georgianTile,
   greenhouseTile,
+  haussmannTile,
   newbuildTile,
   officeTile,
   semiTile,
@@ -225,6 +226,8 @@ function buildSpriteCells(): Map<string, Cell> {
   for (let i = 0; i < 4; i++) set(`semi_${i}`, semiTile(91 + i));
   set('villa_0', villaTile(101));
   set('villa_1', villaTile(102));
+  // bespoke Paris stock (Haussmann blocks) — used when CityMap.fabric==='paris'
+  for (let i = 0; i < 4; i++) set(`haussmann_${i}`, haussmannTile(351 + i, i));
   set('tower_0', towerTile(111));
   set('tower_1', towerTile(112));
   set('office_0', officeTile(121));

@@ -30,10 +30,22 @@ places incl. Notre-Dame/Eiffel/Louvre/Vincennes). Unit tests: `tests/osm.test.ts
       only DRAWN major roads clear tiles (undrawn arterials kept buildings);
       hero landmarks get a parvis APRON so they're not occluded. Central Paris
       now reads as dense blocks; Notre-Dame visible on its island.
-- [ ] **OPEN — landmark/building FIDELITY (owner call):** landmarks currently
-      map to the nearest existing GB sprite archetype (every cathedral → St
-      Paul's dome, every château → the castle). Bespoke per-city hero art +
-      procedural footprint buildings (doc stage 6/7) are the next fork.
+- [x] **PER-CITY ARCHITECTURE (owner, 2026-06-14 15:20–15:31): "Paris is very
+      white and grid-like… the template is missing the core research of building
+      stock + architectural styles to make the new sprites — you can't reuse from
+      other cities."** RIGHT. Split the model: the OSM GEOMETRY pipeline is the
+      reusable/universal layer; the ARCHITECTURE is authored per city.
+      Implemented `CityMap.fabric`: (a) a per-city palette (Paris → cream
+      limestone walls + grey zinc roofs; London byte-identical default); (b) a
+      BESPOKE researched `haussmannTile` sprite — uniform ~6-storey pierre-de-
+      taille facade, string courses, tall French windows, wrought-iron balcons
+      filants, steep grey-zinc MANSARD roof with dormers + chimney stacks —
+      placed on Paris's urban/urbanCore tiles via tileChooser. Central Paris now
+      reads as the pale, grid-like, grey-roofed city from the references.
+- [ ] **OPEN — bespoke heroes:** a gothic Notre-Dame (twin towers + flèche +
+      flying buttresses) etc.; today landmarks still map to GB archetypes
+      (cathedral → dome). Procedural footprint buildings (stage 6) need bulk
+      OSM/PBF at metro scale.
 - [ ] **OPEN — live integration:** register the city as a selectable scenario
       (lazy-loaded so the 320 KB artifact doesn't bloat the bundle) + generalise
       the renderer's London couplings (labels from the map, estuary-marsh guard,

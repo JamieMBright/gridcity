@@ -185,6 +185,10 @@ export interface CityMap {
    *  bit 2: brownfield / previously-developed land — see TILE_FLAG). */
   flags?: Uint8Array | undefined;
   councils: CouncilProfile[];
+  /** Per-city architectural style (render hint; default London brick). A
+   *  generated city wears its own building stock — e.g. 'paris' renders
+   *  Haussmann blocks for the urban fabric. */
+  fabric?: 'london' | 'paris' | undefined;
 }
 
 export const NO_COUNCIL = 255;
