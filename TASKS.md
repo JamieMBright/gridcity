@@ -42,10 +42,16 @@ places incl. Notre-Dame/Eiffel/Louvre/Vincennes). Unit tests: `tests/osm.test.ts
       filants, steep grey-zinc MANSARD roof with dormers + chimney stacks —
       placed on Paris's urban/urbanCore tiles via tileChooser. Central Paris now
       reads as the pale, grid-like, grey-roofed city from the references.
-- [ ] **OPEN — bespoke heroes:** a gothic Notre-Dame (twin towers + flèche +
-      flying buttresses) etc.; today landmarks still map to GB archetypes
-      (cathedral → dome). Procedural footprint buildings (stage 6) need bulk
-      OSM/PBF at metro scale.
+- [x] **Bespoke gothic NOTRE-DAME** (owner reference photos): new
+      `notredameTile` landmark — twin flat-topped west towers, the great rose
+      window, pointed belfry openings, steep lead nave roof, the central flèche
+      spire, rounded apse + suggested flying buttresses. `LANDMARK.notredame`
+      (append-only); the pipeline maps any `notre-dame` hero to it (other
+      cathedrals stay the dome archetype). Placed on its island parvis at the
+      centre of Paris.
+- [ ] **OPEN — more bespoke heroes + procedural footprints:** bespoke Eiffel
+      (still the lattice-tower archetype), Louvre, Arc de Triomphe, etc.;
+      procedural footprint buildings (stage 6) need bulk OSM/PBF at metro scale.
 - [ ] **OPEN — live integration:** register the city as a selectable scenario
       (lazy-loaded so the 320 KB artifact doesn't bloat the bundle) + generalise
       the renderer's London couplings (labels from the map, estuary-marsh guard,

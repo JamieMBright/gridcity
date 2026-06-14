@@ -43,6 +43,7 @@ import {
   heathrowTile,
   kewhouseTile,
   mallTile,
+  notredameTile,
   O2_H,
   O2_W,
   o2domeTile,
@@ -247,6 +248,7 @@ function buildSpriteCells(): Map<string, Cell> {
   set('lm_eye', eyeTile(212));
   set('lm_dome', domeTile(213), 2, 2, true);
   set('lm_spire', spireTile(214));
+  set('lm_notredame', notredameTile(353)); // bespoke Paris gothic cathedral
   set('lm_gherkin', gherkinTile(223));
   set('lm_fortress', fortressTile(215));
   set('lm_bridge', towerBridgeTile(216), 1, 4, true);

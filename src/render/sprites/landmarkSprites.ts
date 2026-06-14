@@ -631,6 +631,105 @@ export function fortressTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
+/**
+ * NOTRE-DAME DE PARIS: bespoke gothic cathedral (owner reference photos,
+ * 2026-06-14). The twin FLAT-TOPPED west towers with the great rose window
+ * between them, the long nave under a steep dark-lead roof, the central
+ * flèche spire over the crossing, a rounded apse (chevet) and suggested
+ * flying buttresses. Cool grey gothic limestone. Compact 1×1 so the pipeline
+ * places it like any hero (with its cleared parvis apron around it).
+ */
+export function notredameTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const GST = hex('#cdc6b4'); // cool gothic limestone
+  const GST_D = hex('#aaa48f');
+  const ROOF = hex('#4f5a6b'); // dark lead nave roof
+  const GLASS = alpha(hex('#2b3350'), 0.9);
+  iso.shadow(0.16, 0.22, 0.9, 0.92, 0.2, 0.24);
+
+  const nu0 = 0.34;
+  const nu1 = 0.66;
+  const nv0 = 0.3; // apse (back)
+  const nv1 = 0.82; // crossing toward the front
+  const navH = 26;
+
+  // side aisles (lower) flanking the nave, with lean-to lead roofs
+  iso.box(0.22, nv0 + 0.04, nu0, nv1, 0, 15, GST);
+  iso.box(nu1, nv0 + 0.04, 0.78, nv1, 0, 15, GST);
+  iso.quad(0.22, nv0 + 0.04, nu0, nv1, 15, shaded(ROOF, 0.04));
+  iso.quad(nu1, nv0 + 0.04, 0.78, nv1, 15, lit(ROOF, 0.04));
+  // tall pointed lancet windows down the visible (left) aisle wall
+  for (let i = 0; i < 5; i++) {
+    const u = 0.26 + i * 0.064;
+    iso.r.poly(
+      [P(u, nv1, 4), P(u + 0.03, nv1, 4), P(u + 0.03, nv1, 11), P(u + 0.015, nv1, 13.5), P(u, nv1, 11)],
+      GLASS,
+    );
+  }
+
+  // the nave clerestory + steep gable roof (ridge front-to-back along v)
+  iso.box(nu0, nv0, nu1, nv1, 0, navH, GST);
+  iso.gable(nu0, nv0, nu1, nv1, navH, 16, 'v', ROOF, GST);
+
+  // rounded apse / chevet at the back (low v) under a conical roof
+  iso.box(nu0 + 0.02, nv0 - 0.08, nu1 - 0.02, nv0 + 0.04, 0, navH - 5, GST);
+  iso.hip(nu0, nv0 - 0.1, nu1, nv0 + 0.06, navH - 5, 11, ROOF);
+
+  // suggested flying buttresses along the apse flanks
+  for (const v of [nv0 + 0.02, nv0 + 0.16, nv0 + 0.3]) {
+    iso.r.line(P(0.22, v, 14), P(nu0, v, navH - 3), 1.1 * RES, GST_D);
+    iso.r.line(P(0.78, v, 14), P(nu1, v, navH - 3), 1.1 * RES, GST_D);
+  }
+
+  // the central flèche (spire) over the crossing — taller than the towers
+  const su = (nu0 + nu1) / 2;
+  const sv = nv0 + (nv1 - nv0) * 0.4;
+  iso.box(su - 0.028, sv - 0.028, su + 0.028, sv + 0.028, navH + 16, navH + 24, GST_D, { ink: false });
+  const base = P(su, sv, navH + 24);
+  const tip = P(su, sv, navH + 60);
+  iso.r.poly([[base[0] - 4 * RES, base[1]], tip, [base[0], base[1] - 1.5 * RES]], shaded(ROOF, 0.12));
+  iso.r.poly([[base[0], base[1] - 1.5 * RES], tip, [base[0] + 4 * RES, base[1]]], lit(ROOF, 0.1));
+  iso.r.polyline([[base[0] - 4 * RES, base[1]], tip, [base[0] + 4 * RES, base[1]]], INK_W * 0.7, INK);
+  iso.r.line(tip, [tip[0], tip[1] - 5 * RES], 1 * RES, COLORS.glassLit);
+
+  // twin FLAT-TOPPED west towers at the front (high v)
+  for (const tu of [0.28, 0.72] as const) {
+    iso.box(tu - 0.1, 0.78, tu + 0.1, 0.92, 0, 46, GST);
+    // pointed belfry opening on the front face
+    iso.r.poly(
+      [P(tu - 0.05, 0.92, 26), P(tu + 0.05, 0.92, 26), P(tu + 0.05, 0.92, 39), P(tu, 0.92, 43), P(tu - 0.05, 0.92, 39)],
+      GLASS,
+    );
+    // the gallery parapet + four corner pinnacles (flat top, no spire)
+    iso.box(tu - 0.11, 0.77, tu + 0.11, 0.93, 46, 49, lighten(GST, 0.08), { ink: false });
+    for (const [pu, pv] of [[tu - 0.1, 0.78], [tu + 0.1, 0.78], [tu - 0.1, 0.92], [tu + 0.1, 0.92]] as const) {
+      iso.box(pu - 0.013, pv - 0.013, pu + 0.013, pv + 0.013, 49, 55, GST_D, { ink: false });
+    }
+  }
+
+  // west-front gable wall + the great ROSE WINDOW + three portals
+  iso.box(0.38, 0.86, 0.62, 0.92, 0, 33, GST);
+  const [rx, ry] = P(0.5, 0.92, 23);
+  const RR = 6.5 * RES;
+  const rose: Pt[] = [];
+  for (let i = 0; i <= 18; i++) {
+    const a = (i / 18) * Math.PI * 2;
+    rose.push([rx + Math.cos(a) * RR, ry - Math.sin(a) * RR * 0.92]);
+  }
+  iso.r.poly(rose, GLASS);
+  iso.r.polyline(rose, INK_W * 0.7, INK, true);
+  iso.r.line([rx - RR, ry], [rx + RR, ry], 0.8 * RES, alpha(COLORS.white, 0.55));
+  iso.r.line([rx, ry - RR * 0.92], [rx, ry + RR * 0.92], 0.8 * RES, alpha(COLORS.white, 0.55));
+  for (const pu of [0.43, 0.5, 0.57]) {
+    iso.r.poly(
+      [P(pu - 0.02, 0.92, 0), P(pu + 0.02, 0.92, 0), P(pu + 0.02, 0.92, 7), P(pu, 0.92, 9), P(pu - 0.02, 0.92, 7)],
+      darken(GST_D, 0.22),
+    );
+  }
+  return iso.build();
+}
+
 /** TOWER BRIDGE, whole: one sprite spanning the river's four tiles
  *  (1x4, SW-anchored on the southernmost water tile). Two gothic stone
  *  towers with corner turrets rise from mid-river piers, the twin high

@@ -95,6 +95,9 @@ export const LANDMARK = {
   velodrome: 30, // Lee Valley VeloPark — the curved timber pringle roof
   orbit: 31, // the ArcelorMittal Orbit — red twisting helter-skelter tower
   westfield: 32, // Westfield Stratford City — the big retail mass beside it
+  // Bespoke per-city heroes (OSM pipeline). Append-only so existing
+  // landmark-raster values never shift under old saves.
+  notredame: 33, // gothic cathedral — twin towers, rose window, flèche (Paris)
 } as const;
 export type Landmark = (typeof LANDMARK)[keyof typeof LANDMARK];
 
