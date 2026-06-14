@@ -12,6 +12,31 @@
 
 ## Open
 
+- [ ] **SEVERE-WEATHER REALISM v2 (owner, 2026-06-14 03:40 — network ops
+      domain detail; refines the PR #47 alert).**
+  - [ ] **7-DAY notice**: severe storms are usually forecast ~7 days out
+        (not 3). Extend the warning/ETA window to ~7d and let the player
+        prepare over that lead time.
+  - [ ] **Met Office hazard BRANDING**: yellow / amber / red warning
+        levels (the "hazardous yellow" experience), severity → warning
+        colour. Brand the alert + indicators by warning level.
+  - [ ] **Gusts in km/h**: severity must read as real windspeeds in km/h
+        (research typical GB/named-storm gusts + the Met Office warning
+        thresholds, and map severity → km/h). Replace the abstract "%
+        gusts".
+  - [ ] **"System prepare" REAL levers (sim + economy):** model what a DNO
+        actually does on a system-prepare:
+        - **Scale up SHIFTS** for coverage in the worst-affected areas.
+        - **Storm ROLES / activate SCOUTS** — regular office staff drive
+          the lines to check assets (eyes on the network).
+        - **WIDER CALL HANDLING** — office staff become call handlers
+          during the call surge. Target: **call response < 5 s by a real
+          person**. Understaffing the call centre during a surge →
+          NEGATIVE CSAT. It's a combination of investment in staff,
+          investment in training, and investment in wider call handling
+          during surges. Needs a call-response/CSAT model + the levers as
+          commands, with cost → bill and a payoff in CSAT/restoration.
+
 - [x] **MOBILE LANDSCAPE LAYOUT OVERHAUL (owner, 2026-06-13 20:42, real
       Pro Max landscape screenshot).** — DONE (PR #42): accurate Pro Max +
       safe-area repro (`e2e/mobileaudit.helper.spec.ts`); de-conflicted the

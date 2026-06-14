@@ -3,10 +3,13 @@ import type { PlacedAsset } from '../src/sim/assets';
 import {
   SEVERE_ETA_WINDOW_MIN,
   SEVERE_SEVERITY,
+  WARN_STYLE,
   formatEta,
+  gustKmh,
   isSevereStorm,
   pickSevereStorm,
   pickVegLine,
+  warningLevel,
   type StormForecastRow,
 } from '../src/ui/SevereWeatherAlert';
 
@@ -84,6 +87,37 @@ describe('pickVegLine', () => {
     expect(pickVegLine([line(3, 'underground', 20)])).toBeUndefined();
     expect(pickVegLine([])).toBeUndefined();
     expect(pickVegLine(undefined)).toBeUndefined();
+  });
+});
+
+describe('gustKmh', () => {
+  it('maps severity to realistic GB storm gusts (km/h), monotonic & clamped', () => {
+    expect(gustKmh(0.85)).toBe(95); // the severe cut ≈ storm force
+    expect(gustKmh(0.92)).toBeGreaterThanOrEqual(115); // named storm ≈ violent storm
+    expect(gustKmh(1.0)).toBeGreaterThanOrEqual(145); // the worst ≈ hurricane force
+    // monotonic increasing
+    expect(gustKmh(0.9)).toBeGreaterThan(gustKmh(0.85));
+    // clamped to a sane band
+    expect(gustKmh(0.5)).toBeGreaterThanOrEqual(50);
+    expect(gustKmh(2)).toBeLessThanOrEqual(165);
+  });
+});
+
+describe('warningLevel + WARN_STYLE (Met Office hazard branding)', () => {
+  it('escalates yellow → amber → red by gust speed', () => {
+    expect(warningLevel(95)).toBe('yellow');
+    expect(warningLevel(120)).toBe('amber');
+    expect(warningLevel(150)).toBe('red');
+  });
+  it('a named storm reads amber-or-red, a threshold storm yellow-or-amber', () => {
+    expect(['amber', 'red']).toContain(warningLevel(gustKmh(0.95)));
+    expect(['yellow', 'amber']).toContain(warningLevel(gustKmh(SEVERE_SEVERITY)));
+  });
+  it('every level has a colour + label', () => {
+    for (const lvl of ['yellow', 'amber', 'red'] as const) {
+      expect(WARN_STYLE[lvl].color).toMatch(/^#/);
+      expect(WARN_STYLE[lvl].label).toContain('WARNING');
+    }
   });
 });
 

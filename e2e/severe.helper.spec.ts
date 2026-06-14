@@ -36,21 +36,31 @@ async function injectStorm(page: P, severity: number, etaDays: number): Promise<
     },
     { severity, etaDays },
   );
-  // wait for the modal to actually mount
-  await page.getByText('SEVERE WEATHER WARNING').waitFor({ timeout: 8000 });
+  // wait for the modal to actually mount (the storm name is in the header)
+  await page.getByText('Storm Vesper', { exact: true }).waitFor({ timeout: 8000 });
   await page.waitForTimeout(400);
 }
 
-test('severe-weather alert — desktop + phone', async ({ page }) => {
-  test.setTimeout(120_000);
+test('severe-weather alert — warning levels + km/h, desktop + phone', async ({ page }) => {
+  test.setTimeout(150_000);
 
   await page.setViewportSize({ width: 1280, height: 800 });
   await boot(page);
-  await injectStorm(page, 0.93, 1.2);
-  await page.screenshot({ path: 'preview/severe-desktop.png' });
 
+  // RED warning (severity 1.0 → ~150 km/h), 5 days out (7-day window)
+  await injectStorm(page, 1.0, 5);
+  await page.screenshot({ path: 'preview/severe-red.png' });
+  await page.evaluate(() => (window as unknown as { __severeTimer?: number }).__severeTimer && window.clearInterval((window as unknown as { __severeTimer?: number }).__severeTimer));
+  await page.evaluate(() => window.__ec!.getState().setSnapshot({ ...(window.__ec!.getState().snapshot as object), stormForecast: [] } as never));
+  await page.waitForTimeout(300);
+
+  // AMBER warning (severity 0.93 → ~124 km/h)
+  await injectStorm(page, 0.93, 2);
+  await page.screenshot({ path: 'preview/severe-amber.png' });
+
+  // phone-landscape, RED
   await page.setViewportSize({ width: 956, height: 440 });
   await page.waitForTimeout(300);
-  await injectStorm(page, 0.97, 0.4);
+  await injectStorm(page, 1.0, 1.4);
   await page.screenshot({ path: 'preview/severe-mobile.png' });
 });
