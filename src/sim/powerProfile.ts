@@ -267,6 +267,42 @@ export interface RegulatorProfile {
 
 export const LONDON_REGULATOR: RegulatorProfile = { name: 'Ofgem', model: 'riio' };
 
+/** France — CRE / TURPE cost-of-service. Carbon already sits near zero on
+ *  the nuclear fleet, so the regulator's attention is on bills and service
+ *  (carbon weight pared right back, redistributed to affordability +
+ *  reliability). */
+export const FRANCE_REGULATOR: RegulatorProfile = {
+  name: 'CRE',
+  model: 'cost-of-service',
+  kpiWeights: { carbon: 0.05, bill: 0.3, satisfaction: 0.22, ci: 0.16, cml: 0.15 },
+};
+
+/** Australia — AER revenue-cap building block. Affordability is the live
+ *  political wire, and the rooftop-PV flood makes firm-curtailment / hosting
+ *  headroom and the carbon transition matter more than raw interruptions. */
+export const AUSTRALIA_REGULATOR: RegulatorProfile = {
+  name: 'AER',
+  model: 'riio',
+  kpiWeights: { bill: 0.28, carbon: 0.18, curtailedFirm: 0.16, satisfaction: 0.18, ci: 0.1, cml: 0.1 },
+};
+
+/** Hong Kong — Scheme of Control, 8% permitted return on net fixed assets.
+ *  World-best reliability is the headline the SoC is judged on, so CI/CML
+ *  dominate the card; carbon and curtailment matter least. */
+export const HONGKONG_REGULATOR: RegulatorProfile = {
+  name: 'Scheme of Control',
+  model: 'profit-cap',
+  kpiWeights: { ci: 0.26, cml: 0.26, satisfaction: 0.2, bill: 0.14, carbon: 0.09, curtailedFirm: 0.05 },
+};
+
+/** Brazil — ANEEL concession review. DEC/FEC reliability and affordability
+ *  carry the card (carbon is already low on the hydro fleet). */
+export const BRAZIL_REGULATOR: RegulatorProfile = {
+  name: 'ANEEL',
+  model: 'cost-of-service',
+  kpiWeights: { ci: 0.23, cml: 0.23, bill: 0.22, satisfaction: 0.16, carbon: 0.08, curtailedFirm: 0.08 },
+};
+
 // ----------------------------------------------------------------------
 // 5. The resolved profile carried on SimContext.
 

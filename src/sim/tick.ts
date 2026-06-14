@@ -95,6 +95,7 @@ import {
   gradeOf,
   newPeriod,
   nextTargets,
+  resolveWeights,
   PERIOD_MIN,
   PERIOD_YEARS,
   type PeriodActuals,
@@ -947,7 +948,10 @@ export function solveTick(
     p.weightMin += dtMin;
     if (state.simTimeMin >= p.startMin + PERIOD_MIN) {
       const actuals = currentPeriodActuals(state);
-      const card = closePeriod(p, actuals);
+      // the active regulator weighs the report-card columns its own way
+      // (Ofgem default unless the country profile overrides — HK reliability,
+      // AU affordability + PV-hosting, etc.)
+      const card = closePeriod(p, actuals, resolveWeights(ctx.profile.regulator.kpiWeights));
       // #53 Regulation & Finance writes better submissions (a small
       // composite nudge); #55 safety performance bites the rating — each
       // LTI this period dents it (no deaths, ever — but injuries cost).

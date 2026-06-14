@@ -47,11 +47,20 @@
         arbitrage, the live price ticker. Sources: HK SoC 8% RoR; AU NEM
         46% SA intervals negative-priced Q4'25; Brazil bandeira flags;
         ElectricityMaps/RTE/Ember carbon intensities.
-  - [ ] Part 2 — wire grid carbon (`gridCarbonG`) into the carbon KPI for
-        imports; regulator `kpiWeights` + `model` framing into the report
-        card; `baseloadFloor`/`hydroDriven` into dispatch; `ownership:
-        'owned'` (HK, already in bill.ts) end-to-end. Per-country tender
-        flow (France nuclear offers, AU solar/battery, HK no-tender).
+  - [x] **Part 2a — per-country REGULATOR weighting.** The report card's
+        KPI weights are now profile-resolvable (`resolveWeights` merges +
+        renormalises a regulator's `kpiWeights` over the GB base;
+        `closePeriod` takes them; tick threads `ctx.profile.regulator`).
+        London bit-identical (no override → same base object). Four national
+        regulators ship: CRE (carbon pared back → bills/service), AER
+        (affordability + PV-hosting/curtailment), Scheme of Control
+        (reliability dominates), ANEEL (DEC/FEC + affordability). Test: the
+        same network scores differently under HK vs Ofgem vs AER.
+  - [ ] Part 2b — grid carbon (`gridCarbonG`) into the carbon KPI / import
+        carbon; regulator `model` framing text in the report-card UI;
+        `baseloadFloor`/`hydroDriven` into dispatch; `ownership: 'owned'`
+        (HK, already in bill.ts) end-to-end. Per-country tender flow
+        (France nuclear offers, AU solar/battery, HK no-tender).
 
 - [ ] **MULTI-CITY GEOGRAPHIC MAPS (owner, 2026-06-14 05:07): Paris, Sydney,
       Hong Kong, Rio — geographic accuracy first (rivers/coastlines/roads in
