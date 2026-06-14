@@ -21,6 +21,7 @@ import {
   type PeriodState,
   type ReportCard,
 } from './regulation/riio';
+import { networkCapexOnRegisterK, newRav, type RavState } from './regulation/rav';
 import { NEW_ESTATES } from '../data/londonMap';
 import { getScenario, profileOf } from '../data/cityRegistry';
 import type { ResolvedProfile } from './powerProfile';
@@ -132,6 +133,15 @@ export interface GameState {
   growth: GrowthRecord[];
   period: PeriodState;
   lastReport?: ReportCard | undefined;
+  /** Regulatory Asset Value + allowed-revenue stock (regulation/rav.ts).
+   *  Starts at zero and builds up as NETWORK capex is committed, then
+   *  depreciates straight-line. Additive optional: a pre-feature save has
+   *  no `rav`, and deserialize self-heals it from the asset register's
+   *  committed network capex (so the RAV gross pool is never lost — only
+   *  the accumulated depreciation history, which re-accrues). The whole
+   *  revenue/incentive layer only ENGAGES once the network is up and
+   *  running (rav.engaged), so day-0 stays uncluttered. */
+  rav: RavState;
   /** Early-game goal ladder progress: index into scenario/goals GOALS
    *  (undefined = start of the ladder; past the end = done/dismissed). */
   goalIndex?: number | undefined;
@@ -296,6 +306,7 @@ export function newGame(scenarioId = 'london'): GameState {
     growth: [],
     period: newPeriod(1, 0, initialTargets()),
     lastReport: undefined,
+    rav: newRav(),
   };
 }
 
@@ -523,6 +534,9 @@ export interface SaveData {
   growth?: GrowthRecord[];
   period?: PeriodState;
   lastReport?: ReportCard;
+  /** RAV stock (regulation/rav.ts, additive). Absent on a pre-feature save
+   *  → deserialize self-heals it from the asset register. */
+  rav?: RavState;
   goalIndex?: number | undefined;
   surgeUntilMin?: number;
   surgeVans?: number;
@@ -607,6 +621,7 @@ export function serialize(s: GameState): SaveData {
     devMood: [...s.devMood.entries()],
     growth: s.growth.map((g) => ({ ...g })),
     period: { ...s.period, targets: { ...s.period.targets } },
+    rav: { ...s.rav },
     ...(s.lastReport ? { lastReport: { ...s.lastReport, scores: { ...s.lastReport.scores } } } : {}),
     ...(s.goalIndex !== undefined ? { goalIndex: s.goalIndex } : {}),
     ...(s.surgeUntilMin !== undefined ? { surgeUntilMin: s.surgeUntilMin } : {}),
@@ -713,6 +728,17 @@ export function deserialize(d: SaveData): GameState {
       ? { ...d.period, complaints: d.period.complaints ?? 0, targets: { ...d.period.targets } }
       : newPeriod(1, d.simTimeMin, initialTargets()),
     lastReport: d.lastReport ? { ...d.lastReport, scores: { ...d.lastReport.scores } } : undefined,
+    // RAV (additive): restore the saved stock, or self-heal a pre-feature
+    // save by rebuilding the gross+net pool from the committed network
+    // capex on the register (the depreciation history is lost, so net
+    // resets to gross and re-accrues — the RAV is never lost, only its
+    // wear). engaged stays false until the live gate fires again.
+    rav: d.rav
+      ? { ...d.rav }
+      : (() => {
+          const grossK = networkCapexOnRegisterK(assets.values());
+          return { grossK, netK: grossK, engaged: false };
+        })(),
     goalIndex: d.goalIndex,
     surgeUntilMin: d.surgeUntilMin,
     surgeVans: d.surgeVans,

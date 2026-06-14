@@ -80,7 +80,16 @@ import {
   computeBill,
   type BillBreakdown,
 } from './regulation/bill';
-import { updateReliability } from './regulation/kpis';
+import { kpiRates, updateReliability } from './regulation/kpis';
+import {
+  actualNetworkTotexYrK,
+  allowedRevenue,
+  networkCapexOnRegisterK,
+  ravEngaged,
+  reliabilityIncentiveYrK,
+  rollRav,
+  type AllowedRevenue,
+} from './regulation/rav';
 import {
   closePeriod,
   gradeOf,
@@ -114,6 +123,14 @@ const TRIP_RECLOSE_MIN = 90;
 export const AWAITING_CREW = -1;
 const MAX_CASCADE = 5;
 const MIN_PER_YEAR = 525_600;
+
+/** Ofgem-benchmark efficient NETWORK totex the TIM measures actual against,
+ *  £k per served customer per year (~£110/customer/yr of annuitised network
+ *  capex + opex for a reasonable mature DNO). A lean grid (low totex per
+ *  customer) beats this → sharing reward; a gold-plated one overspends →
+ *  penalty. The yardstick is the served base, not the operator's own
+ *  spend, so it is a genuine efficiency lever. */
+const EFFICIENT_TOTEX_PER_CUSTOMER_K = 0.11;
 
 /** The regulator's rebuild grace after "the Night the Grid Vanished":
  *  the first ~3 game-months. CI/CML scoring and firm-curtailment
@@ -191,6 +208,21 @@ export interface TickOutputs {
   freqHz: number | undefined;
   /** Customer-weighted council satisfaction, 0..100. */
   satisfactionAvg: number;
+  /** The price-control money (regulation/rav.ts): RAV £k, allowed revenue
+   *  vs actual totex, sharing + incentive. Present ONLY once the layer has
+   *  phased in (the network is up and running); undefined keeps day-0
+   *  uncluttered. */
+  regulatory?: RegulatoryView | undefined;
+}
+
+/** The regulatory-finance readout surfaced once the RAV layer engages. */
+export interface RegulatoryView {
+  /** RAV — depreciated book value of the network built, £k. */
+  ravK: number;
+  /** Cumulative network capex committed (RAV gross pool), £k. */
+  ravGrossK: number;
+  /** Allowed-revenue building blocks, £k/yr. */
+  revenue: AllowedRevenue;
 }
 
 const BLIGHT_WEIGHT: Record<number, number> = { 400: 3, 132: 2, 33: 1 };
@@ -749,6 +781,13 @@ export function solveTick(
     foldBillDetail(state.billDetail, dispatch, lossOfAsset, dispatch.priceMWh, alpha);
     state.curtailedFirmMWh += (dispatch.curtailedFirmMW * dtMin) / 60;
     state.curtailedFlexMWh += (dispatch.curtailedFlexMW * dtMin) / 60;
+    // roll the Regulated Asset Value: absorb newly-committed network capex
+    // into the pool, then depreciate it straight-line. The gross pool
+    // tracks the register total (so a demolition retires its iron), and
+    // the RAV (net) builds quietly from day 0 even before the layer's
+    // revenue/incentive surfaces — exactly the owner's "starts at zero,
+    // builds up as the network grows, engages once we're running".
+    rollRav(state.rav, networkCapexOnRegisterK(state.assets.values()), dtMin);
     state.rngState = rng.getState();
   }
 
@@ -944,6 +983,43 @@ export function solveTick(
     sysHz === undefined ? undefined : sysHz + (dtMin > 0 ? (rng.next() - 0.5) * 0.04 : 0);
   if (dtMin > 0) state.rngState = rng.getState();
 
+  // the price-control money: surface the RAV / allowed-revenue / sharing /
+  // incentive once the layer has phased in. Engagement is sticky (once the
+  // network is up and running it stays shown), gated past the rebuild
+  // grace, a real RAV and a real served base. Computed every solve (so the
+  // panel reads live even while paused), but kept undefined before
+  // engagement so day-0 has no regulatory clutter.
+  let regulatory: RegulatoryView | undefined;
+  if (ravEngaged(state.rav, servedCustomers, rebuildGraceActive(state))) {
+    state.rav.engaged = true;
+    const totex = actualNetworkTotexYrK(state.assets.values());
+    const actualTotexYrK = totex.capexYrK + totex.opexYrK;
+    // the efficient totex ALLOWANCE: an Ofgem benchmark scaled to the
+    // network being run (£/served customer/yr), NOT the operator's own
+    // spend — so it is a real yardstick. Build a lean grid (low totex per
+    // customer) and you beat allowance → the TIM rewards you; gold-plate
+    // (heavy iron per customer) and you overspend → it bites. The £/
+    // customer figure is calibrated to a reasonable mature DNO totex
+    // (~£110/served customer/yr of network annuity+opex).
+    const totexAllowanceYrK = (EFFICIENT_TOTEX_PER_CUSTOMER_K * servedCustomers);
+    const rates = kpiRates(state.reliability, derived.service.totalCustomers, state.simTimeMin);
+    const incentiveYrK = reliabilityIncentiveYrK(
+      rates.ciPer100PerYr,
+      state.period.targets.ci,
+      rates.cmlMinPerYr,
+      state.period.targets.cml,
+      servedCustomers,
+    );
+    const revenue = allowedRevenue({
+      rav: state.rav,
+      actualTotexYrK,
+      opexAllowanceYrK: totex.opexYrK,
+      incentiveYrK,
+      totexAllowanceYrK,
+    });
+    regulatory = { ravK: state.rav.netK, ravGrossK: state.rav.grossK, revenue };
+  }
+
   return {
     pf,
     dispatch,
@@ -954,6 +1030,7 @@ export function solveTick(
     bill,
     freqHz,
     satisfactionAvg,
+    regulatory,
   };
 }
 

@@ -22,7 +22,8 @@ import {
   type KpiStatus,
 } from './kpiHelp';
 import { currentRank } from './rank';
-import { panelStyle, theme } from './theme';
+import { fmtMoneyK, panelStyle, theme } from './theme';
+import type { RegulatoryView } from '../sim/tick';
 
 const KEYS: KpiKey[] = ['bill', 'ci', 'cml', 'carbon', 'curtailedFirm', 'satisfaction'];
 
@@ -164,6 +165,102 @@ function RankLine() {
   );
 }
 
+/** A signed £k/yr, with an explicit + / − and a reward/penalty colour. */
+function signedMoney(k: number): { text: string; color: string } {
+  if (Math.abs(k) < 0.5) return { text: '£0/yr', color: theme.slate };
+  const sign = k > 0 ? '+' : '−';
+  return { text: `${sign}${fmtMoneyK(Math.abs(k))}/yr`, color: k > 0 ? theme.ok : theme.danger };
+}
+
+/** The price-control money block (RAV + allowed revenue + sharing +
+ *  incentive). Surfaced only once the layer has phased in — plain English,
+ *  reflows on desktop + phone-landscape (it's a simple two-column list). */
+function RegulatoryBlock({ reg }: { reg: RegulatoryView }) {
+  const rev = reg.revenue;
+  const share = signedMoney(rev.sharingYrK);
+  const inc = signedMoney(rev.incentiveYrK);
+  const beatAllowance = rev.actualTotexYrK <= rev.totexAllowanceYrK;
+  const Row = ({
+    label,
+    value,
+    color,
+    hint,
+  }: {
+    label: string;
+    value: string;
+    color?: string;
+    hint?: string;
+  }) => (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'baseline',
+        gap: 8,
+        lineHeight: 1.7,
+      }}
+    >
+      <span style={{ color: theme.slate, minWidth: 0 }}>
+        {label}
+        {hint && <span style={{ color: theme.slate, opacity: 0.7, fontSize: 10 }}> · {hint}</span>}
+      </span>
+      <span style={{ color: color ?? theme.offWhite, fontWeight: 600, flex: 'none' }}>{value}</span>
+    </div>
+  );
+  return (
+    <div
+      style={{
+        marginTop: 12,
+        paddingTop: 10,
+        borderTop: `1px solid ${theme.navyLight}`,
+        fontSize: 12,
+      }}
+    >
+      <div style={{ color: theme.gold, fontWeight: 800, marginBottom: 4 }}>regulatory finance</div>
+      <div style={{ color: theme.slate, fontSize: 10.5, marginBottom: 6 }}>
+        the regulated money you build up and earn as the network grows
+      </div>
+      <Row
+        label="RAV (regulated asset value)"
+        value={fmtMoneyK(reg.ravK)}
+        color={theme.offWhite}
+        hint="depreciated network you've built"
+      />
+      <Row label="return on RAV" value={`${fmtMoneyK(rev.returnYrK)}/yr`} hint="3.34% WACC" />
+      <Row label="depreciation" value={`${fmtMoneyK(rev.depreciationYrK)}/yr`} hint="45-yr life" />
+      <Row label="opex allowance" value={`${fmtMoneyK(rev.opexAllowanceYrK)}/yr`} />
+      <Row
+        label="totex sharing"
+        value={share.text}
+        color={share.color}
+        hint={beatAllowance ? 'under allowance — you keep half' : 'over allowance — you bear half'}
+      />
+      <Row
+        label="reliability incentive"
+        value={inc.text}
+        color={inc.color}
+        hint={rev.incentiveYrK >= 0 ? 'beating CI/CML' : 'missing CI/CML'}
+      />
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          marginTop: 4,
+          paddingTop: 4,
+          borderTop: `1px solid ${theme.navyLight}`,
+        }}
+      >
+        <span style={{ color: theme.offWhite, fontWeight: 700 }}>allowed revenue</span>
+        <span style={{ color: theme.gold, fontWeight: 800 }}>{fmtMoneyK(rev.totalYrK)}/yr</span>
+      </div>
+      <div style={{ color: theme.slate, fontSize: 10.5, marginTop: 4 }}>
+        actual network totex {fmtMoneyK(rev.actualTotexYrK)}/yr vs allowance{' '}
+        {fmtMoneyK(rev.totexAllowanceYrK)}/yr
+      </div>
+    </div>
+  );
+}
+
 export function KpiDashboard() {
   const open = useAppStore((s) => s.kpiOpen);
   const setOpen = useAppStore((s) => s.setKpiOpen);
@@ -186,7 +283,13 @@ export function KpiDashboard() {
       onClick={() => setOpen(false)}
     >
       <div
-        style={{ ...panelStyle, width: 'min(460px, 94vw)', padding: '16px 20px' }}
+        style={{
+          ...panelStyle,
+          width: 'min(460px, 94vw)',
+          maxHeight: '92vh',
+          overflowY: 'auto',
+          padding: '16px 20px',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -304,6 +407,7 @@ export function KpiDashboard() {
             {snapshot.safety.noticeDaysLeft.toFixed(0)} days or face a fine
           </div>
         )}
+        {r.regulatory && <RegulatoryBlock reg={r.regulatory} />}
         {r.lastReport && (
           <div
             style={{
