@@ -18,7 +18,8 @@ import { emitRouteRibbons, zoomKeyFor } from '../src/render/routeRibbons';
 import { emitShoreline } from '../src/render/shoreline';
 import { groundSpriteFor, structureSpriteFor } from '../src/render/tileChooser';
 import { seasonTintFor, type Season } from '../src/render/grade';
-import { AIRPORTS, buildLondonMap } from '../src/data/londonMap';
+import { AIRPORTS, buildLondonMap, type AirportSpec } from '../src/data/londonMap';
+import type { CityMap } from '../src/sim/map/types';
 
 /** SEASON=winter|spring|summer|autumn applies the renderer's seasonal
  *  field tints to the composited crop (ROADMAP #44 review loop). */
@@ -223,25 +224,22 @@ function dumpSprites(atlas: SpriteAtlas, names: string[]): void {
   }
 }
 
-function main(): void {
-  mkdirSync('preview', { recursive: true });
-  const atlas = buildAtlas();
-
-  if (process.argv[2] === 'sprite') {
-    dumpSprites(atlas, process.argv.slice(3));
-    return;
-  }
-
-  const args = process.argv.slice(2);
-  const [x0 = 38, y0 = 56, x1 = 100, y1 = 102, scale = 4] = args.slice(0, 5).map(Number);
-  const outName = args[5] && Number.isNaN(Number(args[5])) ? args[5] : 'city';
-  const at = downscale(atlas.pixels, atlas.width, atlas.height, 2);
-  writeFileSync('preview/atlas.png', encodePng(at.w, at.h, at.img));
-  console.log(`preview/atlas.png  ${at.w}x${at.h}, ${atlas.frames.size} sprites`);
-
-  // composite a city crop in the renderer's painter order:
-  // ground → shoreline → transport ribbons → structures
-  const map = buildLondonMap();
+/**
+ * Composite a crop of ANY CityMap to preview/<outName>.png, in the renderer's
+ * painter order (ground → shoreline → transport ribbons → structures → air).
+ * Shared by the London preview and the OSM-city preview (tools/previewCity.ts).
+ */
+export function renderCityCrop(
+  atlas: SpriteAtlas,
+  map: CityMap,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  scale: number,
+  outName: string,
+  airports: AirportSpec[] = [],
+): void {
   const HW = CELL_W / 2;
   const HH = FLOOR_H / 2;
   const cols = x1 - x0 + 1;
@@ -333,13 +331,34 @@ function main(): void {
       if (inAirCrop(pts)) fillPoly(img, W, H, shift(pts), color, alpha);
     };
     const AIR_T = 26; // seconds into the loop: departures mid-climb
-    emitFlightArcs(AIRPORTS, sEff, airSink);
-    emitPlanes(AIRPORTS, AIR_T, sEff, airSink);
-    console.log(`air: ${AIRPORTS.length} airport(s) at t=${AIR_T}s`);
+    emitFlightArcs(airports, sEff, airSink);
+    emitPlanes(airports, AIR_T, sEff, airSink);
+    console.log(`air: ${airports.length} airport(s) at t=${AIR_T}s`);
   }
   const sc = downscale(img, W, H, scale);
   writeFileSync(`preview/${outName}.png`, encodePng(sc.w, sc.h, sc.img));
   console.log(`preview/${outName}.png   tiles (${x0},${y0})–(${x1},${y1}) at ${sc.w}x${sc.h}`);
 }
 
-main();
+function main(): void {
+  mkdirSync('preview', { recursive: true });
+  const atlas = buildAtlas();
+
+  if (process.argv[2] === 'sprite') {
+    dumpSprites(atlas, process.argv.slice(3));
+    return;
+  }
+
+  const args = process.argv.slice(2);
+  const [x0 = 38, y0 = 56, x1 = 100, y1 = 102, scale = 4] = args.slice(0, 5).map(Number);
+  const outName = args[5] && Number.isNaN(Number(args[5])) ? args[5] : 'city';
+  const at = downscale(atlas.pixels, atlas.width, atlas.height, 2);
+  writeFileSync('preview/atlas.png', encodePng(at.w, at.h, at.img));
+  console.log(`preview/atlas.png  ${at.w}x${at.h}, ${atlas.frames.size} sprites`);
+
+  renderCityCrop(atlas, buildLondonMap(), x0, y0, x1, y1, scale, outName, AIRPORTS);
+}
+
+// only render London when run directly — importing this module (for
+// renderCityCrop) must NOT trigger the CLI.
+if (process.argv[1] && /preview\.ts$/.test(process.argv[1])) main();

@@ -12,6 +12,34 @@
 
 ## Open
 
+### 🛠 OSM PIPELINE BUILD (fresh env w/ egress, 2026-06-14 ~14:50) — IN PROGRESS
+The fresh env HAS the OSM/Wikidata egress. Built the pipeline PROPER
+(`docs/osm-pipeline.md` stages 1–5): `tools/osm/` (project · geometry ·
+net+cache · nominatim · overpass · buildCityFromOsm · emitCityData) +
+`tools/buildCity.ts` CLI + `tools/previewCity.ts` + `src/data/cityData.ts`
+runtime loader. Validated on **real Paris OSM** → `src/data/cities/paris.ts`
+(256×160, water/Seine 7.5%, graded core/urban/suburb, 200 councils, 48 named
+places incl. Notre-Dame/Eiffel/Louvre/Vincennes). Unit tests: `tests/osm.test.ts`
++ `tests/cityData.test.ts`. PURELY ADDITIVE — no live London/sim change.
+- [x] Density driven by REAL road-network density (urbanity field), not a
+      radial guess; land-use → industrial/commercial/park; building footprints
+      → CBD/tall.
+- [x] **Owner flurry (2026-06-14 14:53–14:56):** "light in buildings / only
+      iconic buildings / where's Notre-Dame?" → FIXED: streets stamped
+      `streetTouch` (was `street`, which suppressed the building on every tile);
+      only DRAWN major roads clear tiles (undrawn arterials kept buildings);
+      hero landmarks get a parvis APRON so they're not occluded. Central Paris
+      now reads as dense blocks; Notre-Dame visible on its island.
+- [ ] **OPEN — landmark/building FIDELITY (owner call):** landmarks currently
+      map to the nearest existing GB sprite archetype (every cathedral → St
+      Paul's dome, every château → the castle). Bespoke per-city hero art +
+      procedural footprint buildings (doc stage 6/7) are the next fork.
+- [ ] **OPEN — live integration:** register the city as a selectable scenario
+      (lazy-loaded so the 320 KB artifact doesn't bloat the bundle) + generalise
+      the renderer's London couplings (labels from the map, estuary-marsh guard,
+      per-scenario airports) + a city-picker UI. Needs the in-game design gate —
+      kept OUT of this additive PR.
+
 ### ⭐ HANDOVER (owner, 2026-06-14 ~13:45) — read this first, then build in a FRESH env
 The landmark-art arc this session, and where it's going next:
 - **Tried & reverted:** an AI-raster hero-override pipeline (PR #61, then
