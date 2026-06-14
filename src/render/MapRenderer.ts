@@ -127,6 +127,13 @@ const ROUTE_STYLE: Record<RouteClass, { speed: number; perTile: number }> = {
 };
 const CAR_COLORS = [0xf4f1ea, 0x27324d, 0xc9453a, 0x5e8fc2, 0xe8a23f, 0x9aa4b5, 0x3f8f8a];
 
+// Field-van glide: ease each van between snapshot tiles over this window
+// (sim-time-scaled, so it stays crisp from 1x to 16x), but snap with no
+// slide if a snapshot moves a van further than this many tiles (a spawn at
+// the depot or a teleport must not streak across the map).
+const VAN_GLIDE_MS = 320;
+const VAN_SNAP_TILES = 3;
+
 export interface VanView {
   id: number;
   x: number;
@@ -324,6 +331,12 @@ export class MapRenderer {
    *  without waiting for the next snapshot. */
   private lastBranches: BranchView[] = [];
   private vanSprites = new Map<number, Sprite>();
+  /** Per-van glide state (fractional tile coords): each new snapshot sets
+   *  `from` to the current interpolated position and `to` to the snapshot,
+   *  resetting `t`; `stepFleet` lerps from→to each frame so vans slide
+   *  between tiles instead of snapping. Purely cosmetic (wall-clock-eased,
+   *  not part of sim state) — positions always converge on the snapshot. */
+  private vanLerp = new Map<number, { fromX: number; fromY: number; toX: number; toY: number; t: number }>();
   private ghostG = new Graphics();
   private ghostSprite: Sprite | undefined;
   /** Per-tile ghost sprites for a multi-tile farm RESERVATION preview. */
@@ -1841,6 +1854,7 @@ export class MapRenderer {
     this.stepAir(mdt);
     this.stepRotors(mdt);
     this.stepFlow(mdt);
+    this.stepFleet(dt);
     this.stepPulses(dt);
     // atmosphere/grade easing + attention pins stay on real time (a paused
     // game still settles the dusk wash and pulses its "look here" rings)
@@ -2199,21 +2213,60 @@ export class MapRenderer {
     for (const v of vans) {
       seen.add(v.id);
       let s = this.vanSprites.get(v.id);
+      const fresh = !s;
       if (!s && tex) {
         s = new Sprite(tex);
         this.vanSprites.set(v.id, s);
         this.fleetLayer.addChild(s);
       }
       if (!s) continue;
-      const c = this.tileCentre(v.x, v.y);
-      s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
-      this.applyTrim(s, 'van');
+      // Seed/refresh this van's glide: `from` is where it currently reads
+      // (the last interpolated position), `to` is the new snapshot tile.
+      // A brand-new sprite or a big teleport (van spawned at depot / warped)
+      // snaps with no slide; everything else eases over a fixed window.
+      const prev = this.vanLerp.get(v.id);
+      const fromX = prev ? prev.fromX + (prev.toX - prev.fromX) * prev.t : v.x;
+      const fromY = prev ? prev.fromY + (prev.toY - prev.fromY) * prev.t : v.y;
+      const big = Math.abs(v.x - fromX) > VAN_SNAP_TILES || Math.abs(v.y - fromY) > VAN_SNAP_TILES;
+      if (fresh || big) {
+        this.vanLerp.set(v.id, { fromX: v.x, fromY: v.y, toX: v.x, toY: v.y, t: 1 });
+      } else {
+        this.vanLerp.set(v.id, { fromX, fromY, toX: v.x, toY: v.y, t: 0 });
+      }
+      this.placeVan(s, fromX, fromY);
     }
     for (const [id, s] of [...this.vanSprites]) {
       if (!seen.has(id)) {
         s.destroy();
         this.vanSprites.delete(id);
+        this.vanLerp.delete(id);
       }
+    }
+  }
+
+  /** Position a van sprite at fractional tile (tx, ty), trim-corrected. */
+  private placeVan(s: Sprite, tx: number, ty: number): void {
+    const c = this.tileCentre(tx, ty);
+    s.position.set(c.x - HALF_W, c.y + HALF_H - CELL_H);
+    this.applyTrim(s, 'van');
+  }
+
+  /** Per-frame van glide: advance each van's eased fraction toward its
+   *  latest snapshot and reposition. Eases in wall-clock ms (cosmetic, not
+   *  sim state) but scaled by `simSpeed` so the slide tracks game time —
+   *  brisk at 1x, near-instant at 16x — and freezes when paused (no drift).
+   *  Positions always converge on the snapshot (`t` clamps at 1). */
+  private stepFleet(dt: number): void {
+    if (this.vanLerp.size === 0) return;
+    // Paused: snap to the latest snapshot so a van rests on its authoritative
+    // tile rather than freezing mid-glide.
+    const step = this.simSpeed <= 0 ? 1 : (dt * this.simSpeed * 1000) / VAN_GLIDE_MS;
+    for (const [id, l] of this.vanLerp) {
+      if (l.t >= 1) continue;
+      l.t = Math.min(1, l.t + step);
+      const s = this.vanSprites.get(id);
+      if (!s) continue;
+      this.placeVan(s, l.fromX + (l.toX - l.fromX) * l.t, l.fromY + (l.toY - l.fromY) * l.t);
     }
   }
 
