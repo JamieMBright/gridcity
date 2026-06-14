@@ -96,24 +96,59 @@ function ringOf(geom: OsmGeomNode[] | undefined): LL[] {
   return r;
 }
 
+/**
+ * Stitch a set of member ways into closed rings (the OSM multipolygon assembly
+ * algorithm). A big water body or park outline is rarely a single closed way —
+ * its boundary is split across many open ways that share endpoints and must be
+ * joined end-to-end. Treating each fragment as its own ring (the old behaviour)
+ * turned Sydney Harbour into scattered slivers; stitching forms the real shape.
+ */
+export function assembleRings(ways: LL[][]): LL[][] {
+  const eq = (a: LL, b: LL): boolean => Math.abs(a[0] - b[0]) < 1e-9 && Math.abs(a[1] - b[1]) < 1e-9;
+  const pool = ways.filter((w) => w.length >= 2).map((w) => w.slice());
+  const rings: LL[][] = [];
+  while (pool.length) {
+    let ring = pool.pop()!;
+    let grew = true;
+    // keep absorbing ways that share an endpoint until the ring closes
+    while (grew && !eq(ring[0]!, ring[ring.length - 1]!)) {
+      grew = false;
+      for (let i = 0; i < pool.length; i++) {
+        const w = pool[i]!;
+        const head = ring[0]!;
+        const tail = ring[ring.length - 1]!;
+        if (eq(tail, w[0]!)) ring = ring.concat(w.slice(1));
+        else if (eq(tail, w[w.length - 1]!)) ring = ring.concat(w.slice(0, -1).reverse());
+        else if (eq(head, w[w.length - 1]!)) ring = w.slice(0, -1).concat(ring);
+        else if (eq(head, w[0]!)) ring = w.slice(1).reverse().concat(ring);
+        else continue;
+        pool.splice(i, 1);
+        grew = true;
+        break;
+      }
+    }
+    if (ring.length >= 3) rings.push(ring);
+  }
+  return rings;
+}
+
 /** Outer/inner rings of a way (a closed way) or multipolygon relation. */
 function polygonOf(el: OsmElement): LLPolygon {
   if (el.type === 'way') {
     const ring = ringOf(el.geometry);
     return ring.length >= 3 ? [ring] : [];
   }
-  // relation: stitch member ways by role. Each member's geometry is treated
-  // as one ring (OSM closed-way members); partial rings are approximated.
-  const outers: LL[][] = [];
-  const inners: LL[][] = [];
+  // relation: collect member ways by role, then stitch each role's fragments
+  // into closed rings before handing outer+inner to the even-odd rasteriser.
+  const outerWays: LL[][] = [];
+  const innerWays: LL[][] = [];
   for (const m of el.members ?? []) {
     if (m.type !== 'way') continue;
     const ring = ringOf(m.geometry);
-    if (ring.length < 3) continue;
-    (m.role === 'inner' ? inners : outers).push(ring);
+    if (ring.length < 2) continue;
+    (m.role === 'inner' ? innerWays : outerWays).push(ring);
   }
-  // outer rings first, then holes — the even-odd rasteriser handles either
-  return [...outers, ...inners];
+  return [...assembleRings(outerWays), ...assembleRings(innerWays)];
 }
 
 function roadClass(hw: string): RoadClass {
@@ -246,6 +281,7 @@ export async function fetchAllBuildings(bbox: Bbox): Promise<BuildingFootprint[]
       const text = await cachedFetch(endpoint, {
         body: 'data=' + encodeURIComponent(query),
         cacheKey: query,
+        validate: overpassUsable,
         label: `overpass buildings ${endpoint}`,
       });
       const json = JSON.parse(text) as { elements?: OsmElement[] };
@@ -281,6 +317,19 @@ export async function fetchAllBuildings(bbox: Bbox): Promise<BuildingFootprint[]
   throw new Error(`all overpass endpoints failed for buildings: ${String(lastErr)}`);
 }
 
+// A response is usable only if it parses, carries no server-side timeout
+// remark, and has at least one element. Overpass returns such partial/timeout
+// bodies as HTTP 200, which is how a coastline-less Sydney got cached before.
+function overpassUsable(text: string): boolean {
+  try {
+    const j = JSON.parse(text) as { elements?: unknown[]; remark?: string };
+    if (j.remark && /timed out|runtime error/i.test(j.remark)) return false;
+    return Array.isArray(j.elements) && j.elements.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function fetchOsmFeatures(bbox: Bbox): Promise<OsmFeatures> {
   const query = buildQuery(bbox);
   let lastErr: unknown;
@@ -290,6 +339,7 @@ export async function fetchOsmFeatures(bbox: Bbox): Promise<OsmFeatures> {
       const text = await cachedFetch(endpoint, {
         body,
         cacheKey: query,
+        validate: overpassUsable,
         label: `overpass ${endpoint}`,
       });
       const json = JSON.parse(text) as { elements?: OsmElement[] };
@@ -302,4 +352,44 @@ export async function fetchOsmFeatures(bbox: Bbox): Promise<OsmFeatures> {
     }
   }
   throw new Error(`all overpass endpoints failed: ${String(lastErr)}`);
+}
+
+/**
+ * Coastline as its OWN dedicated query. The open sea is bounded by
+ * `natural=coastline` ways; bundling them into the big combined query made them
+ * the first casualty of a server-side timeout (the sea silently vanished). A
+ * small standalone query is fast and reliable, so every coastal city
+ * (NY harbour, Sydney, Hong Kong, Cape Town) gets its defining water.
+ */
+export async function fetchCoastline(bbox: Bbox): Promise<LL[][]> {
+  const b = `${bbox.minLat},${bbox.minLon},${bbox.maxLat},${bbox.maxLon}`;
+  const query = `[out:json][timeout:120];(way["natural"="coastline"](${b}););out geom;`;
+  for (const endpoint of ENDPOINTS) {
+    try {
+      const text = await cachedFetch(endpoint, {
+        body: 'data=' + encodeURIComponent(query),
+        cacheKey: query,
+        validate: (t) => {
+          try {
+            const j = JSON.parse(t) as { remark?: string };
+            return !(j.remark && /timed out|runtime error/i.test(j.remark));
+          } catch {
+            return false;
+          }
+        },
+        label: `overpass coastline ${endpoint}`,
+      });
+      const json = JSON.parse(text) as { elements?: OsmElement[] };
+      const out: LL[][] = [];
+      for (const el of json.elements ?? []) {
+        if (el.type !== 'way') continue;
+        const ln = ringOf(el.geometry);
+        if (ln.length >= 2) out.push(ln);
+      }
+      return out;
+    } catch (err) {
+      console.log(`  coastline endpoint failed (${endpoint}): ${String(err)}`);
+    }
+  }
+  return [];
 }

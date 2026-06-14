@@ -25,7 +25,7 @@ import {
 } from '../src/sim/map/types';
 import { fillPolygonTiles, simplifyPath, strokePolylineTiles, type Pt } from './osm/geometry';
 import { geocode } from './osm/nominatim';
-import { fetchAllBuildings, fetchOsmFeatures, type BuildingFootprint } from './osm/overpass';
+import { fetchAllBuildings, fetchCoastline, fetchOsmFeatures, type BuildingFootprint } from './osm/overpass';
 import { projectorFromCentre, type TileProjector } from './osm/project';
 import { renderCityCrop } from './preview';
 
@@ -67,6 +67,69 @@ function heroOf(name: string): Landmark {
   return LANDMARK.none;
 }
 
+// Flood the open SEA from OSM coastlines. OSM coastlines are open ways drawn
+// with land on the LEFT (water on the right) in geographic, y-UP orientation;
+// projecting to our y-DOWN tile grid flips the handedness, so the water sits on
+// the (-dy, dx) side of each segment's travel direction. We stamp the coast as
+// a 1-tile barrier, seed the water side, then 4-connected flood across open
+// (unbuilt, un-vegetated) tiles. The dense building/park fabric is a second
+// wall, so a gap where the coastline leaves the bbox can't leak the ocean deep
+// inland. Without this every coastal city (NY harbour, Sydney, Hong Kong, Cape
+// Town) renders its defining sea as plain land.
+function floodSea(lines: Pt[][], W: number, H: number, terrain: Uint8Array, block: Uint8Array): number {
+  if (!lines.length) return 0;
+  const n = W * H;
+  const idx = (x: number, y: number): number => y * W + x;
+  const coast = new Uint8Array(n);
+  for (const ln of lines) strokePolylineTiles(ln, 0.7, W, H, (x, y) => { coast[idx(x, y)] = 1; });
+  const seen = new Uint8Array(n);
+  const queue: number[] = [];
+  const seed = (fx: number, fy: number): void => {
+    const x = Math.round(fx);
+    const y = Math.round(fy);
+    if (x < 0 || x >= W || y < 0 || y >= H) return;
+    const i = idx(x, y);
+    if (seen[i] || coast[i] || block[i]) return;
+    seen[i] = 1;
+    queue.push(i);
+  };
+  for (const ln of lines) {
+    for (let k = 0; k + 1 < ln.length; k++) {
+      const [ax, ay] = ln[k]!;
+      const [bx, by] = ln[k + 1]!;
+      const dx = bx - ax;
+      const dy = by - ay;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len; // water-side normal (tile space, y-down)
+      const ny = dx / len;
+      const steps = Math.max(1, Math.ceil(len));
+      for (let s = 0; s <= steps; s++) {
+        const px = ax + (dx * s) / steps;
+        const py = ay + (dy * s) / steps;
+        seed(px + nx * 1.6, py + ny * 1.6);
+        seed(px + nx * 2.8, py + ny * 2.8);
+      }
+    }
+  }
+  let filled = 0;
+  while (queue.length) {
+    const i = queue.pop()!;
+    terrain[i] = TERRAIN.water;
+    filled++;
+    const x = i % W;
+    const y = (i / W) | 0;
+    const nb: Array<[number, number]> = [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]];
+    for (const [ax, ay] of nb) {
+      if (ax < 0 || ax >= W || ay < 0 || ay >= H) continue;
+      const j = idx(ax, ay);
+      if (seen[j] || coast[j] || block[j]) continue;
+      seen[j] = 1;
+      queue.push(j);
+    }
+  }
+  return filled;
+}
+
 async function main(): Promise<void> {
   const query = process.argv[2];
   const id = process.argv[3] ?? 'city';
@@ -83,7 +146,8 @@ async function main(): Promise<void> {
   console.log(`${g.displayName}  ·  ${proj.metresPerTile().toFixed(0)} m/tile`);
   const features = await fetchOsmFeatures(proj.bbox());
   const buildings = await fetchAllBuildings(proj.bbox());
-  console.log(`  ${buildings.length} footprints, ${features.roads.length} roads`);
+  const coastline = await fetchCoastline(proj.bbox());
+  console.log(`  ${buildings.length} footprints, ${features.roads.length} roads, ${coastline.length} coastlines`);
 
   const n = W * H;
   const idx = (x: number, y: number): number => y * W + x;
@@ -142,6 +206,14 @@ async function main(): Promise<void> {
         }
     }
 
+  // --- open sea from coastlines (bounded by the built + vegetated fabric) --
+  const seaBlock = new Uint8Array(n);
+  for (let i = 0; i < n; i++) if (built[i]) seaBlock[i] = 1;
+  for (const gp of features.green) fillPolygonTiles(project(gp.poly), W, H, (x, y) => { seaBlock[idx(x, y)] = 1; });
+  const coastTiles = coastline.map((ln) => ln.map(([lo, la]) => proj.toTile(lo, la)));
+  const sea = floodSea(coastTiles, W, H, terrain, seaBlock);
+  if (coastTiles.length) console.log(`  sea: ${sea} tiles from ${coastTiles.length} coastlines`);
+
   // --- zone each tile from the real building mix + height -----------------
   for (let i = 0; i < n; i++) {
     if (terrain[i] !== TERRAIN.land) continue;
@@ -199,25 +271,39 @@ async function main(): Promise<void> {
   // (most prominent) first; route each to the bespoke marquee (Eiffel, Notre-
   // Dame…), a civic special (school/church/hospital/townhall) or the
   // grand-civic generator, and place it as an N×N SW-anchored block.
-  const FOOT: Record<number, number> = { [LANDMARK.eiffel]: 3, [LANDMARK.grand]: 3 };
-  const bboxArea = (ring: [number, number][]): number => {
+  // Each hero is sized from its REAL footprint (a palace/terminal is huge; a
+  // local landmark is small). No artificial apron — heroes stand proud by
+  // being TALLER/WIDER within their square; clearance comes only where the real
+  // building has open ground (parks/squares the seeded map already left empty).
+  const FOOT: Record<number, number> = { [LANDMARK.eiffel]: 3, [LANDMARK.notredame]: 2 };
+  const footExtent = (ring: [number, number][]): number => {
     let mnx = Infinity, mny = Infinity, mxx = -Infinity, mxy = -Infinity;
-    for (const [lo, la] of ring) { if (lo < mnx) mnx = lo; if (lo > mxx) mxx = lo; if (la < mny) mny = la; if (la > mxy) mxy = la; }
-    return (mxx - mnx) * (mxy - mny);
+    for (const [lo, la] of ring) {
+      const [tx, ty] = proj.toTile(lo, la);
+      if (tx < mnx) mnx = tx; if (tx > mxx) mxx = tx; if (ty < mny) mny = ty; if (ty > mxy) mxy = ty;
+    }
+    return Math.max(mxx - mnx, mxy - mny); // real size in tiles
   };
   const notable = buildings
     .filter((b) => b.name && b.poly[0])
-    .map((b) => ({ b, area: bboxArea(b.poly[0]!) }))
-    .sort((a, b) => b.area - a.area);
+    .map((b) => ({ b, ext: footExtent(b.poly[0]!) }))
+    .sort((a, b) => b.ext - a.ext);
   let heroes = 0;
-  for (const { b } of notable) {
+  for (const { b, ext } of notable) {
     if (heroes >= 100) break;
     const name = b.name ?? '';
     let lm = heroOf(name);
     if (lm === LANDMARK.none) {
       const sp = classify(b).special;
-      lm = sp !== LANDMARK.none ? sp : LANDMARK.grand; // the generic notable hero
+      // only genuinely LARGE notable buildings become grand civic blocks; the
+      // small/medium named civic get their compact specials; tiny named
+      // ordinary buildings aren't heroes at all
+      if (sp !== LANDMARK.none) lm = sp;
+      else if (ext >= 2.2) lm = LANDMARK.grand;
+      else continue;
     }
+    // footprint: bespoke fixed sizes, else size to the real extent (1..4)
+    const N = FOOT[lm] ?? (lm === LANDMARK.grand ? 3 : Math.max(1, Math.min(4, Math.round(ext))));
     const c = b.poly[0]!;
     let sx = 0;
     let sy = 0;
@@ -225,21 +311,11 @@ async function main(): Promise<void> {
     const [tx, ty] = proj.toTile(sx / c.length, sy / c.length);
     const x = Math.round(tx);
     const y = Math.round(ty);
-    const N = FOOT[lm] ?? 1;
     if (x < 1 || x + N - 1 >= W - 1 || y - (N - 1) <= 0 || y >= H - 1) continue;
     let clear = true;
     for (let dx = 0; dx < N && clear; dx++) for (let dy = 0; dy < N; dy++) if (landmark[idx(x + dx, y - dy)] !== LANDMARK.none) clear = false;
     if (!clear) continue;
     for (let dx = 0; dx < N; dx++) for (let dy = 0; dy < N; dy++) { const j = idx(x + dx, y - dy); landmark[j] = lm; zone[j] = ZONE.park; }
-    // a cleared parvis apron so the hero stands proud of the dense fabric
-    for (let dx = -1; dx <= N; dx++) for (let dy = -1; dy <= N; dy++) {
-      const ax = x + dx;
-      const ay = y - dy;
-      if (ax < 0 || ax >= W || ay < 0 || ay >= H) continue;
-      const j = idx(ax, ay);
-      if (terrain[j] === TERRAIN.water || landmark[j] !== LANDMARK.none) continue;
-      zone[j] = ZONE.park;
-    }
     heroes++;
   }
   console.log(`  placed ${heroes} hero buildings`);

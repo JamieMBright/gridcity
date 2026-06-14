@@ -18,6 +18,7 @@ import {
   strokePolylineTiles,
   type Pt,
 } from '../tools/osm/geometry';
+import { assembleRings } from '../tools/osm/overpass';
 
 describe('Web-Mercator projection', () => {
   it('round-trips lon/lat → merc → lon/lat', () => {
@@ -167,6 +168,37 @@ describe('tile rasterisers', () => {
     expect(out.length).toBeLessThan(line.length);
     expect(out[0]).toEqual([0, 0]);
     expect(out[out.length - 1]).toEqual([3, 5]);
+  });
+
+  it('stitches multipolygon member fragments into closed rings', () => {
+    // a big water body's outer boundary, split across four open ways that share
+    // endpoints (the real OSM shape of Sydney Harbour). Each fragment alone is
+    // not a polygon — only stitched end-to-end do they form the square ring.
+    const a: [number, number][] = [[0, 0], [4, 0]];
+    const b: [number, number][] = [[4, 0], [4, 4]];
+    const c: [number, number][] = [[4, 4], [0, 4]];
+    const d: [number, number][] = [[0, 4], [0, 0]];
+    const rings = assembleRings([a, c, b, d]); // deliberately out of order
+    expect(rings).toHaveLength(1);
+    const ring = rings[0]!;
+    // closed (first === last) and encloses the full 4×4 area
+    expect(ring[0]).toEqual(ring[ring.length - 1]);
+    expect(ringArea(ring)).toBeCloseTo(16, 6);
+    // a fragment that needs reversing to attach still joins
+    const e: [number, number][] = [[0, 0], [2, 0]];
+    const f: [number, number][] = [[2, 2], [2, 0]]; // shares its END with e's end
+    const g: [number, number][] = [[2, 2], [0, 2]];
+    const h: [number, number][] = [[0, 0], [0, 2]];
+    const r2 = assembleRings([e, f, g, h]);
+    expect(r2).toHaveLength(1);
+    expect(ringArea(r2[0]!)).toBeCloseTo(4, 6);
+  });
+
+  it('keeps two disjoint ring-sets as two separate rings', () => {
+    const sq1: [number, number][][] = [[[0, 0], [2, 0]], [[2, 0], [2, 2]], [[2, 2], [0, 2]], [[0, 2], [0, 0]]];
+    const sq2: [number, number][][] = [[[9, 9], [11, 9]], [[11, 9], [11, 11]], [[11, 11], [9, 11]], [[9, 11], [9, 9]]];
+    const rings = assembleRings([...sq1, ...sq2]);
+    expect(rings).toHaveLength(2);
   });
 
   it('ringArea and ringCentroid of a unit-ish square', () => {

@@ -32,6 +32,13 @@ export interface FetchOpts {
   cacheKey?: string;
   /** Skip the disk cache (force a network round-trip). */
   noCache?: boolean;
+  /**
+   * Accept the response body only if this returns true. A cached body that
+   * fails validation is treated as a miss (re-fetched); a freshly fetched body
+   * that fails is treated as a retryable error (backoff + retry, never cached).
+   * Used to reject Overpass partial/timeout responses that arrive as HTTP 200.
+   */
+  validate?: (text: string) => boolean;
   label?: string;
 }
 
@@ -45,7 +52,10 @@ export async function cachedFetch(url: string, opts: FetchOpts = {}): Promise<st
   const key = `${url}\n${opts.cacheKey ?? opts.body ?? ''}`;
   const file = cachePath(key, ext);
   if (!opts.noCache && existsSync(file)) {
-    return readFileSync(file, 'utf8');
+    const cached = readFileSync(file, 'utf8');
+    if (!opts.validate || opts.validate(cached)) return cached;
+    // cached body is incomplete (e.g. an old partial Overpass response) — drop
+    // through and re-fetch rather than serving bad data forever.
   }
   mkdirSync(CACHE_DIR, { recursive: true });
 
@@ -76,6 +86,10 @@ export async function cachedFetch(url: string, opts: FetchOpts = {}): Promise<st
       }
       if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText} from ${label}`);
       const text = await res.text();
+      if (opts.validate && !opts.validate(text)) {
+        lastErr = new Error(`incomplete response from ${label}`);
+        continue; // partial/timeout body → back off and retry, don't cache it
+      }
       writeFileSync(file, text);
       return text;
     } catch (err) {

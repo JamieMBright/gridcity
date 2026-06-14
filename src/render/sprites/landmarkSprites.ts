@@ -640,78 +640,80 @@ export function fortressTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
  * places it like any hero (with its cleared parvis apron around it).
  */
 export function notredameTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso();
+  const iso = new Iso(2, 2, { swAnchor: true });
   void seed;
   const GST = hex('#cdc6b4'); // cool gothic limestone
   const GST_D = hex('#aaa48f');
   const ROOF = hex('#4f5a6b'); // dark lead nave roof
   const GLASS = alpha(hex('#2b3350'), 0.9);
-  iso.shadow(0.16, 0.22, 0.9, 0.92, 0.2, 0.24);
+  const P2 = (u: number, v: number, z: number): Pt => iso.P(u, v, z);
+  iso.shadow(0.32, 0.44, 1.8, 1.84, 0.22, 0.24);
 
-  const nu0 = 0.34;
-  const nu1 = 0.66;
-  const nv0 = 0.3; // apse (back)
-  const nv1 = 0.82; // crossing toward the front
-  const navH = 26;
+  // 2×2 footprint, drawn TALL so it towers over the surrounding fabric.
+  const nu0 = 0.68;
+  const nu1 = 1.32;
+  const nv0 = 0.6; // apse (back)
+  const nv1 = 1.64; // crossing toward the front
+  const navH = 42;
 
   // side aisles (lower) flanking the nave, with lean-to lead roofs
-  iso.box(0.22, nv0 + 0.04, nu0, nv1, 0, 15, GST);
-  iso.box(nu1, nv0 + 0.04, 0.78, nv1, 0, 15, GST);
-  iso.quad(0.22, nv0 + 0.04, nu0, nv1, 15, shaded(ROOF, 0.04));
-  iso.quad(nu1, nv0 + 0.04, 0.78, nv1, 15, lit(ROOF, 0.04));
+  iso.box(0.44, nv0 + 0.08, nu0, nv1, 0, 24, GST);
+  iso.box(nu1, nv0 + 0.08, 1.56, nv1, 0, 24, GST);
+  iso.quad(0.44, nv0 + 0.08, nu0, nv1, 24, shaded(ROOF, 0.04));
+  iso.quad(nu1, nv0 + 0.08, 1.56, nv1, 24, lit(ROOF, 0.04));
   // tall pointed lancet windows down the visible (left) aisle wall
-  for (let i = 0; i < 5; i++) {
-    const u = 0.26 + i * 0.064;
+  for (let i = 0; i < 6; i++) {
+    const u = 0.52 + i * 0.11;
     iso.r.poly(
-      [P(u, nv1, 4), P(u + 0.03, nv1, 4), P(u + 0.03, nv1, 11), P(u + 0.015, nv1, 13.5), P(u, nv1, 11)],
+      [P2(u, nv1, 7), P2(u + 0.05, nv1, 7), P2(u + 0.05, nv1, 18), P2(u + 0.025, nv1, 22), P2(u, nv1, 18)],
       GLASS,
     );
   }
 
   // the nave clerestory + steep gable roof (ridge front-to-back along v)
   iso.box(nu0, nv0, nu1, nv1, 0, navH, GST);
-  iso.gable(nu0, nv0, nu1, nv1, navH, 16, 'v', ROOF, GST);
+  iso.gable(nu0, nv0, nu1, nv1, navH, 26, 'v', ROOF, GST);
 
   // rounded apse / chevet at the back (low v) under a conical roof
-  iso.box(nu0 + 0.02, nv0 - 0.08, nu1 - 0.02, nv0 + 0.04, 0, navH - 5, GST);
-  iso.hip(nu0, nv0 - 0.1, nu1, nv0 + 0.06, navH - 5, 11, ROOF);
+  iso.box(nu0 + 0.04, nv0 - 0.16, nu1 - 0.04, nv0 + 0.08, 0, navH - 8, GST);
+  iso.hip(nu0, nv0 - 0.2, nu1, nv0 + 0.12, navH - 8, 18, ROOF);
 
   // suggested flying buttresses along the apse flanks
-  for (const v of [nv0 + 0.02, nv0 + 0.16, nv0 + 0.3]) {
-    iso.r.line(P(0.22, v, 14), P(nu0, v, navH - 3), 1.1 * RES, GST_D);
-    iso.r.line(P(0.78, v, 14), P(nu1, v, navH - 3), 1.1 * RES, GST_D);
+  for (const v of [nv0 + 0.04, nv0 + 0.32, nv0 + 0.6]) {
+    iso.r.line(P2(0.44, v, 22), P2(nu0, v, navH - 5), 1.4 * RES, GST_D);
+    iso.r.line(P2(1.56, v, 22), P2(nu1, v, navH - 5), 1.4 * RES, GST_D);
   }
 
-  // the central flèche (spire) over the crossing — taller than the towers
+  // the central flèche (spire) over the crossing — towers far above the city
   const su = (nu0 + nu1) / 2;
   const sv = nv0 + (nv1 - nv0) * 0.4;
-  iso.box(su - 0.028, sv - 0.028, su + 0.028, sv + 0.028, navH + 16, navH + 24, GST_D, { ink: false });
-  const base = P(su, sv, navH + 24);
-  const tip = P(su, sv, navH + 60);
-  iso.r.poly([[base[0] - 4 * RES, base[1]], tip, [base[0], base[1] - 1.5 * RES]], shaded(ROOF, 0.12));
-  iso.r.poly([[base[0], base[1] - 1.5 * RES], tip, [base[0] + 4 * RES, base[1]]], lit(ROOF, 0.1));
-  iso.r.polyline([[base[0] - 4 * RES, base[1]], tip, [base[0] + 4 * RES, base[1]]], INK_W * 0.7, INK);
-  iso.r.line(tip, [tip[0], tip[1] - 5 * RES], 1 * RES, COLORS.glassLit);
+  iso.box(su - 0.05, sv - 0.05, su + 0.05, sv + 0.05, navH + 26, navH + 38, GST_D, { ink: false });
+  const base = P2(su, sv, navH + 38);
+  const tip = P2(su, sv, navH + 96);
+  iso.r.poly([[base[0] - 6 * RES, base[1]], tip, [base[0], base[1] - 2 * RES]], shaded(ROOF, 0.12));
+  iso.r.poly([[base[0], base[1] - 2 * RES], tip, [base[0] + 6 * RES, base[1]]], lit(ROOF, 0.1));
+  iso.r.polyline([[base[0] - 6 * RES, base[1]], tip, [base[0] + 6 * RES, base[1]]], INK_W * 0.8, INK);
+  iso.r.line(tip, [tip[0], tip[1] - 8 * RES], 1.4 * RES, COLORS.glassLit);
 
-  // twin FLAT-TOPPED west towers at the front (high v)
-  for (const tu of [0.28, 0.72] as const) {
-    iso.box(tu - 0.1, 0.78, tu + 0.1, 0.92, 0, 46, GST);
+  // twin FLAT-TOPPED west towers at the front (high v) — the dominant masses
+  for (const tu of [0.56, 1.44] as const) {
+    iso.box(tu - 0.2, 1.56, tu + 0.2, 1.84, 0, 78, GST);
     // pointed belfry opening on the front face
     iso.r.poly(
-      [P(tu - 0.05, 0.92, 26), P(tu + 0.05, 0.92, 26), P(tu + 0.05, 0.92, 39), P(tu, 0.92, 43), P(tu - 0.05, 0.92, 39)],
+      [P2(tu - 0.1, 1.84, 44), P2(tu + 0.1, 1.84, 44), P2(tu + 0.1, 1.84, 66), P2(tu, 1.84, 72), P2(tu - 0.1, 1.84, 66)],
       GLASS,
     );
     // the gallery parapet + four corner pinnacles (flat top, no spire)
-    iso.box(tu - 0.11, 0.77, tu + 0.11, 0.93, 46, 49, lighten(GST, 0.08), { ink: false });
-    for (const [pu, pv] of [[tu - 0.1, 0.78], [tu + 0.1, 0.78], [tu - 0.1, 0.92], [tu + 0.1, 0.92]] as const) {
-      iso.box(pu - 0.013, pv - 0.013, pu + 0.013, pv + 0.013, 49, 55, GST_D, { ink: false });
+    iso.box(tu - 0.22, 1.54, tu + 0.22, 1.86, 78, 83, lighten(GST, 0.08), { ink: false });
+    for (const [pu, pv] of [[tu - 0.2, 1.56], [tu + 0.2, 1.56], [tu - 0.2, 1.84], [tu + 0.2, 1.84]] as const) {
+      iso.box(pu - 0.026, pv - 0.026, pu + 0.026, pv + 0.026, 83, 93, GST_D, { ink: false });
     }
   }
 
   // west-front gable wall + the great ROSE WINDOW + three portals
-  iso.box(0.38, 0.86, 0.62, 0.92, 0, 33, GST);
-  const [rx, ry] = P(0.5, 0.92, 23);
-  const RR = 6.5 * RES;
+  iso.box(0.76, 1.72, 1.24, 1.84, 0, 56, GST);
+  const [rx, ry] = P2(1.0, 1.84, 40);
+  const RR = 11 * RES;
   const rose: Pt[] = [];
   for (let i = 0; i <= 18; i++) {
     const a = (i / 18) * Math.PI * 2;
@@ -719,11 +721,11 @@ export function notredameTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   }
   iso.r.poly(rose, GLASS);
   iso.r.polyline(rose, INK_W * 0.7, INK, true);
-  iso.r.line([rx - RR, ry], [rx + RR, ry], 0.8 * RES, alpha(COLORS.white, 0.55));
-  iso.r.line([rx, ry - RR * 0.92], [rx, ry + RR * 0.92], 0.8 * RES, alpha(COLORS.white, 0.55));
-  for (const pu of [0.43, 0.5, 0.57]) {
+  iso.r.line([rx - RR, ry], [rx + RR, ry], 1 * RES, alpha(COLORS.white, 0.55));
+  iso.r.line([rx, ry - RR * 0.92], [rx, ry + RR * 0.92], 1 * RES, alpha(COLORS.white, 0.55));
+  for (const pu of [0.86, 1.0, 1.14]) {
     iso.r.poly(
-      [P(pu - 0.02, 0.92, 0), P(pu + 0.02, 0.92, 0), P(pu + 0.02, 0.92, 7), P(pu, 0.92, 9), P(pu - 0.02, 0.92, 7)],
+      [P2(pu - 0.04, 1.84, 0), P2(pu + 0.04, 1.84, 0), P2(pu + 0.04, 1.84, 13), P2(pu, 1.84, 17), P2(pu - 0.04, 1.84, 13)],
       darken(GST_D, 0.22),
     );
   }
@@ -834,12 +836,15 @@ export function grandTile(seed: number, variant: number): Uint8ClampedArray<Arra
   const iso = new Iso(3, 3, { swAnchor: true });
   const rng = new Rng(seed * 22699 + variant * 191 + 3);
   const S = RES;
+  const iP = (u: number, v: number, z: number): Pt => iso.P(u, v, z);
   const stoneSet: RGBA[] = [BATH, STONE, hex('#ded3b8'), PORTLAND, hex('#d3c7a8'), hex('#e4dcc6')];
   const stone = stoneSet[variant % stoneSet.length] ?? STONE;
   const roofSet: RGBA[] = [LEAD, hex('#5b5f68'), hex('#7d7494'), hex('#69604f'), hex('#4f6552')];
   const roof = roofSet[(variant >> 1) % roofSet.length] ?? LEAD;
   const crown = variant % 4;
-  const H = 34 + (variant % 3) * 12; // 34..58 — a tall, dominant civic mass
+  // tall enough to TOWER over the ordinary fabric (Haussmann reads ~70px with
+  // its mansard) — a hero must stand proud by height, not just footprint.
+  const H = 64 + (variant % 3) * 16; // 64..96, + the crown above
   const u0 = 0.36;
   const u1 = 2.64;
   const v0 = 0.45;
@@ -857,20 +862,32 @@ export function grandTile(seed: number, variant: number): Uint8ClampedArray<Arra
     iso.windowsLeft(v1, u0 + 0.12, u1 - 0.12, zb, zt, 10, lit, COLORS.white);
     iso.windowsRight(u1, v0 + 0.12, v1 - 0.12, zb, zt, 10, lit, COLORS.white);
   }
+  // rusticated base + pilaster strips so the walls aren't a flat 'marble slab'
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 7, shaded(stone, 0.12), { ink: false });
+  for (let u = u0 + 0.12; u <= u1 - 0.12; u += 0.456) {
+    iso.r.line(iP(u, v1, 7), iP(u, v1, H - 2), 1.4 * S, alpha(shaded(stone, 0.16), 0.5));
+  }
+  for (let v = v0 + 0.12; v <= v1 - 0.12; v += 0.456) {
+    iso.r.line(iP(u1, v, 7), iP(u1, v, H - 2), 1.4 * S, alpha(shaded(stone, 0.1), 0.5));
+  }
   // a balustraded cornice
   iso.box(u0 - 0.04, v0 - 0.04, u1 + 0.04, v1 + 0.04, H, H + 3, lighten(stone, 0.08), { topC: top(stone, 0.3) });
+  // a grey roof over the body for non-dome crowns (kills the flat marble top)
+  if (crown !== 0) iso.gable(u0, v0, u1, v1, H + 3, 16, u1 - u0 >= v1 - v0 ? 'u' : 'v', roof, stone);
 
-  // a columned PORTICO + pediment projecting from the front (v1)
+  // a columned PORTICO + pediment projecting from the front (v1). NB: this is a
+  // multi-tile sprite, so coords MUST go through iso.P (the module-level 1×1 P
+  // would land in the wrong place) — see iP at the top.
   const pcU0 = 0.95;
   const pcU1 = 2.05;
   iso.box(pcU0, v1, pcU1, v1 + 0.2, 0, H - 5, stone, { ink: false });
   for (let c = 0; c <= 9; c++) {
     const cu = pcU0 + ((pcU1 - pcU0) * c) / 9;
-    iso.r.poly([P(cu - 0.015, v1 + 0.2, H - 8), P(cu + 0.015, v1 + 0.2, H - 8), P(cu + 0.015, v1 + 0.2, 2), P(cu - 0.015, v1 + 0.2, 2)], c % 2 ? lit(COLORS.white, 0.1) : COLORS.white);
+    iso.r.poly([iP(cu - 0.015, v1 + 0.2, H - 8), iP(cu + 0.015, v1 + 0.2, H - 8), iP(cu + 0.015, v1 + 0.2, 2), iP(cu - 0.015, v1 + 0.2, 2)], c % 2 ? lit(COLORS.white, 0.1) : COLORS.white);
   }
   // pediment triangle
-  iso.r.poly([P(pcU0 - 0.05, v1 + 0.2, H - 5), P(pcU1 + 0.05, v1 + 0.2, H - 5), P((pcU0 + pcU1) / 2, v1 + 0.2, H + 10)], lighten(stone, 0.12));
-  iso.r.polyline([P(pcU0 - 0.05, v1 + 0.2, H - 5), P(pcU1 + 0.05, v1 + 0.2, H - 5), P((pcU0 + pcU1) / 2, v1 + 0.2, H + 10)], INK_W * 0.8, INK, true);
+  iso.r.poly([iP(pcU0 - 0.05, v1 + 0.2, H - 5), iP(pcU1 + 0.05, v1 + 0.2, H - 5), iP((pcU0 + pcU1) / 2, v1 + 0.2, H + 10)], lighten(stone, 0.12));
+  iso.r.polyline([iP(pcU0 - 0.05, v1 + 0.2, H - 5), iP(pcU1 + 0.05, v1 + 0.2, H - 5), iP((pcU0 + pcU1) / 2, v1 + 0.2, H + 10)], INK_W * 0.8, INK, true);
 
   const cx = (u0 + u1) / 2;
   const cy = (v0 + v1) / 2;
