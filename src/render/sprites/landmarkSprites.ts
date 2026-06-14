@@ -88,136 +88,201 @@ export function skyscraperTile(seed: number, kind: number): Uint8ClampedArray<Ar
 export function parliamentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso(3, 5, { swAnchor: true });
   void seed;
-  const SLATE = hex('#5b665f'); // low lead/slate palace roofs behind the parapet
+  const ROOFDK = hex('#3d444b'); // dark slate palace roofs (read near-black at dusk)
   const IRON = hex('#3b4750'); // dark iron cresting, flagstaff, spire frame
   const GILT = hex('#c8a24a'); // gilded clock rings, finials
   const DIAL = hex('#f2ead4'); // off-white clock dial
   const BLUE = hex('#26406b'); // the clock-face surround
-  const RIB = shaded(BATH, 0.32); // stone buttress ribs / mullions
+  const WARM = hex('#ffce86'); // the floodlit ground-arcade window glow
+  const RIB = shaded(BATH, 0.3); // stone buttress ribs / mullions
 
-  // A slim crocketed pinnacle standing at (u,v) from zBase, h tall.
-  const pinnacle = (u: number, v: number, zBase: number, h: number, r = 1.3): void => {
+  // A slim crocketed stone pinnacle standing at (u,v) from zBase, h tall.
+  const pinnacle = (u: number, v: number, zBase: number, h: number, r = 1.1): void => {
     const b = iso.P(u, v, zBase + h * 0.45);
     const t = iso.P(u, v, zBase + h);
     iso.r.line(iso.P(u, v, zBase), b, r * RES, lit(BATH, 0.04));
     iso.r.poly([[b[0] - r * 1.4, b[1]], [b[0] + r * 1.4, b[1]], [t[0], t[1]]], lit(BATH, 0.14));
-    iso.r.polyline([[b[0] - r * 1.4, b[1]], [t[0], t[1]], [b[0] + r * 1.4, b[1]]], INK_W * 0.45, alpha(INK, 0.65));
+    iso.r.polyline([[b[0] - r * 1.4, b[1]], [t[0], t[1]], [b[0] + r * 1.4, b[1]]], INK_W * 0.4, alpha(INK, 0.6));
+  };
+  // A small intermediate pavilion turret with a pyramidal slate cap, like
+  // the lesser towers (St Stephen's, the Speaker's) studding the roofline.
+  const pavilion = (u: number, v: number, w: number, zBot: number, bodyTop: number): void => {
+    iso.box(u - w, v - w, u + w, v + w, zBot, bodyTop, BATH);
+    const apex = iso.P(u, v, bodyTop + 12);
+    const c0 = iso.P(u - w, v + w, bodyTop);
+    const c1 = iso.P(u + w, v + w, bodyTop);
+    const c2 = iso.P(u + w, v - w, bodyTop);
+    iso.r.poly([c0, c1, apex], shaded(ROOFDK, 0.08));
+    iso.r.poly([c1, c2, apex], lit(ROOFDK, 0.06));
+    iso.r.polyline([c0, apex, c2], INK_W * 0.45, INK);
+    iso.r.line(apex, [apex[0], apex[1] - 4 * RES], 0.9 * RES, GILT);
   };
 
-  // --- the river quadrangle: a tall front river range fronting SE, with a
-  //     slightly lower inland range behind it so the mass reads as one deep
-  //     Gothic palace rather than detached barns -----------------------------
-  iso.shadow(0.32, 0.7, 2.58, 4.62, 0.24, 0.22);
-  // inland (back) range — lower, mostly seen as roofs poking up behind
-  iso.box(0.34, 0.96, 1.62, 4.3, 0, 33, BATH);
-  iso.gable(0.34, 0.96, 1.62, 4.3, 33, 6, 'v', SLATE, BATH);
-  // front river range — the show frontage
-  const ru0 = 1.5;
+  // The palace reads from the river as a LONG, LOW horizontal range — many
+  // storeys of fine regular windows over a floodlit ground arcade, a spiky
+  // pinnacled parapet, and the three great towers soaring far above it.
+  const ru0 = 1.44;
   const ru1 = 2.54;
-  const rv0 = 0.72;
-  const rv1 = 4.56;
-  iso.box(ru0, rv0, ru1, rv1, 0, 42, BATH);
-  // long unbroken roof behind the parapet
-  iso.gable(ru0, rv0, ru1, rv1, 42, 7, 'v', SLATE, BATH);
-  // regular perpendicular-gothic bays glazed between stone buttress ribs,
-  // the full length of the river (right) face
-  iso.windowsRight(ru1, rv0 + 0.14, rv1 - 0.14, 6, 38, 16, alpha(COLORS.glassDark, 0.95), lighten(BATH, 0.16));
-  for (let v = rv0 + 0.06; v <= rv1 - 0.02; v += (rv1 - rv0) / 16) {
-    iso.r.line(iso.P(ru1, v, 3), iso.P(ru1, v, 41), 1.0 * RES, RIB);
-  }
-  // a low parapet wall over the river eave, hiding the roof foot, then a
-  // continuous run of pinnacle cresting along it (the palace's spiky skyline)
-  iso.box(ru1 - 0.05, rv0, ru1, rv1, 42, 49, lit(BATH, 0.05));
-  iso.r.polyline([iso.P(ru1, rv0, 49), iso.P(ru1, rv1, 49)], INK_W * 0.6, alpha(INK, 0.7));
-  for (let v = rv0 + 0.05; v <= rv1; v += (rv1 - rv0) / 16) pinnacle(ru1 - 0.02, v, 49, 7.5, 1.15);
-  // the SW (left) gable end gets the great rose window
-  {
-    const g = iso.P((ru0 + ru1) / 2, rv1 + 0.004, 30);
-    const rose: Pt[] = [];
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2;
-      rose.push([g[0] + Math.cos(a) * 4.6 * RES, g[1] + Math.sin(a) * 4.2 * RES]);
-    }
-    iso.r.poly(rose, alpha(COLORS.glassDark, 0.95));
-    iso.r.polyline(rose, 1.1 * RES, lighten(BATH, 0.22), true);
-    iso.r.polyline(rose, INK_W * 0.45, INK, true);
-  }
+  const rv0 = 0.6;
+  const rv1 = 4.66;
+  const EAVE = 30;
+  iso.shadow(0.3, 0.58, 2.6, 4.7, 0.26, 0.22);
 
-  // --- CENTRAL TOWER — the slender octagonal lantern spire over the lobby,
-  //     between the two end towers (91.4 m) ----------------------------------
+  // inland (back) range — lower, glimpsed as dark roofs poking up behind
+  iso.box(0.32, 0.9, 1.5, 4.32, 0, 24, BATH);
+  iso.gable(0.32, 0.9, 1.5, 4.32, 24, 5, 'v', ROOFDK, BATH);
+
+  // CENTRAL TOWER — a slender octagonal lantern that tapers to a sharp
+  // needle high over the middle of the range (91.4 m). Drawn before the
+  // front range so the range occludes its foot.
   {
-    const cu = 1.62;
-    const cv = 2.6;
-    const cw = 0.17;
-    iso.box(cu - cw, cv - cw, cu + cw, cv + cw, 33, 78, BATH);
-    iso.windowsRight(cu + cw, cv - cw + 0.03, cv + cw - 0.03, 50, 72, 2, alpha(COLORS.glassDark, 0.9), lighten(BATH, 0.14));
-    // an octagonal tapering spire, pointed and tall
-    const apex = iso.P(cu, cv, 128);
-    const bL = iso.P(cu - cw, cv + cw, 80);
-    const bN = iso.P(cu + cw, cv + cw, 80);
-    const bR = iso.P(cu + cw, cv - cw, 80);
-    iso.r.poly([bL, bN, apex], shaded(SLATE, 0.1)); // left spire face
-    iso.r.poly([bN, bR, apex], lit(SLATE, 0.05)); // right spire face
+    const cu = 1.56;
+    const cv = 2.46;
+    const cw = 0.125;
+    iso.box(cu - cw, cv - cw, cu + cw, cv + cw, 24, 60, BATH);
+    iso.windowsRight(cu + cw, cv - cw + 0.02, cv + cw - 0.02, 40, 56, 2, alpha(COLORS.glassDark, 0.9), lighten(BATH, 0.14));
+    iso.hip(cu - cw - 0.01, cv - cw - 0.01, cu + cw + 0.01, cv + cw + 0.01, 60, 3, ROOFDK);
+    const apex = iso.P(cu, cv, 132);
+    const bL = iso.P(cu - cw, cv + cw, 63);
+    const bN = iso.P(cu + cw, cv + cw, 63);
+    const bR = iso.P(cu + cw, cv - cw, 63);
+    iso.r.poly([bL, bN, apex], shaded(ROOFDK, 0.1)); // left spire face
+    iso.r.poly([bN, bR, apex], lit(ROOFDK, 0.05)); // right spire face
     iso.r.polyline([bL, apex, bR], INK_W * 0.5, INK);
-    iso.r.line(bN, apex, INK_W * 0.4, alpha(INK, 0.55));
-    iso.r.line(apex, [apex[0], apex[1] - 6 * RES], 1.2 * RES, GILT); // finial
+    iso.r.line(bN, apex, INK_W * 0.4, alpha(INK, 0.5));
+    iso.r.line(apex, [apex[0], apex[1] - 7 * RES], 1.1 * RES, GILT);
+  }
+  // two intermediate pavilion turrets along the ridge
+  pavilion(2.18, 1.92, 0.07, EAVE, 50);
+  pavilion(2.18, 3.46, 0.07, EAVE, 50);
+
+  // front river range — the long show frontage
+  iso.box(ru0, rv0, ru1, rv1, 0, EAVE, BATH);
+  iso.gable(ru0, rv0, ru1, rv1, EAVE, 6, 'v', ROOFDK, BATH);
+
+  // the river (right) face: a fine regular grid of windows in storey bands,
+  // the ground floor a continuous floodlit gold arcade, between slim ribs
+  {
+    const bays = 22;
+    const va = rv0 + 0.16;
+    const vb = rv1 - 0.16;
+    const dv = (vb - va) / bays;
+    const storeys: Array<[number, number, RGBA]> = [
+      [4, 12, alpha(WARM, 0.95)], // floodlit ground arcade
+      [14, 20, alpha(COLORS.glassDark, 0.92)],
+      [22, 28, alpha(COLORS.glassDark, 0.92)],
+    ];
+    for (let i = 0; i < bays; i++) {
+      const a = va + dv * i + dv * 0.26;
+      const b = va + dv * (i + 1) - dv * 0.26;
+      for (const [zb, zt, c] of storeys) {
+        iso.r.poly([iso.P(ru1, a, zt), iso.P(ru1, b, zt), iso.P(ru1, b, zb), iso.P(ru1, a, zb)], c);
+      }
+    }
+    for (let i = 0; i <= bays; i++) {
+      iso.r.line(iso.P(ru1, va + dv * i, 3), iso.P(ru1, va + dv * i, EAVE), 0.7 * RES, RIB);
+    }
+    for (const z of [13, 21, EAVE]) iso.r.line(iso.P(ru1, rv0, z), iso.P(ru1, rv1, z), 0.7 * RES, shaded(BATH, 0.22));
+
+    // a low parapet over the eave, then a dense run of stone pinnacles +
+    // the occasional taller pinnacle and a pointed gablet — the spiky skyline
+    iso.box(ru1 - 0.05, rv0, ru1, rv1, EAVE, EAVE + 4, lit(BATH, 0.05));
+    iso.r.polyline([iso.P(ru1, rv0, EAVE + 4), iso.P(ru1, rv1, EAVE + 4)], INK_W * 0.55, alpha(INK, 0.7));
+    for (let i = 0; i <= bays; i++) {
+      const v = va + dv * i;
+      const tall = i % 4 === 0;
+      pinnacle(ru1 - 0.012, v, EAVE + 4, tall ? 9 : 5, tall ? 1.25 : 0.9);
+      if (i % 5 === 2) {
+        const ga = iso.P(ru1, v - dv * 0.55, EAVE + 4);
+        const gb = iso.P(ru1, v + dv * 0.55, EAVE + 4);
+        const gt = iso.P(ru1, v, EAVE + 11);
+        iso.r.poly([ga, gb, gt], lit(BATH, 0.08));
+        iso.r.polyline([ga, gt, gb], INK_W * 0.4, alpha(INK, 0.55));
+      }
+    }
+  }
+  // the SW (left) gable end gets a great pointed perpendicular window
+  {
+    const wv = rv1 + 0.004;
+    iso.r.poly(
+      [iso.P((ru0 + ru1) / 2 - 0.34, wv, 6), iso.P((ru0 + ru1) / 2 + 0.34, wv, 6), iso.P((ru0 + ru1) / 2 + 0.34, wv, 22), iso.P((ru0 + ru1) / 2, wv, 30), iso.P((ru0 + ru1) / 2 - 0.34, wv, 22)],
+      alpha(COLORS.glassDark, 0.95),
+    );
+    iso.r.polyline(
+      [iso.P((ru0 + ru1) / 2 - 0.34, wv, 6), iso.P((ru0 + ru1) / 2 - 0.34, wv, 22), iso.P((ru0 + ru1) / 2, wv, 30), iso.P((ru0 + ru1) / 2 + 0.34, wv, 22), iso.P((ru0 + ru1) / 2 + 0.34, wv, 6)],
+      INK_W * 0.45,
+      lighten(BATH, 0.2),
+      true,
+    );
   }
 
-  // --- VICTORIA TOWER — the SW end: the tallest, most massive, square,
-  //     crowned with four corner pinnacle turrets, iron cresting and the
-  //     flagstaff (98.5 m) ----------------------------------------------------
+  // --- VICTORIA TOWER — the SW end: the tallest, most MASSIVE element, a
+  //     broad square tower with corner pinnacle turrets, an openwork crested
+  //     crown and the tall iron flagstaff flying the colours (98.5 m) --------
   {
     const vu = 0.92;
-    const vv = 4.04;
-    const vw = 0.36; // bulky — wider than Big Ben
-    iso.shadow(vu - vw, vv - vw, vu + vw, vv + vw, 0.2, 0.22);
-    iso.box(vu - vw, vv - vw, vu + vw, vv + vw, 0, 120, BATH);
-    // tall perpendicular window tiers on the two visible faces
-    iso.windowsLeft(vv + vw, vu - vw + 0.06, vu + vw - 0.06, 14, 112, 3, alpha(COLORS.glassDark, 0.9), lighten(BATH, 0.13));
-    iso.windowsRight(vu + vw, vv - vw + 0.06, vv + vw - 0.06, 14, 112, 3, alpha(COLORS.glassDark, 0.9), lighten(BATH, 0.13));
-    // corner buttress ribs up the silhouette
+    const vv = 4.06;
+    const vw = 0.4; // bulky — distinctly wider than Big Ben
+    iso.shadow(vu - vw, vv - vw, vu + vw, vv + vw, 0.22, 0.22);
+    iso.box(vu - vw, vv - vw, vu + vw, vv + vw, 0, 116, BATH);
+    // three tiers of tall perpendicular windows up the two visible faces
+    for (const [zb, zt] of [[12, 40], [48, 76], [84, 110]] as const) {
+      iso.windowsLeft(vv + vw, vu - vw + 0.07, vu + vw - 0.07, zb, zt, 3, alpha(COLORS.glassDark, 0.9), lighten(BATH, 0.12));
+      iso.windowsRight(vu + vw, vv - vw + 0.07, vv + vw - 0.07, zb, zt, 3, alpha(COLORS.glassDark, 0.9), lighten(BATH, 0.12));
+    }
+    // corner buttress ribs the full height
     for (const [du, dv] of [[-vw, vw], [vw, vw], [vw, -vw]] as const) {
-      iso.r.line(iso.P(vu + du, vv + dv, 0), iso.P(vu + du, vv + dv, 122), 1.4 * RES, RIB);
+      iso.r.line(iso.P(vu + du, vv + dv, 0), iso.P(vu + du, vv + dv, 118), 1.5 * RES, RIB);
     }
-    // corbelled crown band + four corner pinnacle turrets
-    iso.box(vu - vw - 0.02, vv - vw - 0.02, vu + vw + 0.02, vv + vw + 0.02, 120, 128, lit(BATH, 0.04));
+    // corbelled crown + four corner octagonal pinnacle turrets
+    iso.box(vu - vw - 0.025, vv - vw - 0.025, vu + vw + 0.025, vv + vw + 0.025, 116, 124, lit(BATH, 0.04));
     for (const [du, dv] of [[-vw, -vw], [vw, -vw], [-vw, vw], [vw, vw]] as const) {
-      iso.box(vu + du - 0.05, vv + dv - 0.05, vu + du + 0.05, vv + dv + 0.05, 128, 146, BATH);
-      const t = iso.P(vu + du, vv + dv, 146);
-      iso.r.poly([[t[0] - 2.6 * RES, t[1]], [t[0] + 2.6 * RES, t[1]], [t[0], t[1] - 8 * RES]], lit(BATH, 0.12));
-      iso.r.polyline([[t[0] - 2.6 * RES, t[1]], [t[0], t[1] - 8 * RES], [t[0] + 2.6 * RES, t[1]]], INK_W * 0.5, alpha(INK, 0.7));
+      iso.box(vu + du - 0.055, vv + dv - 0.055, vu + du + 0.055, vv + dv + 0.055, 124, 142, BATH);
+      const t = iso.P(vu + du, vv + dv, 142);
+      iso.r.poly([[t[0] - 2.8 * RES, t[1]], [t[0] + 2.8 * RES, t[1]], [t[0], t[1] - 9 * RES]], lit(BATH, 0.12));
+      iso.r.polyline([[t[0] - 2.8 * RES, t[1]], [t[0], t[1] - 9 * RES], [t[0] + 2.8 * RES, t[1]]], INK_W * 0.5, alpha(INK, 0.7));
     }
-    // iron-crested flat roof + central flagstaff and pennant
-    iso.box(vu - vw + 0.03, vv - vw + 0.03, vu + vw - 0.03, vv + vw - 0.03, 128, 133, IRON);
-    const f = iso.P(vu, vv, 133);
-    iso.r.line(f, [f[0], f[1] - 24 * RES], 1.2 * RES, IRON);
-    iso.r.poly([[f[0], f[1] - 24 * RES], [f[0] + 10 * RES, f[1] - 22 * RES], [f[0] + 10 * RES, f[1] - 17 * RES], [f[0], f[1] - 18 * RES]], COLORS.orange);
+    // openwork crested parapet between the turrets (small merlons)
+    for (let k = -2; k <= 2; k++) {
+      const cv2 = vv + k * (vw / 2.5);
+      iso.box(vu - vw + 0.04, cv2 - 0.02, vu + vw - 0.04, cv2 + 0.02, 124, 130, lit(BATH, 0.02));
+    }
+    // the tall thin iron flagstaff + pennant
+    const f = iso.P(vu, vv, 130);
+    iso.r.line(f, [f[0], f[1] - 38 * RES], 1.2 * RES, IRON);
+    iso.r.poly([[f[0], f[1] - 38 * RES], [f[0] + 11 * RES, f[1] - 36 * RES], [f[0] + 11 * RES, f[1] - 31 * RES], [f[0], f[1] - 33 * RES]], COLORS.orange);
   }
 
-  // --- ELIZABETH TOWER (BIG BEN) — the NE end by the bridge: slimmer than
-  //     Victoria, with four gilt-ringed clock faces, a louvred belfry and a
-  //     tall framed spire topped by the gilt finial (96.3 m) -----------------
+  // --- ELIZABETH TOWER (BIG BEN) — the NE end by the bridge: slimmer and a
+  //     touch shorter, the four gilt-ringed clock faces set HIGH up the
+  //     shaft, a louvred belfry, then the steep ornate spire and gilt finial
+  //     (96.3 m) ---------------------------------------------------------------
   {
-    const bu = 2.42;
-    const bv = 1.3;
-    const bw = 0.235;
+    const bu = 2.43;
+    const bv = 1.34;
+    const bw = 0.19; // slender — distinctly thinner than Victoria
     iso.shadow(bu - bw, bv - bw, bu + bw, bv + bw, 0.16, 0.2);
-    iso.box(bu - bw, bv - bw, bu + bw, bv + bw, 0, 96, lighten(BATH, 0.04));
+    iso.box(bu - bw, bv - bw, bu + bw, bv + bw, 0, 92, lighten(BATH, 0.04));
     for (const [du, dv] of [[-bw, bw], [bw, bw], [bw, -bw]] as const) {
-      iso.r.line(iso.P(bu + du, bv + dv, 0), iso.P(bu + du, bv + dv, 98), 1.2 * RES, RIB);
+      iso.r.line(iso.P(bu + du, bv + dv, 0), iso.P(bu + du, bv + dv, 94), 1.2 * RES, RIB);
     }
-    // clock stage, slightly proud of the shaft
-    const cw = bw + 0.028;
-    iso.box(bu - cw, bv - cw, bu + cw, bv + cw, 96, 120, BATH);
+    // small shaft windows
+    for (const z of [26, 50] as const) {
+      iso.windowsLeft(bv + bw, bu - bw + 0.05, bu + bw - 0.05, z, z + 12, 1, alpha(COLORS.glassDark, 0.85));
+      iso.windowsRight(bu + bw, bv - bw + 0.05, bv + bw - 0.05, z, z + 12, 1, alpha(COLORS.glassDark, 0.85));
+    }
+    // clock stage, slightly proud, the dials high up the tower
+    const cw = bw + 0.03;
+    iso.box(bu - cw, bv - cw, bu + cw, bv + cw, 92, 116, BATH);
     for (const side of ['l', 'r'] as const) {
-      const f: Pt = side === 'l' ? iso.P(bu, bv + cw + 0.004, 108) : iso.P(bu + cw + 0.004, bv, 108);
-      const r = 7.6 * RES;
+      const f: Pt = side === 'l' ? iso.P(bu, bv + cw + 0.004, 104) : iso.P(bu + cw + 0.004, bv, 104);
+      const r = 7.4 * RES;
       const ring: Pt[] = [];
       for (let i = 0; i < 16; i++) {
         const a = (i / 16) * Math.PI * 2;
         ring.push([f[0] + Math.cos(a) * r, f[1] + Math.sin(a) * r * 0.92]);
       }
-      const surround = ring.map(([x, y]): Pt => [f[0] + (x - f[0]) * 1.2, f[1] + (y - f[1]) * 1.2]);
+      const surround = ring.map(([x, y]): Pt => [f[0] + (x - f[0]) * 1.22, f[1] + (y - f[1]) * 1.22]);
       iso.r.poly(surround, BLUE); // Prussian-blue framed surround
       iso.r.polyline(surround, INK_W * 0.45, INK, true);
       iso.r.poly(ring, DIAL);
@@ -226,18 +291,19 @@ export function parliamentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
       iso.r.line(f, [f[0] + r * 0.5, f[1] - r * 0.26], 1.2 * RES, INK); // minute hand
       iso.r.line(f, [f[0] - r * 0.18, f[1] - r * 0.56], 1.2 * RES, INK); // hour hand
     }
-    // louvred belfry above the clocks
-    iso.box(bu - bw, bv - bw, bu + bw, bv + bw, 120, 134, BATH);
-    for (let z = 122; z <= 132; z += 2.4) {
+    // louvred belfry above the clocks, with small corner pinnacles
+    iso.box(bu - bw, bv - bw, bu + bw, bv + bw, 116, 130, BATH);
+    for (let z = 118; z <= 128; z += 2.2) {
       iso.r.line(iso.P(bu, bv + bw + 0.002, z), iso.P(bu + bw, bv + bw + 0.002, z), 0.8 * RES, shaded(BATH, 0.45));
       iso.r.line(iso.P(bu + bw + 0.002, bv, z), iso.P(bu + bw + 0.002, bv + bw, z), 0.8 * RES, shaded(BATH, 0.3));
     }
-    // the tall framed spire + gilt finial (Ayrton light)
-    iso.box(bu - bw - 0.012, bv - bw - 0.012, bu + bw + 0.012, bv + bw + 0.012, 134, 139, IRON);
-    const apex = iso.P(bu, bv, 156);
-    const bL = iso.P(bu - bw, bv + bw, 139);
-    const bN = iso.P(bu + bw, bv + bw, 139);
-    const bR = iso.P(bu + bw, bv - bw, 139);
+    for (const [du, dv] of [[-bw, -bw], [bw, -bw], [-bw, bw], [bw, bw]] as const) pinnacle(bu + du, bv + dv, 130, 6, 0.9);
+    // the steep ornate spire + gilt finial (the Ayrton light)
+    iso.box(bu - bw - 0.012, bv - bw - 0.012, bu + bw + 0.012, bv + bw + 0.012, 130, 135, IRON);
+    const apex = iso.P(bu, bv, 150);
+    const bL = iso.P(bu - bw, bv + bw, 135);
+    const bN = iso.P(bu + bw, bv + bw, 135);
+    const bR = iso.P(bu + bw, bv - bw, 135);
     iso.r.poly([bL, bN, apex], shaded(IRON, 0.08)); // left spire face
     iso.r.poly([bN, bR, apex], lit(IRON, 0.06)); // right spire face
     iso.r.polyline([bL, apex, bR], INK_W * 0.55, INK);
