@@ -9,6 +9,7 @@ import type { ConnectionStudy } from '../sim/study';
 import type { TileHover } from '../render/MapRenderer';
 import type { CbMode } from '../ui/cbPalette';
 import type { BuildTemplate } from '../persistence/templateStore';
+import type { RankTier } from '../ui/rank';
 
 export type WorkerStatus = 'connecting' | 'ready' | 'error';
 
@@ -227,6 +228,17 @@ interface AppState {
    *  the capture + exit. */
   photoMode: boolean;
   setPhotoMode: (on: boolean) => void;
+  // --- OPERATOR RANK (career progression) ---
+  /** Set when a closed report card just bumped the operator's rank tier —
+   *  the UI shows a "PROMOTED" celebration card, then the player dismisses
+   *  it. undefined when there is nothing to celebrate. */
+  rankUp: RankTier | undefined;
+  setRankUp: (tier: RankTier | undefined) => void;
+  /** A GUEST (not signed in) just earned a promotion or closed a period —
+   *  surface a gentle, dismissible "sign in to keep your rank" nudge. Never
+   *  blocks play; cleared on dismiss or sign-in. Signed-in users never set it. */
+  loginNudge: boolean;
+  setLoginNudge: (on: boolean) => void;
 }
 
 /** A saved camera position (#38). `id` is a monotonic client key. */
@@ -585,6 +597,10 @@ export const useAppStore = create<AppState>((set) => ({
     }),
   photoMode: false,
   setPhotoMode: (photoMode) => set({ photoMode }),
+  rankUp: undefined,
+  setRankUp: (rankUp) => set({ rankUp }),
+  loginNudge: false,
+  setLoginNudge: (loginNudge) => set({ loginNudge }),
 }));
 
 /** Pure event categoriser (#30): map an event's severity + message to a
