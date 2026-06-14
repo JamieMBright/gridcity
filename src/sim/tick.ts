@@ -315,6 +315,7 @@ function runPowerFlow(
     tech: { smartEv: state.tech.smartEv, flexMarket: state.tech.flexMarket },
     weatherProfile: ctx.profile.weather,
     power: ctx.profile.power,
+    market: ctx.profile.market,
   });
   const pf = solveDcPowerFlow(derived.net, dispatch.injections, {
     slackPreference: dispatch.slackPreference,

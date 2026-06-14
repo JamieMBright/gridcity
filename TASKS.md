@@ -12,6 +12,57 @@
 
 ## Open
 
+- [ ] **COUNTRY-SPECIFIC OPERATING MODELS (owner, 2026-06-14 05:53): "the
+      major other element required… learn the differences and have them
+      affect the gameplay."** The CityScenario v2 seams already exist
+      (power/economy/generation/regulator/weatherProfile blocks, all
+      defaulting to GB). Research each country's REAL operating model and
+      wire genuine, gameplay-affecting differences through those seams:
+      - **France (Paris):** Enedis DSO monopoly + RTE; ~70% NUCLEAR baseload
+        (very low carbon floor, inflexible → curtails renewables); CRE /
+        TURPE cost-of-service tariff (not RIIO incentives); EUR; 50 Hz.
+      - **Australia (Sydney):** NEM + AEMO; AER revenue-cap building-block;
+        world-leading ROOFTOP PV (duck curve, midday min-demand / negative
+        prices, voltage-rise) + coal→battery transition; SUMMER-peaking
+        (aircon, flips the season model); bushfire fault season; AUD; 50 Hz.
+      - **Hong Kong:** VERTICALLY INTEGRATED (CLP / HK Electric own gen — no
+        tender market); Scheme-of-Control rate-of-return on ASSETS (capex
+        earns return → different scoring); near-all-UNDERGROUND, world-best
+        reliability target; TYPHOON disasters; HKD; 50 Hz.
+      - **Brazil (Rio):** ONS/ANEEL concessions; ~60% HYDRO (drought → price
+        spikes + bandeira tariff flags); NON-TECHNICAL LOSSES / theft
+        ("gatos") mechanic; DEC/FEC quality penalties; flooding/landslides on
+        the morros; BRL; **60 Hz**.
+      Sequence: (A) research + implement the operating-model PROFILES + the
+      gameplay wiring + unit tests proving each difference bites; (B) pair
+      each with its geographic map.
+  - [x] **Part 1 — national wholesale MARKET is per-country profile data**
+        (`MarketProfile` in powerProfile.ts, threaded through dispatch's
+        `nationalPriceMWh`/`K`). GB stays bit-identical (golden test over a
+        year × every hour × dunkelflaute). Four researched national shapes
+        ship: France low/flat nuclear floor (~20 g); Australia rooftop-PV
+        duck curve → NEGATIVE midday + heatwave spikes (~445 g); Hong Kong
+        high/stable gas (~590 g); Brazil hydro with dry-season drought
+        uplift / bandeira (~110 g, 60 Hz). Affects import bills, battery
+        arbitrage, the live price ticker. Sources: HK SoC 8% RoR; AU NEM
+        46% SA intervals negative-priced Q4'25; Brazil bandeira flags;
+        ElectricityMaps/RTE/Ember carbon intensities.
+  - [ ] Part 2 — wire grid carbon (`gridCarbonG`) into the carbon KPI for
+        imports; regulator `kpiWeights` + `model` framing into the report
+        card; `baseloadFloor`/`hydroDriven` into dispatch; `ownership:
+        'owned'` (HK, already in bill.ts) end-to-end. Per-country tender
+        flow (France nuclear offers, AU solar/battery, HK no-tender).
+
+- [ ] **MULTI-CITY GEOGRAPHIC MAPS (owner, 2026-06-14 05:07): Paris, Sydney,
+      Hong Kong, Rio — geographic accuracy first (rivers/coastlines/roads in
+      the right places, hero landmarks in true relative positions, correct
+      tile scale). "Have a go at all… we can recreate in future if needed —
+      apply London's design principles." Paris first (Seine through the
+      middle + Île de la Cité, Périphérique ring, Étoile/Arc with radiating
+      avenues + Champs-Élysées, 20 arrondissement councils, Bois de
+      Boulogne/Vincennes, Montmartre/Sacré-Cœur hill, La Défense CBD).
+      Design-gated per CLAUDE.md. Pairs with the operating models above.
+
 - [x] **NAME the storms that come through (owner, 2026-06-14 05:35).** DONE.
       `STORM_NAMES`/`stormName` now live on the regime authority
       (events/weather.ts); a storm regime stamps `weather.activeStormName`

@@ -37,7 +37,14 @@ import {
   windFactor,
   type WeatherState,
 } from '../events/weather';
-import { LONDON_PROFILE, type PowerSystemProfile, type WeatherProfile } from '../powerProfile';
+import {
+  LONDON_MARKET,
+  LONDON_PROFILE,
+  LONDON_WEATHER,
+  type MarketProfile,
+  type PowerSystemProfile,
+  type WeatherProfile,
+} from '../powerProfile';
 import type { SubLoad } from '../service';
 
 /** Merit-order cost assigned to battery discharge (displaces gas only). */
@@ -58,34 +65,49 @@ export const RESERVE_SOC_FRAC = 0.5;
  *  (or distort the merit order) getting back to standby. */
 export const RESERVE_REFILL_FRAC = 0.2;
 
-/** GB national wholesale price, £/MWh — what the interconnector imports
- *  at and what battery arbitrage trades against. Deterministic, no RNG:
- *  a daily shape (cheap nights ~£45/MWh, evening peaks ~£140/MWh plus a
- *  smaller morning shoulder), scaled +30% in deep winter via
- *  seasonFactor, with a £60/MWh scarcity kicker whenever a calm-cold
- *  regime sits over GB — the dunkelflaute: no wind anywhere and
- *  everyone's heating on. Accepts the sim's WeatherState or the
- *  snapshot's weather (the UI quotes "import price now" off the very
- *  same series the worker dispatches against). */
+/** National wholesale price in the local currency/MWh — what the
+ *  interconnector imports at and what battery arbitrage trades against.
+ *  Deterministic, no RNG. The SHAPE is per-country profile data
+ *  (MarketProfile): a cheap-night floor, an evening-peak adder over the
+ *  diurnal demand shape, an optional midday solar trough (the duck curve,
+ *  deep enough in Australia to go negative), a seasonal uplift whose sign
+ *  the weather profile's peakSeason carries (winter heating GB/France;
+ *  summer aircon AU/HK), an optional hydro-drought dry-season multiplier
+ *  (Brazil's bandeira), and a scarcity kicker while the country's stress
+ *  regime sits overhead. DEFAULTS to GB, and the GB profile reproduces the
+ *  prior literals bit-for-bit (45 + 95·peak, ×(1+0.3·winterness), +60
+ *  calm-cold). Accepts the sim's WeatherState or the snapshot's weather
+ *  (the UI quotes "import price now" off the very same series). */
 export function nationalPriceMWh(
   simTimeMin: number,
   weather: { regime?: string | undefined },
+  market: MarketProfile = LONDON_MARKET,
+  weatherProfile: WeatherProfile = LONDON_WEATHER,
 ): number {
   const h = (simTimeMin / 60) % 24;
   const evening = Math.exp(-(((h - 18.5) / 2.4) ** 2));
   const morning = 0.35 * Math.exp(-(((h - 8) / 1.8) ** 2));
-  let p = 45 + 95 * Math.min(1, evening + morning);
-  p *= 1 + 0.3 * seasonFactor(simTimeMin);
-  if (weather.regime === 'calm-cold') p += 60;
+  // midday duck-curve dip: a noon-centred bell subtracted from the price
+  const solar = Math.exp(-(((h - 12.5) / 2.6) ** 2));
+  let p =
+    market.baseMWh + market.peakMWh * Math.min(1, evening + morning) - market.middayDipMWh * solar;
+  const sf = seasonFactor(simTimeMin, weatherProfile);
+  p *= 1 + market.seasonalUplift * sf;
+  // hydro drought: the dry half-year (low season factor) backs the rivers
+  // up with thermal and the price climbs (Brazil)
+  if (market.droughtUplift !== undefined) p *= 1 + market.droughtUplift * (1 - sf);
+  if (weather.regime === market.scarcityRegime) p += market.scarcityKickMWh;
   return p;
 }
 
-/** nationalPriceMWh in the sim's £k/MWh money unit. */
+/** nationalPriceMWh in the sim's local-currency/MWh ÷1000 money unit. */
 export function nationalPriceK(
   simTimeMin: number,
   weather: { regime?: string | undefined },
+  market: MarketProfile = LONDON_MARKET,
+  weatherProfile: WeatherProfile = LONDON_WEATHER,
 ): number {
-  return nationalPriceMWh(simTimeMin, weather) / 1000;
+  return nationalPriceMWh(simTimeMin, weather, market, weatherProfile) / 1000;
 }
 /** Compensation for constraining off a firm connection, £k/MWh — the
  *  flat fallback; developer plant prices its own curtailment (#17:
@@ -116,6 +138,9 @@ export interface DispatchInputs {
   /** Active scenario power profile (frequency droop). Optional; defaults
    *  to GB. */
   power?: PowerSystemProfile;
+  /** Active scenario national-market shape (price series imports trade
+   *  against). Optional; defaults to GB. */
+  market?: MarketProfile;
 }
 
 export interface DispatchResult {
@@ -230,6 +255,7 @@ export function runDispatch(
         : 0;
   const wp = inp.weatherProfile ?? LONDON_PROFILE.weather;
   const pp = inp.power ?? LONDON_PROFILE.power;
+  const mk = inp.market ?? LONDON_PROFILE.market;
   // heatwave cooling load lifts the domestic shape (AC/fridges/fans)
   const fDom =
     domesticProfile(inp.simTimeMin, wp) * (1 + coolingFactor(inp.simTimeMin, inp.weather, wp));
@@ -355,7 +381,9 @@ export function runDispatch(
           id: a.id,
           bus,
           availMW: building ? 0 : availability(a, inp),
-          costK: interconnector ? nationalPriceK(inp.simTimeMin, inp.weather) : spec.marginalCostK,
+          costK: interconnector
+            ? nationalPriceK(inp.simTimeMin, inp.weather, mk, wp)
+            : spec.marginalCostK,
           carbonG: spec.carbonG,
           mustRun: renewable && !a.flex && !building,
           flex: a.flex === true && !building,
@@ -448,7 +476,7 @@ export function runDispatch(
     // 'arbitrage': trade the national price — charge cheap, discharge
     // dear, the local peak be damned. 'reserve': hold ≥50% SoC and
     // discharge only when the island would otherwise go unserved.
-    const natK = nationalPriceK(inp.simTimeMin, inp.weather);
+    const natK = nationalPriceK(inp.simTimeMin, inp.weather, mk, wp);
     const unitCapMW = island.units.reduce((s, u) => s + u.availMW, 0);
     // would this island fall short without its batteries? (the supply-
     // shortfall condition the reserve policy is held against)
