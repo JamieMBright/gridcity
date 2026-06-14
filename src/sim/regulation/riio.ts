@@ -28,7 +28,13 @@ export const HIGHER_BETTER: Record<KpiKey, boolean> = {
   satisfaction: true,
 };
 
-const WEIGHTS: Record<KpiKey, number> = {
+/** The GB/Ofgem default KPI weighting — what every period scores against
+ *  unless the active regulator profile overrides it. A country's regulator
+ *  weighs the columns differently (Hong Kong's SoC prizes reliability;
+ *  Australia's AER leans affordability + PV-hosting headroom; France's CRE,
+ *  with carbon already near zero, weighs bills + service) — see
+ *  resolveWeights + the per-country RegulatorProfile.kpiWeights. */
+export const BASE_WEIGHTS: Record<KpiKey, number> = {
   bill: 0.25,
   ci: 0.15,
   cml: 0.15,
@@ -36,6 +42,23 @@ const WEIGHTS: Record<KpiKey, number> = {
   curtailedFirm: 0.1,
   satisfaction: 0.2,
 };
+
+/** Merge a regulator's partial weight overrides onto the GB base and
+ *  renormalise to sum 1, so a country can re-prioritise the report card
+ *  without the weights drifting off 100%. No overrides ⇒ the base object
+ *  itself (London is bit-identical: same object, same key order). */
+export function resolveWeights(
+  overrides?: Partial<Record<KpiKey, number>>,
+): Record<KpiKey, number> {
+  if (!overrides) return BASE_WEIGHTS;
+  const merged = { ...BASE_WEIGHTS, ...overrides };
+  let sum = 0;
+  for (const k of Object.keys(merged) as KpiKey[]) sum += merged[k];
+  if (sum <= 0) return BASE_WEIGHTS;
+  const out = {} as Record<KpiKey, number>;
+  for (const k of Object.keys(merged) as KpiKey[]) out[k] = merged[k] / sum;
+  return out;
+}
 
 export type PeriodTargets = Record<KpiKey, number>;
 
@@ -126,12 +149,16 @@ export interface PeriodActuals {
   satisfaction: number;
 }
 
-export function closePeriod(p: PeriodState, actuals: PeriodActuals): ReportCard {
+export function closePeriod(
+  p: PeriodState,
+  actuals: PeriodActuals,
+  weights: Record<KpiKey, number> = BASE_WEIGHTS,
+): ReportCard {
   const scores = {} as Record<KpiKey, KpiScore>;
   let composite = 0;
-  for (const key of Object.keys(WEIGHTS) as KpiKey[]) {
+  for (const key of Object.keys(weights) as KpiKey[]) {
     scores[key] = scoreOne(key, actuals[key], p.targets[key]);
-    composite += scores[key].score * WEIGHTS[key];
+    composite += scores[key].score * weights[key];
   }
   // every developer complaint to the regulator dents the rating
   composite -= Math.min(12, p.complaints * 3);

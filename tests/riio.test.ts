@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BASE_WEIGHTS,
   closePeriod,
   gradeOf,
   initialTargets,
   newPeriod,
   nextTargets,
   PERIOD_MIN,
+  resolveWeights,
   type PeriodActuals,
 } from '../src/sim/regulation/riio';
+import {
+  AUSTRALIA_REGULATOR,
+  HONGKONG_REGULATOR,
+} from '../src/sim/powerProfile';
 import { derive, solveTick, advanceTime, currentPeriodActuals } from '../src/sim/tick';
 import { poweredFixture } from './helpers';
 
@@ -53,6 +59,48 @@ describe('RIIO scoring', () => {
     expect(gradeOf(90)).toBe('A');
     expect(gradeOf(72)).toBe('B');
     expect(gradeOf(20)).toBe('E');
+  });
+
+  it('per-country regulator weighting re-prioritises the report card', () => {
+    // resolveWeights: no override is the base object itself; an override
+    // merges + renormalises to sum 1
+    expect(resolveWeights()).toBe(BASE_WEIGHTS);
+    const hk = resolveWeights(HONGKONG_REGULATOR.kpiWeights);
+    const sum = (Object.values(hk) as number[]).reduce((s, w) => s + w, 0);
+    expect(sum).toBeCloseTo(1, 9);
+    // Hong Kong's SoC leans hard on reliability vs the GB base
+    expect(hk.ci + hk.cml).toBeGreaterThan(BASE_WEIGHTS.ci + BASE_WEIGHTS.cml);
+
+    const p = newPeriod(1, 0, initialTargets());
+    // an operator that is reliability-STAR but carbon-WEAK
+    const reliableDirty: PeriodActuals = {
+      bill: 3000,
+      ci: 20,
+      cml: 25,
+      carbon: 520, // well over the 250 target
+      curtailedFirm: 20_000,
+      satisfaction: 70,
+    };
+    const underGb = closePeriod(p, reliableDirty, BASE_WEIGHTS);
+    const underHk = closePeriod(p, reliableDirty, hk);
+    // the same network scores BETTER under Hong Kong (reliability prized,
+    // carbon discounted) than under Ofgem
+    expect(underHk.composite).toBeGreaterThan(underGb.composite);
+
+    // Australia (affordability + curtailment lean): a cheap, low-curtailment
+    // but interruption-prone operator does better under AER than Ofgem
+    const cheapPatchy: PeriodActuals = {
+      bill: 2200,
+      ci: 110,
+      cml: 160,
+      carbon: 250,
+      curtailedFirm: 6000,
+      satisfaction: 60,
+    };
+    const au = resolveWeights(AUSTRALIA_REGULATOR.kpiWeights);
+    expect(closePeriod(p, cheapPatchy, au).composite).toBeGreaterThan(
+      closePeriod(p, cheapPatchy, BASE_WEIGHTS).composite,
+    );
   });
 
   it('the regulator tightens targets after a good period', () => {
