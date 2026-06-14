@@ -821,6 +821,57 @@ export function sacrecoeurTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 }
 
 /**
+ * THE LOUVRE: bespoke Paris icon. The long classical palace wings in cream
+ * stone with grey mansard roofs and corner pavilions, wrapped around the court
+ * where I.M. Pei's glass PYRAMID stands — the unmistakable signature.
+ */
+export function louvreTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const ST = hex('#e2d8bf'); // Louvre limestone
+  const ROOF = hex('#5b5f68'); // grey mansard/zinc
+  const S = RES;
+  iso.shadow(0.1, 0.16, 0.92, 0.9, 0.2, 0.22);
+  // a wing: stone block + steep mansard + a row of tall windows
+  const wing = (u0: number, v0: number, u1: number, v1: number, h: number): void => {
+    iso.box(u0, v0, u1, v1, 0, h, ST);
+    iso.windowsLeft(v1, u0 + 0.03, u1 - 0.03, 5, h - 4, Math.max(2, Math.round((u1 - u0) * 9)), alpha(COLORS.glassDark, 0.85), COLORS.white);
+    iso.box(u0 - 0.01, v0 - 0.01, u1 + 0.01, v1 + 0.01, h, h + 1.5, lighten(ST, 0.06), { ink: false });
+    iso.gable(u0, v0, u1, v1, h + 1.5, 7, u1 - u0 > v1 - v0 ? 'v' : 'u', ROOF, ST);
+  };
+  // three wings around a court that opens toward the viewer (south, v1)
+  wing(0.12, 0.16, 0.9, 0.34, 26); // back (north) range
+  wing(0.12, 0.34, 0.3, 0.86, 24); // west range
+  wing(0.72, 0.34, 0.9, 0.86, 24); // east range
+  // corner pavilions (taller, pavilion roofs)
+  for (const [pu, pv] of [[0.12, 0.16], [0.9, 0.16], [0.12, 0.86], [0.9, 0.86]] as const) {
+    iso.box(pu - 0.07, pv - 0.07, pu + 0.07, pv + 0.07, 0, 32, ST);
+    iso.hip(pu - 0.08, pv - 0.08, pu + 0.08, pv + 0.08, 32, 10, ROOF);
+  }
+  // the glass PYRAMID in the court
+  const [px, pyB] = iso.P(0.5, 0.6, 0);
+  const apex: Pt = [px, pyB - 26 * S];
+  const hw = 13 * S;
+  const hd = 6.5 * S;
+  const fL: Pt = [px - hw, pyB - hd];
+  const fF: Pt = [px, pyB];
+  const fR: Pt = [px + hw, pyB - hd];
+  const fB: Pt = [px, pyB - 2 * hd];
+  iso.r.poly([fL, fF, apex], alpha(COLORS.glassSky, 0.92)); // left face
+  iso.r.poly([fF, fR, apex], alpha(COLORS.glassSunset, 0.92)); // right face (sunset)
+  iso.r.poly([fR, fB, apex], alpha(COLORS.glassDark, 0.9)); // back-right
+  iso.r.polyline([fL, fF, fR, apex, fL], INK_W * 0.6, alpha(INK, 0.7), true);
+  iso.r.line(fF, apex, 0.7 * S, alpha(COLORS.white, 0.7)); // the near edge glints
+  // pyramid lattice mullions
+  for (let i = 1; i < 5; i++) {
+    const t = i / 5;
+    iso.r.line([fL[0] + (apex[0] - fL[0]) * t, fL[1] + (apex[1] - fL[1]) * t], [fF[0] + (apex[0] - fF[0]) * t, fF[1] + (apex[1] - fF[1]) * t], 0.4 * S, alpha(COLORS.white, 0.4));
+    iso.r.line([fF[0] + (apex[0] - fF[0]) * t, fF[1] + (apex[1] - fF[1]) * t], [fR[0] + (apex[0] - fR[0]) * t, fR[1] + (apex[1] - fR[1]) * t], 0.4 * S, alpha(COLORS.white, 0.4));
+  }
+  return iso.build();
+}
+
+/**
  * THE EIFFEL TOWER: bespoke Paris icon (owner reference, 2026-06-14). The
  * unmistakable wrought-iron silhouette — four splayed legs and the great base
  * arch, the two observation platforms, the tapering lattice shaft to the point,

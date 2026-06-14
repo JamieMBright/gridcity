@@ -44,6 +44,7 @@ import {
   HEATHROW_W,
   heathrowTile,
   kewhouseTile,
+  louvreTile,
   mallTile,
   notredameTile,
   O2_H,
@@ -254,6 +255,7 @@ function buildSpriteCells(): Map<string, Cell> {
   set('lm_eiffel', eiffelTile(354)); // bespoke Paris iron tower
   set('lm_arch', archTile(355)); // triumphal arch (Arc de Triomphe / gates)
   set('lm_basilica', sacrecoeurTile(356)); // Sacré-Cœur
+  set('lm_louvre', louvreTile(357)); // the palace + glass pyramid
   set('lm_gherkin', gherkinTile(223));
   set('lm_fortress', fortressTile(215));
   set('lm_bridge', towerBridgeTile(216), 1, 4, true);

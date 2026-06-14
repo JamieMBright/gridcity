@@ -49,9 +49,21 @@ places incl. Notre-Dame/Eiffel/Louvre/Vincennes). Unit tests: `tests/osm.test.ts
       (append-only); the pipeline maps any `notre-dame` hero to it (other
       cathedrals stay the dome archetype). Placed on its island parvis at the
       centre of Paris.
-- [ ] **OPEN — more bespoke heroes + procedural footprints:** bespoke Eiffel
-      (still the lattice-tower archetype), Louvre, Arc de Triomphe, etc.;
-      procedural footprint buildings (stage 6) need bulk OSM/PBF at metro scale.
+- [x] **WAY MORE HEROES + DIVERSITY (owner, 2026-06-14 15:48–16:10): "way more
+      heroes, almost every building could be custom… you're using the same
+      sprites everywhere in London, want rich diversity."** Delivered:
+      - **Bespoke Paris heroes:** Eiffel (towering iron lattice + base arch +
+        platforms), Arc de Triomphe (triumphal arch), Sacré-Cœur (white domed
+        basilica), Louvre (palace wings + glass pyramid) — joining Notre-Dame.
+        `LANDMARK.eiffel/arch/basilica/louvre` (append-only); pipeline maps real
+        names. Hero cap 48→90 (27 heroes place in Paris).
+      - **London skyline diversity:** towerTile/officeTile now take a variant
+        driving colour/height/width/crown; 8 tower + 6 office variants, spread
+        per-tile so neighbours differ (was 2 each → the pink monotone).
+- [ ] **OPEN — even more heroes + fabric variety:** Opéra Garnier, Panthéon,
+      Grand Palais, Musée d'Orsay (all in the Paris data, still archetypes);
+      richer Haussmann fabric (shopfronts, corner blocks); procedural footprint
+      buildings (stage 6) need bulk OSM/PBF at metro scale.
 - [ ] **OPEN — live integration:** register the city as a selectable scenario
       (lazy-loaded so the 320 KB artifact doesn't bloat the bundle) + generalise
       the renderer's London couplings (labels from the map, estuary-marsh guard,

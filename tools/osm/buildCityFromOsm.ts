@@ -519,6 +519,7 @@ function landmarkFor(name: string, tags: Record<string, string>): Landmark {
   if (/eiffel/i.test(name)) return LANDMARK.eiffel;
   if (/arc de triomphe|porte saint[- ]?(denis|martin)|triumphal/i.test(name)) return LANDMARK.arch;
   if (/sacr[ée][- ]?c[œoe]ur|basilique/i.test(name)) return LANDMARK.basilica;
+  if (/louvre/i.test(name)) return LANDMARK.louvre;
   // the bespoke gothic cathedral is reserved for Notre-Dame specifically (so
   // a city's other cathedrals don't all become identical twins of it)
   if (/notre[- ]?dame/i.test(name)) return LANDMARK.notredame;
