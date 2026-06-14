@@ -23,6 +23,7 @@ import { PhotoMode } from '../ui/PhotoMode';
 import { RotatePrompt } from '../ui/RotatePrompt';
 import { SavesPanel } from '../ui/SavesPanel';
 import { SearchBox } from '../ui/SearchBox';
+import { SevereWeatherAlert } from '../ui/SevereWeatherAlert';
 import { StartMenu } from '../ui/StartMenu';
 import { StoryIntro } from '../ui/StoryIntro';
 import { TemplatePaste } from '../ui/TemplatePaste';
@@ -299,6 +300,7 @@ export function App() {
       {!photoMode && <Tutorial />}
       {chrome && <BalancePanel />}
       {chrome && <UndoHistory />}
+      {chrome && <SevereWeatherAlert />}
       <StoryIntro />
       <KpiDashboard />
       <NetZeroPanel />
