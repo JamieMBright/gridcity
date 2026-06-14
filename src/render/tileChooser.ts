@@ -175,6 +175,16 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
   // (the tower bridge carries the road between its towers)
   const lm = (map.landmark?.[i] ?? LANDMARK.none) as Landmark;
   if (lm !== LANDMARK.none) {
+    // the grand-civic generator: a 2×2 block whose VARIANT is chosen by the
+    // anchor-tile hash, so the ~100 notable buildings read as many distinct
+    // hero buildings from one family.
+    if (lm === LANDMARK.grand) {
+      const sameG = (xx: number, yy: number): boolean =>
+        xx >= 0 && xx < map.width && yy >= 0 && yy < map.height &&
+        (map.landmark?.[yy * map.width + xx] ?? LANDMARK.none) === LANDMARK.grand;
+      const anchorG = !sameG(x - 1, y) && !sameG(x, y + 1) && !sameG(x - 1, y + 1);
+      return anchorG ? `lm_grand${tileHash(x, y) % 6}` : undefined;
+    }
     const name = LANDMARK_SPRITE[lm];
     if (name && BLOCK_LANDMARKS.has(lm)) {
       // one sprite per reservation: only the (min x, max y) tile emits
@@ -243,18 +253,19 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
 
   switch (zone) {
     case ZONE.cbd: {
-      // a varied financial-district skyline: skyscrapers, glass offices and
-      // the odd residential tower, each block distinct from its neighbours
+      // a varied financial-district skyline. The TYPE mixes per-tile, but the
+      // COLOUR/variant is keyed on the ESTATE (8×8 block) so a cluster of
+      // towers shares a family — coherent districts, not per-tile confetti.
       const k = th % 6;
-      if (k < 3) return `sky_${th % 3}`;
-      if (k < 5) return `office_${(th >> 3) % 6}`;
-      return `tower_${(th >> 6) % 8}`;
+      if (k < 3) return `sky_${estate % 3}`;
+      if (k < 5) return `office_${estate % 6}`;
+      return `tower_${estate % 8}`;
     }
     case ZONE.urbanCore: {
       const k = th % 7;
-      if (k < 2) return `tower_${(th >> 3) % 8}`;
-      if (k === 2) return `office_${(th >> 6) % 6}`;
-      return `terrace_${v % 4}`;
+      if (k < 2) return `tower_${estate % 8}`;
+      if (k === 2) return `office_${estate % 6}`;
+      return `terrace_${(estate + (v % 2)) % 4}`;
     }
     case ZONE.urban: {
       if (shops) return `vicshop_${v % 2}`;

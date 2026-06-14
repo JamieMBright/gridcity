@@ -182,51 +182,69 @@ async function main(): Promise<void> {
     const sp = simp.map((p): [number, number] => [p[0], p[1]]);
     // every road is BOTH stamped (clears its tile so the street shows, not a
     // building) AND drawn as a continuous ribbon → a contiguous network
-    if (r.cls === 'motorway') { stamp(pts, RC.motorway, 0.5); routes.push({ kind: 'motorway', pts: sp }); }
-    else if (r.cls === 'arterial') { stamp(pts, RC.arterial, 0.3); routes.push({ kind: 'arterial', pts: sp }); }
-    else { stamp(pts, RC.street, 0.14); routes.push({ kind: 'street', pts: sp }); }
+    // only MAJOR roads clear their tiles (cut through as visible corridors);
+    // residential streets are streetTouch — the building stays, so the dense
+    // road grid doesn't punch the map full of empty paved voids. They still
+    // draw as thin ribbons that read in the gaps.
+    if (r.cls === 'motorway') { stamp(pts, RC.motorway, 0.45); routes.push({ kind: 'motorway', pts: sp }); }
+    else if (r.cls === 'arterial') { stamp(pts, RC.arterial, 0.28); routes.push({ kind: 'arterial', pts: sp }); }
+    else { stamp(pts, RC.streetTouch, 0.12); routes.push({ kind: 'street', pts: sp }); }
   }
   for (const line of features.rivers) { const s = simplifyPath(line.map(([lo, la]) => proj.toTile(lo, la)), 0.6); if (s.length >= 2) routes.push({ kind: 'lane', pts: s.map((p) => [p[0], p[1]]) }); }
   // road tiles hold no building (the street shows through)
   for (let i = 0; i < n; i++) if ((road[i] ?? 0) >= RC.arterial) zone[i] = zone[i] === ZONE.none ? ZONE.none : ZONE.urban;
 
-  // --- heroes + civic specials from tags -----------------------------------
-  // heroes first (by name), then NAMED civic specials up to a cap, so the map
-  // gets distinct landmarks without a school/church on every block.
-  let heroes = 0;
-  const place = (list: BuildingFootprint[], pick: (b: BuildingFootprint) => Landmark, cap: number): void => {
-    for (const b of list) {
-      if (heroes >= cap) break;
-      const c = b.poly[0];
-      if (!c) continue;
-      const lm = pick(b);
-      if (lm === LANDMARK.none) continue;
-      let sx = 0;
-      let sy = 0;
-      for (const [lo, la] of c) { sx += lo; sy += la; }
-      const [tx, ty] = proj.toTile(sx / c.length, sy / c.length);
-      const x = Math.round(tx);
-      const y = Math.round(ty);
-      if (x < 1 || x >= W - 1 || y < 1 || y >= H - 1 || landmark[idx(x, y)] !== LANDMARK.none) continue;
-      landmark[idx(x, y)] = lm;
-      if (lm === LANDMARK.eiffel) { for (let dx = 0; dx < 3; dx++) for (let dy = 0; dy < 3; dy++) { const j = idx(x + dx, y - dy); if (j >= 0 && j < n) { landmark[j] = lm; zone[j] = ZONE.park; } } }
-      else zone[idx(x, y)] = ZONE.park;
-      heroes++;
-    }
+  // --- up to 100 HERO buildings, from the real notable buildings -----------
+  // The named buildings are the notable ones (4k in Paris). Take the biggest
+  // (most prominent) first; route each to the bespoke marquee (Eiffel, Notre-
+  // Dame…), a civic special (school/church/hospital/townhall) or the
+  // grand-civic generator, and place it as an N×N SW-anchored block.
+  const FOOT: Record<number, number> = { [LANDMARK.eiffel]: 3, [LANDMARK.grand]: 2 };
+  const bboxArea = (ring: [number, number][]): number => {
+    let mnx = Infinity, mny = Infinity, mxx = -Infinity, mxy = -Infinity;
+    for (const [lo, la] of ring) { if (lo < mnx) mnx = lo; if (lo > mxx) mxx = lo; if (la < mny) mny = la; if (la > mxy) mxy = la; }
+    return (mxx - mnx) * (mxy - mny);
   };
-  place(buildings, (b) => (b.name ? heroOf(b.name) : LANDMARK.none), 40); // marquee
-  place(buildings, (b) => (b.name ? classify(b).special : LANDMARK.none), 80); // named civic
-  console.log(`  placed ${heroes} heroes/specials`);
+  const notable = buildings
+    .filter((b) => b.name && b.poly[0])
+    .map((b) => ({ b, area: bboxArea(b.poly[0]!) }))
+    .sort((a, b) => b.area - a.area);
+  let heroes = 0;
+  for (const { b } of notable) {
+    if (heroes >= 100) break;
+    const name = b.name ?? '';
+    let lm = heroOf(name);
+    if (lm === LANDMARK.none) {
+      const sp = classify(b).special;
+      lm = sp !== LANDMARK.none ? sp : LANDMARK.grand; // the generic notable hero
+    }
+    const c = b.poly[0]!;
+    let sx = 0;
+    let sy = 0;
+    for (const [lo, la] of c) { sx += lo; sy += la; }
+    const [tx, ty] = proj.toTile(sx / c.length, sy / c.length);
+    const x = Math.round(tx);
+    const y = Math.round(ty);
+    const N = FOOT[lm] ?? 1;
+    if (x < 1 || x + N - 1 >= W - 1 || y - (N - 1) <= 0 || y >= H - 1) continue;
+    let clear = true;
+    for (let dx = 0; dx < N && clear; dx++) for (let dy = 0; dy < N; dy++) if (landmark[idx(x + dx, y - dy)] !== LANDMARK.none) clear = false;
+    if (!clear) continue;
+    for (let dx = 0; dx < N; dx++) for (let dy = 0; dy < N; dy++) { const j = idx(x + dx, y - dy); landmark[j] = lm; zone[j] = ZONE.park; }
+    heroes++;
+  }
+  console.log(`  placed ${heroes} hero buildings`);
 
+  const fabric = process.argv.includes('--fabric=paris') ? 'paris' : 'london';
   const map: CityMap = {
     width: W, height: H, terrain, zone,
     council: new Uint8Array(n).fill(NO_COUNCIL), road, routes,
     customers: new Uint16Array(n), vegetation: new Uint8Array(n), variant: new Uint8Array(n),
-    landmark, flags, councils: [], fabric: 'paris',
+    landmark, flags, councils: [], fabric,
   };
   fillDerivedLayers(map);
 
-  applyCityFabric('paris');
+  applyCityFabric(fabric);
   const atlas = buildAtlas();
   const x0 = arg('x0', 96);
   const y0 = arg('y0', 56);
