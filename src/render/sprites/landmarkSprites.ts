@@ -117,6 +117,29 @@ export function parliamentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
     iso.r.polyline([c0, apex, c2], INK_W * 0.45, INK);
     iso.r.line(apex, [apex[0], apex[1] - 4 * RES], 0.9 * RES, GILT);
   };
+  // Pointed-arch Gothic lancets — the Perpendicular tracery that makes the
+  // façade read as carved Victorian Gothic rather than a plain modern wall.
+  const lancetR = (u: number, a: number, b: number, zb: number, zt: number, glass: RGBA): void => {
+    const ah = (zt - zb) * 0.34;
+    const m = (a + b) / 2;
+    iso.r.poly([iso.P(u, a, zb), iso.P(u, b, zb), iso.P(u, b, zt - ah), iso.P(u, m, zt), iso.P(u, a, zt - ah)], glass);
+    iso.r.line(iso.P(u, m, zb), iso.P(u, m, zt - ah * 0.5), 0.5 * RES, alpha(RIB, 0.7)); // central mullion
+  };
+  const lancetL = (v: number, a: number, b: number, zb: number, zt: number, glass: RGBA): void => {
+    const ah = (zt - zb) * 0.34;
+    const m = (a + b) / 2;
+    iso.r.poly([iso.P(a, v, zb), iso.P(b, v, zb), iso.P(b, v, zt - ah), iso.P(m, v, zt), iso.P(a, v, zt - ah)], glass);
+    iso.r.line(iso.P(m, v, zb), iso.P(m, v, zt - ah * 0.5), 0.5 * RES, alpha(RIB, 0.7));
+  };
+  // a row of `cols` lancets across a face span
+  const rowR = (u: number, vA: number, vB: number, zb: number, zt: number, cols: number, glass: RGBA): void => {
+    const dv = (vB - vA) / cols;
+    for (let i = 0; i < cols; i++) lancetR(u, vA + dv * i + dv * 0.24, vA + dv * (i + 1) - dv * 0.24, zb, zt, glass);
+  };
+  const rowL = (v: number, uA: number, uB: number, zb: number, zt: number, cols: number, glass: RGBA): void => {
+    const du = (uB - uA) / cols;
+    for (let i = 0; i < cols; i++) lancetL(v, uA + du * i + du * 0.24, uA + du * (i + 1) - du * 0.24, zb, zt, glass);
+  };
 
   // The palace reads from the river as a LONG, LOW horizontal range — many
   // storeys of fine regular windows over a floodlit ground arcade, a spiky
@@ -159,6 +182,15 @@ export function parliamentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   // front river range — the long show frontage
   iso.box(ru0, rv0, ru1, rv1, 0, EAVE, BATH);
   iso.gable(ru0, rv0, ru1, rv1, EAVE, 6, 'v', ROOFDK, BATH);
+  // delicate iron ridge cresting along the roof ridge (breaks the plain slope)
+  {
+    const um = (ru0 + ru1) / 2;
+    iso.r.line(iso.P(um, rv0, EAVE + 6), iso.P(um, rv1, EAVE + 6), 0.8 * RES, IRON);
+    for (let v = rv0 + 0.18; v < rv1; v += 0.2) {
+      const p = iso.P(um, v, EAVE + 6);
+      iso.r.line(p, [p[0], p[1] - 3 * RES], 0.7 * RES, IRON);
+    }
+  }
 
   // the river (right) face: a fine regular grid of windows in storey bands,
   // the ground floor a continuous floodlit gold arcade, between slim ribs
@@ -168,16 +200,14 @@ export function parliamentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
     const vb = rv1 - 0.16;
     const dv = (vb - va) / bays;
     const storeys: Array<[number, number, RGBA]> = [
-      [4, 12, alpha(WARM, 0.95)], // floodlit ground arcade
-      [14, 20, alpha(COLORS.glassDark, 0.92)],
-      [22, 28, alpha(COLORS.glassDark, 0.92)],
+      [4, 13, alpha(WARM, 0.95)], // floodlit ground arcade — tall pointed lights
+      [15, 21, alpha(COLORS.glassDark, 0.92)],
+      [23, 29, alpha(COLORS.glassDark, 0.92)],
     ];
     for (let i = 0; i < bays; i++) {
-      const a = va + dv * i + dv * 0.26;
-      const b = va + dv * (i + 1) - dv * 0.26;
-      for (const [zb, zt, c] of storeys) {
-        iso.r.poly([iso.P(ru1, a, zt), iso.P(ru1, b, zt), iso.P(ru1, b, zb), iso.P(ru1, a, zb)], c);
-      }
+      const a = va + dv * i + dv * 0.24;
+      const b = va + dv * (i + 1) - dv * 0.24;
+      for (const [zb, zt, c] of storeys) lancetR(ru1, a, b, zb, zt, c);
     }
     for (let i = 0; i <= bays; i++) {
       iso.r.line(iso.P(ru1, va + dv * i, 3), iso.P(ru1, va + dv * i, EAVE), 0.7 * RES, RIB);
@@ -224,33 +254,36 @@ export function parliamentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
     const vv = 4.06;
     const vw = 0.4; // bulky — distinctly wider than Big Ben
     iso.shadow(vu - vw, vv - vw, vu + vw, vv + vw, 0.22, 0.22);
-    iso.box(vu - vw, vv - vw, vu + vw, vv + vw, 0, 116, BATH);
-    // three tiers of tall perpendicular windows up the two visible faces
-    for (const [zb, zt] of [[12, 40], [48, 76], [84, 110]] as const) {
-      iso.windowsLeft(vv + vw, vu - vw + 0.07, vu + vw - 0.07, zb, zt, 3, alpha(COLORS.glassDark, 0.9), lighten(BATH, 0.12));
-      iso.windowsRight(vu + vw, vv - vw + 0.07, vv + vw - 0.07, zb, zt, 3, alpha(COLORS.glassDark, 0.9), lighten(BATH, 0.12));
+    iso.box(vu - vw, vv - vw, vu + vw, vv + vw, 0, 118, BATH);
+    // three tiers of tall POINTED perpendicular windows, three bays per face
+    for (const [zb, zt] of [[14, 44], [52, 82], [90, 114]] as const) {
+      rowL(vv + vw, vu - vw + 0.07, vu + vw - 0.07, zb, zt, 3, alpha(COLORS.glassDark, 0.9));
+      rowR(vu + vw, vv - vw + 0.07, vv + vw - 0.07, zb, zt, 3, alpha(COLORS.glassDark, 0.9));
     }
-    // corner buttress ribs the full height
-    for (const [du, dv] of [[-vw, vw], [vw, vw], [vw, -vw]] as const) {
-      iso.r.line(iso.P(vu + du, vv + dv, 0), iso.P(vu + du, vv + dv, 118), 1.5 * RES, RIB);
+    // buttress ribs dividing the three bays on each visible face (+ corners)
+    for (let k = 0; k <= 3; k++) {
+      const u = vu - vw + (2 * vw * k) / 3;
+      const v = vv - vw + (2 * vw * k) / 3;
+      iso.r.line(iso.P(u, vv + vw, 0), iso.P(u, vv + vw, 120), 1.2 * RES, RIB);
+      iso.r.line(iso.P(vu + vw, v, 0), iso.P(vu + vw, v, 120), 1.2 * RES, RIB);
     }
-    // corbelled crown + four corner octagonal pinnacle turrets
-    iso.box(vu - vw - 0.025, vv - vw - 0.025, vu + vw + 0.025, vv + vw + 0.025, 116, 124, lit(BATH, 0.04));
+    // corbelled crown band + four SLENDER corner turrets with tall crocketed
+    // spirelets, and a pierced merlon parapet between them
+    iso.box(vu - vw - 0.025, vv - vw - 0.025, vu + vw + 0.025, vv + vw + 0.025, 118, 126, lit(BATH, 0.04));
     for (const [du, dv] of [[-vw, -vw], [vw, -vw], [-vw, vw], [vw, vw]] as const) {
-      iso.box(vu + du - 0.055, vv + dv - 0.055, vu + du + 0.055, vv + dv + 0.055, 124, 142, BATH);
-      const t = iso.P(vu + du, vv + dv, 142);
-      iso.r.poly([[t[0] - 2.8 * RES, t[1]], [t[0] + 2.8 * RES, t[1]], [t[0], t[1] - 9 * RES]], lit(BATH, 0.12));
-      iso.r.polyline([[t[0] - 2.8 * RES, t[1]], [t[0], t[1] - 9 * RES], [t[0] + 2.8 * RES, t[1]]], INK_W * 0.5, alpha(INK, 0.7));
+      iso.box(vu + du - 0.05, vv + dv - 0.05, vu + du + 0.05, vv + dv + 0.05, 126, 146, BATH);
+      pinnacle(vu + du, vv + dv, 146, 22, 1.7); // tall crocketed spirelet
     }
-    // openwork crested parapet between the turrets (small merlons)
-    for (let k = -2; k <= 2; k++) {
-      const cv2 = vv + k * (vw / 2.5);
-      iso.box(vu - vw + 0.04, cv2 - 0.02, vu + vw - 0.04, cv2 + 0.02, 124, 130, lit(BATH, 0.02));
+    for (let k = 0; k < 5; k++) {
+      const u = vu - vw + 0.07 + ((2 * vw - 0.14) * k) / 4;
+      const v = vv - vw + 0.07 + ((2 * vw - 0.14) * k) / 4;
+      iso.box(u - 0.025, vv + vw - 0.018, u + 0.025, vv + vw, 126, 133, lit(BATH, 0.03));
+      iso.box(vu + vw - 0.018, v - 0.025, vu + vw, v + 0.025, 126, 133, lit(BATH, 0.03));
     }
-    // the tall thin iron flagstaff + pennant
-    const f = iso.P(vu, vv, 130);
-    iso.r.line(f, [f[0], f[1] - 38 * RES], 1.2 * RES, IRON);
-    iso.r.poly([[f[0], f[1] - 38 * RES], [f[0] + 11 * RES, f[1] - 36 * RES], [f[0] + 11 * RES, f[1] - 31 * RES], [f[0], f[1] - 33 * RES]], COLORS.orange);
+    // the tall thin iron flagstaff + pennant rising from the centre
+    const f = iso.P(vu, vv, 132);
+    iso.r.line(f, [f[0], f[1] - 48 * RES], 1.2 * RES, IRON);
+    iso.r.poly([[f[0], f[1] - 48 * RES], [f[0] + 12 * RES, f[1] - 46 * RES], [f[0] + 12 * RES, f[1] - 40 * RES], [f[0], f[1] - 42 * RES]], COLORS.orange);
   }
 
   // --- ELIZABETH TOWER (BIG BEN) — the NE end by the bridge: slimmer and a
@@ -266,10 +299,10 @@ export function parliamentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
     for (const [du, dv] of [[-bw, bw], [bw, bw], [bw, -bw]] as const) {
       iso.r.line(iso.P(bu + du, bv + dv, 0), iso.P(bu + du, bv + dv, 94), 1.2 * RES, RIB);
     }
-    // small shaft windows
-    for (const z of [26, 50] as const) {
-      iso.windowsLeft(bv + bw, bu - bw + 0.05, bu + bw - 0.05, z, z + 12, 1, alpha(COLORS.glassDark, 0.85));
-      iso.windowsRight(bu + bw, bv - bw + 0.05, bv + bw - 0.05, z, z + 12, 1, alpha(COLORS.glassDark, 0.85));
+    // small pointed shaft windows up the two visible faces
+    for (const z of [26, 50, 74] as const) {
+      lancetL(bv + bw, bu - bw + 0.05, bu + bw - 0.05, z, z + 13, alpha(COLORS.glassDark, 0.85));
+      lancetR(bu + bw, bv - bw + 0.05, bv + bw - 0.05, z, z + 13, alpha(COLORS.glassDark, 0.85));
     }
     // clock stage, slightly proud, the dials high up the tower
     const cw = bw + 0.03;
