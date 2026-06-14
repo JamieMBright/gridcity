@@ -831,7 +831,7 @@ export function sacrecoeurTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
  * without hand-drawing each one. Bigger than the ordinary stock, so heroes read.
  */
 export function grandTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso(2, 2, { swAnchor: true });
+  const iso = new Iso(3, 3, { swAnchor: true });
   const rng = new Rng(seed * 22699 + variant * 191 + 3);
   const S = RES;
   const stoneSet: RGBA[] = [BATH, STONE, hex('#ded3b8'), PORTLAND, hex('#d3c7a8'), hex('#e4dcc6')];
@@ -839,78 +839,76 @@ export function grandTile(seed: number, variant: number): Uint8ClampedArray<Arra
   const roofSet: RGBA[] = [LEAD, hex('#5b5f68'), hex('#7d7494'), hex('#69604f'), hex('#4f6552')];
   const roof = roofSet[(variant >> 1) % roofSet.length] ?? LEAD;
   const crown = variant % 4;
-  const H = 24 + (variant % 3) * 8; // 24..40
-  const u0 = 0.24;
-  const u1 = 1.76;
-  const v0 = 0.3;
-  const v1 = 1.7;
-  iso.shadow(u0, v0, u1, v1, 0.24, 0.22);
+  const H = 34 + (variant % 3) * 12; // 34..58 — a tall, dominant civic mass
+  const u0 = 0.36;
+  const u1 = 2.64;
+  const v0 = 0.45;
+  const v1 = 2.55;
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.22);
 
   // the stone body
   iso.box(u0, v0, u1, v1, 0, H, stone);
-  // string course + two storeys of tall round/arched windows on both faces
-  const floors = 2 + (variant % 2);
+  // string course + storeys of tall round/arched windows on both faces
+  const floors = 3 + (variant % 2);
   for (let f = 0; f < floors; f++) {
     const zb = 5 + (f * (H - 8)) / floors + 1.5;
     const zt = 5 + ((f + 1) * (H - 8)) / floors - 1.5;
     const lit = rng.chance(0.4) ? COLORS.glassLit : alpha(COLORS.glassDark, 0.85);
-    iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, zb, zt, 7, lit, COLORS.white);
-    iso.windowsRight(u1, v0 + 0.08, v1 - 0.08, zb, zt, 7, lit, COLORS.white);
+    iso.windowsLeft(v1, u0 + 0.12, u1 - 0.12, zb, zt, 10, lit, COLORS.white);
+    iso.windowsRight(u1, v0 + 0.12, v1 - 0.12, zb, zt, 10, lit, COLORS.white);
   }
   // a balustraded cornice
-  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 2.5, lighten(stone, 0.08), { topC: top(stone, 0.3) });
+  iso.box(u0 - 0.04, v0 - 0.04, u1 + 0.04, v1 + 0.04, H, H + 3, lighten(stone, 0.08), { topC: top(stone, 0.3) });
 
   // a columned PORTICO + pediment projecting from the front (v1)
-  const pcU0 = 0.62;
-  const pcU1 = 1.38;
-  iso.box(pcU0, v1, pcU1, v1 + 0.14, 0, H - 4, stone, { ink: false });
-  for (let c = 0; c <= 6; c++) {
-    const cu = pcU0 + ((pcU1 - pcU0) * c) / 6;
-    iso.r.poly([P(cu - 0.012, v1 + 0.14, H - 6), P(cu + 0.012, v1 + 0.14, H - 6), P(cu + 0.012, v1 + 0.14, 2), P(cu - 0.012, v1 + 0.14, 2)], c % 2 ? lit(COLORS.white, 0.1) : COLORS.white);
+  const pcU0 = 0.95;
+  const pcU1 = 2.05;
+  iso.box(pcU0, v1, pcU1, v1 + 0.2, 0, H - 5, stone, { ink: false });
+  for (let c = 0; c <= 9; c++) {
+    const cu = pcU0 + ((pcU1 - pcU0) * c) / 9;
+    iso.r.poly([P(cu - 0.015, v1 + 0.2, H - 8), P(cu + 0.015, v1 + 0.2, H - 8), P(cu + 0.015, v1 + 0.2, 2), P(cu - 0.015, v1 + 0.2, 2)], c % 2 ? lit(COLORS.white, 0.1) : COLORS.white);
   }
   // pediment triangle
-  iso.r.poly([P(pcU0 - 0.04, v1 + 0.14, H - 4), P(pcU1 + 0.04, v1 + 0.14, H - 4), P((pcU0 + pcU1) / 2, v1 + 0.14, H + 7)], lighten(stone, 0.12));
-  iso.r.polyline([P(pcU0 - 0.04, v1 + 0.14, H - 4), P(pcU1 + 0.04, v1 + 0.14, H - 4), P((pcU0 + pcU1) / 2, v1 + 0.14, H + 7)], INK_W * 0.8, INK, true);
+  iso.r.poly([P(pcU0 - 0.05, v1 + 0.2, H - 5), P(pcU1 + 0.05, v1 + 0.2, H - 5), P((pcU0 + pcU1) / 2, v1 + 0.2, H + 10)], lighten(stone, 0.12));
+  iso.r.polyline([P(pcU0 - 0.05, v1 + 0.2, H - 5), P(pcU1 + 0.05, v1 + 0.2, H - 5), P((pcU0 + pcU1) / 2, v1 + 0.2, H + 10)], INK_W * 0.8, INK, true);
 
   const cx = (u0 + u1) / 2;
   const cy = (v0 + v1) / 2;
   if (crown === 0) {
     // a great green-grey DOME on a colonnaded drum (Panthéon / Invalides)
-    iso.box(cx - 0.34, cy - 0.34, cx + 0.34, cy + 0.34, H, H + 8, stone);
-    const [dx, dyB] = iso.P(cx, cy, H + 8);
-    const DR = 0.4 * (CELL_W / 2);
-    for (let i = 0; i <= 8; i++) {
-      const a = (i / 8) * Math.PI;
-      iso.r.line([dx - DR + (2 * DR * i) / 8, dyB], [dx - DR + (2 * DR * i) / 8, dyB - 5 * S], 1 * S, i % 2 ? COLORS.white : lit(stone, 0.1));
-      void a;
+    iso.box(cx - 0.5, cy - 0.5, cx + 0.5, cy + 0.5, H, H + 11, stone);
+    const [dx, dyB] = iso.P(cx, cy, H + 11);
+    const DR = 0.62 * (CELL_W / 2);
+    for (let i = 0; i <= 10; i++) {
+      iso.r.line([dx - DR + (2 * DR * i) / 10, dyB], [dx - DR + (2 * DR * i) / 10, dyB - 7 * S], 1.2 * S, i % 2 ? COLORS.white : lit(stone, 0.1));
     }
     const dome: Pt[] = [];
-    for (let i = 0; i <= 16; i++) {
-      const a = Math.PI * (i / 16);
-      dome.push([dx + Math.cos(a) * DR, dyB - 5 * S - Math.sin(a) * DR * 1.15]);
+    for (let i = 0; i <= 18; i++) {
+      const a = Math.PI * (i / 18);
+      dome.push([dx + Math.cos(a) * DR, dyB - 7 * S - Math.sin(a) * DR * 1.2]);
     }
     iso.r.poly(dome, shaded(roof, 0.05), lit(roof, 0.06));
-    iso.r.polyline(dome, INK_W * 0.8, INK);
-    const tipY = dyB - 5 * S - DR * 1.15;
-    iso.r.line([dx, tipY], [dx, tipY - 7 * S], 1 * S, COLORS.glassLit);
+    iso.r.polyline(dome, INK_W * 0.9, INK);
+    const tipY = dyB - 7 * S - DR * 1.2;
+    iso.r.line([dx, tipY], [dx, tipY - 10 * S], 1.2 * S, COLORS.glassLit);
   } else if (crown === 1) {
     // twin corner towers (a grand hôtel / station frontage)
-    for (const tu of [u0 + 0.22, u1 - 0.22]) {
-      iso.box(tu - 0.16, v1 - 0.5, tu + 0.16, v1 - 0.18, H, H + 16, stone);
-      iso.hip(tu - 0.18, v1 - 0.52, tu + 0.18, v1 - 0.16, H + 16, 9, roof);
+    for (const tu of [u0 + 0.34, u1 - 0.34]) {
+      iso.box(tu - 0.24, v1 - 0.74, tu + 0.24, v1 - 0.26, H, H + 24, stone);
+      iso.hip(tu - 0.27, v1 - 0.77, tu + 0.27, v1 - 0.23, H + 24, 13, roof);
     }
   } else if (crown === 2) {
     // a clock / bell campanile rising at the rear
-    iso.box(cx - 0.16, v0 + 0.2, cx + 0.16, v0 + 0.52, H, H + 26, stone);
-    iso.windowsLeft(v0 + 0.52, cx - 0.12, cx + 0.12, H + 16, H + 23, 1, alpha(COLORS.glassDark, 0.8), COLORS.white);
-    const [clx, cly] = iso.P(cx, v0 + 0.52, H + 14);
-    iso.r.line([clx - 2.4 * S, cly], [clx + 2.4 * S, cly], 1 * S, COLORS.white); // clock face hint
-    iso.hip(cx - 0.18, v0 + 0.18, cx + 0.18, v0 + 0.54, H + 26, 10, roof);
+    iso.box(cx - 0.24, v0 + 0.3, cx + 0.24, v0 + 0.78, H, H + 38, stone);
+    iso.windowsLeft(v0 + 0.78, cx - 0.18, cx + 0.18, H + 24, H + 34, 1, alpha(COLORS.glassDark, 0.8), COLORS.white);
+    const [clx, cly] = iso.P(cx, v0 + 0.78, H + 20);
+    iso.r.line([clx - 3.4 * S, cly], [clx + 3.4 * S, cly], 1.4 * S, COLORS.white); // clock face hint
+    iso.hip(cx - 0.27, v0 + 0.27, cx + 0.27, v0 + 0.81, H + 38, 15, roof);
   } else {
     // a flat roof with a statued balustrade + central acroterion
-    iso.box(cx - 0.5, cy - 0.42, cx + 0.5, cy + 0.42, H + 2, H + 5, lighten(stone, 0.04), { ink: false });
-    for (const su of [u0 + 0.12, cx, u1 - 0.12]) {
-      iso.box(su - 0.03, v1 - 0.06, su + 0.03, v1, H + 2, H + 9, lighten(stone, 0.1), { ink: false });
+    iso.box(cx - 0.75, cy - 0.63, cx + 0.75, cy + 0.63, H + 3, H + 7, lighten(stone, 0.04), { ink: false });
+    for (const su of [u0 + 0.18, cx, u1 - 0.18]) {
+      iso.box(su - 0.04, v1 - 0.09, su + 0.04, v1, H + 3, H + 13, lighten(stone, 0.1), { ink: false });
     }
   }
   return iso.build();

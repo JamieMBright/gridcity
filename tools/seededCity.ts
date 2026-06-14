@@ -199,7 +199,7 @@ async function main(): Promise<void> {
   // (most prominent) first; route each to the bespoke marquee (Eiffel, Notre-
   // Dame…), a civic special (school/church/hospital/townhall) or the
   // grand-civic generator, and place it as an N×N SW-anchored block.
-  const FOOT: Record<number, number> = { [LANDMARK.eiffel]: 3, [LANDMARK.grand]: 2 };
+  const FOOT: Record<number, number> = { [LANDMARK.eiffel]: 3, [LANDMARK.grand]: 3 };
   const bboxArea = (ring: [number, number][]): number => {
     let mnx = Infinity, mny = Infinity, mxx = -Infinity, mxy = -Infinity;
     for (const [lo, la] of ring) { if (lo < mnx) mnx = lo; if (lo > mxx) mxx = lo; if (la < mny) mny = la; if (la > mxy) mxy = la; }
@@ -231,6 +231,15 @@ async function main(): Promise<void> {
     for (let dx = 0; dx < N && clear; dx++) for (let dy = 0; dy < N; dy++) if (landmark[idx(x + dx, y - dy)] !== LANDMARK.none) clear = false;
     if (!clear) continue;
     for (let dx = 0; dx < N; dx++) for (let dy = 0; dy < N; dy++) { const j = idx(x + dx, y - dy); landmark[j] = lm; zone[j] = ZONE.park; }
+    // a cleared parvis apron so the hero stands proud of the dense fabric
+    for (let dx = -1; dx <= N; dx++) for (let dy = -1; dy <= N; dy++) {
+      const ax = x + dx;
+      const ay = y - dy;
+      if (ax < 0 || ax >= W || ay < 0 || ay >= H) continue;
+      const j = idx(ax, ay);
+      if (terrain[j] === TERRAIN.water || landmark[j] !== LANDMARK.none) continue;
+      zone[j] = ZONE.park;
+    }
     heroes++;
   }
   console.log(`  placed ${heroes} hero buildings`);

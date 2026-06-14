@@ -261,7 +261,7 @@ function buildSpriteCells(): Map<string, Cell> {
   set('lm_louvre', louvreTile(357)); // the palace + glass pyramid
   // the ~100-hero grand-civic generator: 12 variants (dome/towers/clock/
   // balustrade × stone × height), 2×2 SW-anchored blocks
-  for (let i = 0; i < 6; i++) set(`lm_grand${i}`, grandTile(360 + i, i), 2, 2, true);
+  for (let i = 0; i < 6; i++) set(`lm_grand${i}`, grandTile(360 + i, i), 3, 3, true);
   set('lm_gherkin', gherkinTile(223));
   set('lm_fortress', fortressTile(215));
   set('lm_bridge', towerBridgeTile(216), 1, 4, true);
