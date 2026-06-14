@@ -19,6 +19,7 @@ import { emitShoreline } from '../src/render/shoreline';
 import { groundSpriteFor, structureSpriteFor } from '../src/render/tileChooser';
 import { seasonTintFor, type Season } from '../src/render/grade';
 import { AIRPORTS, buildLondonMap } from '../src/data/londonMap';
+import { buildParisMap } from '../src/data/parisMap';
 
 /** SEASON=winter|spring|summer|autumn applies the renderer's seasonal
  *  field tints to the composited crop (ROADMAP #44 review loop). */
@@ -241,7 +242,9 @@ function main(): void {
 
   // composite a city crop in the renderer's painter order:
   // ground → shoreline → transport ribbons → structures
-  const map = buildLondonMap();
+  // MAP=paris renders the Paris geography instead of London (design-gate
+  // loop for new cities); the airport air-layer is London-only scenery.
+  const map = process.env.MAP === 'paris' ? buildParisMap() : buildLondonMap();
   const HW = CELL_W / 2;
   const HH = FLOOR_H / 2;
   const cols = x1 - x0 + 1;
@@ -333,9 +336,11 @@ function main(): void {
       if (inAirCrop(pts)) fillPoly(img, W, H, shift(pts), color, alpha);
     };
     const AIR_T = 26; // seconds into the loop: departures mid-climb
-    emitFlightArcs(AIRPORTS, sEff, airSink);
-    emitPlanes(AIRPORTS, AIR_T, sEff, airSink);
-    console.log(`air: ${AIRPORTS.length} airport(s) at t=${AIR_T}s`);
+    // the air layer (Heathrow) is London-only scenery — skip it for Paris
+    const airports = process.env.MAP === 'paris' ? [] : AIRPORTS;
+    emitFlightArcs(airports, sEff, airSink);
+    emitPlanes(airports, AIR_T, sEff, airSink);
+    console.log(`air: ${airports.length} airport(s) at t=${AIR_T}s`);
   }
   const sc = downscale(img, W, H, scale);
   writeFileSync(`preview/${outName}.png`, encodePng(sc.w, sc.h, sc.img));
