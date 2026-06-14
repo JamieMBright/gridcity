@@ -731,6 +731,96 @@ export function notredameTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 }
 
 /**
+ * ARC DE TRIOMPHE: bespoke Paris icon. A single great triumphal arch in warm
+ * limestone — the deep arched passage, a sculptural attic and cornice — atop
+ * the Étoile where the avenues radiate. Also serves the city's lesser
+ * triumphal gates (Porte Saint-Denis/Saint-Martin).
+ */
+export function archTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const ST = hex('#e0d6bb'); // warm Paris limestone
+  const u0 = 0.26;
+  const u1 = 0.74;
+  const v0 = 0.32;
+  const v1 = 0.72;
+  const H = 30;
+  const S = RES;
+  const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+  iso.shadow(u0, v0, u1, v1, 0.16, 0.2);
+  iso.box(u0, v0, u1, v1, 0, H, ST);
+  // sculptural attic crown
+  iso.box(u0 - 0.015, v0 - 0.015, u1 + 0.015, v1 + 0.015, H, H + 9, lighten(ST, 0.05), {
+    topC: top(ST, 0.3),
+  });
+  iso.r.line(P(u0, v1, H), P(u1, v1, H), INK_W * 0.7, alpha(INK, 0.5));
+
+  // the deep arched passage on the visible (left, v1) face
+  const drawArch = (face: 'v' | 'u'): void => {
+    const aL = (face === 'v' ? u0 : v0) + 0.11;
+    const aR = (face === 'v' ? u1 : v1) - 0.11;
+    const at = (a: number, z: number): Pt => (face === 'v' ? P(a, v1, z) : P(u1, a, z));
+    const poly: Pt[] = [at(aL, 2), at(aL, 16)];
+    for (let i = 0; i <= 10; i++) {
+      const t = i / 10;
+      poly.push(at(lerp(aL, aR, t), 16 + Math.sin(t * Math.PI) * 9));
+    }
+    poly.push(at(aR, 16), at(aR, 2));
+    iso.r.poly(poly, shaded(ST, 0.52));
+    iso.r.polyline(poly.slice(1, poly.length - 1), INK_W * 0.5, alpha(INK, 0.6));
+    // keystone
+    const mid = at((aL + aR) / 2, 25);
+    iso.r.rect(mid[0] - 1.6 * S, mid[1] - 2 * S, mid[0] + 1.6 * S, mid[1] + 2 * S, lighten(ST, 0.1));
+  };
+  drawArch('u'); // the cross passage (drawn first, behind)
+  drawArch('v');
+  return iso.build();
+}
+
+/**
+ * SACRÉ-CŒUR: bespoke Paris icon. The white Romano-Byzantine basilica on
+ * Montmartre — a tall ovoid central dome flanked by smaller domes and a square
+ * campanile, in pale travertine that stays white. Sits on the city's high hill.
+ */
+export function sacrecoeurTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const WHITE = hex('#eee9dc'); // travertine, famously self-whitening
+  const SHAD = hex('#cfc8b8');
+  const S = RES;
+  iso.shadow(0.2, 0.26, 0.84, 0.82, 0.18, 0.22);
+  // the body
+  iso.box(0.24, 0.3, 0.8, 0.78, 0, 22, WHITE);
+  iso.windowsLeft(0.78, 0.3, 0.74, 6, 16, 5, alpha(COLORS.glassDark, 0.85), WHITE);
+  iso.box(0.22, 0.28, 0.82, 0.8, 22, 25, lighten(WHITE, 0.06), { ink: false });
+
+  const ovoid = (cx: number, cy: number, r: number, z0: number, rise: number, s = 1): void => {
+    const [dx, dyB] = iso.P(cx, cy, z0);
+    const R = r * (CELL_W / 2);
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 18; i++) {
+      const a = Math.PI * (i / 18);
+      pts.push([dx + Math.cos(a) * R * s, dyB - Math.sin(a) * rise * S]);
+    }
+    iso.r.poly(pts, WHITE, SHAD);
+    iso.r.polyline(pts, INK_W * 0.7, alpha(INK, 0.7));
+    // lantern + cross
+    iso.r.line([dx, dyB - rise * S], [dx, dyB - rise * S - 5 * S], 1 * S, WHITE);
+    iso.r.line([dx - 1.6 * S, dyB - rise * S - 4 * S], [dx + 1.6 * S, dyB - rise * S - 4 * S], 0.8 * S, WHITE);
+  };
+  // three flanking small domes, then the great central ovoid dome
+  ovoid(0.4, 0.42, 0.16, 25, 16, 0.85);
+  ovoid(0.66, 0.66, 0.16, 25, 16, 0.85);
+  ovoid(0.4, 0.66, 0.15, 25, 14, 0.8);
+  iso.box(0.44, 0.46, 0.62, 0.64, 25, 32, WHITE); // drum
+  ovoid(0.53, 0.55, 0.27, 32, 40, 1);
+  // the square campanile to the rear-right
+  iso.box(0.72, 0.34, 0.84, 0.46, 0, 50, WHITE);
+  iso.hip(0.71, 0.33, 0.85, 0.47, 50, 8, SHAD);
+  return iso.build();
+}
+
+/**
  * THE EIFFEL TOWER: bespoke Paris icon (owner reference, 2026-06-14). The
  * unmistakable wrought-iron silhouette — four splayed legs and the great base
  * arch, the two observation platforms, the tapering lattice shaft to the point,

@@ -99,6 +99,8 @@ export const LANDMARK = {
   // landmark-raster values never shift under old saves.
   notredame: 33, // gothic cathedral — twin towers, rose window, flèche (Paris)
   eiffel: 34, // the wrought-iron lattice tower with the great base arch (Paris)
+  arch: 35, // a great triumphal arch — Arc de Triomphe / city gates
+  basilica: 36, // white Romano-Byzantine domed basilica — Sacré-Cœur
 } as const;
 export type Landmark = (typeof LANDMARK)[keyof typeof LANDMARK];
 

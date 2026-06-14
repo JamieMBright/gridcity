@@ -26,6 +26,7 @@ import {
 import {
   airportTile,
   allypallyTile,
+  archTile,
   arenaTile,
   bttowerTile,
   carparkTile,
@@ -52,6 +53,7 @@ import {
   palacemastTile,
   parliamentTile,
   powerstationTile,
+  sacrecoeurTile,
   schoolTile,
   sewageTile,
   skyscraperTile,
@@ -250,6 +252,8 @@ function buildSpriteCells(): Map<string, Cell> {
   set('lm_spire', spireTile(214));
   set('lm_notredame', notredameTile(353)); // bespoke Paris gothic cathedral
   set('lm_eiffel', eiffelTile(354)); // bespoke Paris iron tower
+  set('lm_arch', archTile(355)); // triumphal arch (Arc de Triomphe / gates)
+  set('lm_basilica', sacrecoeurTile(356)); // Sacré-Cœur
   set('lm_gherkin', gherkinTile(223));
   set('lm_fortress', fortressTile(215));
   set('lm_bridge', towerBridgeTile(216), 1, 4, true);

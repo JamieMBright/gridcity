@@ -517,6 +517,8 @@ function landmarkFor(name: string, tags: Record<string, string>): Landmark {
   if (tags.aeroway === 'aerodrome') return LANDMARK.airport;
   // bespoke Paris icons (checked before the generic tower/cathedral rules)
   if (/eiffel/i.test(name)) return LANDMARK.eiffel;
+  if (/arc de triomphe|porte saint[- ]?(denis|martin)|triumphal/i.test(name)) return LANDMARK.arch;
+  if (/sacr[ée][- ]?c[œoe]ur|basilique/i.test(name)) return LANDMARK.basilica;
   // the bespoke gothic cathedral is reserved for Notre-Dame specifically (so
   // a city's other cathedrals don't all become identical twins of it)
   if (/notre[- ]?dame/i.test(name)) return LANDMARK.notredame;
@@ -563,7 +565,7 @@ function placeHeroes(
   const seen = new Set<string>();
   const named: NamedPlace[] = [];
   for (const { p, score, tile } of ranked) {
-    if (named.length >= 48) break;
+    if (named.length >= 90) break;
     let x = Math.round(tile[0]);
     let y = Math.round(tile[1]);
     // snap off water to the nearest land tile
