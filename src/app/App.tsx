@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { isSandboxCity } from '../data/cityList';
 import { AlertsFeed, EventLog } from '../ui/AlertsFeed';
 import { AssetGuide } from '../ui/AssetGuide';
 import { AuthCallback } from '../ui/AuthCallback';
@@ -254,8 +255,10 @@ export function App() {
   // chrome = the normal in-world HUD condition with photo mode subtracted.
   const photoMode = useAppStore((s) => s.photoMode);
   const chrome = !menuOpen && !photoMode;
-  // campaign missions hide the London-specific chrome (place search)
-  const inMission = useAppStore((s) => s.scenarioId !== 'london');
+  // campaign missions hide the chrome (place search); full sandbox cities
+  // (London, Paris, …) show it — keyed off the scenario's mission flag, not
+  // a hard-coded london check
+  const inMission = useAppStore((s) => !isSandboxCity(s.scenarioId));
   // progressive disclosure: a mission shows only the panels it teaches
   const gate = useUnlockGate();
   const showPanel = (key: string): boolean => !gate.active || gate.has(key);

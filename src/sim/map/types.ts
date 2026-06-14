@@ -193,6 +193,10 @@ export interface CityMap {
   /** Architectural style key for the renderer's building palette (e.g.
    *  'paris' → Haussmann mid-rise). Absent ⇒ the default London fabric. */
   style?: string | undefined;
+  /** New-build estate centres (iDNO transformer already in): the worker
+   *  seeds a connected-demand iDNO substation at each. Per-scenario so a
+   *  city's starter demand lands on its own map, not London's coordinates. */
+  estates?: Array<{ x: number; y: number }> | undefined;
 }
 
 export const NO_COUNCIL = 255;

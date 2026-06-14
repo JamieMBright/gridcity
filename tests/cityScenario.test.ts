@@ -37,15 +37,17 @@ describe('CityScenario v2 resolves to London by default', () => {
     expect(profileOf('london')).toEqual(LONDON_PROFILE);
   });
 
-  it('every shipped scenario (London + the 5 missions) resolves to London', () => {
-    // no new city ships this wave — every registered scenario must still be
-    // GB under the hood, so the campaign and London keep their behaviour
+  it('London + every tutorial mission still resolves to London', () => {
+    // London and the campaign stay GB under the hood; only the dedicated
+    // city scenarios (Paris) carry their own operating-model profiles.
     for (const s of CITY_SCENARIOS) {
+      if (s.id === 'paris') continue; // France — asserted in parisScenario.test
       expect(resolveProfile(s)).toEqual(LONDON_PROFILE);
     }
-    // and there are still exactly the original six (1 city + 5 missions)
+    // the registry: London + Paris + the 5 missions
     expect(CITY_SCENARIOS.map((s) => s.id)).toEqual([
       'london',
+      'paris',
       'm1-first-light',
       'm2-step-up',
       'm3-storm',

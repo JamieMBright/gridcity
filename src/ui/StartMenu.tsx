@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../app/store';
 import { newGameCommand } from '../app/workerBridge';
+import { SANDBOX_CITIES } from '../data/cityList';
 import { currentUser } from '../online/auth';
 import { getAudioSettings, startMusic, updateAudioSettings } from '../audio/audio';
 import { pushSettings } from '../online/cloud';
@@ -78,15 +79,17 @@ export function StartMenu() {
   const hasSave = localStorageStore.load() !== undefined;
   const slotCount = listSlots().length;
   const audio = getAudioSettings();
+  // the selectable sandbox cities (full cities, not tutorial missions)
+  const cities = SANDBOX_CITIES;
 
   // sandbox: continue a save (fresh=false) or start a clean new game
   // (fresh=true). The London tutorial step strip is RETIRED — the campaign
   // IS the tutorial now, so a sandbox new game opens clean (story + goal
   // ladder only). 'tutorial' on the menu launches campaign mission 1.
-  const begin = (fresh: boolean): void => {
+  const begin = (fresh: boolean, scenarioId = 'london'): void => {
     startMusic();
     if (fresh) {
-      newGameCommand();
+      newGameCommand(scenarioId);
       sessionStorage.setItem('ec-story-pending', '1');
     }
     setTutorialStep(undefined);
@@ -149,6 +152,15 @@ export function StartMenu() {
             <button style={bigBtn(!hasSave)} onClick={() => begin(true)}>
               <span style={{ color: hasSave ? theme.orange : undefined }}>⚡ </span>new game
             </button>
+            {cities
+              .filter((c) => c.id !== 'london')
+              .map((c) => (
+                <button key={c.id} style={bigBtn(false)} onClick={() => begin(true, c.id)}>
+                  <span style={{ color: theme.orange }}>🗼 </span>
+                  {c.name.split(' & ')[0]}
+                  <span style={{ color: theme.slate, fontWeight: 400 }}> · new city</span>
+                </button>
+              ))}
             <button style={bigBtn(false)} onClick={() => setLessonsOpen(true)}>
               <span style={{ color: theme.orange }}>📖 </span>tutorials
             </button>

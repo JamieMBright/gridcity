@@ -127,6 +127,18 @@ export const LONDON_ECONOMY: EconomyProfile = {
   supplyFixedYr: 150,
 };
 
+/** France: the euro, with a TURPE-style network share and France's lower
+ *  retail uplift (regulated tariffs, less policy/supplier stack than GB). */
+export const FRANCE_ECONOMY: EconomyProfile = {
+  symbol: '€',
+  iso: 'EUR',
+  toGbp: 0.85,
+  domesticNetworkShare: 0.3,
+  domesticEnergyShare: 0.42,
+  retailUplift: 2.4,
+  supplyFixedYr: 130,
+};
+
 export interface GenerationModel {
   /** 'tender' = liberalised developer market (London et al.: gen capex
    *  rides a PPA strike on the energy line, never DUoS).

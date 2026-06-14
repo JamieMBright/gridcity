@@ -5,6 +5,9 @@
 
 import type { CityMap } from '../sim/map/types';
 import {
+  FRANCE_ECONOMY,
+  FRANCE_MARKET,
+  FRANCE_REGULATOR,
   LONDON_PROFILE,
   type EconomyProfile,
   type GenerationModel,
@@ -15,6 +18,7 @@ import {
   type WeatherProfile,
 } from '../sim/powerProfile';
 import { buildLondonMap, setClientMap } from './londonMap';
+import { buildParisMap } from './parisMap';
 import {
   buildBillMap,
   buildFirstLightMap,
@@ -81,6 +85,20 @@ export const CITY_SCENARIOS: CityScenario[] = [
     name: 'London & the Essex Marches',
     tagline: 'The capital, the estuary, and everything that needs plugging in.',
     build: buildLondonMap,
+  },
+  {
+    id: 'paris',
+    name: 'Paris & the Île-de-France',
+    tagline: 'The Seine, the Périphérique, and a grid that runs on nuclear.',
+    build: buildParisMap,
+    // France's operating model: Enedis-style network, a deep nuclear floor
+    // (cheap, clean, inflexible imports), and the CRE cost-of-service
+    // regulator rather than RIIO incentives.
+    market: FRANCE_MARKET,
+    regulator: FRANCE_REGULATOR,
+    economy: FRANCE_ECONOMY,
+    difficulty: 4,
+    unlockAtRank: 1,
   },
   {
     id: 'm1-first-light',

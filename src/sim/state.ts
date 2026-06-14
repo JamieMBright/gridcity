@@ -339,8 +339,10 @@ export function seedScenario(state: GameState, ctx: SimContext): void {
 
   // (a) new-build estates arrive with the iDNO's transformer already in.
   // These are CUSTOMER DEMAND sites awaiting connection (load, not
-  // generation) — they stay (owner: keep the iDNO estates as demand).
-  for (const e of NEW_ESTATES) {
+  // generation) — they stay (owner: keep the iDNO estates as demand). The
+  // estate centres come from the active map (per-scenario); London's map
+  // carries NEW_ESTATES, so its seeding is unchanged.
+  for (const e of map.estates ?? NEW_ESTATES) {
     const id = state.nextAssetId++;
     state.assets.set(id, {
       id,

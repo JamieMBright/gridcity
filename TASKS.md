@@ -110,15 +110,27 @@
         (HK, already in bill.ts) end-to-end. Per-country tender flow
         (France nuclear offers, AU solar/battery, HK no-tender).
 
-- [ ] **MULTI-CITY GEOGRAPHIC MAPS (owner, 2026-06-14 05:07): Paris, Sydney,
-      Hong Kong, Rio — geographic accuracy first (rivers/coastlines/roads in
-      the right places, hero landmarks in true relative positions, correct
-      tile scale). "Have a go at all… we can recreate in future if needed —
-      apply London's design principles." Paris first (Seine through the
-      middle + Île de la Cité, Périphérique ring, Étoile/Arc with radiating
-      avenues + Champs-Élysées, 20 arrondissement councils, Bois de
-      Boulogne/Vincennes, Montmartre/Sacré-Cœur hill, La Défense CBD).
-      Design-gated per CLAUDE.md. Pairs with the operating models above.
+- [~] **MULTI-CITY GEOGRAPHIC MAPS (owner, 2026-06-14): Paris done; Sydney/
+      Hong Kong/Rio next.** PARIS (`src/data/parisMap.ts`) is true-to-life and
+      PLAYABLE:
+      - The Seine on its real south-opening arc; Île de la Cité (Notre-Dame)
+        + Île Saint-Louis splitting it; ~22 bridges; the Périphérique + A86
+        rings; the autoroutes; the canals + the Marne.
+      - The Étoile with the Arc + TWELVE avenues carved as wide tree-lined
+        boulevards (the road-star reads); the Champs-Élysées → Louvre axis.
+      - FOUR bespoke hero sprites: Eiffel (Champ-de-Mars), Arc (Étoile),
+        Sacré-Cœur (Montmartre), Notre-Dame (the island).
+      - HAUSSMANN mid-rise building palette (cream stone + grey mansard) via
+        CityMap.style — the whole core wears it; La Défense keeps towers.
+      - Dense banlieue (no green belt) + grande-couronne towns + farmland;
+        20 arrondissement + banlieue councils; CDG + Orly; the two Bois.
+      - REGISTERED as a playable France scenario (FRANCE_MARKET / CRE
+        regulator / € economy); worker estate-seeding generalised off
+        London's coords (CityMap.estates); StartMenu city picker; App
+        inMission keyed off the scenario's mission flag. Tests + design-gated.
+      Remaining: Sydney (harbour + Opera House + Bridge), Hong Kong (island +
+      typhoons), Rio (mountains + Christ the Redeemer) — each via the same
+      pattern (ideally the CitySpec template below).
 
 - [x] **NAME the storms that come through (owner, 2026-06-14 05:35).** DONE.
       `STORM_NAMES`/`stormName` now live on the regime authority
