@@ -20,7 +20,7 @@ import {
   type WorkerToMain,
 } from './protocol';
 import { networkHealthPct } from './reliability/ageing';
-import { forecastStorms } from './reliability/stormprep';
+import { callHandlingView, forecastStorms } from './reliability/stormprep';
 import { safetyEngagement, safetyView } from './reliability/safety';
 import { orgView } from './events/directorates';
 import { openClaims } from './events/litigation';
@@ -285,6 +285,10 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
       return [id, peak, a && a.kind === 'sub' ? subMva(a) : 0] as [number, number, number];
     }),
     stormForecast: forecastStorms(state),
+    callHandling: callHandlingView(
+      state,
+      Math.max(0, (state.everServedCustomers ?? 0) - out.servedCustomers),
+    ),
     org: orgView(state.org, safetyEngagement(state.org?.safety ?? 0)),
     safety: safetyView(state),
     claims: openClaims(state),

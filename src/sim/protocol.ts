@@ -200,6 +200,21 @@ export interface SimSnapshot {
   /** Named-storm forecast read off the weather regime pre-roll
    *  (reliability/stormprep.ts; etaMin = game-minutes to landfall). */
   stormForecast?: Array<{ name: string; etaMin: number; severity: number }> | undefined;
+  /** Live storm call-handling readout (reliability/stormprep.ts): the
+   *  call-response answer time vs the < 5 s target, the volume (interrupted
+   *  customers calling) vs capacity, drafted office handlers, and the CSAT
+   *  delta in force. The SevereWeatherAlert + HUD read this so the player
+   *  sees the lever's payoff live. */
+  callHandling?:
+    | {
+        volume: number;
+        capacity: number;
+        answerSeconds: number;
+        targetSeconds: number;
+        csatDelta: number;
+        draftedHandlers: number;
+      }
+    | undefined;
   /** The network business (#53): directorate dials, pay/safety
    *  investment, engagement scores and the £/yr cost. */
   org: OrgView;

@@ -102,9 +102,18 @@ export type Command =
         by: number;
       }>;
     }
-  /** Storm preparation (ROADMAP #9): hire surge contractor crews or run
+  /** Storm preparation (ROADMAP #9): the owner's SYSTEM-PREPARE levers —
+   *  scale up crew SHIFTS (the surge engine; 'surge' kept as an alias),
+   *  activate SCOUTS (office staff drive the lines → faster fault location
+   *  → quicker restoration), draft WIDER CALL HANDLING (office staff onto
+   *  the phones → answer time stays inside target → CSAT protected), or run
    *  an emergency vegetation cut. Logic lives in reliability/stormprep. */
-  | { type: 'stormPrep'; action: 'surge' | 'vegCut'; lineId?: number; days?: number }
+  | {
+      type: 'stormPrep';
+      action: 'surge' | 'shifts' | 'scouts' | 'callHandling' | 'vegCut';
+      lineId?: number;
+      days?: number;
+    }
   /** Fund (or wind down) a council's smart-charging programme (ROADMAP
    *  #18): that council's EV evening profile flattens, the £/yr cost
    *  rides the bill. Councils below satisfaction 50 refuse. Logic lives

@@ -1,9 +1,19 @@
 // Storm preparation (ROADMAP #9, sim side): a deterministic named-storm
-// forecast read off the weather regime pre-roll, plus the prep actions —
-// surge contractor crews and emergency vegetation cuts — and their bill
-// integration. UI lands separately; the single player entry point is the
-// 'stormPrep' command in commands.ts, which delegates to applyStormPrep
+// forecast read off the weather regime pre-roll, plus the SYSTEM-PREPARE
+// levers a GB DNO actually pulls — extra crew SHIFTS, line-driving SCOUTS,
+// and WIDER CALL HANDLING (office staff drafted to the phones) — and their
+// bill integration. UI lands separately; the single player entry point is
+// the 'stormPrep' command in commands.ts, which delegates to applyStormPrep
 // here (commands.ts stays thin by design — another engineer owns it).
+//
+// The call-handling model (owner domain spec, a real GB DNO): in a storm
+// the interrupted customers all phone in at once. The call centre answers
+// at a baseline throughput; understaff it during the surge and answer
+// times blow out and CSAT goes NEGATIVE. The wider-call-handling lever
+// drafts regular office staff onto the phones so a real person answers
+// inside the GSOP-style < 5 s target. All maths is pure, monotonic and
+// deterministic (no wall clock / Math.random) — see callAnswerSeconds /
+// callCsatDelta below, unit-tested in tests/callHandling.test.ts.
 //
 // Bill integration (the documented choice): prep actions are one-off
 // spends, charged into a rolling state.stormPrepYrK rate (£k/yr) that
@@ -134,12 +144,201 @@ export function emergencyVegCut(state: GameState, lineId: number): CommandResult
   return { ok: true };
 }
 
-/** The 'stormPrep' command body (commands.ts delegates here whole). */
+// ----------------------------------------------------------------------
+// SCOUTS: regular office staff drive the lines to put eyes on the network.
+//
+// In a real storm-prep the biggest delay is rarely the repair itself — it
+// is FINDING the fault. A radial feeder trips, hundreds go dark, and a
+// crew can't fix what nobody has located yet. Sending office staff out to
+// patrol the overhead routes ("eyes on the network") shortens fault
+// DETECTION/location, so a job is handed to a crew (or the contractor
+// fallback fires) sooner. We model that as a restoration speedup over the
+// scout window: tick.ts scales the fleet step's dtMin by scoutSpeedMul, so
+// travel + repair + the contractor clock all run faster while scouts are
+// out — fewer customer-minutes lost (lower CML) for the storm.
+
+/** Scouts deploy for this many game-days per activation (a storm shift). */
+export const SCOUTS_MAX_DAYS = 14;
+export const SCOUTS_DEFAULT_DAYS = 3;
+/** Eyes-on-the-network restoration speedup while scouts patrol: faults are
+ *  found and handed off ~35% faster, so CML clears quicker. */
+export const SCOUTS_SPEED_MUL = 1.35;
+/** Office staff on patrol cars cost this £k per scout-day (cars, fuel,
+ *  overtime — cheaper than crews, but not free). */
+export const SCOUTS_K_PER_DAY = 6;
+
+/** Restoration speed multiplier from active scouts (1 when none out). */
+export function scoutSpeedMul(state: GameState): number {
+  return state.simTimeMin < (state.scoutsUntilMin ?? 0) ? SCOUTS_SPEED_MUL : 1;
+}
+
+/** Activate scouts: office staff patrol the overhead network for `days`,
+ *  speeding fault location (and thus restoration) over the window. An
+ *  active window extends from its current end, like surge crews. */
+export function applyScouts(state: GameState, days: number): CommandResult {
+  if (!Number.isFinite(days) || days < 1 || days > SCOUTS_MAX_DAYS) {
+    return { ok: false, error: `scouts deploy for 1–${SCOUTS_MAX_DAYS} days` };
+  }
+  const d = Math.round(days);
+  const costK = Math.round(SCOUTS_K_PER_DAY * d);
+  const from = Math.max(state.scoutsUntilMin ?? 0, state.simTimeMin);
+  state.scoutsUntilMin = from + d * 1440;
+  chargeStormPrep(state, costK);
+  pushEvent(
+    state,
+    'info',
+    `scouts activated: office staff driving the lines for ${d} day${d > 1 ? 's' : ''} (£${costK}k)`,
+  );
+  return { ok: true };
+}
+
+// ----------------------------------------------------------------------
+// WIDER CALL HANDLING + the call-response model (owner domain spec).
+//
+// Real ops: every interrupted customer phones in. The call centre answers
+// at a baseline rate; understaff it during the surge and a real person
+// can't get to the phone — answer time climbs past the < 5 s target and
+// CSAT goes negative. The wider-call-handling lever drafts regular office
+// staff onto the phones for a window, lifting capacity so the answer time
+// stays inside target and CSAT is protected. It's a combination of
+// investment in staff (the standing fleet/org), training, and this surge
+// drafting — exactly the owner's three legs.
+
+/** Baseline call-centre capacity: the steady-state number of concurrently
+ *  interrupted customers the standing call centre can keep answered inside
+ *  target. Below this, answer time sits at the floor. */
+export const BASE_CALL_CAPACITY = 1500;
+/** Each drafted office call handler adds this much capacity (one trained
+ *  body fields a slice of the storm's calls). */
+export const CALL_HANDLER_CAPACITY = 1200;
+/** Office staff drafted per wider-call-handling activation. */
+export const CALL_HANDLERS_PER_ACTIVATION = 6;
+/** Wider call handling runs for this many game-days per activation. */
+export const CALL_HANDLING_MAX_DAYS = 14;
+export const CALL_HANDLING_DEFAULT_DAYS = 3;
+/** Drafted handlers cost this £k per handler-day (overtime + training
+ *  draw-down — they're doing their day job otherwise). */
+export const CALL_HANDLER_K_PER_DAY = 3;
+
+/** GSOP-style target: a real person answers within this many seconds. */
+export const CALL_TARGET_SECONDS = 5;
+/** Answer time at/below capacity (a real person picks up fast). */
+const CALL_FLOOR_SECONDS = 2;
+/** How hard answer time climbs once demand passes capacity. With this
+ *  slope the target (5 s) is crossed at ~1.07× capacity, and a 2×-capacity
+ *  surge sits around a minute on hold — punishing but not infinite. */
+const CALL_OVERLOAD_SLOPE = 55;
+
+/** Effective live call-handling capacity right now: the standing centre
+ *  plus any drafted office handlers still on the phones for the window. */
+export function callHandlingCapacity(state: GameState): number {
+  const drafted =
+    state.simTimeMin < (state.callHandlersUntilMin ?? 0) ? (state.callHandlersExtra ?? 0) : 0;
+  return BASE_CALL_CAPACITY + drafted * CALL_HANDLER_CAPACITY;
+}
+
+/** Call VOLUME proxy: the number of customers currently off supply. Every
+ *  interrupted customer is a potential caller, so volume tracks the live
+ *  interrupted count one-for-one (a simple, monotonic, deterministic
+ *  proxy — no per-call RNG). */
+export function callVolume(interruptedCustomers: number): number {
+  return Math.max(0, interruptedCustomers);
+}
+
+/** Effective answer time for a real person, SECONDS, from live call volume
+ *  vs handling capacity. At/below capacity it sits at the floor (~2 s);
+ *  above capacity it climbs with the overload ratio. Pure + monotonic in
+ *  volume (↑) and capacity (↓) — the heart of the model, unit-tested. */
+export function callAnswerSeconds(volume: number, capacity: number): number {
+  const cap = Math.max(1, capacity);
+  const overload = Math.max(0, volume / cap - 1);
+  return CALL_FLOOR_SECONDS + CALL_OVERLOAD_SLOPE * overload;
+}
+
+/** Transient CSAT (satisfaction-target) delta from the current answer time.
+ *  Inside the < 5 s target it is 0 (well-handled calls don't move the
+ *  mood). Past target it goes NEGATIVE, deepening the longer the hold, to
+ *  a floor — a sustained "can't get through in a storm" hit, exactly the
+ *  owner's "understaffing → negative CSAT". Pure + monotonic. */
+export const CALL_CSAT_FLOOR = -22;
+export function callCsatDelta(answerSeconds: number): number {
+  const over = answerSeconds - CALL_TARGET_SECONDS;
+  if (over <= 0) return 0;
+  // −1.0 CSAT per second over target, floored: 5 s over = −5, ~27 s = floor
+  return Math.max(CALL_CSAT_FLOOR, -over);
+}
+
+/** The live storm-prep call-handling readout for the snapshot/UI: the
+ *  current answer time, the target, the capacity, the volume, and the CSAT
+ *  delta in force. Pure read off state + the live interrupted count. */
+export interface CallHandlingView {
+  volume: number;
+  capacity: number;
+  answerSeconds: number;
+  targetSeconds: number;
+  csatDelta: number;
+  /** Office handlers drafted onto the phones right now. */
+  draftedHandlers: number;
+}
+export function callHandlingView(state: GameState, interruptedCustomers: number): CallHandlingView {
+  const volume = callVolume(interruptedCustomers);
+  const capacity = callHandlingCapacity(state);
+  const answerSeconds = callAnswerSeconds(volume, capacity);
+  const drafted =
+    state.simTimeMin < (state.callHandlersUntilMin ?? 0) ? (state.callHandlersExtra ?? 0) : 0;
+  return {
+    volume,
+    capacity,
+    answerSeconds,
+    targetSeconds: CALL_TARGET_SECONDS,
+    csatDelta: callCsatDelta(answerSeconds),
+    draftedHandlers: drafted,
+  };
+}
+
+/** Draft office staff onto the phones (wider call handling) for `days`: the
+ *  call-handling capacity lifts for the window so answer time stays inside
+ *  target through the surge, protecting CSAT. Extends an active window from
+ *  its current end. */
+export function applyWiderCallHandling(state: GameState, days: number): CommandResult {
+  if (!Number.isFinite(days) || days < 1 || days > CALL_HANDLING_MAX_DAYS) {
+    return { ok: false, error: `wider call handling runs for 1–${CALL_HANDLING_MAX_DAYS} days` };
+  }
+  const d = Math.round(days);
+  const costK = Math.round(CALL_HANDLER_K_PER_DAY * CALL_HANDLERS_PER_ACTIVATION * d);
+  const from = Math.max(state.callHandlersUntilMin ?? 0, state.simTimeMin);
+  state.callHandlersUntilMin = from + d * 1440;
+  state.callHandlersExtra = CALL_HANDLERS_PER_ACTIVATION;
+  chargeStormPrep(state, costK);
+  pushEvent(
+    state,
+    'info',
+    `wider call handling: ${CALL_HANDLERS_PER_ACTIVATION} office staff on the phones for ${d} day${d > 1 ? 's' : ''} (£${costK}k)`,
+  );
+  return { ok: true };
+}
+
+/** The 'stormPrep' command body (commands.ts delegates here whole). The
+ *  owner's system-prepare levers: scale up SHIFTS (extra crewed vans, the
+ *  surge engine), activate SCOUTS (eyes on the network), draft WIDER CALL
+ *  HANDLING (office staff onto the phones), and the emergency veg cut. */
 export function applyStormPrep(
   state: GameState,
-  cmd: { action: 'surge' | 'vegCut'; lineId?: number | undefined; days?: number | undefined },
+  cmd: {
+    action: 'surge' | 'shifts' | 'scouts' | 'callHandling' | 'vegCut';
+    lineId?: number | undefined;
+    days?: number | undefined;
+  },
 ): CommandResult {
-  if (cmd.action === 'surge') return applySurgeCrews(state, cmd.days ?? SURGE_DEFAULT_DAYS);
+  // 'shifts' is the player-facing name for the crew-surge engine; 'surge'
+  // is kept as an alias so existing saves/tests/commands still resolve.
+  if (cmd.action === 'surge' || cmd.action === 'shifts') {
+    return applySurgeCrews(state, cmd.days ?? SURGE_DEFAULT_DAYS);
+  }
+  if (cmd.action === 'scouts') return applyScouts(state, cmd.days ?? SCOUTS_DEFAULT_DAYS);
+  if (cmd.action === 'callHandling') {
+    return applyWiderCallHandling(state, cmd.days ?? CALL_HANDLING_DEFAULT_DAYS);
+  }
   if (cmd.lineId === undefined) return { ok: false, error: 'vegetation cut needs a line' };
   return emergencyVegCut(state, cmd.lineId);
 }

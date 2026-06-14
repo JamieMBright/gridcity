@@ -240,6 +240,8 @@ export function SevereWeatherAlert() {
   const [acked, setAcked] = useState<ReadonlySet<string>>(() => new Set());
   // whether each prepare lever has been fired for the open storm
   const [didSurge, setDidSurge] = useState(false);
+  const [didScouts, setDidScouts] = useState(false);
+  const [didCalls, setDidCalls] = useState(false);
   const [didVeg, setDidVeg] = useState(false);
   // the storm we paused FOR, so we pause the clock exactly once on appear
   const pausedForRef = useRef<string | undefined>(undefined);
@@ -255,6 +257,8 @@ export function SevereWeatherAlert() {
     if (stormName !== undefined && pausedForRef.current !== stormName) {
       pausedForRef.current = stormName;
       setDidSurge(false);
+      setDidScouts(false);
+      setDidCalls(false);
       setDidVeg(false);
       setSimSpeed(0);
     }
@@ -270,12 +274,23 @@ export function SevereWeatherAlert() {
   // fraction of the bar = gust mapped over a 50–165 km/h scale
   const gustPct = Math.round(((gust - 50) / (165 - 50)) * 100);
 
-  // already running surge crews from an earlier hire? show as confirmed.
+  // already running extra shifts from an earlier hire? show as confirmed.
   const surging = snapshot.fleet.vans.length > snapshot.fleet.fleetSize;
   const surgeDone = didSurge || surging;
+  // wider call handling already drafted (office staff on the phones)?
+  const callsDone = didCalls || (snapshot.callHandling?.draftedHandlers ?? 0) > 0;
+  const scoutsDone = didScouts;
   // the corridor the emergency cut will target (longest overhead line); the
   // button is disabled when the player has no overhead line to clear.
   const vegLineId = pickVegLine(snapshot.assets);
+
+  // live call-handling readout: the answer time vs the < 5 s target. During
+  // the pre-landfall prepare the network is usually still all-on, so this
+  // reads the calm baseline (well inside target) and the warning text below
+  // explains what happens if the call centre is understaffed in the surge.
+  const call = snapshot.callHandling;
+  const answerS = call?.answerSeconds ?? 2;
+  const inTarget = answerS <= (call?.targetSeconds ?? 5);
 
   const dismiss = (): void => {
     // acknowledge THIS storm so it won't re-pop, and close. We do NOT
@@ -429,7 +444,8 @@ export function SevereWeatherAlert() {
           </div>
         </div>
 
-        {/* prepare levers */}
+        {/* prepare levers — the owner's real system-prepare: scale up
+            shifts, activate scouts, wider call handling, emergency cut */}
         <div style={{ padding: '14px 20px 6px' }}>
           <div
             style={{
@@ -440,20 +456,52 @@ export function SevereWeatherAlert() {
               marginBottom: 8,
             }}
           >
-            Prepare the network
+            System prepare
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             <button
               style={leverBtn(surgeDone)}
               disabled={surgeDone}
               onClick={() => {
-                sendCommand({ type: 'stormPrep', action: 'surge', days: 4 });
+                sendCommand({ type: 'stormPrep', action: 'shifts', days: 4 });
                 setDidSurge(true);
               }}
             >
-              {surgeDone ? '✓ surge crews on standby' : 'Hire surge crews'}
+              {surgeDone ? '✓ extra shifts rostered' : 'Scale up shifts'}
               <div style={{ color: theme.slate, fontSize: 10.5, fontWeight: 400 }}>
-                {surgeDone ? 'extra contractor vans for the storm window' : '4 contractor vans · 4 days'}
+                {surgeDone
+                  ? 'extra crews on for the worst-hit areas — faster repair'
+                  : 'extra crews · 4 days — faster repair, lower CML'}
+              </div>
+            </button>
+            <button
+              style={leverBtn(scoutsDone)}
+              disabled={scoutsDone}
+              onClick={() => {
+                sendCommand({ type: 'stormPrep', action: 'scouts', days: 4 });
+                setDidScouts(true);
+              }}
+            >
+              {scoutsDone ? '✓ scouts on patrol' : 'Activate scouts'}
+              <div style={{ color: theme.slate, fontSize: 10.5, fontWeight: 400 }}>
+                {scoutsDone
+                  ? 'office staff driving the lines — faults found sooner'
+                  : 'office staff drive the lines · eyes on the network'}
+              </div>
+            </button>
+            <button
+              style={leverBtn(callsDone)}
+              disabled={callsDone}
+              onClick={() => {
+                sendCommand({ type: 'stormPrep', action: 'callHandling', days: 4 });
+                setDidCalls(true);
+              }}
+            >
+              {callsDone ? '✓ wider call handling on' : 'Wider call handling'}
+              <div style={{ color: theme.slate, fontSize: 10.5, fontWeight: 400 }}>
+                {callsDone
+                  ? 'office staff on the phones — answer time held in target'
+                  : 'draft office staff onto the phones · protect CSAT'}
               </div>
             </button>
             <button
@@ -480,6 +528,56 @@ export function SevereWeatherAlert() {
                     : 'clear the most exposed corridor at short notice'}
               </div>
             </button>
+          </div>
+
+          {/* call-handling readout: the < 5 s answer target and the CSAT
+              risk if the call centre is understaffed through the surge */}
+          <div
+            style={{
+              marginTop: 12,
+              padding: '10px 12px',
+              borderRadius: 8,
+              border: `1px solid ${callsDone ? 'rgba(123,196,127,0.4)' : 'rgba(141,151,180,0.32)'}`,
+              background: callsDone ? 'rgba(123,196,127,0.08)' : 'rgba(141,151,180,0.06)',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: 10,
+              justifyContent: 'space-between',
+            }}
+          >
+            <div style={{ minWidth: 150 }}>
+              <div
+                style={{
+                  color: theme.slate,
+                  fontSize: 10,
+                  letterSpacing: 1.2,
+                  textTransform: 'uppercase',
+                }}
+              >
+                Call response
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 6,
+                  color: inTarget ? theme.ok : theme.sunset,
+                  fontSize: 20,
+                  fontWeight: 800,
+                }}
+              >
+                {answerS < 10 ? answerS.toFixed(1) : Math.round(answerS)}s
+                <span style={{ color: theme.slate, fontSize: 11, fontWeight: 600 }}>
+                  target &lt; {call?.targetSeconds ?? 5}s
+                </span>
+              </div>
+            </div>
+            <div style={{ flex: '1 1 220px', minWidth: 200, color: theme.slate, fontSize: 11, lineHeight: 1.4 }}>
+              {callsDone
+                ? 'office staff are on the phones — a real person answers inside target through the surge, so CSAT holds.'
+                : 'in the surge every interrupted customer calls at once. Understaff the phones and answer time blows past 5 s — CSAT goes negative. Draft wider call handling to hold the line.'}
+            </div>
           </div>
         </div>
 
