@@ -238,7 +238,7 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
   // urban fabric (the pale, grid-like street walls) — many variants spread
   // per-tile so the uniform wall still reads as distinct buildings.
   if (map.fabric === 'paris' && (zone === ZONE.urbanCore || zone === ZONE.urban)) {
-    return `haussmann_${th % 8}`;
+    return `haussmann_${th % 12}`;
   }
 
   switch (zone) {

@@ -499,8 +499,13 @@ export function haussmannTile(seed: number, variant: number): Uint8ClampedArray<
   // pierre de taille — warm pale limestone, a touch of per-block variation
   const stoneSet: RGBA[] = [hex('#e6ddc6'), hex('#e1d7bf'), hex('#eae2cd'), hex('#dcd2b8')];
   const stone = stoneSet[variant % stoneSet.length] ?? stoneSet[0]!;
-  const zinc = hex('#6b7079'); // the grey zinc mansard + roofscape
-  const zincTop = hex('#7c828c');
+  // the grey zinc roofscape — VARIED per block (this is what reads from above)
+  const roofShades: RGBA[] = [
+    hex('#6b7079'), hex('#595f6a'), hex('#787e88'), hex('#535963'),
+    hex('#6c6675'), hex('#626a6e'), hex('#70757e'), hex('#4f555f'),
+  ];
+  const zinc = roofShades[variant % roofShades.length] ?? roofShades[0]!;
+  const zincTop = lighten(zinc, 0.12);
   const iron = hex('#34343d'); // balcony railings + window guards
   const band = hex('#d8cdb1'); // string-course / cornice shadow line
   const frame = hex('#f1ebdb');
@@ -563,7 +568,7 @@ export function haussmannTile(seed: number, variant: number): Uint8ClampedArray<
   });
 
   // the steep grey-zinc MANSARD roof: slopes inward from the cornice
-  const mr = 15 + (variant % 2) * 3; // mansard rise
+  const mr = 12 + (variant % 4) * 4; // 12..24 — visible roof-height variety
   const ui = 0.16; // inward inset of the mansard's flat top (u)
   const vi = 0.12; // inward inset (v)
   const zT = H + mr;
@@ -577,29 +582,44 @@ export function haussmannTile(seed: number, variant: number): Uint8ClampedArray<
     [P(u1, v0, H), P(u1, v1, H), P(u1 - ui, v1 - vi, zT), P(u1 - ui, v0 + vi, zT)],
     lit(zinc, 0.06),
   );
-  // the shallow leaded top
-  iso.quad(u0 + ui, v0 + vi, u1 - ui, v1 - vi, zT, zincTop);
   // ink the mansard silhouette
   iso.r.polyline([P(u0, v1, H), P(u0 + ui, v1 - vi, zT), P(u1 - ui, v1 - vi, zT), P(u1 - ui, v0 + vi, zT), P(u1, v0, H)], INK_W, INK);
   iso.edge(P(u1, v1, H), P(u1 - ui, v1 - vi, zT));
 
-  // dormer windows (lucarnes) poking from the near mansard slope
-  const dormers = 3;
-  for (let i = 0; i < dormers; i++) {
-    const u = 0.2 + (i * 0.6) / (dormers - 1);
-    const vd = v1 - vi * 0.45;
-    const zd = H + mr * 0.32;
-    iso.box(u - 0.05, vd, u + 0.05, vd + 0.04, zd, zd + 8, lighten(zinc, 0.12));
-    iso.windowsLeft(vd + 0.04, u - 0.038, u + 0.038, zd + 1.5, zd + 6.5, 1, glass(rng, 0.55), frame);
-    // little zinc cap
-    iso.r.poly([P(u - 0.06, vd, zd + 8), P(u + 0.06, vd, zd + 8), P(u, vd, zd + 12)], shaded(zinc, 0.05));
+  // the roof top — most blocks are HOLLOW around a central courtyard (cour),
+  // the dark well that gives the Paris roofscape its characteristic texture
+  // instead of a solid identical diamond.
+  iso.quad(u0 + ui, v0 + vi, u1 - ui, v1 - vi, zT, zincTop); // the leaded roof
+  if (variant % 5 !== 0) {
+    // the central light-well / cour: a dark recessed square, the Paris-from-
+    // above texture (read flat at the roof plane so it never looks raised)
+    const cu0 = 0.38;
+    const cu1 = 0.64;
+    const cv0 = 0.37;
+    const cv1 = 0.57;
+    iso.quad(cu0, cv0, cu1, cv1, zT, shaded(zinc, 0.52));
+    iso.quad(cu0 + 0.03, cv0 + 0.025, cu1 - 0.03, cv1 - 0.025, zT, shaded(zinc, 0.66));
+    iso.r.polyline([P(cu0, cv0, zT), P(cu1, cv0, zT), P(cu1, cv1, zT), P(cu0, cv1, zT), P(cu0, cv0, zT)], INK_W * 0.6, alpha(INK, 0.6));
   }
 
-  // chimney stacks with pale pots along the ridge
-  for (const cu of [0.12, 0.88]) {
-    iso.box(cu - 0.03, (v0 + v1) / 2 - 0.04, cu + 0.03, (v0 + v1) / 2 + 0.04, zT, zT + 9, shaded(stone, 0.08));
-    for (const dv of [-0.03, 0.02]) {
-      iso.box(cu - 0.012, (v0 + v1) / 2 + dv, cu + 0.012, (v0 + v1) / 2 + dv + 0.022, zT + 9, zT + 13, hex('#9a8f78'), { ink: false });
+  // dormer windows (lucarnes) on the near slope — count varies
+  const dormers = 2 + (variant % 3);
+  for (let i = 0; i < dormers; i++) {
+    const u = 0.18 + (i * 0.64) / Math.max(1, dormers - 1);
+    const vd = v1 - vi * 0.45;
+    const zd = H + mr * 0.32;
+    iso.box(u - 0.045, vd, u + 0.045, vd + 0.04, zd, zd + 7, lighten(zinc, 0.14));
+    iso.windowsLeft(vd + 0.04, u - 0.034, u + 0.034, zd + 1.5, zd + 6, 1, glass(rng, 0.55), frame);
+    iso.r.poly([P(u - 0.055, vd, zd + 7), P(u + 0.055, vd, zd + 7), P(u, vd, zd + 11)], shaded(zinc, 0.05));
+  }
+
+  // chimney stacks with pale pots — placement varies per block
+  const chimUs = ([[0.1, 0.9], [0.14, 0.5, 0.88], [0.22, 0.78]] as number[][])[variant % 3]!;
+  for (const cu of chimUs) {
+    const cvm = (v0 + v1) / 2;
+    iso.box(cu - 0.028, cvm - 0.035, cu + 0.028, cvm + 0.035, zT, zT + 8, shaded(stone, 0.08));
+    for (const dv of [-0.028, 0.018]) {
+      iso.box(cu - 0.011, cvm + dv, cu + 0.011, cvm + dv + 0.02, zT + 8, zT + 12, hex('#9a8f78'), { ink: false });
     }
   }
   return iso.build();
