@@ -67,7 +67,10 @@ async function main(): Promise<void> {
   );
 
   const seed = hashSeed(id);
-  const built = buildCityFromOsm(features, proj, seed);
+  const built = buildCityFromOsm(features, proj, seed, {
+    visibleStreets: has('streets'),
+    roadsOnly: has('roads-only'),
+  });
   report(built);
 
   if (has('write')) {

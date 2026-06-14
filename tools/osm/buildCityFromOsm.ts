@@ -90,6 +90,7 @@ export function buildCityFromOsm(
   features: OsmFeatures,
   proj: TileProjector,
   seed: number,
+  opts: { visibleStreets?: boolean; roadsOnly?: boolean } = {},
 ): BuiltCity {
   const w = GRID_W;
   const h = GRID_H;
@@ -204,6 +205,7 @@ export function buildCityFromOsm(
   const motorwayR: TransportRoute[] = [];
   const railR: TransportRoute[] = [];
   const riverR: TransportRoute[] = [];
+  const streetR: TransportRoute[] = [];
   const arterialCands: Array<{ pts: Pt[]; len: number }> = [];
   for (const r of features.roads) {
     const pts = projectLine(proj, r.pts);
@@ -217,14 +219,21 @@ export function buildCityFromOsm(
       const L = pathLen(clipped);
       if (clipped.length >= 2 && L >= 6) arterialCands.push({ pts: clipped, len: L });
     } else {
-      stampRoad(pts, RC.streetTouch, 0.18);
+      // streets: stamp (building-clearing when carving a visible grid), and in
+      // roads-only / visible mode emit every one as a thin ribbon so the FULL
+      // real OSM street network shows
+      const clear = opts.visibleStreets || opts.roadsOnly;
+      stampRoad(pts, clear ? RC.street : RC.streetTouch, opts.roadsOnly ? 0.22 : opts.visibleStreets ? 0.34 : 0.18);
+      if (clear) {
+        const simp = simplifyPath(clipToGrid(pts, w, h), 0.5);
+        if (simp.length >= 2) streetR.push({ kind: 'street', pts: simp.map(toPair) });
+      }
     }
   }
-  // the longest arterials become drawn ribbons (bounded + legible); only those
-  // clear their tiles
+  // the longest arterials become drawn ribbons (all of them in roads-only mode)
   arterialCands.sort((a, b) => b.len - a.len);
   const arterialR: TransportRoute[] = [];
-  for (const a of arterialCands.slice(0, 700)) {
+  for (const a of opts.roadsOnly ? arterialCands : arterialCands.slice(0, 700)) {
     stampRoad(a.pts, RC.arterial, 0.45);
     arterialR.push({ kind: 'arterial', pts: simplifyPath(a.pts, 0.6).map(toPair) });
   }
@@ -242,7 +251,7 @@ export function buildCityFromOsm(
     const simp = simplifyPath(clipToGrid(projectLine(proj, line), w, h), 0.7);
     if (simp.length >= 2 && pathLen(simp) >= 6) riverR.push({ kind: 'lane', pts: simp.map(toPair) });
   }
-  const routes: TransportRoute[] = [...riverR, ...motorwayR, ...railR, ...arterialR];
+  const routes: TransportRoute[] = [...riverR, ...motorwayR, ...railR, ...arterialR, ...streetR];
 
   // --- 7) urbanity: blurred street density — the real proxy for "built-up" --
   const urbanity = densityField(road, w, h, 3);
@@ -310,6 +319,13 @@ export function buildCityFromOsm(
 
   // --- 10) heroes + named places (before derived layers so customers count) -
   const named = placeHeroes(features, proj, terrain, zone, landmark, flags, w, h);
+
+  // roads-only layer: strip ALL buildings/zones so we can verify the real OSM
+  // street network maps on accurately, then layer the rest back up.
+  if (opts.roadsOnly) {
+    zone.fill(ZONE.none);
+    landmark.fill(LANDMARK.none);
+  }
 
   // --- 11) customers, vegetation, variant (shared with the runtime loader) --
   const map: CityMap = {
