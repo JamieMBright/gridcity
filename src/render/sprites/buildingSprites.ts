@@ -616,61 +616,92 @@ function drawBalcony(
 }
 
 /** Residential tower block with colour-block walls and floor bands. */
-export function towerTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+export function towerTile(seed: number, variant = 0): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
-  const rng = new Rng(seed * 49157 + 11);
-  const wall = wallColor(seed + 4);
-  const u0 = 0.18;
-  const v0 = 0.18;
-  const u1 = 0.82;
-  const v1 = 0.82;
-  const H = 104 + (seed % 3) * 14;
+  const rng = new Rng(seed * 49157 + variant * 277 + 11);
+  // variant drives the WHOLE look so a skyline of these reads diverse: colour
+  // (the full wall rotation), height, slab width, window rhythm and crown.
+  const wall = wallColor(variant);
+  const slim = variant % 3 === 1; // some slimmer point blocks
+  const u0 = slim ? 0.26 : 0.18;
+  const v0 = slim ? 0.24 : 0.18;
+  const u1 = 1 - u0;
+  const v1 = 1 - v0;
+  const H = 84 + (variant % 4) * 19 + (seed % 3) * 5;
+  const cols = 3 + (variant % 2);
+  const band = variant % 4 === 0; // banded vs plain spandrels
   iso.shadow(u0, v0, u1, v1, 0.3, 0.26);
   iso.box(u0, v0, u1, v1, 0, H, wall);
-  // white floor bands + window rows on both visible faces
-  for (let z = 12; z < H - 8; z += 16) {
-    iso.r.poly([P(u0, v1, z + 11), P(u1, v1, z + 11), P(u1, v1, z + 9), P(u0, v1, z + 9)], alpha(COLORS.white, 0.9));
-    iso.r.poly([P(u1, v0, z + 11), P(u1, v1, z + 11), P(u1, v1, z + 9), P(u1, v0, z + 9)], alpha(COLORS.white, 0.75));
-    iso.windowsLeft(v1, u0 + 0.04, u1 - 0.04, z, z + 8, 4, glass(rng, 0.35));
-    iso.windowsRight(u1, v0 + 0.04, v1 - 0.04, z, z + 8, 4, glass(rng, 0.3));
+  for (let z = 12; z < H - 8; z += 15) {
+    if (band) {
+      iso.r.poly([P(u0, v1, z + 11), P(u1, v1, z + 11), P(u1, v1, z + 9), P(u0, v1, z + 9)], alpha(COLORS.white, 0.9));
+      iso.r.poly([P(u1, v0, z + 11), P(u1, v1, z + 11), P(u1, v1, z + 9), P(u1, v0, z + 9)], alpha(COLORS.white, 0.75));
+    }
+    iso.windowsLeft(v1, u0 + 0.04, u1 - 0.04, z, z + 8, cols, glass(rng, 0.35));
+    iso.windowsRight(u1, v0 + 0.04, v1 - 0.04, z, z + 8, cols, glass(rng, 0.3));
   }
-  // parapet + plant room + beacon
   iso.box(u0 - 0.01, v0 - 0.01, u1 + 0.01, v1 + 0.01, H, H + 4, COLORS.white);
-  iso.box(0.55, 0.3, 0.75, 0.5, H + 4, H + 14, COLORS.concrete);
-  iso.box(0.27, 0.27, 0.3, 0.3, H + 4, H + 12, COLORS.steelDark);
-  iso.quad(0.255, 0.255, 0.315, 0.315, H + 12, COLORS.orange);
+  const crown = variant % 3;
+  if (crown === 0) {
+    // plant room + beacon
+    iso.box(0.5, 0.3, 0.72, 0.5, H + 4, H + 14, COLORS.concrete);
+    iso.box(u0 + 0.06, u0 + 0.06, u0 + 0.09, u0 + 0.09, H + 4, H + 12, COLORS.steelDark);
+    iso.quad(u0 + 0.045, u0 + 0.045, u0 + 0.105, u0 + 0.105, H + 12, COLORS.orange);
+  } else if (crown === 1) {
+    // stepped setback
+    iso.box(u0 + 0.08, v0 + 0.08, u1 - 0.08, v1 - 0.08, H + 4, H + 18, wall);
+    iso.box(u0 + 0.16, v0 + 0.16, u1 - 0.16, v1 - 0.16, H + 18, H + 28, lighten(wall, 0.08));
+  } else {
+    // pitched cap
+    iso.hip(u0 - 0.01, v0 - 0.01, u1 + 0.01, v1 + 0.01, H + 4, 12, roofColor(variant + 1));
+  }
   return iso.build();
 }
 
-/** Glass office tower with a sunset-reflecting curtain wall and setback crown. */
-export function officeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+/** Glass office tower with a sunset-reflecting curtain wall and setback crown.
+ *  variant rotates the curtain-wall tint, height and crown for skyline variety. */
+export function officeTile(seed: number, variant = 0): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
-  const rng = new Rng(seed * 65537 + 5);
+  const rng = new Rng(seed * 65537 + variant * 313 + 5);
+  // a rotation of curtain-wall glazings: bronze/blue/teal/dusk-pink
+  const tints: Array<[RGBA, RGBA]> = [
+    [COLORS.glassSunset, COLORS.glassSky],
+    [hex('#6f86a8'), hex('#9fb4cf')], // cool blue
+    [hex('#5f8f86'), hex('#9ac0b4')], // green/teal
+    [hex('#b58a5f'), hex('#d6b98f')], // bronze
+  ];
+  const [faceR, faceL] = tints[variant % tints.length] ?? tints[0]!;
   const u0 = 0.16;
   const v0 = 0.16;
   const u1 = 0.84;
   const v1 = 0.84;
-  const H = 124 + (seed % 2) * 18;
+  const H = 108 + (variant % 4) * 16 + (seed % 2) * 8;
   iso.shadow(u0, v0, u1, v1, 0.34, 0.28);
-  // glass body: left face cool dusk, right face catching the sunset
-  iso.r.poly([P(u0, v1, H), P(u1, v1, H), P(u1, v1, 0), P(u0, v1, 0)], COLORS.glassDark, shaded(COLORS.glassSky, 0.2));
-  iso.r.poly([P(u1, v0, H), P(u1, v1, H), P(u1, v1, 0), P(u1, v0, 0)], COLORS.glassSunset, COLORS.glassSky);
+  iso.r.poly([P(u0, v1, H), P(u1, v1, H), P(u1, v1, 0), P(u0, v1, 0)], COLORS.glassDark, shaded(faceL, 0.2));
+  iso.r.poly([P(u1, v0, H), P(u1, v1, H), P(u1, v1, 0), P(u1, v0, 0)], faceR, faceL);
   iso.quad(u0, v0, u1, v1, H, COLORS.white);
-  // white mullion bands
   for (let z = 14; z < H - 6; z += 14) {
     iso.r.poly([P(u0, v1, z + 1.6), P(u1, v1, z + 1.6), P(u1, v1, z), P(u0, v1, z)], alpha(COLORS.white, 0.85));
     iso.r.poly([P(u1, v0, z + 1.6), P(u1, v1, z + 1.6), P(u1, v1, z), P(u1, v0, z)], alpha(COLORS.white, 0.7));
   }
-  // lit floors scattered through the dusk face
   for (let z = 16; z < H - 10; z += 14) {
     if (rng.chance(0.4)) {
       const a = rng.range(u0 + 0.05, 0.55);
       iso.r.poly([P(a, v1, z + 9), P(a + 0.2, v1, z + 9), P(a + 0.2, v1, z + 2), P(a, v1, z + 2)], alpha(COLORS.glassLit, 0.8));
     }
   }
-  // setback crown
-  iso.box(0.3, 0.3, 0.7, 0.7, H, H + 16, COLORS.white, { topC: COLORS.white });
-  iso.box(0.44, 0.44, 0.56, 0.56, H + 16, H + 26, COLORS.steel);
+  // crown varies: flat setback, or a slim mast, or a stepped top
+  if (variant % 3 === 0) {
+    iso.box(0.3, 0.3, 0.7, 0.7, H, H + 16, COLORS.white, { topC: COLORS.white });
+    iso.box(0.44, 0.44, 0.56, 0.56, H + 16, H + 26, COLORS.steel);
+  } else if (variant % 3 === 1) {
+    iso.box(0.28, 0.28, 0.72, 0.72, H, H + 10, COLORS.white);
+    iso.box(0.46, 0.46, 0.5, 0.5, H + 10, H + 34, COLORS.steelDark); // comms mast
+  } else {
+    iso.box(0.26, 0.26, 0.74, 0.74, H, H + 8, COLORS.white);
+    iso.box(0.34, 0.34, 0.66, 0.66, H + 8, H + 18, lighten(COLORS.steel, 0.1));
+    iso.box(0.42, 0.42, 0.58, 0.58, H + 18, H + 26, COLORS.steel);
+  }
   return iso.build();
 }
 

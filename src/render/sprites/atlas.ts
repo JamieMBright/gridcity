@@ -229,10 +229,9 @@ function buildSpriteCells(): Map<string, Cell> {
   set('villa_1', villaTile(102));
   // bespoke Paris stock (Haussmann blocks) — used when CityMap.fabric==='paris'
   for (let i = 0; i < 4; i++) set(`haussmann_${i}`, haussmannTile(351 + i, i));
-  set('tower_0', towerTile(111));
-  set('tower_1', towerTile(112));
-  set('office_0', officeTile(121));
-  set('office_1', officeTile(122));
+  // many tower/office variants (colour · height · crown) for a diverse skyline
+  for (let i = 0; i < 8; i++) set(`tower_${i}`, towerTile(111 + i, i));
+  for (let i = 0; i < 6; i++) set(`office_${i}`, officeTile(121 + i, i));
   set('cottage_0', cottageTile(131));
   set('cottage_1', cottageTile(132));
   set('warehouse_0', warehouseTile(141));

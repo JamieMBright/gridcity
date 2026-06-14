@@ -93,6 +93,15 @@ function estateOf(x: number, y: number): number {
   return (((x >> 3) * 73856093) ^ ((y >> 3) * 19349663)) >>> 0;
 }
 
+/** A well-mixed PER-TILE hash — for buildings that should differ from their
+ *  neighbours (towers/offices), so a skyline reads as many distinct blocks
+ *  rather than the same sprite tiled. */
+function tileHash(x: number, y: number): number {
+  let h = (Math.imul(x, 374761393) ^ Math.imul(y, 668265263)) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+  return h >>> 0;
+}
+
 /** Farmland is enclosed in 4x4 parcels; this hash keeps each parcel one
  *  coherent crop (and decides hedgerows + orchards along its bounds). */
 function parcelOf(x: number, y: number): number {
@@ -224,15 +233,22 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
     return `haussmann_${v % 4}`;
   }
 
+  const th = tileHash(x, y);
   switch (zone) {
-    case ZONE.cbd:
-      // the Gherkin now carries its own LANDMARK id (handled above), so the
-      // CBD fabric is plain skyscrapers — no fixed-tile special-case
-      return `sky_${v % 3}`;
-    case ZONE.urbanCore:
-      if (v % 7 < 2) return `tower_${v % 2}`;
-      if (v % 7 === 2) return `office_${v % 2}`;
+    case ZONE.cbd: {
+      // a varied financial-district skyline: skyscrapers, glass offices and
+      // the odd residential tower, each block distinct from its neighbours
+      const k = th % 6;
+      if (k < 3) return `sky_${th % 3}`;
+      if (k < 5) return `office_${(th >> 3) % 6}`;
+      return `tower_${(th >> 6) % 8}`;
+    }
+    case ZONE.urbanCore: {
+      const k = th % 7;
+      if (k < 2) return `tower_${(th >> 3) % 8}`;
+      if (k === 2) return `office_${(th >> 6) % 6}`;
       return `terrace_${v % 4}`;
+    }
     case ZONE.urban: {
       if (shops) return `vicshop_${v % 2}`;
       const pick = estate % 5;
