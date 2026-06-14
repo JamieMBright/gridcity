@@ -92,7 +92,7 @@ export function parliamentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const IRON = hex('#3b4750'); // dark iron cresting, flagstaff, spire frame
   const GILT = hex('#c8a24a'); // gilded clock rings, finials
   const DIAL = hex('#f2ead4'); // off-white clock dial
-  const BLUE = hex('#26406b'); // the clock-face surround
+  const BLUE = hex('#1f3a5f'); // the Prussian-blue clock surround (2017 restoration)
   const WARM = hex('#ffce86'); // the floodlit ground-arcade window glow
   const RIB = shaded(BATH, 0.3); // stone buttress ribs / mullions
 
@@ -148,12 +148,12 @@ export function parliamentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const ru1 = 2.54;
   const rv0 = 0.6;
   const rv1 = 4.66;
-  const EAVE = 30;
+  const EAVE = 36; // a grander 4-storey river front (tower:façade ≈ 4:1)
   iso.shadow(0.3, 0.58, 2.6, 4.7, 0.26, 0.22);
 
   // inland (back) range — lower, glimpsed as dark roofs poking up behind
-  iso.box(0.32, 0.9, 1.5, 4.32, 0, 24, BATH);
-  iso.gable(0.32, 0.9, 1.5, 4.32, 24, 5, 'v', ROOFDK, BATH);
+  iso.box(0.32, 0.9, 1.5, 4.32, 0, 28, BATH);
+  iso.gable(0.32, 0.9, 1.5, 4.32, 28, 5, 'v', ROOFDK, BATH);
 
   // CENTRAL TOWER — a slender octagonal lantern that tapers to a sharp
   // needle high over the middle of the range (91.4 m). Drawn before the
@@ -162,7 +162,7 @@ export function parliamentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
     const cu = 1.56;
     const cv = 2.46;
     const cw = 0.125;
-    iso.box(cu - cw, cv - cw, cu + cw, cv + cw, 24, 60, BATH);
+    iso.box(cu - cw, cv - cw, cu + cw, cv + cw, 28, 60, BATH);
     iso.windowsRight(cu + cw, cv - cw + 0.02, cv + cw - 0.02, 40, 56, 2, alpha(COLORS.glassDark, 0.9), lighten(BATH, 0.14));
     iso.hip(cu - cw - 0.01, cv - cw - 0.01, cu + cw + 0.01, cv + cw + 0.01, 60, 3, ROOFDK);
     const apex = iso.P(cu, cv, 132);
@@ -200,9 +200,10 @@ export function parliamentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
     const vb = rv1 - 0.16;
     const dv = (vb - va) / bays;
     const storeys: Array<[number, number, RGBA]> = [
-      [4, 13, alpha(WARM, 0.95)], // floodlit ground arcade — tall pointed lights
-      [15, 21, alpha(COLORS.glassDark, 0.92)],
-      [23, 29, alpha(COLORS.glassDark, 0.92)],
+      [4, 14, alpha(WARM, 0.95)], // floodlit ground arcade — tall pointed lights
+      [16, 22, alpha(COLORS.glassDark, 0.92)],
+      [24, 29, alpha(COLORS.glassDark, 0.92)],
+      [31, 35, alpha(COLORS.glassDark, 0.92)], // attic storey
     ];
     for (let i = 0; i < bays; i++) {
       const a = va + dv * i + dv * 0.24;
@@ -212,7 +213,7 @@ export function parliamentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
     for (let i = 0; i <= bays; i++) {
       iso.r.line(iso.P(ru1, va + dv * i, 3), iso.P(ru1, va + dv * i, EAVE), 0.7 * RES, RIB);
     }
-    for (const z of [13, 21, EAVE]) iso.r.line(iso.P(ru1, rv0, z), iso.P(ru1, rv1, z), 0.7 * RES, shaded(BATH, 0.22));
+    for (const z of [15, 23, 30, EAVE]) iso.r.line(iso.P(ru1, rv0, z), iso.P(ru1, rv1, z), 0.7 * RES, shaded(BATH, 0.22));
 
     // a low parapet over the eave, then a dense run of stone pinnacles +
     // the occasional taller pinnacle and a pointed gablet — the spiky skyline
@@ -234,12 +235,13 @@ export function parliamentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   // the SW (left) gable end gets a great pointed perpendicular window
   {
     const wv = rv1 + 0.004;
+    const wm = (ru0 + ru1) / 2;
     iso.r.poly(
-      [iso.P((ru0 + ru1) / 2 - 0.34, wv, 6), iso.P((ru0 + ru1) / 2 + 0.34, wv, 6), iso.P((ru0 + ru1) / 2 + 0.34, wv, 22), iso.P((ru0 + ru1) / 2, wv, 30), iso.P((ru0 + ru1) / 2 - 0.34, wv, 22)],
+      [iso.P(wm - 0.34, wv, 6), iso.P(wm + 0.34, wv, 6), iso.P(wm + 0.34, wv, 26), iso.P(wm, wv, 36), iso.P(wm - 0.34, wv, 26)],
       alpha(COLORS.glassDark, 0.95),
     );
     iso.r.polyline(
-      [iso.P((ru0 + ru1) / 2 - 0.34, wv, 6), iso.P((ru0 + ru1) / 2 - 0.34, wv, 22), iso.P((ru0 + ru1) / 2, wv, 30), iso.P((ru0 + ru1) / 2 + 0.34, wv, 22), iso.P((ru0 + ru1) / 2 + 0.34, wv, 6)],
+      [iso.P(wm - 0.34, wv, 6), iso.P(wm - 0.34, wv, 26), iso.P(wm, wv, 36), iso.P(wm + 0.34, wv, 26), iso.P(wm + 0.34, wv, 6)],
       INK_W * 0.45,
       lighten(BATH, 0.2),
       true,
@@ -295,20 +297,21 @@ export function parliamentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
     const bv = 1.34;
     const bw = 0.19; // slender — distinctly thinner than Victoria
     iso.shadow(bu - bw, bv - bw, bu + bw, bv + bw, 0.16, 0.2);
-    iso.box(bu - bw, bv - bw, bu + bw, bv + bw, 0, 92, lighten(BATH, 0.04));
+    iso.box(bu - bw, bv - bw, bu + bw, bv + bw, 0, 80, lighten(BATH, 0.04));
     for (const [du, dv] of [[-bw, bw], [bw, bw], [bw, -bw]] as const) {
-      iso.r.line(iso.P(bu + du, bv + dv, 0), iso.P(bu + du, bv + dv, 94), 1.2 * RES, RIB);
+      iso.r.line(iso.P(bu + du, bv + dv, 0), iso.P(bu + du, bv + dv, 82), 1.2 * RES, RIB);
     }
-    // small pointed shaft windows up the two visible faces
-    for (const z of [26, 50, 74] as const) {
-      lancetL(bv + bw, bu - bw + 0.05, bu + bw - 0.05, z, z + 13, alpha(COLORS.glassDark, 0.85));
-      lancetR(bu + bw, bv - bw + 0.05, bv + bw - 0.05, z, z + 13, alpha(COLORS.glassDark, 0.85));
+    // small pointed shaft windows up the long plain shaft (two visible faces)
+    for (const z of [24, 50] as const) {
+      lancetL(bv + bw, bu - bw + 0.05, bu + bw - 0.05, z, z + 14, alpha(COLORS.glassDark, 0.85));
+      lancetR(bu + bw, bv - bw + 0.05, bv + bw - 0.05, z, z + 14, alpha(COLORS.glassDark, 0.85));
     }
-    // clock stage, slightly proud, the dials high up the tower
+    // clock stage, slightly proud — dials at ~58% of the tower height (the
+    // real dials sit ~55 m up the 96 m tower), NOT jammed near the top
     const cw = bw + 0.03;
-    iso.box(bu - cw, bv - cw, bu + cw, bv + cw, 92, 116, BATH);
+    iso.box(bu - cw, bv - cw, bu + cw, bv + cw, 80, 104, BATH);
     for (const side of ['l', 'r'] as const) {
-      const f: Pt = side === 'l' ? iso.P(bu, bv + cw + 0.004, 104) : iso.P(bu + cw + 0.004, bv, 104);
+      const f: Pt = side === 'l' ? iso.P(bu, bv + cw + 0.004, 92) : iso.P(bu + cw + 0.004, bv, 92);
       const r = 7.4 * RES;
       const ring: Pt[] = [];
       for (let i = 0; i < 16; i++) {
@@ -325,18 +328,18 @@ export function parliamentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
       iso.r.line(f, [f[0] - r * 0.18, f[1] - r * 0.56], 1.2 * RES, INK); // hour hand
     }
     // louvred belfry above the clocks, with small corner pinnacles
-    iso.box(bu - bw, bv - bw, bu + bw, bv + bw, 116, 130, BATH);
-    for (let z = 118; z <= 128; z += 2.2) {
+    iso.box(bu - bw, bv - bw, bu + bw, bv + bw, 104, 120, BATH);
+    for (let z = 106; z <= 118; z += 2.2) {
       iso.r.line(iso.P(bu, bv + bw + 0.002, z), iso.P(bu + bw, bv + bw + 0.002, z), 0.8 * RES, shaded(BATH, 0.45));
       iso.r.line(iso.P(bu + bw + 0.002, bv, z), iso.P(bu + bw + 0.002, bv + bw, z), 0.8 * RES, shaded(BATH, 0.3));
     }
-    for (const [du, dv] of [[-bw, -bw], [bw, -bw], [-bw, bw], [bw, bw]] as const) pinnacle(bu + du, bv + dv, 130, 6, 0.9);
+    for (const [du, dv] of [[-bw, -bw], [bw, -bw], [-bw, bw], [bw, bw]] as const) pinnacle(bu + du, bv + dv, 120, 6, 0.9);
     // the steep ornate spire + gilt finial (the Ayrton light)
-    iso.box(bu - bw - 0.012, bv - bw - 0.012, bu + bw + 0.012, bv + bw + 0.012, 130, 135, IRON);
-    const apex = iso.P(bu, bv, 150);
-    const bL = iso.P(bu - bw, bv + bw, 135);
-    const bN = iso.P(bu + bw, bv + bw, 135);
-    const bR = iso.P(bu + bw, bv - bw, 135);
+    iso.box(bu - bw - 0.012, bv - bw - 0.012, bu + bw + 0.012, bv + bw + 0.012, 120, 125, IRON);
+    const apex = iso.P(bu, bv, 152);
+    const bL = iso.P(bu - bw, bv + bw, 125);
+    const bN = iso.P(bu + bw, bv + bw, 125);
+    const bR = iso.P(bu + bw, bv - bw, 125);
     iso.r.poly([bL, bN, apex], shaded(IRON, 0.08)); // left spire face
     iso.r.poly([bN, bR, apex], lit(IRON, 0.06)); // right spire face
     iso.r.polyline([bL, apex, bR], INK_W * 0.55, INK);
