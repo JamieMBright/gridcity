@@ -252,7 +252,7 @@ function buildSpriteCells(): Map<string, Cell> {
   set('lm_dome', domeTile(213), 2, 2, true);
   set('lm_spire', spireTile(214));
   set('lm_notredame', notredameTile(353)); // bespoke Paris gothic cathedral
-  set('lm_eiffel', eiffelTile(354)); // bespoke Paris iron tower
+  set('lm_eiffel', eiffelTile(354), 3, 3, true); // bespoke Paris iron tower (massive)
   set('lm_arch', archTile(355)); // triumphal arch (Arc de Triomphe / gates)
   set('lm_basilica', sacrecoeurTile(356)); // Sacré-Cœur
   set('lm_louvre', louvreTile(357)); // the palace + glass pyramid

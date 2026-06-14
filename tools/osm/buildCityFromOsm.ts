@@ -500,6 +500,11 @@ function seedGenerationSites(
   }
 }
 
+/** Multi-tile hero footprints (N×N, SW-anchored). Default 1×1. */
+const LANDMARK_FOOT: Partial<Record<number, number>> = {
+  [LANDMARK.eiffel]: 3, // the massive iron tower
+};
+
 const HERO_KEYWORDS: Array<[RegExp, Landmark]> = [
   [/cathedral|basilica|minster|duomo/i, LANDMARK.dome],
   [/church|chapel|temple|mosque|synagogue|abbey/i, LANDMARK.church],
@@ -581,13 +586,24 @@ function placeHeroes(
     const lm = landmarkFor(p.name, p.tags);
     const isHero = lm !== LANDMARK.none && score >= 2;
     if (isHero) {
-      // a parvis/garden apron so the monument stands proud instead of being
-      // buried behind the dense blocks painted in front of it. The apron
-      // leans SE (dx/dy 0..2) — those are the tiles that occlude it in the
-      // iso view — plus one tile N/W for breathing room.
-      for (let dy = -1; dy <= 2; dy++) {
-        for (let dx = -1; dx <= 2; dx++) {
-          if (dx === 0 && dy === 0) continue;
+      // multi-tile heroes (e.g. the massive 3×3 Eiffel) stamp an N×N block,
+      // SW-anchored on (x,y) so the renderer's block-anchor lands the one
+      // sprite; (x,y) is the south-west corner, extending N + E.
+      let n = LANDMARK_FOOT[lm] ?? 1;
+      if (x + n - 1 >= w - 1 || y - (n - 1) <= 0) n = 1; // no room → demote
+      for (let dx = 0; dx < n; dx++) {
+        for (let dy = 0; dy < n; dy++) {
+          const i = idx(x + dx, y - dy);
+          if (terrain[i] === TERRAIN.water) continue;
+          landmark[i] = lm;
+          zone[i] = lm === LANDMARK.airport ? ZONE.industrial : ZONE.park;
+          if (lm === LANDMARK.airport) flags[i] |= 2;
+        }
+      }
+      // a parvis/garden apron ringing the whole block so the monument stands
+      // proud instead of being buried behind the blocks painted in front of it
+      for (let dy = -(n + 1); dy <= 2; dy++) {
+        for (let dx = -1; dx <= n + 1; dx++) {
           const nx = x + dx;
           const ny = y + dy;
           if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
@@ -596,9 +612,6 @@ function placeHeroes(
           zone[j] = ZONE.park;
         }
       }
-      landmark[idx(x, y)] = lm;
-      zone[idx(x, y)] = lm === LANDMARK.airport ? ZONE.industrial : ZONE.park;
-      if (lm === LANDMARK.airport) flags[idx(x, y)] |= 2;
     }
     named.push({ x, y, name: p.name, ...(isHero ? { landmark: true } : {}) });
   }

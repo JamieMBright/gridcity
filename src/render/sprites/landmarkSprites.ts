@@ -878,94 +878,106 @@ export function louvreTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
  * drawn in Eiffel brown with cross-hatch latticework. A tall 1×1, like the
  * Shard/BT-tower (drawn as a near-symmetric silhouette).
  */
+/**
+ * THE EIFFEL TOWER: bespoke Paris icon (owner reference, 2026-06-14). The
+ * unmistakable wrought-iron silhouette — four splayed legs and the great base
+ * arch, the two observation platforms, the tapering lattice shaft to the point,
+ * in Eiffel brown with dense cross-hatch latticework. A MASSIVE 3×3 block
+ * landmark so it towers over the Haussmann roofscape (owner: "absolutely
+ * massive").
+ */
 export function eiffelTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso();
+  const iso = new Iso(3, 3, { swAnchor: true });
   void seed;
-  const IRON = hex('#6e5640');
-  const IRONL = lighten(IRON, 0.16);
-  const IROND = darken(IRON, 0.2);
+  const IRON = hex('#75614a');
+  const IRONL = lighten(IRON, 0.18);
+  const IROND = darken(IRON, 0.22);
   const S = RES;
-  const [bx, by] = iso.P(0.5, 0.58, 0);
-  const y0 = by;
-  const y1 = by - 40 * S; // first platform
-  const y2 = by - 82 * S; // second platform
-  const yA = by - 156 * S; // apex — it towers over the Haussmann roofscape
-  const wB = 30 * S; // half-width at the feet
-  const w1 = 17 * S; // at platform 1
-  const w2 = 7 * S; // at platform 2
   const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+  const [bx, by] = iso.P(1.85, 1.85, 0);
+  const yA = 54; // apex, near the top of the tall canvas
+  const Htot = by - yA;
+  const y0 = by;
+  const y1 = by - Htot * 0.3; // first platform
+  const y2 = by - Htot * 0.56; // second platform
+  const wB = 118; // base half-width (px)
+  const w1 = 66;
+  const w2 = 24;
+  const legW = 21;
+  iso.shadow(1.0, 1.45, 2.7, 2.45, 0.34, 0.2);
 
   // --- the four legs + the great arch (below platform 1) ---
-  const legW = 5.2 * S;
   for (const s of [-1, 1] as const) {
-    // outer + inner edges of a splayed leg, concave (curve inward as it rises)
     const ox0 = bx + s * wB;
     const ix0 = bx + s * (wB - legW);
     const ox1 = bx + s * w1;
-    const ix1 = bx + s * (w1 - legW * 0.7);
-    const midOut = bx + s * lerp(wB, w1, 0.5) * 0.86;
-    const midIn = bx + s * (lerp(wB - legW, w1 - legW * 0.7, 0.5) * 0.86);
+    const ix1 = bx + s * (w1 - legW * 0.72);
+    const midOut = bx + s * lerp(wB, w1, 0.5) * 0.82;
+    const midIn = bx + s * lerp(wB - legW, w1 - legW * 0.72, 0.5) * 0.82;
     const ym = (y0 + y1) / 2;
     iso.r.poly([[ox0, y0], [ix0, y0], [midIn, ym], [ix1, y1], [ox1, y1], [midOut, ym]], s < 0 ? IROND : IRONL);
-    iso.r.polyline([[ox0, y0], [midOut, ym], [ox1, y1]], INK_W * 0.6, alpha(INK, 0.5));
-    // lattice cross-hatch on the leg
-    for (let t = 0.1; t < 1; t += 0.18) {
-      const yA2 = lerp(y0, y1, t);
+    iso.r.polyline([[ox0, y0], [midOut, ym], [ox1, y1]], INK_W * 0.8, alpha(INK, 0.55));
+    // dense lattice cross-hatch on the leg
+    for (let t = 0.06; t < 1; t += 0.1) {
+      const yy = lerp(y0, y1, t);
       const xa = lerp(ox0, ox1, t);
       const xb = lerp(ix0, ix1, t);
-      iso.r.line([xa, yA2], [xb, yA2 - 3 * S], 0.7 * S, alpha(IROND, 0.7));
+      iso.r.line([xa, yy], [xb, yy - 5 * S], 0.7 * S, alpha(IROND, 0.7));
+      iso.r.line([xb, yy], [xa, yy - 5 * S], 0.7 * S, alpha(IROND, 0.5));
     }
   }
-  // the iconic base arch (a curve spanning under platform 1)
+  // the iconic base arch (a broad curve spanning under platform 1)
   const arch: Pt[] = [];
-  for (let i = 0; i <= 16; i++) {
-    const t = i / 16;
-    const x = lerp(bx - (w1 - 1 * S), bx + (w1 - 1 * S), t);
-    const yy = y1 - Math.sin(t * Math.PI) * 11 * S;
+  for (let i = 0; i <= 24; i++) {
+    const t = i / 24;
+    const x = lerp(bx - (w1 + legW * 0.3), bx + (w1 + legW * 0.3), t);
+    const yy = y1 - Math.sin(t * Math.PI) * 30 * S;
     arch.push([x, yy]);
   }
-  iso.r.polyline(arch, 1.4 * S, IRON);
+  iso.r.polyline(arch, 2 * S, IRON);
+  iso.r.polyline(arch.map(([x, y]): Pt => [x, y + 1.5 * S]), 1 * S, alpha(IRONL, 0.6));
 
   // --- platform 1 deck ---
-  iso.r.rect(bx - w1 - 2 * S, y1 - 2.5 * S, bx + w1 + 2 * S, y1 + 1.5 * S, IRON);
-  iso.r.line([bx - w1 - 2 * S, y1 - 2.5 * S], [bx + w1 + 2 * S, y1 - 2.5 * S], 0.8 * S, IRONL);
+  iso.r.rect(bx - w1 - 4 * S, y1 - 4 * S, bx + w1 + 4 * S, y1 + 2 * S, IRON);
+  iso.r.line([bx - w1 - 4 * S, y1 - 4 * S], [bx + w1 + 4 * S, y1 - 4 * S], 1 * S, IRONL);
 
   // --- the shaft from platform 1 → platform 2 (tapering lattice) ---
   const body1: Pt[] = [];
   const body2: Pt[] = [];
-  const Nb = 10;
+  const Nb = 12;
   for (let i = 0; i <= Nb; i++) {
     const t = i / Nb;
     const y = lerp(y1, y2, t);
-    const w = lerp(w1, w2, t) * (1 - 0.15 * Math.sin(t * Math.PI)); // gentle concave
+    const w = lerp(w1, w2, t) * (1 - 0.16 * Math.sin(t * Math.PI));
     body1.push([bx - w, y]);
     body2.push([bx + w, y]);
   }
   iso.r.poly([...body1, ...body2.reverse()], IRON);
-  // lattice X-bracing
-  for (let i = 0; i < Nb; i += 1) {
-    const t0 = i / Nb;
-    const t1 = (i + 1) / Nb;
-    const yA3 = lerp(y1, y2, t0);
-    const yB3 = lerp(y1, y2, t1);
-    const wa = lerp(w1, w2, t0) * 0.9;
-    const wb = lerp(w1, w2, t1) * 0.9;
-    iso.r.line([bx - wa, yA3], [bx + wb, yB3], 0.6 * S, alpha(IROND, 0.6));
-    iso.r.line([bx + wa, yA3], [bx - wb, yB3], 0.6 * S, alpha(IROND, 0.6));
+  for (let i = 0; i < Nb; i++) {
+    const yAa = lerp(y1, y2, i / Nb);
+    const yBb = lerp(y1, y2, (i + 1) / Nb);
+    const wa = lerp(w1, w2, i / Nb) * 0.92;
+    const wb = lerp(w1, w2, (i + 1) / Nb) * 0.92;
+    iso.r.line([bx - wa, yAa], [bx + wb, yBb], 0.7 * S, alpha(IROND, 0.6));
+    iso.r.line([bx + wa, yAa], [bx - wb, yBb], 0.7 * S, alpha(IROND, 0.6));
   }
+  iso.r.polyline(body1, INK_W * 0.5, alpha(INK, 0.4));
+  iso.r.polyline(body2, INK_W * 0.5, alpha(INK, 0.4));
 
   // --- platform 2 deck ---
-  iso.r.rect(bx - w2 - 1.5 * S, y2 - 2 * S, bx + w2 + 1.5 * S, y2 + 1 * S, IRON);
+  iso.r.rect(bx - w2 - 3 * S, y2 - 3 * S, bx + w2 + 3 * S, y2 + 1.5 * S, IRON);
 
   // --- the upper shaft tapering to the point + the beacon ---
-  iso.r.poly([[bx - w2, y2], [bx + w2, y2], [bx + 0.8 * S, yA], [bx - 0.8 * S, yA]], IRONL);
-  for (let y = y2; y > yA; y -= 5 * S) {
+  iso.r.poly([[bx - w2, y2], [bx + w2, y2], [bx + 1 * S, yA], [bx - 1 * S, yA]], IRONL);
+  for (let y = y2; y > yA; y -= 6 * S) {
     const t = (y2 - y) / (y2 - yA);
-    const w = lerp(w2, 0.8 * S, t);
-    iso.r.line([bx - w, y], [bx + w, y - 3 * S], 0.5 * S, alpha(IROND, 0.55));
+    const w = lerp(w2, 1 * S, t);
+    iso.r.line([bx - w, y], [bx + w, y - 4 * S], 0.6 * S, alpha(IROND, 0.55));
+    iso.r.line([bx + w, y], [bx - w, y - 4 * S], 0.6 * S, alpha(IROND, 0.4));
   }
-  iso.r.polyline([[bx - w2, y2], [bx, yA], [bx + w2, y2]], INK_W * 0.5, alpha(INK, 0.5));
-  iso.r.line([bx, yA], [bx, yA - 5 * S], 1 * S, COLORS.glassLit); // the tip beacon
+  iso.r.polyline([[bx - w2, y2], [bx, yA], [bx + w2, y2]], INK_W * 0.6, alpha(INK, 0.5));
+  iso.r.line([bx, yA], [bx, yA - 7 * S], 1.2 * S, COLORS.glassLit); // the tip beacon
+  iso.glint([bx, yA - 4 * S], 2.4 * S);
   return iso.build();
 }
 

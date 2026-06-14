@@ -30,6 +30,8 @@ const BLOCK_LANDMARKS: ReadonlySet<Landmark> = new Set<Landmark>([
   LANDMARK.stadium,
   LANDMARK.o2dome,
   LANDMARK.wembley,
+  // bespoke Paris hero (OSM pipeline): a massive 3×3 Eiffel
+  LANDMARK.eiffel,
 ]);
 
 const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {
