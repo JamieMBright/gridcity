@@ -98,6 +98,8 @@ export const LANDMARK = {
   // Paris heroes (append-only so existing raster values never shift).
   eiffel: 33, // the Eiffel Tower — flared lattice pylon on the Champ-de-Mars
   arc: 34, // the Arc de Triomphe — the stone arch at the Étoile
+  sacreCoeur: 35, // Sacré-Cœur — white domed basilica on Montmartre
+  notreDame: 36, // Notre-Dame — twin towers + flèche on the island
 } as const;
 export type Landmark = (typeof LANDMARK)[keyof typeof LANDMARK];
 

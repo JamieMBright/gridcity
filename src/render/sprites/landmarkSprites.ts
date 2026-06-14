@@ -214,6 +214,81 @@ export function arcTriompheTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
+/** Sacré-Cœur — the white Romano-Byzantine basilica crowning Montmartre:
+ *  a travertine-pale mass under a tall ovoid central dome flanked by smaller
+ *  cupolas, with the square campanile behind. */
+export function sacreCoeurTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const WHITE = hex('#ede6d4'); // Château-Landon travertine, always white
+  iso.shadow(0.16, 0.3, 0.86, 0.84, 0.3, 0.28);
+  // the body
+  iso.box(0.18, 0.2, 0.84, 0.8, 0, 26, WHITE);
+  iso.box(0.26, 0.28, 0.76, 0.7, 26, 32, top(WHITE, 0.12)); // the dome platform
+  // the square campanile behind, to the north-west (drawn before the dome)
+  iso.box(0.17, 0.17, 0.31, 0.31, 0, 50, WHITE);
+  // a small billboard cupola helper (a half-ellipse drawn over a drum)
+  const cupola = (cu: number, cv: number, zBase: number, rx: number, ry: number): void => {
+    const [dx, dy] = iso.P(cu, cv, zBase);
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 18; i++) {
+      const a = Math.PI * (i / 18);
+      pts.push([dx - rx * RES * Math.cos(a), dy - ry * RES * Math.sin(a)]);
+    }
+    iso.r.poly(pts, WHITE, shaded(WHITE, 0.16));
+    iso.r.polyline(pts, INK_W * 0.7, INK, true);
+    // the cross/lantern finial
+    iso.r.line([dx, dy - ry * RES], [dx, dy - (ry + 7) * RES], 1.4 * RES, WHITE);
+  };
+  cupola(0.24, 0.24, 50, 5, 9); // the campanile cap
+  // the four small corner cupolas on their drums
+  for (const [cu, cv] of [
+    [0.33, 0.35],
+    [0.69, 0.35],
+    [0.33, 0.65],
+    [0.69, 0.65],
+  ] as const) {
+    iso.box(cu - 0.06, cv - 0.06, cu + 0.06, cv + 0.06, 26, 36, WHITE);
+    cupola(cu, cv, 36, 7, 12);
+  }
+  // the great central ovoid dome on its low drum — the basilica's signature,
+  // drawn LAST so it crowns everything
+  iso.box(0.34, 0.34, 0.68, 0.68, 26, 38, WHITE);
+  cupola(0.51, 0.51, 38, 22, 38);
+  return iso.build();
+}
+
+/** Notre-Dame de Paris — the Gothic cathedral on the Île de la Cité: the
+ *  twin flat-topped west towers, the long lead-roofed nave, and the slender
+ *  flèche over the crossing. */
+export function notreDameTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const STN = hex('#cfc6ad'); // pale limestone
+  const LEADR = hex('#4f5a6b'); // the lead nave roof
+  iso.shadow(0.12, 0.2, 0.9, 0.86, 0.28, 0.28);
+  // the long nave, ridge running with the island, steep lead roof
+  iso.box(0.46, 0.28, 0.9, 0.72, 0, 20, STN);
+  iso.gable(0.46, 0.28, 0.9, 0.72, 20, 12, 'u', LEADR, STN);
+  // the flèche (spire) over the crossing
+  iso.cone(0.66, 0.5, 0.07, 36, LEADR, 32);
+  // the twin west towers (flat-topped) at the SW front
+  for (const tu of [0.26, 0.5] as const) {
+    iso.box(tu - 0.11, 0.28, tu + 0.11, 0.72, 0, 44, STN);
+    iso.box(tu - 0.13, 0.26, tu + 0.13, 0.74, 44, 48, top(STN, 0.12)); // parapet
+    iso.r.poly(
+      [iso.P(tu - 0.06, 0.72, 32), iso.P(tu + 0.06, 0.72, 32), iso.P(tu + 0.06, 0.72, 12), iso.P(tu, 0.72, 8), iso.P(tu - 0.06, 0.72, 12)],
+      hex('#2a2336'),
+    );
+  }
+  // the great rose window between the towers
+  iso.r.poly(
+    [iso.P(0.38, 0.72, 30), iso.P(0.32, 0.72, 24), iso.P(0.38, 0.72, 18), iso.P(0.44, 0.72, 24)],
+    hex('#6b4a86'),
+  );
+  return iso.build();
+}
+
 // --- Riverside icons ---------------------------------------------------------
 
 /** The Palace of Westminster, to scale: a gothic riverfront palace in

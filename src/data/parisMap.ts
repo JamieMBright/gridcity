@@ -516,7 +516,12 @@ export function buildParisMap(): CityMap {
   zoneRect(60, 78, 66, 84, ZONE.park); // Parc Monceau / the 17th green
   zoneRect(110, 64, 118, 70, ZONE.park); // Buttes-Chaumont
   zoneRect(100, 104, 106, 109, ZONE.park); // Montsouris
-  zoneRect(96, 60, 102, 65, ZONE.park); // the slopes below Sacré-Cœur
+  zoneRect(94, 60, 103, 67, ZONE.park); // the open Montmartre butte around Sacré-Cœur
+  // the islands carry only the cathedral + the Conciergerie — keep them low
+  // (gardens + quais) so Notre-Dame stands clear of the tower blocks
+  for (let yy = 89; yy <= 91; yy++)
+    for (let xx = 96; xx <= 116; xx++)
+      if (terrain[idx(xx, yy)] === TERRAIN.land) zone[idx(xx, yy)] = ZONE.park;
   // the Île-de-France plain carries the region's solar; wind on the open
   // northern plateau; a nuclear-capable site on the Seine downstream (as
   // France sites its fleet on the great rivers)
@@ -713,8 +718,8 @@ export function buildParisMap(): CityMap {
   };
   placeLandmark(85, 93, LANDMARK.eiffel); // the Eiffel Tower, on the Champ-de-Mars
   placeLandmark(76, 70, LANDMARK.arc); // the Arc de Triomphe at the Étoile
-  placeLandmark(104, 90, LANDMARK.church); // Notre-Dame, on the island
-  placeLandmark(98, 65, LANDMARK.church); // Sacré-Cœur, on the butte
+  placeLandmark(104, 90, LANDMARK.notreDame); // Notre-Dame, on the Île de la Cité
+  placeLandmark(98, 64, LANDMARK.sacreCoeur); // Sacré-Cœur, on the Montmartre butte
   placeLandmark(108, 89, LANDMARK.townhall); // Hôtel de Ville
   placeLandmark(114, 79, LANDMARK.station); // Gare du Nord
   placeLandmark(118, 96, LANDMARK.station); // Gare de Lyon
