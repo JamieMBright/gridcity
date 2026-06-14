@@ -12,6 +12,54 @@
 
 ## Open
 
+- [x] **AUTH BUG (owner, 2026-06-14 06:37): "created account → check email →
+      nothing; should auto sign-in; login didn't work."** Diagnosed against
+      the DB: the account already existed (created 2026-06-13, has a
+      password, confirmed, signed in once). Today's "create account" was a
+      duplicate-email sign-up — Supabase's anti-enumeration returns NO
+      session and sends NO email, which our code misreported as "check your
+      email". FIXES: (a) code — `signUpWithPassword` now detects the
+      empty-`identities` duplicate-email response and returns "that email
+      already has an account — sign in instead"; (b) reset the owner's
+      password to a temporary value so they can log in now (told to change
+      it). Auto-sign-in-on-signup already works for a NEW email once "Confirm
+      email" is OFF (owner dashboard action — see security-audit.md).
+- [x] **SECURITY CHECK (owner, 2026-06-14 06:31): Supabase + game pen-test.**
+      Full audit in `docs/security-audit.md`. RLS sound on all 5 tables; no
+      service-role key / secrets committed; no XSS sinks; `window.__ec` debug
+      hook stripped from prod. Added missing security response headers
+      (`vercel.json`: nosniff, X-Frame-Options DENY, Referrer-Policy,
+      Permissions-Policy, HSTS). Findings: leaderboard scores client-trusted
+      (MEDIUM, known v1 trade-off → server-side validate later); username
+      format CHECK + leaked-password protection + CSP recommended.
+
+- [ ] **REUSABLE CITY TEMPLATE / schema (owner, 2026-06-14 06:28): "make a
+      reusable template for cities where you have to find the appropriate
+      things."** Turn city authoring from a bespoke ~600-line builder into a
+      declarative `CitySpec` + a shared `buildCity(spec)` engine. The spec
+      enumerates the feature categories to fill in per city: water (rivers w/
+      control-points + half-width + islands, coast/sea edge, beaches, lakes,
+      canals), terrain/biome (temperate/desert/tropical → tints + vegetation,
+      hills, forests), urban form (density field params, radial corridors,
+      CBD/posh/industrial districts, no-green-belt flag), councils, towns/
+      banlieue, parks, generation sites (solar/wind/nuclear/hydro), transport
+      (road polylines, ring roads, rail, metro), AIRPORTS, train STATIONS,
+      DOCKS/ports, significant non-electrical infrastructure, landmarks
+      (bespoke architecture + positions), named places, and the country
+      operating-model profiles (market/regulator/economy/weather). London
+      stays bespoke (the reference, too many special cases); Paris is the
+      first CitySpec-driven city; Sydney/HK/Rio become fill-in-the-template.
+- [x] **Paris airports (owner, 2026-06-14): Charles de Gaulle (NE/Roissy) +
+      Orly (S)** — added as PARIS_AIRPORTS w/ cleared airfields, runways,
+      named places.
+- [~] **BASELOAD does NOT fit build-from-scratch (owner, 2026-06-14 06:25).**
+      Correct — nothing shipped pre-seeds plant; the MarketProfile models the
+      surrounding national IMPORT market, not player generation. ACTION: drop
+      the inert `baseloadFloor`/`hydroDriven` GenerationModel hooks so the
+      model can't drift toward pre-built baseload; country generation
+      character comes via imports + the TENDERS offered + the carbon/price
+      benchmark only.
+
 - [ ] **COUNTRY-SPECIFIC OPERATING MODELS (owner, 2026-06-14 05:53): "the
       major other element required… learn the differences and have them
       affect the gameplay."** The CityScenario v2 seams already exist
