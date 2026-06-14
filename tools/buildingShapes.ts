@@ -174,26 +174,38 @@ async function main(): Promise<void> {
   const sx = (u: number, v: number): number => originX + (u - v) * HW * SS;
   const sy = (u: number, v: number, z: number): number => (u + v) * HH * SS + 300 * SS - z * SS;
 
+  const style = process.argv.includes('--style=paris') ? 'paris' : 'blank';
   let drawn = 0;
   for (const b of bldgs) {
     const ring = b.rings[0];
     if (!ring) continue;
-    // walls (darker), each edge as a quad from ground to roof
+    // per-building shade jitter so the fabric reads as many distinct blocks
+    const hash = ((Math.round((ring[0]?.[0] ?? 0) * 7.3) * 73856093) ^ (Math.round((ring[0]?.[1] ?? 0) * 7.3) * 19349663)) >>> 0;
+    const j = (hash % 24) - 12; // ±12
+    let wr: number; let wg: number; let wb: number; let rr: number; let rg: number; let rb: number;
+    if (style === 'paris') {
+      wr = 222 + j * 0.6; wg = 212 + j * 0.6; wb = 188 + j * 0.5; // cream pierre de taille
+      rr = 104 + j; rg = 109 + j; rb = 118 + j; // grey zinc, varied
+    } else {
+      wr = 96 + j; wg = 99 + j; wb = 112 + j;
+      rr = 150 + j; rg = 154 + j; rb = 168 + j;
+    }
+    // walls, each edge as a quad from ground to roof
     for (let i = 0; i < ring.length; i++) {
       const a = ring[i]!;
       const c = ring[(i + 1) % ring.length]!;
       fillPoly(
         img, W, Hpx,
         [sx(a[0], a[1]), sy(a[0], a[1], 0), sx(c[0], c[1]), sy(c[0], c[1], 0), sx(c[0], c[1]), sy(c[0], c[1], b.z), sx(a[0], a[1]), sy(a[0], a[1], b.z)],
-        96, 99, 112,
+        wr, wg, wb,
       );
     }
-    // roof (lighter), the footprint lifted to the building height
+    // roof, the footprint lifted to the building height
     const roof: number[] = [];
     for (const [u, v] of ring) {
       roof.push(sx(u, v), sy(u, v, b.z));
     }
-    fillPoly(img, W, Hpx, roof, 150, 154, 168);
+    fillPoly(img, W, Hpx, roof, rr, rg, rb);
     drawn++;
   }
   console.log(`  drew ${drawn} masses`);
