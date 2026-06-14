@@ -12,34 +12,38 @@
 
 ## Open
 
-- [~] **GENERALISABLE LANDMARK PIPELINE — proof on London (owner, 2026-06-14
-      11:05).** Ran the critique loop on **Houses of Parliament + Big Ben**:
-      3 code-art iterations (one continuous gothic river palace → photo-
-      referenced long/low façade + correct tower hierarchy → gothic-ified
-      pointed tracery). Owner verdict: hand-coded iso vector art HITS A CEILING
-      on intricate buildings — the LLM is a poor "renderer" for fine ornament,
-      and lofi-iso doesn't suit photoreal Gothic. **Pivot (owner, 2026-06-14
-      ~12:54): HYBRID** — keep code-art as the default for the many (and the
-      improved Parliament sprite stays as the fallback), but OUTSOURCE the
-      iconic heroes to image-generated rasters.
-  - [x] **AI-raster hero override pipeline — BUILT (additive).**
-        `src/render/heroRasters.ts` (registry of iconic heroes + exact canvas
-        dims). `buildAtlas(overrides?)` swaps a hero's existing atlas-frame
-        pixels with a PNG authored at the sprite's canvas size — so anchor/
-        trim/dusk-grade are unchanged and the renderer's draw path is
-        untouched. With NO PNGs present the atlas is byte-identical (tests
-        prove it). Browser loads `public/heroes/<name>.png` via
-        `atlasCache.getAtlas` (fingerprint folds hero art → cache rebakes);
-        the Node preview tool loads them via `tools/heroLoader.ts` +
-        `tools/png.ts` (baseline PNG decoder). Spec + per-hero sizes + the
-        generation prompt set: `docs/hero-sprites.md`. Verified end-to-end
-        with a throwaway placeholder (override engaged + trimmed; removed) and
-        fallback (code sprite restored). Unit: `tests/heroRasters.test.ts` (6).
-  - [ ] **NEXT (needs an image model — not this sandbox): GENERATE the hero
-        PNGs** for the iconic set (Parliament, Tower Bridge, St Paul's, O2,
-        Wembley, Shard, Gherkin, Eye, Tower of London) per the brief, drop into
-        `public/heroes/`, and design-gate each. Also: widen egress to
-        wikimedia hosts so refs can be fetched autonomously for any city.
+### ⭐ HANDOVER (owner, 2026-06-14 ~13:45) — read this first, then build in a FRESH env
+The landmark-art arc this session, and where it's going next:
+- **Tried & reverted:** an AI-raster hero-override pipeline (PR #61, then
+  reverted in PR #62). Owner's call: stay **code-art**; no image model.
+- **Settled direction — DON'T cap hero count.** "Search for HUNDREDS of hero
+  buildings in the target city until it stops making sense" — discover
+  notability from data (OSM + Wikidata/Wikipedia), don't curate. Most buildings
+  render **procedurally from real OSM footprint + height**; bespoke hand-art is
+  reserved for the marquee few. Current hand-coded heroes "look good enough" —
+  STOP polishing art quality.
+- **Next major build (in the fresh env): the OSM pipeline PROPER.** Full plan in
+  **`docs/osm-pipeline.md`**. It needs egress this session doesn't have →
+  **`docs/env-allowlist.md`** lists every host to allowlist (OSM Overpass/
+  Nominatim/Geofabrik + Wikidata + Wikipedia/Wikimedia). Owner is creating a
+  fresh env with those.
+- **Method that works (proven on Parliament):** a research-backed **visual spec**
+  per landmark (palette + massing/proportions + per-element shape/colour +
+  critique checklist) → ultra-specific fixes. Template: `docs/landmarks/
+  parliament.md`. Use the **reference-photo loop** (download a Wikimedia photo,
+  view it, critique against it) once egress is open.
+- **Tools added:** `tools/landmarkSheet.ts` (`→ preview/landmarks.png`, a contact
+  sheet of all London heroes for at-a-glance review).
+- [x] **Parliament redrawn from a reference photo + spec** (3 critique passes):
+      continuous Perpendicular-Gothic river palace, pointed tracery, correct
+      tower hierarchy (Victoria tallest/bulkiest, slimmer Big Ben with the clock
+      at ~58% height + deep Prussian-blue surround, needle central spire),
+      floodlit ground arcade, dark slate roofs, 4-storey façade (~4:1 ratio).
+- [ ] **OSM pipeline (fresh env):** build per `docs/osm-pipeline.md` —
+      Overpass/Nominatim fetch → project to tile grid → derive water/road/zone
+      layers → discover & rank notable buildings (Wikidata/Wikipedia) → procedural
+      `footprintTile()` from footprint+height → bespoke sprites for the top tier.
+      Validate on London first, then any city. Credit "© OpenStreetMap contributors".
 
 - [x] **AUTH BUG (owner, 2026-06-14 06:37): "created account → check email →
       nothing; should auto sign-in; login didn't work."** Diagnosed against
