@@ -12,6 +12,41 @@
 
 ## Open
 
+- [ ] **BIG FLURRY (owner, 2026-06-14 05:07): "have a go at all of them".**
+  - [ ] **Place labels too BOLD/LOUD** — make the map town/landmark labels
+        FAR more subtle (lighter weight, lower contrast, less shout).
+  - [ ] **MULTI-CITY with geographic-representation ACCURACY** (cities ARE
+        wanted now; supersedes the earlier "defer cities"). Apply London's
+        design principles. Per-city the rivers / coastlines / roads /
+        bridges / landmarks must be GEOGRAPHICALLY ACCURATE + correctly
+        scaled (tile counts):
+        - **Paris**: the Seine through the middle (accurate), accurate
+          roads — e.g. the big roundabout (Arc de Triomphe / Étoile with
+          radiating avenues), bridges in the correct places.
+        - **Sydney**: coastline both sides of the harbour, the Harbour
+          Bridge + Opera House, appropriately scaled, correct tile count.
+        - **Hong Kong**: the island + harbour/ships captured correctly.
+        - **Rio de Janeiro**: ELEVATION (mountains) — represent a mountain
+          top with Christ the Redeemer on top.
+        - Research the top landmarks/buildings per city so they feel real.
+        - (owner: "we can recreate other cities in the future if we need" —
+          don't over-perfect; a genuine accurate attempt + framework.)
+  - [ ] **Supabase / AUTH email (owner authorizes: "make whatever Supabase
+        tables you need, do whatever you need on Supabase").** The thing he
+        REALLY wants: BRAND the auth emails + make the reset/confirm link
+        land on a STYLED feedback page, NOT a 404. So: configure Supabase
+        (Site-URL, the branded email templates already in supabase/templates),
+        and add an in-app auth-callback page (password-reset form / "email
+        confirmed" / magic-link landing) so clicking the email gives real
+        feedback. Also create any tables needed (e.g. cloud rank-sync).
+  - [ ] **REGULATORY ASSET VALUE (RAV) + revenue / incentives (price
+        controls, reasonably accurate, don't over-confuse).** A RAV that
+        starts at ZERO and BUILDS UP as the network grows; it influences the
+        totex SHARING factors. Consider a REVENUE line for a proper monetary
+        representation, and represent the regulatory INCENTIVES. Phase it in
+        ONCE the network is up and running (not day 1) — as load shifts /
+        new applications start to stress/break things.
+
 - [ ] **SEVERE-WEATHER REALISM v2 (owner, 2026-06-14 03:40 — network ops
       domain detail; refines the PR #47 alert).**
   - [ ] **7-DAY notice**: severe storms are usually forecast ~7 days out

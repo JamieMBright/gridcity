@@ -606,13 +606,14 @@ export class MapRenderer {
         style: {
           fontFamily: 'monospace',
           fontSize: 64,
-          fontWeight: '700',
+          // SUBTLE labels (owner, 2026-06-14): light weight, a thin soft
+          // halo (not a fat shout), wide tracking and lowered opacity so
+          // they whisper the place rather than stamp it. Just enough halo
+          // to stay legible over the fields; no more.
+          fontWeight: '400',
           fill: color,
-          // a fatter navy halo (width 8 → 11 baked at 64 px) so the cream
-          // text survives simultaneous-contrast over both the pale core and
-          // the green fields (Color: the halo neutralises the ground).
-          stroke: { color: 0x10162f, width: 11 },
-          letterSpacing: 4,
+          stroke: { color: 0x10162f, width: 5 },
+          letterSpacing: 5,
         },
       });
       t.anchor.set(0.5);
@@ -1874,7 +1875,9 @@ export class MapRenderer {
       const alpha = Math.max(0, Math.min(1, (0.3 - sc) / 0.08));
       this.labelLayer.visible = alpha > 0.02;
       if (this.labelLayer.visible) {
-        this.labelLayer.alpha = alpha;
+        // dim the whole label layer so place names whisper (owner: labels
+        // were too bold/loud) — keeps the relative village/landmark fades.
+        this.labelLayer.alpha = alpha * 0.74;
         const inv = 1 / Math.max(sc, 1e-6);
         // villages fade out one band before towns (progressive disclosure):
         // at far zoom the country-scale view shows only LONDON + big towns,
