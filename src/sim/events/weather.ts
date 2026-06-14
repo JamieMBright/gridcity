@@ -83,6 +83,33 @@ export interface WeatherState {
    *  already been announced, so a storm/heatwave fires its banner exactly
    *  once however many ticks it spans. Additive — absent on old saves. */
   incidentKeyMin?: number;
+  /** The active named storm's display name (e.g. "Bram"), stamped the
+   *  moment a storm regime opens and cleared once it passes. Additive —
+   *  absent on old saves and during calm weather. This is the single
+   *  source of truth every downstream consumer reads (arrival banner,
+   *  fault labels, clearance notice) so one storm carries one name end
+   *  to end rather than each site recomputing it off a drifting key. */
+  activeStormName?: string;
+  /** Sim minute the active storm window opened — the name's calendar key,
+   *  kept so the clearance notice and the forecast agree. */
+  activeStormStartMin?: number;
+}
+
+/** Met Office style season list (alphabetical, no Q/U/X/Y/Z). Lives here,
+ *  on the regime authority, so the storm machine and the forecast strip
+ *  (reliability/stormprep.ts, which re-exports these) cannot drift. */
+export const STORM_NAMES = [
+  'Aoife', 'Bram', 'Cara', 'Dafydd', 'Elin', 'Floris', 'Gerben', 'Hannah',
+  'Idris', 'Janet', 'Kayleigh', 'Lewis', 'Mavis', 'Nico', 'Orla', 'Pieter',
+  'Rhian', 'Stuart', 'Tilly', 'Violet', 'Wren',
+];
+
+/** Deterministic name for a storm window opening at this sim minute —
+ *  keyed off the window's calendar day, so the forecast (which reads the
+ *  queued storm's start) and the live storm (which reads the same start
+ *  stamped on arrival) always agree. */
+export function stormName(startMin: number): string {
+  return STORM_NAMES[Math.floor(startMin / 1440) % STORM_NAMES.length] ?? 'Aoife';
 }
 
 // The per-regime envelopes (centres + jitter bands) live on the active
@@ -152,7 +179,13 @@ export function stepWeather(
   // regime turnover: the pre-rolled front moves in; queue the next one
   // (picked for the season it will actually arrive in)
   while (simTimeMin >= w.regimeEndsMin) {
+    // the boundary we are crossing is the incoming regime's start minute
+    const startMin = w.regimeEndsMin;
     w.regime = w.nextRegime;
+    if (w.regime === 'storm') {
+      w.activeStormName = stormName(startMin);
+      w.activeStormStartMin = startMin;
+    }
     w.regimeEndsMin += regimeDurationMin(rng, w.regime);
     w.nextRegime = pickRegime(rng, seasonFactor(w.regimeEndsMin, profile));
   }

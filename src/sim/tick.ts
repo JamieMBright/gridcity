@@ -450,6 +450,7 @@ export function solveTick(
       dtMin,
       state.simTimeMin,
       state.heat,
+      state.weather.activeStormName,
     );
     for (const f of faults) {
       state.outages.set(f.branchId, AWAITING_CREW);

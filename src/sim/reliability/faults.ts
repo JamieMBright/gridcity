@@ -59,6 +59,7 @@ export function rollFaults(
   dtMin: number,
   simTimeMin = 0,
   heat?: ReadonlyMap<number, number>,
+  stormName?: string,
 ): FaultEvent[] {
   const faults: FaultEvent[] = [];
   const storm = stormFactor(wind);
@@ -87,9 +88,13 @@ export function rollFaults(
         y: Math.round(endA.y + (endB.y - endA.y) * t),
         repairMin: overhead ? (REPAIR_TIME.overheadLine ?? 240) : (REPAIR_TIME.undergroundLine ?? 960),
         label: overhead
-          ? veg > 0.5 && storm === 1
-            ? `tree contact on the ${a.level} kV line`
-            : `${a.level} kV line fault${storm > 1 ? ' (storm)' : ''}`
+          ? storm > 1
+            ? stormName !== undefined
+              ? `Storm ${stormName} brings down the ${a.level} kV line`
+              : `${a.level} kV line fault (storm)`
+            : veg > 0.5
+              ? `tree contact on the ${a.level} kV line`
+              : `${a.level} kV line fault`
           : `${a.level} kV cable fault`,
       });
     } else if (a.kind === 'sub' && SUBS[a.sub].levels.length >= 2) {
