@@ -12,6 +12,17 @@
 
 ## Open
 
+- [ ] **GENERALISABLE LANDMARK PIPELINE — proof on London (owner, 2026-06-14
+      11:05): start with LONDON, not Paris — it has many issues and the owner
+      knows it well, so it's the testbed for the critique feedback loop. Goal:
+      a generalisable approach where a user could request ANY city and I
+      produce recognisable code-drawn landmarks (original silhouettes from
+      researched facts/proportions — NO copied images), spread correctly over
+      tiles.** First proof: redo **Houses of Parliament + Big Ben (Elizabeth
+      Tower)** — research real proportions, work out the tile footprint, draw
+      it, render in-game, critique honestly at far/mid/close + a per-landmark
+      close-up, iterate until it genuinely reads as the Palace of Westminster.
+
 - [x] **AUTH BUG (owner, 2026-06-14 06:37): "created account → check email →
       nothing; should auto sign-in; login didn't work."** Diagnosed against
       the DB: the account already existed (created 2026-06-13, has a
