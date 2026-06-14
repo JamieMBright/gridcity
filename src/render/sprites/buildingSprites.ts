@@ -508,7 +508,8 @@ export function haussmannTile(seed: number, variant: number): Uint8ClampedArray<
   const u1 = 1;
   const v0 = 0.08;
   const v1 = 0.86;
-  const floors = 5 + (variant % 2); // 5–6 storeys, uniform along the street
+  const floors = 5 + (variant % 3); // 5–7 storeys, near-uniform along the street
+  const shop = variant % 3 === 2; // some blocks have ground-floor commerce
   const fh = 8.4;
   const H = Math.round(10 + floors * fh); // top of the stone facade (cornice)
   iso.shadow(u0, v0, u1, v1, 0.26, 0.24);
@@ -532,6 +533,20 @@ export function haussmannTile(seed: number, variant: number): Uint8ClampedArray<
     const zt = 12 + f * fh + fh - 1.2;
     iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, zb, zt, 5, glass(rng, 0.45), frame);
     iso.windowsRight(u1, v0 + 0.06, v1 - 0.06, zb, zt, 5, glass(rng, 0.4), frame);
+  }
+
+  // ground-floor commerce on some blocks: bright glazed shopfronts under a
+  // coloured awning + fascia — the lived-in Parisian street wall
+  if (shop) {
+    const awn = ([COLORS.orange, hex('#3f8f8a'), hex('#b5485f'), hex('#4a6ba8')] as RGBA[])[
+      (seed + variant) % 4
+    ]!;
+    iso.windowsLeft(v1, u0 + 0.05, u1 - 0.05, 1.5, fh - 0.6, 5, COLORS.glassLit, frame);
+    iso.r.poly(
+      [P(u0 + 0.04, v1, fh + 0.6), P(u1 - 0.04, v1, fh + 0.6), P(u1 - 0.04, v1, fh - 1), P(u0 + 0.04, v1, fh - 1)],
+      awn,
+    );
+    iso.edge(P(u0 + 0.04, v1, fh - 1), P(u1 - 0.04, v1, fh - 1), INK_W * 0.6, alpha(INK, 0.4));
   }
 
   // continuous wrought-iron balconies (balcons filants) on the 2nd + top floors

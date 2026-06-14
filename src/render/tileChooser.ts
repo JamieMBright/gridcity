@@ -232,14 +232,15 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
 
   const estate = estateOf(x, y);
   const shops = ((map.flags?.[i] ?? 0) & FLAG_SHOPS) !== 0;
+  const th = tileHash(x, y);
 
-  // bespoke per-city building stock: Paris wears uniform Haussmann blocks
-  // across its urban fabric (the pale, grid-like street walls).
+  // bespoke per-city building stock: Paris wears Haussmann blocks across its
+  // urban fabric (the pale, grid-like street walls) — many variants spread
+  // per-tile so the uniform wall still reads as distinct buildings.
   if (map.fabric === 'paris' && (zone === ZONE.urbanCore || zone === ZONE.urban)) {
-    return `haussmann_${v % 4}`;
+    return `haussmann_${th % 8}`;
   }
 
-  const th = tileHash(x, y);
   switch (zone) {
     case ZONE.cbd: {
       // a varied financial-district skyline: skyscrapers, glass offices and
