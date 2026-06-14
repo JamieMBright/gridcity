@@ -12,6 +12,35 @@
 
 ## Open
 
+- [~] **GENERALISABLE LANDMARK PIPELINE — proof on London (owner, 2026-06-14
+      11:05).** Ran the critique loop on **Houses of Parliament + Big Ben**:
+      3 code-art iterations (one continuous gothic river palace → photo-
+      referenced long/low façade + correct tower hierarchy → gothic-ified
+      pointed tracery). Owner verdict: hand-coded iso vector art HITS A CEILING
+      on intricate buildings — the LLM is a poor "renderer" for fine ornament,
+      and lofi-iso doesn't suit photoreal Gothic. **Pivot (owner, 2026-06-14
+      ~12:54): HYBRID** — keep code-art as the default for the many (and the
+      improved Parliament sprite stays as the fallback), but OUTSOURCE the
+      iconic heroes to image-generated rasters.
+  - [x] **AI-raster hero override pipeline — BUILT (additive).**
+        `src/render/heroRasters.ts` (registry of iconic heroes + exact canvas
+        dims). `buildAtlas(overrides?)` swaps a hero's existing atlas-frame
+        pixels with a PNG authored at the sprite's canvas size — so anchor/
+        trim/dusk-grade are unchanged and the renderer's draw path is
+        untouched. With NO PNGs present the atlas is byte-identical (tests
+        prove it). Browser loads `public/heroes/<name>.png` via
+        `atlasCache.getAtlas` (fingerprint folds hero art → cache rebakes);
+        the Node preview tool loads them via `tools/heroLoader.ts` +
+        `tools/png.ts` (baseline PNG decoder). Spec + per-hero sizes + the
+        generation prompt set: `docs/hero-sprites.md`. Verified end-to-end
+        with a throwaway placeholder (override engaged + trimmed; removed) and
+        fallback (code sprite restored). Unit: `tests/heroRasters.test.ts` (6).
+  - [ ] **NEXT (needs an image model — not this sandbox): GENERATE the hero
+        PNGs** for the iconic set (Parliament, Tower Bridge, St Paul's, O2,
+        Wembley, Shard, Gherkin, Eye, Tower of London) per the brief, drop into
+        `public/heroes/`, and design-gate each. Also: widen egress to
+        wikimedia hosts so refs can be fetched autonomously for any city.
+
 - [x] **AUTH BUG (owner, 2026-06-14 06:37): "created account → check email →
       nothing; should auto sign-in; login didn't work."** Diagnosed against
       the DB: the account already existed (created 2026-06-13, has a
