@@ -95,6 +95,8 @@ export const LANDMARK = {
   velodrome: 30, // Lee Valley VeloPark — the curved timber pringle roof
   orbit: 31, // the ArcelorMittal Orbit — red twisting helter-skelter tower
   westfield: 32, // Westfield Stratford City — the big retail mass beside it
+  // Paris heroes (append-only so existing raster values never shift).
+  eiffel: 33, // the Eiffel Tower — flared lattice pylon on the Champ-de-Mars
 } as const;
 export type Landmark = (typeof LANDMARK)[keyof typeof LANDMARK];
 

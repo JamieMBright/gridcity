@@ -73,6 +73,81 @@ export function skyscraperTile(seed: number, kind: number): Uint8ClampedArray<Ar
   return iso.build();
 }
 
+// --- Paris icons -------------------------------------------------------------
+
+/** The Eiffel Tower — drawn as a screen-facing billboard, because the
+ *  tower reads in pure silhouette: four flared legs over a big base arch,
+ *  the two viewing platforms, and the tapering lattice pylon to the mast,
+ *  all in wrought-iron bronze. A single very-tall 1x1 sprite that
+ *  out-scales every building. */
+export function eiffelTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  void seed;
+  const iso = new Iso();
+  const IRON = hex('#8a7350');
+  const IRON_L = lit(IRON, 0.3);
+  const IRON_D = shaded(IRON, 0.34);
+  const a0 = iso.P(0.5, 0.5, 0); // foot of the central axis
+  const cx = a0[0];
+  const cy = a0[1];
+  // screen point at height z (px up the tower) offset s half-widths sideways
+  const sp = (z: number, hw: number): Pt => [cx + hw * RES, cy - z * RES];
+  // the classic flared profile: half-width (px) at each platform height (px)
+  const PROF: Array<[number, number]> = [
+    [0, 44],
+    [12, 33],
+    [30, 22],
+    [50, 16], // first platform
+    [98, 9.5], // second platform
+    [150, 3.6],
+    [168, 0], // the mast tip
+  ];
+  const hwAt = (z: number): number => {
+    for (let i = 0; i + 1 < PROF.length; i++) {
+      const [z0, w0] = PROF[i] as [number, number];
+      const [z1, w1] = PROF[i + 1] as [number, number];
+      if (z >= z0 && z <= z1) return w0 + (w1 - w0) * ((z - z0) / (z1 - z0));
+    }
+    return 0;
+  };
+  iso.shadow(0.3, 0.3, 0.7, 0.7, 0.5, 0.32);
+  // the filled silhouette (left edge up, right edge down)
+  const sil: Pt[] = [];
+  for (let z = 0; z <= 168; z += 6) sil.push(sp(z, -hwAt(z)));
+  for (let z = 168; z >= 0; z -= 6) sil.push(sp(z, hwAt(z)));
+  iso.r.poly(sil, IRON, IRON_D);
+  // the base arch — the open span between the four legs (dusk void)
+  iso.r.poly(
+    [sp(0, -23), sp(0, 23), sp(34, 9), sp(50, 0), sp(34, -9)],
+    hex('#2c2438'),
+  );
+  // the two platforms as bright iron decks
+  for (const [z, over] of [
+    [50, 13],
+    [98, 8],
+  ] as const) {
+    iso.r.poly(
+      [sp(z, -over), sp(z, over), sp(z + 4, over * 0.8), sp(z + 4, -over * 0.8)],
+      IRON_L,
+    );
+  }
+  // lattice cross-bracing — a few X's per section catch the eye as ironwork
+  const lattice = (z0: number, z1: number, n: number): void => {
+    for (let i = 0; i < n; i++) {
+      const za = z0 + ((z1 - z0) * i) / n;
+      const zb = z0 + ((z1 - z0) * (i + 1)) / n;
+      iso.r.line(sp(za, -hwAt(za)), sp(zb, hwAt(zb)), 1 * RES, IRON_D);
+      iso.r.line(sp(za, hwAt(za)), sp(zb, -hwAt(zb)), 1 * RES, IRON_D);
+    }
+  };
+  lattice(2, 50, 4);
+  lattice(54, 98, 3);
+  lattice(102, 160, 3);
+  // ink silhouette + the mast finial
+  iso.r.polyline(sil, INK_W, INK, true);
+  iso.r.line(sp(168, 0), sp(176, 0), 1.4 * RES, IRON_D);
+  return iso.build();
+}
+
 // --- Riverside icons ---------------------------------------------------------
 
 /** The Palace of Westminster, to scale: a gothic riverfront palace in
