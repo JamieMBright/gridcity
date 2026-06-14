@@ -44,6 +44,8 @@ export interface CityData {
   routes: TransportRoute[];
   councils: CouncilProfile[];
   named: CityNamedPlace[];
+  /** Per-city building colourway (render hint; default London). */
+  fabric?: 'london' | 'paris';
   /** Required ODbL attribution string. */
   attribution: string;
 }

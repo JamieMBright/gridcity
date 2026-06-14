@@ -70,12 +70,27 @@ export const COLORS = {
 } as const;
 
 export function wallColor(variant: number): RGBA {
-  return COLORS.walls[variant % COLORS.walls.length] ?? COLORS.walls[0]!;
+  return activeWalls[variant % activeWalls.length] ?? activeWalls[0]!;
 }
 
 export function roofColor(variant: number): RGBA {
-  return COLORS.roofs[variant % COLORS.roofs.length] ?? COLORS.roofs[0]!;
+  return activeRoofs[variant % activeRoofs.length] ?? activeRoofs[0]!;
 }
+
+// --- per-city building colourway -------------------------------------------
+// The wall/roof rotations are swappable so a generated city can wear its own
+// architecture (London brick vs Paris cream limestone + grey zinc mansard,
+// etc.) from the SAME sprite shapes. Defaults to London, so the live game's
+// atlas is byte-identical unless a city explicitly opts in.
+
+let activeWalls: RGBA[] = COLORS.walls;
+let activeRoofs: RGBA[] = COLORS.roofs;
+
+export function setWallRoofPalette(walls: RGBA[], roofs: RGBA[]): void {
+  activeWalls = walls;
+  activeRoofs = roofs;
+}
+
 
 /** Parse '#rrggbb' to [r,g,b] (kept for theme interop). */
 export function hexToRgb(h: string): [number, number, number] {

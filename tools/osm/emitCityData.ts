@@ -22,13 +22,14 @@ function roundCouncils(councils: CouncilProfile[]): CouncilProfile[] {
 
 export function toCityData(
   built: BuiltCity,
-  meta: { id: string; name: string; tagline: string },
+  meta: { id: string; name: string; tagline: string; fabric?: 'london' | 'paris' },
 ): CityData {
   const m = built.map;
   return {
     id: meta.id,
     name: meta.name,
     tagline: meta.tagline,
+    ...(meta.fabric && meta.fabric !== 'london' ? { fabric: meta.fabric } : {}),
     width: m.width,
     height: m.height,
     terrain: encodeBytes(m.terrain),
@@ -76,6 +77,7 @@ function serialize(d: CityData): string {
     `  routes: ${JSON.stringify(d.routes)},`,
     `  councils: ${JSON.stringify(d.councils)},`,
     `  named: ${JSON.stringify(d.named)},`,
+    ...(d.fabric ? [`  fabric: ${JSON.stringify(d.fabric)},`] : []),
     `  attribution: ${JSON.stringify(d.attribution)},`,
     '}',
   ];

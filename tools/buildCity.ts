@@ -71,10 +71,12 @@ async function main(): Promise<void> {
   report(built);
 
   if (has('write')) {
+    const fabricArg = arg('fabric') === 'paris' ? 'paris' : 'london';
     const data = toCityData(built, {
       id,
       name: nameArg ?? displayName.split(',')[0] ?? id,
       tagline: `${(nameArg ?? displayName.split(',')[0] ?? id).trim()} — drawn from its real geography.`,
+      fabric: fabricArg,
     });
     const file = writeCityModule(data);
     const kb = Math.round((data.terrain.length + data.zone.length + data.council.length + data.road.length + data.landmark.length + data.flags.length) / 1024);

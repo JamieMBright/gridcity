@@ -7,7 +7,7 @@
 
 import { Rng } from '../../sim/rng';
 import { INK, INK_W, Iso, lit, P, shaded, top } from './iso';
-import { COLORS, roofColor, wallColor } from './palette';
+import { COLORS, roofColor, setWallRoofPalette, wallColor } from './palette';
 import { alpha, darken, hex, lighten, type RGBA } from './raster';
 
 function glass(rng: Rng, litP: number): RGBA {
@@ -16,17 +16,60 @@ function glass(rng: Rng, litP: number): RGBA {
   return rng.chance(p) ? (rng.chance(0.4) ? COLORS.glassHot : COLORS.glassLit) : COLORS.glassDark;
 }
 
-// Victorian fabric: brick reds/browns, render and pebbledash, slate roofs.
-const BRICK_RED = hex('#a64b37');
-const BRICK_BROWN = hex('#8a5240');
-const BRICK_ORANGE = hex('#b5664a');
-const RENDER_CREAM = hex('#ddd2bc');
-const PEBBLEDASH = hex('#c2b89f');
-const SLATE = hex('#6e6884');
-const SLATE_DARK = hex('#575d78');
-const TILE_RED = hex('#8f4438');
-const POT_CLAY = hex('#9c5a3a');
-const BUFF_BRICK = hex('#c8a878');
+// Building fabric: London's Victorian default (brick reds/browns, render and
+// pebbledash, slate roofs). These are `let` so a generated city can swap the
+// whole colourway (e.g. Paris: cream limestone + grey zinc mansard) via
+// applyCityFabric() before the atlas is baked — London stays the default, so
+// the live game's atlas is unchanged unless a city opts in.
+let BRICK_RED = hex('#a64b37');
+let BRICK_BROWN = hex('#8a5240');
+let BRICK_ORANGE = hex('#b5664a');
+let RENDER_CREAM = hex('#ddd2bc');
+let PEBBLEDASH = hex('#c2b89f');
+let SLATE = hex('#6e6884');
+let SLATE_DARK = hex('#575d78');
+let TILE_RED = hex('#8f4438');
+let POT_CLAY = hex('#9c5a3a');
+let BUFF_BRICK = hex('#c8a878');
+
+/** Built-in city colourways. London = the default Victorian fabric; Paris =
+ *  Haussmann cream limestone walls + grey zinc mansard roofs (uniform, pale,
+ *  grid-like). Walls/roofs feed the tower/office rotations via the palette. */
+export type CityFabric = 'london' | 'paris';
+
+const PARIS_WALLS: RGBA[] = [
+  hex('#e7dec9'), hex('#ded3ba'), hex('#ebe3d2'), hex('#d6caac'),
+  hex('#e2d8c1'), hex('#cfc3a4'), hex('#e9e1cd'), hex('#d9ceb2'),
+];
+const PARIS_ROOFS: RGBA[] = [hex('#6b7079'), hex('#585e68'), hex('#777d86'), hex('#4f545d')];
+
+export function applyCityFabric(city: CityFabric): void {
+  if (city === 'paris') {
+    BRICK_RED = hex('#ded3ba'); // limestone, not brick
+    BRICK_BROWN = hex('#cfc3a4');
+    BRICK_ORANGE = hex('#e7dec9');
+    RENDER_CREAM = hex('#ebe3d2');
+    PEBBLEDASH = hex('#d6caac');
+    SLATE = hex('#6b7079'); // grey zinc
+    SLATE_DARK = hex('#585e68');
+    TILE_RED = hex('#6b7079'); // roofs are zinc, never red tile
+    POT_CLAY = hex('#8a8f99'); // grey chimney pots
+    BUFF_BRICK = hex('#e2d8c1');
+    setWallRoofPalette(PARIS_WALLS, PARIS_ROOFS);
+  } else {
+    BRICK_RED = hex('#a64b37');
+    BRICK_BROWN = hex('#8a5240');
+    BRICK_ORANGE = hex('#b5664a');
+    RENDER_CREAM = hex('#ddd2bc');
+    PEBBLEDASH = hex('#c2b89f');
+    SLATE = hex('#6e6884');
+    SLATE_DARK = hex('#575d78');
+    TILE_RED = hex('#8f4438');
+    POT_CLAY = hex('#9c5a3a');
+    BUFF_BRICK = hex('#c8a878');
+    setWallRoofPalette(COLORS.walls, COLORS.roofs);
+  }
+}
 
 /** Row of three attached townhouses (urban terraces / high street). */
 export function terraceTile(seed: number, shops: boolean): Uint8ClampedArray<ArrayBuffer> {

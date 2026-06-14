@@ -7,6 +7,7 @@
 
 import { mkdirSync } from 'node:fs';
 import { buildAtlas } from '../src/render/sprites/atlas';
+import { applyCityFabric } from '../src/render/sprites/buildingSprites';
 import { buildCityFromData, type CityData } from '../src/data/cityData';
 import type { CityMap } from '../src/sim/map/types';
 import { renderCityCrop } from './preview';
@@ -29,8 +30,9 @@ async function main(): Promise<void> {
   mkdirSync('preview', { recursive: true });
   const data = await loadCity(id);
   const map: CityMap = buildCityFromData(data);
-  console.log(`${data.name}: ${map.width}×${map.height}, ${map.councils.length} councils`);
+  console.log(`${data.name}: ${map.width}×${map.height}, ${map.councils.length} councils, fabric=${data.fabric ?? 'london'}`);
 
+  applyCityFabric(data.fabric === 'paris' ? 'paris' : 'london');
   const atlas = buildAtlas();
   const rest = process.argv.slice(3).map(Number);
   if (rest.length >= 5) {
