@@ -299,6 +299,7 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
       targets: { ...state.period.targets },
       current: currentPeriodActuals(state),
       lastReport: state.lastReport,
+      regulatory: out.regulatory,
     },
   };
 }

@@ -17,7 +17,7 @@ import type { BalanceReport, BalanceSeason } from './balance';
 import type { ReinforcementPlan } from './planner';
 import type { ConnectionStudy } from './study';
 import type { GameEvent, GrowthRecord, SaveData } from './state';
-import type { BranchView } from './tick';
+import type { BranchView, RegulatoryView } from './tick';
 import type { OrgView } from './events/directorates';
 import type { SafetyView } from './reliability/safety';
 import type { Claim } from './events/litigation';
@@ -235,6 +235,11 @@ export interface SimSnapshot {
     targets: PeriodTargets;
     current: PeriodActuals;
     lastReport?: ReportCard | undefined;
+    /** The price-control money (regulation/rav.ts): RAV, allowed revenue
+     *  vs actual totex, sharing + incentive. Present ONLY once the layer
+     *  has phased in (the network is up and running) — undefined keeps the
+     *  early game free of regulatory clutter. */
+    regulatory?: RegulatoryView | undefined;
   };
 }
 

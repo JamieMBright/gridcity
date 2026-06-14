@@ -12,6 +12,14 @@
 
 ## Open
 
+- [ ] **NAME the storms that come through (owner, 2026-06-14 05:35).** Storms
+      are already named at forecast (`stormName` → `Storm Aoife`) + arrival
+      (incidents.ts). Make it CONSISTENT end-to-end: thread ONE name for the
+      live storm (carry on the weather state) so the forecast, the arrival
+      banner, the FAULT events it causes, and the clearance all reference the
+      same named storm — and so every storm that comes through is named (not
+      a generic "storm damage").
+
 - [ ] **BIG FLURRY (owner, 2026-06-14 05:07): "have a go at all of them".**
   - [ ] **Place labels too BOLD/LOUD** — make the map town/landmark labels
         FAR more subtle (lighter weight, lower contrast, less shout).
