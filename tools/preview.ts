@@ -19,6 +19,7 @@ import { emitShoreline } from '../src/render/shoreline';
 import { groundSpriteFor, structureSpriteFor } from '../src/render/tileChooser';
 import { seasonTintFor, type Season } from '../src/render/grade';
 import { AIRPORTS, buildLondonMap } from '../src/data/londonMap';
+import { loadHeroRastersNode } from './heroLoader';
 
 /** SEASON=winter|spring|summer|autumn applies the renderer's seasonal
  *  field tints to the composited crop (ROADMAP #44 review loop). */
@@ -225,7 +226,10 @@ function dumpSprites(atlas: SpriteAtlas, names: string[]): void {
 
 function main(): void {
   mkdirSync('preview', { recursive: true });
-  const atlas = buildAtlas();
+  // iconic heroes with a public/heroes/<name>.png override their code sprite
+  const heroes = loadHeroRastersNode();
+  if (heroes.size > 0) console.log(`hero rasters: ${[...heroes.keys()].join(', ')}`);
+  const atlas = buildAtlas(heroes);
 
   if (process.argv[2] === 'sprite') {
     dumpSprites(atlas, process.argv.slice(3));

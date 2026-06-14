@@ -12,11 +12,41 @@ import * as buildings from './sprites/buildingSprites';
 import * as landmarks from './sprites/landmarkSprites';
 import * as network from './sprites/networkSprites';
 import { buildAtlas, type SpriteAtlas } from './sprites/atlas';
+import { HERO_NAMES, heroCanvasDims, heroFingerprint, type HeroRaster } from './heroRasters';
 
 const DB = 'electricity-atlas';
 const STORE = 'sheets';
 
-function fingerprint(): string {
+/** Best-effort load of the outsourced hero rasters (public/heroes/<name>.png).
+ *  Each is optional — a 404, a decode error or a wrong-sized PNG is skipped and
+ *  that landmark keeps its code sprite. The atlas builder takes it from here. */
+async function loadHeroRastersBrowser(): Promise<Map<string, HeroRaster>> {
+  const out = new Map<string, HeroRaster>();
+  if (typeof fetch === 'undefined' || typeof createImageBitmap === 'undefined') return out;
+  await Promise.all(
+    HERO_NAMES.map(async (name) => {
+      const dims = heroCanvasDims(name);
+      if (!dims) return;
+      try {
+        const res = await fetch(`heroes/${name}.png`, { cache: 'force-cache' });
+        if (!res.ok) return;
+        const bmp = await createImageBitmap(await res.blob());
+        if (bmp.width !== dims.w || bmp.height !== dims.h) return;
+        const cv = new OffscreenCanvas(dims.w, dims.h);
+        const ctx = cv.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(bmp, 0, 0);
+        const data = ctx.getImageData(0, 0, dims.w, dims.h).data;
+        out.set(name, { pixels: new Uint8ClampedArray(data.buffer.slice(0)), w: dims.w, h: dims.h });
+      } catch {
+        // optional asset — fall back to the code sprite
+      }
+    }),
+  );
+  return out;
+}
+
+function fingerprint(heroes?: Map<string, HeroRaster>): string {
   const sources: string[] = [JSON.stringify(COLORS)];
   for (const mod of [world, buildings, landmarks, network]) {
     for (const v of Object.values(mod)) {
@@ -33,7 +63,8 @@ function fingerprint(): string {
   let h = 5381;
   const s = sources.join('\n');
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
-  return `a${h.toString(36)}:${sources.length}`;
+  // fold in the loaded hero rasters so swapping outsourced art rebakes
+  return `a${h.toString(36)}:${sources.length}:${heroFingerprint(heroes)}`;
 }
 
 interface StoredAtlas {
@@ -97,17 +128,20 @@ function writeCache(db: IDBDatabase, key: string, atlas: SpriteAtlas): void {
   }
 }
 
-/** The sprite atlas, from cache when the art code hasn't changed. */
+/** The sprite atlas, from cache when the art code (and hero art) hasn't
+ *  changed. Iconic heroes with a public/heroes/<name>.png override their code
+ *  sprite; everything else stays code-drawn. */
 export async function getAtlas(): Promise<SpriteAtlas> {
+  const heroes = await loadHeroRastersBrowser();
   const db = await openDb();
-  if (!db) return buildAtlas();
-  const key = fingerprint();
+  if (!db) return buildAtlas(heroes);
+  const key = fingerprint(heroes);
   const cached = await readCache(db, key);
   if (cached) {
     db.close();
     return cached;
   }
-  const atlas = buildAtlas();
+  const atlas = buildAtlas(heroes);
   writeCache(db, key, atlas);
   db.close();
   return atlas;

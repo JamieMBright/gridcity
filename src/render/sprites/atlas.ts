@@ -5,6 +5,7 @@
 // uploads this to a Pixi texture; the preview tool encodes it to PNG.
 
 import { isoDims, swAnchorDims } from './iso';
+import type { HeroRaster } from '../heroRasters';
 import {
   cottageTile,
   councilflatTile,
@@ -181,7 +182,7 @@ function trimmedExtent(
   };
 }
 
-function buildSpriteCells(): Map<string, Cell> {
+function buildSpriteCells(heroes?: Map<string, HeroRaster>): Map<string, Cell> {
   const m = new Map<string, Cell>();
   const set = (
     name: string,
@@ -192,7 +193,12 @@ function buildSpriteCells(): Map<string, Cell> {
   ): void => {
     // dims mirror the Iso constructor (sw = SW-anchored landmark blocks)
     const dims = sw ? swAnchorDims(wTiles, hTiles) : isoDims(wTiles, hTiles);
-    m.set(name, { pixels, ...trimmedExtent(pixels, dims.w, dims.h), stride: dims.w });
+    // a hero raster override replaces the code pixels in-place — same canvas
+    // size, so trim/anchor/grade are unchanged; a size mismatch is ignored so
+    // a stale PNG can never corrupt the sheet (falls back to the code sprite).
+    const hero = heroes?.get(name);
+    const px = hero && hero.w === dims.w && hero.h === dims.h ? hero.pixels : pixels;
+    m.set(name, { pixels: px, ...trimmedExtent(px, dims.w, dims.h), stride: dims.w });
   };
   // ground pass (flat tiles, no structures)
   for (let i = 0; i < 4; i++) set(`ground_grass_${i}`, groundGrassTile(i + 1));
@@ -402,8 +408,8 @@ function packMaxRects(
   return { width: usedW, height: usedH, frames };
 }
 
-export function buildAtlas(): SpriteAtlas {
-  const cells = buildSpriteCells();
+export function buildAtlas(heroes?: Map<string, HeroRaster>): SpriteAtlas {
+  const cells = buildSpriteCells(heroes);
   // largest-area first (max-side then name tiebreak) — the standard MaxRects
   // feed order; deterministic.
   const order = [...cells.entries()].sort((a, b) => {
