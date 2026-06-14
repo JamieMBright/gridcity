@@ -8,6 +8,35 @@ So: **reality is the SEED, the game's art + gameplay are the OUTPUT.**
 Recognisable-not-literal (the existing map doctrine), but now every layer is
 informed by real data instead of guessed.
 
+## Recommendation — the choice (owner asked: roads must CUT THROUGH, not dominate)
+
+**Buildings are the dominant fabric; roads are thin streets that cut through it.**
+That's what made the blank-shapes render look fantastic — the ground is nearly
+all building, and the roads are the slivers between. To get that in the game
+without roads "eating tiles":
+
+1. **Fine, core-focused tile scale (~30–40 m/tile, 256×160 over the city core).**
+   This is the lever that stops roads dominating: at ~35 m a street is ≈ one
+   tile, so it reads as a seam, not a void. Zero perf cost (same grid). Covers
+   the dense core, not the outer sprawl — the right trade for a power-network
+   game. (A bigger grid for full-metro is a later option.)
+2. **Buildings fill the blocks, from real footprints.** A tile that real
+   footprints cover becomes a building; the road-centreline tiles stay clear for
+   the street. So buildings are the majority of tiles (dominant), roads the
+   minority seams (cut through).
+3. **Roads rendered as proper thin streets** — carriageway + kerb/pavement, the
+   width by class (boulevard a touch wider, residential a hairline). Never a
+   full-tile clear-to-grass. They divide the fabric into the real block shapes.
+4. **Metadata choice for the fabric:** classify each building tile by the
+   dominant real `building=` / `amenity=` (domestic / commercial / civic /
+   industrial / retail); the ~half tagged generic `yes` inherit the
+   neighbourhood majority (+ land-use fallback). Height band from
+   `building:levels`. → the game draws its stylised per-city sprite for that
+   type+height. Real mix, game art.
+
+That's the recommendation: **fine tiles + real-footprint building fabric + thin
+cut-through streets + tag-driven types/heroes.**
+
 ## What OSM actually gives us (measured on central Paris, 98,577 buildings)
 
 Buildings are not just shapes — they're classified:
