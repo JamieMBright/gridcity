@@ -72,13 +72,30 @@ export function stepIncidents(
   const regime = w.regime ?? 'mild';
   const key = w.regimeEndsMin ?? state.simTimeMin;
 
+  // ---- named storm clearance -------------------------------------------
+  // The storm regime stamps w.activeStormName on arrival (events/weather.ts);
+  // once the front moves on, sign that same storm off by name and stand the
+  // marker down so the next storm starts clean.
+  if (regime !== 'storm' && w.activeStormName !== undefined) {
+    pushEvent(
+      state,
+      'info',
+      `Storm ${w.activeStormName} clears the region — crews stand down, count the damage`,
+    );
+    delete w.activeStormName;
+    delete w.activeStormStartMin;
+  }
+
   // ---- once-per-regime named announcement -------------------------------
   if (w.incidentKeyMin !== key) {
     if (regime === 'storm') {
+      // read the name stamped on arrival, not a fresh recompute, so the
+      // banner matches the forecast and the fault-event labels exactly
+      const name = w.activeStormName ?? stormName(state.simTimeMin);
       pushEvent(
         state,
         'bad',
-        `Storm ${stormName(state.simTimeMin)} hits the region — severe gales, overhead lines at high risk`,
+        `Storm ${name} hits the region — severe gales, overhead lines at high risk`,
       );
       w.incidentKeyMin = key;
     } else if (regime === 'heatwave') {

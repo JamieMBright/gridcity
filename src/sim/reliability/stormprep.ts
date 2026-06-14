@@ -23,7 +23,7 @@
 // permitted call-site change in tick.ts; bill.ts itself is untouched.
 
 import { VAN_OPEX_K_YR } from '../catalog';
-import { seasonFactor } from '../events/weather';
+import { seasonFactor, stormName, STORM_NAMES } from '../events/weather';
 import { pushEvent, type GameState } from '../state';
 import type { CommandResult } from '../commands';
 
@@ -46,19 +46,9 @@ export interface StormForecast {
  *  weather; Oct–Mar Atlantic lows are the set-piece. */
 export const STORM_WINTERNESS = 0.5;
 
-/** Met Office style season list (alphabetical, no Q/U/X/Y/Z). */
-const STORM_NAMES = [
-  'Aoife', 'Bram', 'Cara', 'Dafydd', 'Elin', 'Floris', 'Gerben', 'Hannah',
-  'Idris', 'Janet', 'Kayleigh', 'Lewis', 'Mavis', 'Nico', 'Orla', 'Pieter',
-  'Rhian', 'Stuart', 'Tilly', 'Violet', 'Wren',
-];
-
-/** Deterministic name for a storm window opening at this sim minute —
- *  keyed off the window's calendar day, so the banner shows the same
- *  name every tick the forecast stands. */
-export function stormName(startMin: number): string {
-  return STORM_NAMES[Math.floor(startMin / 1440) % STORM_NAMES.length] ?? 'Aoife';
-}
+// The canonical name table + keyer live on the regime authority
+// (events/weather.ts), re-exported here for the existing call sites.
+export { STORM_NAMES, stormName };
 
 /** Pure, deterministic storm forecast off the regime pre-roll: the
  *  weather machine pre-rolls nextRegime 2–6 game-days ahead (the lead

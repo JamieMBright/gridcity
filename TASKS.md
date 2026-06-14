@@ -12,13 +12,15 @@
 
 ## Open
 
-- [ ] **NAME the storms that come through (owner, 2026-06-14 05:35).** Storms
-      are already named at forecast (`stormName` → `Storm Aoife`) + arrival
-      (incidents.ts). Make it CONSISTENT end-to-end: thread ONE name for the
-      live storm (carry on the weather state) so the forecast, the arrival
-      banner, the FAULT events it causes, and the clearance all reference the
-      same named storm — and so every storm that comes through is named (not
-      a generic "storm damage").
+- [x] **NAME the storms that come through (owner, 2026-06-14 05:35).** DONE.
+      `STORM_NAMES`/`stormName` now live on the regime authority
+      (events/weather.ts); a storm regime stamps `weather.activeStormName`
+      the moment it opens (keyed off the window start, so it equals the
+      forecast name). The arrival banner, the line-down FAULT labels
+      (`Storm Bram brings down the 132 kV line`) and a new named clearance
+      notice (`Storm Bram clears the region — crews stand down`) all read
+      that one stamped name. Additive on saves (self-heals; no version bump).
+      Unit test: forecast = arrival = fault label = clearance, all one name.
 
 - [ ] **BIG FLURRY (owner, 2026-06-14 05:07): "have a go at all of them".**
   - [ ] **Place labels too BOLD/LOUD** — make the map town/landmark labels

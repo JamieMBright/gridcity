@@ -14,9 +14,12 @@ import {
   isWet,
   newWeather,
   stepWeather,
+  stormName,
   thermalDerate,
 } from '../src/sim/events/weather';
+import { rollFaults } from '../src/sim/reliability/faults';
 import { stepIncidents } from '../src/sim/events/incidents';
+import { forecastStorms } from '../src/sim/reliability/stormprep';
 import { Rng } from '../src/sim/rng';
 import type { PlacedAsset } from '../src/sim/assets';
 
@@ -87,6 +90,70 @@ describe('weather regimes cycle and storms bite', () => {
     expect([...a.regimes].sort()).toEqual([...b.regimes].sort());
     expect(a.incidents).toEqual(b.incidents);
   }, 20_000);
+});
+
+describe('named storms carry one name end to end', () => {
+  // a line + its endpoints for the fault-label leg
+  const line: PlacedAsset = {
+    id: 1, kind: 'line', level: 132, build: 'overhead', a: 100, b: 101,
+    lengthTiles: 40, capexK: 0,
+  } as PlacedAsset;
+  const byId = new Map<number, PlacedAsset>([
+    [1, line],
+    [100, { id: 100, kind: 'sub', sub: 'grid', x: 0, y: 0 } as PlacedAsset],
+    [101, { id: 101, kind: 'sub', sub: 'grid', x: 40, y: 0 } as PlacedAsset],
+  ]);
+
+  it('forecast, arrival banner, fault label and clearance all name the same storm', () => {
+    const startMin = 50 * 1440; // a winter day so the windy band escalates
+    const name = stormName(startMin);
+
+    // --- forecast: the queued storm is announced by name before it lands
+    const pre = newGame('london') as GameState;
+    pre.simTimeMin = startMin - 2 * 1440;
+    pre.weather = {
+      cloud: 0.6, wind: 0.6,
+      regime: 'windy-wet', nextRegime: 'storm', regimeEndsMin: startMin,
+    };
+    const fc = forecastStorms(pre);
+    expect(fc).toHaveLength(1);
+    expect(fc[0]!.name).toBe(`Storm ${name}`);
+
+    // --- arrival: stepWeather stamps that same name when the front crosses
+    const w = { ...pre.weather };
+    const rng = new Rng(11);
+    stepWeather(w, rng, 7.5 * 16, startMin);
+    expect(w.regime).toBe('storm');
+    expect(w.activeStormName).toBe(name);
+
+    // --- arrival banner reads the stamped name (not a recompute)
+    const arr = newGame('london') as GameState;
+    arr.simTimeMin = startMin;
+    arr.weather = { ...w };
+    arr.events.length = 0;
+    stepIncidents(arr, rng, 7.5 * 16, () => {});
+    expect(
+      arr.events.some((e) => e.msg.includes(`Storm ${name}`) && e.msg.includes('hits')),
+    ).toBe(true);
+
+    // --- fault label names it (storm-band wind + the active name)
+    let labelled = false;
+    for (let i = 0; i < 6000 && !labelled; i++) {
+      const faults = rollFaults([line], byId, new Set(), new Map(), 0.95, rng, 120, 0, undefined, name);
+      labelled = faults.some((f) => f.label === `Storm ${name} brings down the 132 kV line`);
+    }
+    expect(labelled).toBe(true);
+
+    // --- clearance: when the front moves on, the same storm signs off by name
+    const clr = arr;
+    clr.weather.regime = 'mild';
+    clr.events.length = 0;
+    stepIncidents(clr, rng, 7.5 * 16, () => {});
+    expect(
+      clr.events.some((e) => e.msg.includes(`Storm ${name}`) && e.msg.includes('clears')),
+    ).toBe(true);
+    expect(clr.weather.activeStormName).toBeUndefined();
+  });
 });
 
 describe('heatwave consequences', () => {
