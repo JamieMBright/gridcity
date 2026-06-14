@@ -203,6 +203,9 @@ describe('addPeriodResult + localStorage round-trip', () => {
 });
 
 describe('mergeCareer (cloud sign-in reconcile)', () => {
+  beforeEach(() => installLocalStorage());
+  afterEach(() => vi.unstubAllGlobals());
+
   it('takes the best of local and remote, never demoting', () => {
     addPeriodResult(80); // local: points 80, bestGrade B (assuming 80→B)
     const local = readCareer();
