@@ -8,6 +8,7 @@ import {
   LONDON_PROFILE,
   type EconomyProfile,
   type GenerationModel,
+  type MarketProfile,
   type PowerSystemProfile,
   type RegulatorProfile,
   type ResolvedProfile,
@@ -46,6 +47,8 @@ export interface CityScenario {
   generation?: GenerationModel;
   /** Regulator framing (Ofgem/RIIO default). */
   regulator?: RegulatorProfile;
+  /** National wholesale market shape (GB evening-peak default). */
+  market?: MarketProfile;
 
   /** Difficulty 1–10 and the rank a city's offer arrives at (rank wave). */
   difficulty?: number;
@@ -63,6 +66,7 @@ export function resolveProfile(s: CityScenario): ResolvedProfile {
     economy: s.economy ?? LONDON_PROFILE.economy,
     generation: s.generation ?? LONDON_PROFILE.generation,
     regulator: s.regulator ?? LONDON_PROFILE.regulator,
+    market: s.market ?? LONDON_PROFILE.market,
   };
 }
 

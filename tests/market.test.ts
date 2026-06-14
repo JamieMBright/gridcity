@@ -4,6 +4,7 @@ import {
   MIDSUMMER_MIN,
   newWeather,
   processProfile,
+  seasonFactor,
   stepWeather,
   sunFactor,
 } from '../src/sim/events/weather';
@@ -12,6 +13,17 @@ import { applyCommand } from '../src/sim/commands';
 import { ZONE } from '../src/sim/map/types';
 import { newGame } from '../src/sim/state';
 import { advanceTime, derive, solveTick } from '../src/sim/tick';
+import { nationalPriceMWh } from '../src/sim/market/dispatch';
+import {
+  AUSTRALIA_MARKET,
+  BRAZIL_MARKET,
+  FRANCE_MARKET,
+  HONGKONG_MARKET,
+  LONDON_MARKET,
+  LONDON_WEATHER,
+  type MarketProfile,
+  type WeatherProfile,
+} from '../src/sim/powerProfile';
 import {
   commissionAll,
   directBuildGen,
@@ -208,5 +220,117 @@ describe('thermal trips', () => {
     const out = solveTick(state, ctx, derive(state, ctx), false);
     expect(out.servedCustomers).toBe(0);
     void out;
+  });
+});
+
+// --- Country operating models, part 1: the national wholesale market ------
+// (powerProfile.ts MarketProfile, threaded through dispatch). GB must stay
+// bit-identical; the four national shapes must carry their real character.
+
+const MIN_PER_DAY = 1440;
+
+// A summer-peak weather profile (Australia / Hong Kong / Brazil southern or
+// subtropical pattern): GB envelopes, but the season cosine peaks in the
+// warm half so seasonFactor → 1 in their hot/wet season.
+const SUMMER_PEAK: WeatherProfile = { ...LONDON_WEATHER, peakSeason: 'summer', peakDoy: 227 };
+
+/** The exact pre-seam GB literal, recomputed independently. */
+function legacyGbPriceMWh(simTimeMin: number, regime: string | undefined): number {
+  const h = (simTimeMin / 60) % 24;
+  const evening = Math.exp(-(((h - 18.5) / 2.4) ** 2));
+  const morning = 0.35 * Math.exp(-(((h - 8) / 1.8) ** 2));
+  let p = 45 + 95 * Math.min(1, evening + morning);
+  p *= 1 + 0.3 * seasonFactor(simTimeMin);
+  if (regime === 'calm-cold') p += 60;
+  return p;
+}
+
+describe('GB national price is bit-identical under the market seam', () => {
+  it('default and explicit LONDON_MARKET reproduce the prior literals', () => {
+    for (let day = 0; day < 365; day += 5) {
+      for (let h = 0; h < 24; h++) {
+        const t = day * MIN_PER_DAY + h * 60;
+        for (const regime of [undefined, 'calm-cold', 'mild'] as const) {
+          const legacy = legacyGbPriceMWh(t, regime);
+          expect(nationalPriceMWh(t, { regime })).toBe(legacy);
+          expect(nationalPriceMWh(t, { regime }, LONDON_MARKET, LONDON_WEATHER)).toBe(legacy);
+        }
+      }
+    }
+  });
+});
+
+/** Min/max of a market's price across a fixed mid-season day. */
+function dayRange(
+  market: MarketProfile,
+  wp: WeatherProfile,
+  dayDoy = 60,
+): { min: number; max: number } {
+  let min = Infinity;
+  let max = -Infinity;
+  for (let h = 0; h < 24; h++) {
+    const p = nationalPriceMWh(dayDoy * MIN_PER_DAY + h * 60, {}, market, wp);
+    min = Math.min(min, p);
+    max = Math.max(max, p);
+  }
+  return { min, max };
+}
+
+describe('national markets carry their country character', () => {
+  it('France is a low, flat nuclear floor with near-zero carbon', () => {
+    const fr = dayRange(FRANCE_MARKET, LONDON_WEATHER);
+    const gb = dayRange(LONDON_MARKET, LONDON_WEATHER);
+    expect(fr.max).toBeLessThan(gb.max);
+    expect(fr.max - fr.min).toBeLessThan(gb.max - gb.min);
+    expect(FRANCE_MARKET.gridCarbonG).toBeLessThan(50);
+  });
+
+  it("Australia's rooftop-PV duck curve drives the midday price negative", () => {
+    let summerNoon = 0;
+    let sfMax = -1;
+    for (let d = 0; d < 365; d++) {
+      const t = d * MIN_PER_DAY + 12 * 60 + 30; // ~12:30
+      const sf = seasonFactor(t, SUMMER_PEAK);
+      if (sf > sfMax) {
+        sfMax = sf;
+        summerNoon = t;
+      }
+    }
+    expect(nationalPriceMWh(summerNoon, {}, AUSTRALIA_MARKET, SUMMER_PEAK)).toBeLessThan(0);
+    expect(AUSTRALIA_MARKET.scarcityKickMWh).toBeGreaterThan(120);
+    expect(AUSTRALIA_MARKET.gridCarbonG).toBeGreaterThan(400);
+  });
+
+  it('Hong Kong is high and stable (vertically-integrated gas)', () => {
+    const hk = dayRange(HONGKONG_MARKET, SUMMER_PEAK);
+    const fr = dayRange(FRANCE_MARKET, LONDON_WEATHER);
+    expect(hk.min).toBeGreaterThan(fr.min);
+    expect(hk.min).toBeGreaterThan(0); // never negative — no PV flood
+    expect(HONGKONG_MARKET.gridCarbonG).toBeGreaterThan(500);
+  });
+
+  it("Brazil's hydro market dears in the dry season (the bandeira)", () => {
+    let dryT = 0;
+    let wetT = 0;
+    let sfMin = 2;
+    let sfMax = -1;
+    for (let d = 0; d < 365; d++) {
+      const t = d * MIN_PER_DAY + 12 * 60;
+      const sf = seasonFactor(t, SUMMER_PEAK);
+      if (sf < sfMin) {
+        sfMin = sf;
+        dryT = t;
+      }
+      if (sf > sfMax) {
+        sfMax = sf;
+        wetT = t;
+      }
+    }
+    // same hour of day → the drought uplift is what separates them
+    const dry = nationalPriceMWh(dryT, {}, BRAZIL_MARKET, SUMMER_PEAK);
+    const wet = nationalPriceMWh(wetT, {}, BRAZIL_MARKET, SUMMER_PEAK);
+    expect(dry).toBeGreaterThan(wet);
+    expect(BRAZIL_MARKET.droughtUplift).toBeGreaterThan(0);
+    expect(BRAZIL_MARKET.gridCarbonG).toBeLessThan(150);
   });
 });

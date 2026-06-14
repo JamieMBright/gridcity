@@ -146,6 +146,112 @@ export interface GenerationModel {
 export const LONDON_GENERATION: GenerationModel = { ownership: 'tender' };
 
 // ----------------------------------------------------------------------
+// 3b. National wholesale market — the price series the player's network
+// imports at, benchmarks battery arbitrage against, and quotes on the live
+// ticker (market/dispatch.ts nationalPriceMWh). Each country sits in a
+// differently-shaped market: GB's evening-peak Atlantic system, France's
+// flat nuclear floor, Australia's rooftop-PV duck curve (negative midday,
+// extreme heatwave peaks), Brazil's hydro market under drought (the
+// bandeira flags), Hong Kong's stable vertically-integrated gas cost. The
+// shape is profile DATA so a city becomes data, not an engine fork.
+
+export interface MarketProfile {
+  /** Cheap-night wholesale floor, currency/MWh in the local money. */
+  baseMWh: number;
+  /** Evening-peak adder over the diurnal demand shape (0..1). */
+  peakMWh: number;
+  /** Midday solar trough subtracted at noon — the duck-curve depth. 0 for
+   *  a system without heavy distributed PV; large enough in Australia to
+   *  push the midday price negative. */
+  middayDipMWh: number;
+  /** Seasonal price uplift: price ×(1 + seasonalUplift·seasonFactor), so a
+   *  winter-peak system (GB/France heating) dears in winter and a
+   *  summer-peak one (Australia/HK aircon) dears in summer — the sign is
+   *  carried by the weather profile's peakSeason. */
+  seasonalUplift: number;
+  /** Which weather regime triggers the scarcity kicker (GB dunkelflaute =
+   *  calm-cold; a hot-grid system spikes in the heatwave). */
+  scarcityRegime: WeatherRegimeId;
+  /** Price adder, currency/MWh, while the scarcity regime sits overhead. */
+  scarcityKickMWh: number;
+  /** Hydro-drought uplift (Brazil): in the dry half-year the reservoirs
+   *  fall and thermal must run, so price ×(1 + droughtUplift·dryness).
+   *  Absent for non-hydro systems. */
+  droughtUplift?: number;
+  /** Grid / import carbon intensity, gCO₂/kWh — what an interconnector
+   *  import and the national benchmark carry (consumed by a later carbon
+   *  wave; shipped as data now so the four profiles are complete). */
+  gridCarbonG: number;
+}
+
+/** London / GB: reproduces the exact prior nationalPriceMWh literals
+ *  (45 floor + 95 evening-peak adder, ×(1+0.3·winterness), +60 calm-cold
+ *  dunkelflaute) — middayDip 0 and no drought, so the series is
+ *  bit-identical to the pre-seam dispatch. */
+export const LONDON_MARKET: MarketProfile = {
+  baseMWh: 45,
+  peakMWh: 95,
+  middayDipMWh: 0,
+  seasonalUplift: 0.3,
+  scarcityRegime: 'calm-cold',
+  scarcityKickMWh: 60,
+  gridCarbonG: 230,
+};
+
+/** France: a deep nuclear floor — low and flat, with a winter electric-
+ *  heating spike (France's grid is famously thermosensitive). Near-zero
+ *  carbon. */
+export const FRANCE_MARKET: MarketProfile = {
+  baseMWh: 38,
+  peakMWh: 34,
+  middayDipMWh: 6,
+  seasonalUplift: 0.22,
+  scarcityRegime: 'calm-cold',
+  scarcityKickMWh: 55,
+  gridCarbonG: 20,
+};
+
+/** Australia (NEM, Sydney): the rooftop-PV duck curve — a deep midday
+ *  trough that runs the price negative when the sun floods the grid, and
+ *  violent heatwave evening peaks. Coal-heavy grid, summer-peaking. */
+export const AUSTRALIA_MARKET: MarketProfile = {
+  baseMWh: 42,
+  peakMWh: 120,
+  middayDipMWh: 115,
+  seasonalUplift: 0.35,
+  scarcityRegime: 'heatwave',
+  scarcityKickMWh: 160,
+  gridCarbonG: 445,
+};
+
+/** Hong Kong: a vertically-integrated, regulated gas system — a stable,
+ *  high price with a modest summer-aircon swing and little volatility.
+ *  High carbon (≈69% gas). */
+export const HONGKONG_MARKET: MarketProfile = {
+  baseMWh: 72,
+  peakMWh: 42,
+  middayDipMWh: 8,
+  seasonalUplift: 0.2,
+  scarcityRegime: 'heatwave',
+  scarcityKickMWh: 45,
+  gridCarbonG: 590,
+};
+
+/** Brazil (Rio): a hydro-dominated market — cheap and clean when the
+ *  reservoirs are full, but a sharp dry-season uplift as thermal backs up
+ *  the rivers (the bandeira flags). Low carbon, 60 Hz system. */
+export const BRAZIL_MARKET: MarketProfile = {
+  baseMWh: 48,
+  peakMWh: 66,
+  middayDipMWh: 28,
+  seasonalUplift: 0.12,
+  scarcityRegime: 'heatwave',
+  scarcityKickMWh: 40,
+  droughtUplift: 0.6,
+  gridCarbonG: 110,
+};
+
+// ----------------------------------------------------------------------
 // 4. Regulator framing — riio.ts hook (display + KPI-weight overrides).
 
 export interface RegulatorProfile {
@@ -173,6 +279,7 @@ export interface ResolvedProfile {
   economy: EconomyProfile;
   generation: GenerationModel;
   regulator: RegulatorProfile;
+  market: MarketProfile;
 }
 
 /** The default active profile — London/GB, the exact pre-seam engine. */
@@ -182,4 +289,5 @@ export const LONDON_PROFILE: ResolvedProfile = {
   economy: LONDON_ECONOMY,
   generation: LONDON_GENERATION,
   regulator: LONDON_REGULATOR,
+  market: LONDON_MARKET,
 };
