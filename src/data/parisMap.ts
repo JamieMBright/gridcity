@@ -165,6 +165,15 @@ const TOWNS: TownSeed[] = [
   { x: 44, y: 108, r: 2, name: 'Sèvres' },
   { x: 20, y: 96, r: 2, name: 'Rueil' },
   { x: 96, y: 150, r: 2.5, name: 'Antony', dir: [1, 0] },
+  // the outer ring — the grande couronne towns out on the plain, with
+  // farmland between them
+  { x: 14, y: 56, r: 2.5, name: 'Saint-Germain-en-Laye' },
+  { x: 18, y: 28, r: 2, name: 'Cergy' },
+  { x: 170, y: 28, r: 2, name: 'Roissy-en-France' },
+  { x: 192, y: 100, r: 2.5, name: 'Marne-la-Vallée', dir: [1, 0] },
+  { x: 158, y: 158, r: 2, name: 'Évry' },
+  { x: 188, y: 138, r: 2, name: 'Brie' },
+  { x: 60, y: 26, r: 1.8, name: 'Sarcelles' },
 ];
 
 /** Airports for the render-side air layer (flight arcs, planes, shadows):
@@ -399,17 +408,17 @@ export function buildParisMap(): CityMap {
       );
       return (v - 0.5) * 0.24;
     };
-    const RMAX = 92; // shallow falloff: the banlieue stays built-up
+    const RMAX = 110; // shallow falloff: the dense banlieue runs far (no green belt)
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         if (!isLand(x, y)) continue;
         const i = idx(x, y);
         const d = Math.hypot(x - CENTRE.x, y - CENTRE.y);
         const noiseWeight = Math.max(0.25, Math.min(1, d / 50));
-        const v = 1.2 - d / RMAX + (boost[i] ?? 0) + noiseAt(x, y) * noiseWeight;
-        if (v >= 0.66) zone[i] = ZONE.urbanCore;
+        const v = 1.24 - d / RMAX + (boost[i] ?? 0) + noiseAt(x, y) * noiseWeight;
+        if (v >= 0.7) zone[i] = ZONE.urbanCore;
         else if (v >= 0.46) zone[i] = ZONE.urban;
-        else if (v >= 0.28) zone[i] = ZONE.suburb;
+        else if (v >= 0.26) zone[i] = ZONE.suburb;
       }
     }
   }
