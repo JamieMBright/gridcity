@@ -2,15 +2,17 @@
 // tutorial — styled as the glassy night-screen with the glowing CONTINUE.
 // First click is also our user gesture for starting the audio.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from '../app/store';
 import { newGameCommand } from '../app/workerBridge';
+import { currentUser } from '../online/auth';
 import { getAudioSettings, startMusic, updateAudioSettings } from '../audio/audio';
 import { pushSettings } from '../online/cloud';
 import { localStorageStore } from '../persistence/localStorageStore';
 import { listSlots } from '../persistence/slotStore';
 import { AccountPanel } from './AccountPanel';
 import { LessonsPage } from './LessonsPage';
+import { RankBadge } from './RankPanel';
 import { STORY_KEY } from './StoryIntro';
 import { theme } from './theme';
 import { ColourBlindSetting } from './ColourBlindSetting';
@@ -59,6 +61,19 @@ export function StartMenu() {
   const setLessonsOpen = useAppStore((s) => s.setLessonsOpen);
   const [foot, setFoot] = useState<'settings' | 'leaderboard' | 'credits' | undefined>(undefined);
   const [, force] = useState(0);
+  // guest vs signed-in: drives the gentle "sign in to keep your rank" nudge
+  // under the rank badge (signed-in players don't see it). undefined while
+  // the session check is in flight, so nothing flashes.
+  const [signedIn, setSignedIn] = useState<boolean | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    void currentUser().then((u) => {
+      if (live) setSignedIn(!!u);
+    });
+    return () => {
+      live = false;
+    };
+  }, [menuOpen]);
   if (!menuOpen) return null;
   const hasSave = localStorageStore.load() !== undefined;
   const slotCount = listSlots().length;
@@ -159,6 +174,12 @@ export function StartMenu() {
         <div style={{ color: theme.slate, fontSize: 11.5 }}>
           you are the network operator — generation, wires, vans and all
         </div>
+        <RankBadge />
+        {signedIn === false && (
+          <div style={{ color: theme.orangeSoft, fontSize: 11, marginTop: 6, lineHeight: 1.4 }}>
+            playing as a guest — sign in below to keep your rank &amp; unlock cities across devices
+          </div>
+        )}
         <AccountPanel showBoard={foot === 'leaderboard'} />
 
         {foot === 'settings' && (

@@ -20,6 +20,7 @@ import { Minimap } from '../ui/Minimap';
 import { MobileChrome } from '../ui/MobileChrome';
 import { NetZeroPanel } from '../ui/NetZeroPanel';
 import { PhotoMode } from '../ui/PhotoMode';
+import { RankUpCard } from '../ui/RankPanel';
 import { RotatePrompt } from '../ui/RotatePrompt';
 import { SavesPanel } from '../ui/SavesPanel';
 import { SearchBox } from '../ui/SearchBox';
@@ -302,6 +303,7 @@ export function App() {
       {chrome && <UndoHistory />}
       {chrome && <SevereWeatherAlert />}
       <StoryIntro />
+      {!photoMode && <RankUpCard />}
       <KpiDashboard />
       <NetZeroPanel />
       <EventLog />

@@ -21,6 +21,7 @@ import {
   type KpiHelp,
   type KpiStatus,
 } from './kpiHelp';
+import { currentRank } from './rank';
 import { panelStyle, theme } from './theme';
 
 const KEYS: KpiKey[] = ['bill', 'ci', 'cml', 'carbon', 'curtailedFirm', 'satisfaction'];
@@ -139,6 +140,27 @@ function KpiRow({
       <td style={{ textAlign: 'right', color: STATUS_COLOR[help.status] }}>{value}</td>
       <td style={{ textAlign: 'right', color: theme.slate }}>{target}</td>
     </tr>
+  );
+}
+
+/** The operator's career rank, shown beneath the last report card — the
+ *  progression signal the period close fed (src/ui/rank.ts). Re-reads the
+ *  local career on each report so a freshly-closed period is reflected. */
+function RankLine() {
+  const reportIndex = useAppStore((s) => s.snapshot?.riio.lastReport?.index);
+  const rank = currentRank();
+  return (
+    <div style={{ marginTop: 6, color: theme.slate, fontSize: 11.5 }} data-report={reportIndex}>
+      operator rank · <span style={{ color: theme.gold, fontWeight: 700 }}>{rank.tier.title}</span>
+      {rank.next ? (
+        <span>
+          {' '}
+          — {rank.pointsIntoTier}/{rank.tierSpan} to {rank.next.title}
+        </span>
+      ) : (
+        <span style={{ color: theme.gold }}> — top of the ladder</span>
+      )}
+    </div>
   );
 }
 
@@ -300,6 +322,7 @@ export function KpiDashboard() {
             >
               grade {r.lastReport.grade} ({r.lastReport.composite}/100)
             </span>
+            <RankLine />
           </div>
         )}
       </div>

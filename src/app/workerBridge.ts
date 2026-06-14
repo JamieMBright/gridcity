@@ -1,4 +1,5 @@
 import { playSfx } from '../audio/audio';
+import { currentUser } from '../online/auth';
 import { pullCloudSave, pushCloudSave, submitScore } from '../online/cloud';
 import { localStorageStore } from '../persistence/localStorageStore';
 import { pickSave } from '../persistence/saveStore';
@@ -12,6 +13,7 @@ import type {
 } from '../sim/protocol';
 import { isSaveData } from '../sim/state';
 import { computeStars, recordLessonResult } from '../ui/lessonProgress';
+import { addPeriodResult } from '../ui/rank';
 import { useAppStore } from './store';
 
 let worker: Worker | undefined;
@@ -104,6 +106,19 @@ export function initWorker(): void {
         } else if (msg.snapshot.riio.lastReport && reportIndex > lastReportIndex) {
           lastReportIndex = reportIndex;
           submitScore(msg.snapshot.riio.lastReport);
+          // a closed period also advances the operator's career rank: fold
+          // its composite into the local record. A tier increase flags a
+          // promotion the UI celebrates; guests additionally get a gentle
+          // "sign in to keep your rank" nudge (never blocks play).
+          const outcome = addPeriodResult(msg.snapshot.riio.lastReport.composite);
+          if (outcome.rankedUp) {
+            s.setRankUp(outcome.after);
+            playSfx('chime');
+            // only nudge guests — signed-in players already keep their rank
+            void currentUser().then((u) => {
+              if (!u) useAppStore.getState().setLoginNudge(true);
+            });
+          }
         }
         break;
       }
