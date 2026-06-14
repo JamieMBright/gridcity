@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { AlertsFeed, EventLog } from '../ui/AlertsFeed';
 import { AssetGuide } from '../ui/AssetGuide';
+import { AuthCallback } from '../ui/AuthCallback';
 import { BalancePanel } from '../ui/BalancePanel';
 import { BillPanel } from '../ui/BillPanel';
 import { BuildLabelChip } from '../ui/BuildLabelChip';
@@ -315,6 +316,9 @@ export function App() {
       <HudTour />
       <HotkeyHelp />
       <AssetGuide />
+      {/* the email-link landing page (password reset / confirm / magic link)
+          — renders over everything, including the start menu */}
+      <AuthCallback />
       {chrome && <TemplatePaste />}
     </div>
   );

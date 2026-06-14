@@ -4,6 +4,7 @@
 import type { ReportCard } from '../sim/regulation/riio';
 import { isSaveData, type SaveData } from '../sim/state';
 import type { AudioSettings } from '../audio/audio';
+import { currentRank, mergeCareer, readCareer, type CareerRecord } from '../ui/rank';
 import { supabase } from './supabase';
 
 const PUSH_DEBOUNCE_MS = 45_000;
@@ -15,6 +16,58 @@ async function userId(): Promise<string | undefined> {
   if (!sb) return undefined;
   const { data } = await sb.auth.getSession();
   return data.session?.user.id;
+}
+
+// --- operator rank (career) cloud sync (progression table) -------------------
+
+/** Pull the cloud career, best-of-merge it into the local record, then push
+ *  the merged result back — so a fresh device inherits the rank and the
+ *  cloud never loses a better local run. Best-effort; no-op for guests.
+ *  Call on sign-in and at startup when already signed in. */
+export async function syncRank(): Promise<void> {
+  const sb = supabase();
+  const id = await userId();
+  if (!sb || !id) return;
+  try {
+    const { data } = await sb
+      .from('progression')
+      .select('points, periods, best_grade')
+      .eq('user_id', id)
+      .maybeSingle();
+    const remote: Partial<CareerRecord> | undefined = data
+      ? {
+          points: data.points as number,
+          periods: data.periods as number,
+          bestGrade: (data.best_grade ?? undefined) as CareerRecord['bestGrade'],
+        }
+      : undefined;
+    const merged = mergeCareer(remote);
+    await pushRank(merged);
+  } catch {
+    // best-effort: rank stays local-only on any failure
+  }
+}
+
+/** Upsert the local (or given) career to the cloud for the signed-in user. */
+export async function pushRank(rec: CareerRecord = readCareer()): Promise<void> {
+  const sb = supabase();
+  const id = await userId();
+  if (!sb || !id) return;
+  try {
+    await sb.from('progression').upsert(
+      {
+        user_id: id,
+        points: rec.points,
+        periods: rec.periods,
+        best_grade: rec.bestGrade ?? null,
+        tier: currentRank().tier.index,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' },
+    );
+  } catch {
+    // best-effort
+  }
 }
 
 export async function pullCloudSave(): Promise<SaveData | undefined> {

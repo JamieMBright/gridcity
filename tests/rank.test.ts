@@ -10,6 +10,7 @@ import {
   applyPeriod,
   currentRank,
   MAX_TIER,
+  mergeCareer,
   rankForPoints,
   readCareer,
   TIERS,
@@ -198,5 +199,29 @@ describe('addPeriodResult + localStorage round-trip', () => {
   it('survives a corrupt stored value by resetting to empty', () => {
     localStorage.setItem('ec-operator-rank-v1', '{not json');
     expect(readCareer()).toEqual({ points: 0, periods: 0, bestGrade: undefined });
+  });
+});
+
+describe('mergeCareer (cloud sign-in reconcile)', () => {
+  beforeEach(() => installLocalStorage());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('takes the best of local and remote, never demoting', () => {
+    addPeriodResult(80); // local: points 80, bestGrade B (assuming 80→B)
+    const local = readCareer();
+    const merged = mergeCareer({ points: 300, periods: 4, bestGrade: 'A' });
+    expect(merged.points).toBe(Math.max(local.points, 300));
+    expect(merged.periods).toBe(Math.max(local.periods, 4));
+    expect(merged.bestGrade).toBe('A');
+    // a weaker remote never lowers the local record
+    const after = mergeCareer({ points: 10, periods: 0, bestGrade: 'E' });
+    expect(after.points).toBe(merged.points);
+    expect(after.bestGrade).toBe('A');
+  });
+
+  it('is a no-op for an undefined remote', () => {
+    addPeriodResult(50);
+    const before = readCareer();
+    expect(mergeCareer(undefined)).toEqual(before);
   });
 });
