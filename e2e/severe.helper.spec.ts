@@ -29,6 +29,16 @@ async function injectStorm(page: P, severity: number, etaDays: number): Promise<
         s.setSnapshot({
           ...snap,
           stormForecast: [{ name: 'Storm Vesper', etaMin: sim + etaDays * 1440, severity }],
+          // a call surge with the centre understaffed → answer time at risk,
+          // so the call-response readout shows the >5s / CSAT-risk state
+          callHandling: {
+            volume: 6000,
+            capacity: 1500,
+            answerSeconds: 167,
+            targetSeconds: 5,
+            csatDelta: -22,
+            draftedHandlers: 0,
+          },
         } as never);
       };
       stamp();

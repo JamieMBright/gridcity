@@ -144,6 +144,17 @@ export interface GameState {
    *  here and decay with a 1-game-year tau; rides the bill's
    *  constraint/damages line via computeBill's penaltyYrK input). */
   stormPrepYrK?: number | undefined;
+  /** Storm-prep SCOUTS (reliability/stormprep.ts): office staff drive the
+   *  lines to find faults faster — restoration runs quicker until this
+   *  game-minute (tick.ts scales the fleet step). Additive optional. */
+  scoutsUntilMin?: number | undefined;
+  /** Storm-prep WIDER CALL HANDLING: office staff drafted onto the phones
+   *  until this game-minute… */
+  callHandlersUntilMin?: number | undefined;
+  /** …and this many of them (lifts the call-handling capacity so storm
+   *  call answer time stays inside target → CSAT protected). Additive
+   *  optional, both hydrate to undefined on pre-feature saves. */
+  callHandlersExtra?: number | undefined;
   /** Planned maintenance windows (#16): queued/open outages applied by
    *  tick.ts at their 01:00–05:00 window (reliability/ageing.ts). */
   maintenance?: MaintenanceWindow[] | undefined;
@@ -516,6 +527,10 @@ export interface SaveData {
   surgeUntilMin?: number;
   surgeVans?: number;
   stormPrepYrK?: number;
+  /** Storm-prep scouts + wider-call-handling windows (additive). */
+  scoutsUntilMin?: number;
+  callHandlersUntilMin?: number;
+  callHandlersExtra?: number;
   /** Planned maintenance windows (#16, additive). */
   maintenance?: MaintenanceWindow[];
   /** Rolling maintenance/replacement spend, £k/yr (#15/#16, additive). */
@@ -597,6 +612,11 @@ export function serialize(s: GameState): SaveData {
     ...(s.surgeUntilMin !== undefined ? { surgeUntilMin: s.surgeUntilMin } : {}),
     ...(s.surgeVans !== undefined ? { surgeVans: s.surgeVans } : {}),
     ...(s.stormPrepYrK !== undefined ? { stormPrepYrK: s.stormPrepYrK } : {}),
+    ...(s.scoutsUntilMin !== undefined ? { scoutsUntilMin: s.scoutsUntilMin } : {}),
+    ...(s.callHandlersUntilMin !== undefined
+      ? { callHandlersUntilMin: s.callHandlersUntilMin }
+      : {}),
+    ...(s.callHandlersExtra !== undefined ? { callHandlersExtra: s.callHandlersExtra } : {}),
     ...(s.maintenance && s.maintenance.length > 0
       ? { maintenance: s.maintenance.map((m) => ({ ...m })) }
       : {}),
@@ -697,6 +717,9 @@ export function deserialize(d: SaveData): GameState {
     surgeUntilMin: d.surgeUntilMin,
     surgeVans: d.surgeVans,
     stormPrepYrK: d.stormPrepYrK,
+    scoutsUntilMin: d.scoutsUntilMin,
+    callHandlersUntilMin: d.callHandlersUntilMin,
+    callHandlersExtra: d.callHandlersExtra,
     maintenance: d.maintenance?.map((m) => ({ ...m })),
     maintYrK: d.maintYrK,
     // #53/#54/#55 — additive: absent fields hydrate to neutral (no org,

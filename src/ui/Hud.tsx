@@ -128,8 +128,9 @@ function NewsTicker() {
   );
 }
 
-/** Storm warning strip: the regime forecast gives days of notice — hire
- *  surge crews while there's still time. */
+/** Storm warning strip: the regime forecast gives days of notice — scale
+ *  up storm shifts while there's still time (the full system-prepare —
+ *  scouts + wider call handling — lives in the escalated SevereWeatherAlert). */
 function StormBanner() {
   const snapshot = useAppStore((s) => s.snapshot);
   const storm = snapshot?.stormForecast?.[0];
@@ -157,7 +158,7 @@ function StormBanner() {
       </span>
       {!surging && (
         <button
-          onClick={() => sendCommand({ type: 'stormPrep', action: 'surge', days: 4 })}
+          onClick={() => sendCommand({ type: 'stormPrep', action: 'shifts', days: 4 })}
           style={{
             padding: '2px 8px',
             borderRadius: 5,
@@ -169,10 +170,10 @@ function StormBanner() {
             cursor: 'pointer',
           }}
         >
-          hire surge crews (4d)
+          scale up shifts (4d)
         </button>
       )}
-      {surging && <span style={{ color: theme.ok, fontSize: 11 }}>surge crews on standby ✓</span>}
+      {surging && <span style={{ color: theme.ok, fontSize: 11 }}>extra shifts rostered ✓</span>}
     </div>
   );
 }

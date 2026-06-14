@@ -89,7 +89,13 @@ export function describeCommand(cmd: Command, before: GameState): string {
     case 'setVegPolicy':
       return `set vegetation policy to ${cmd.policy}`;
     case 'stormPrep':
-      return cmd.action === 'surge' ? 'hired surge crews' : 'cut vegetation';
+      return cmd.action === 'surge' || cmd.action === 'shifts'
+        ? 'scaled up storm shifts'
+        : cmd.action === 'scouts'
+          ? 'activated storm scouts'
+          : cmd.action === 'callHandling'
+            ? 'opened wider call handling'
+            : 'cut vegetation';
     case 'setSmartCharging':
       return cmd.on ? 'funded smart charging' : 'wound down smart charging';
     case 'setDirectorate':

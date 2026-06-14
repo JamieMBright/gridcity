@@ -55,7 +55,7 @@ import {
 import { touSatisfactionOffset } from './events/innovation';
 import { applyMaintenanceWindows, maintRateYrK, networkHealthPct } from './reliability/ageing';
 import { growVegetation, isStorm, rollFaults } from './reliability/faults';
-import { stormPrepYrK } from './reliability/stormprep';
+import { callCsatDelta, callHandlingView, scoutSpeedMul, stormPrepYrK } from './reliability/stormprep';
 import { hseFineYrK, rolloverSafetyPeriod, stepSafety } from './reliability/safety';
 import {
   connectionCadenceMul,
@@ -463,11 +463,15 @@ export function solveTick(
     // engaged, well-staffed control room drives and repairs faster, so
     // faults clear sooner (lower CML). Scaling the fleet step's dtMin
     // speeds travel AND repair proportionally — without touching fleet.ts.
+    // Storm-prep SCOUTS stack on top: office staff driving the lines find
+    // faults sooner, so jobs hand off (and the contractor clock ticks)
+    // faster over the scout window — the eyes-on-the-network restoration
+    // benefit (reliability/stormprep.ts scoutSpeedMul).
     const fleet = stepFleet(
       state.vans,
       state.jobs,
       state.assets.values(),
-      dtMin * fleetSpeedMul(state.org),
+      dtMin * fleetSpeedMul(state.org) * scoutSpeedMul(state),
     );
     for (const r of fleet.restored) {
       state.outages.delete(r.branchId);
@@ -799,6 +803,18 @@ export function solveTick(
     }
   }
 
+  // storm call-handling CSAT: the interrupted-customer count drives call
+  // volume; if it overwhelms the (baseline + drafted) call-handling
+  // capacity the answer time blows past the < 5 s target and CSAT takes a
+  // transient hit (reliability/stormprep.ts). We measure interruptions as
+  // customers who HAD supply and lost it (everServed − servedCustomers) —
+  // the same dark-served proxy the group-litigation accumulator uses — so
+  // a day-0 unenergized grid raises no calls. Folds into the satisfaction
+  // TARGET in stepCouncils (anger-fast per adoption.ts).
+  const interruptedCustomers = Math.max(0, everServed - servedCustomers);
+  const callView = callHandlingView(state, interruptedCustomers);
+  const callCsat = callCsatDelta(callView.answerSeconds);
+
   // councils: adoption + satisfaction (and accepted-connection progress)
   const { satisfactionAvg, smartChargingYrK } = stepCouncils(
     state,
@@ -807,6 +823,7 @@ export function solveTick(
     coverage,
     pf,
     dtMin,
+    callCsat,
   );
 
   const branches = buildBranchViews(state, pf, lossOfBranch);
@@ -961,6 +978,7 @@ function stepCouncils(
   coverage: Uint8Array,
   pf: PowerFlowResult,
   dtMin: number,
+  callCsat: number,
 ): { satisfactionAvg: number; smartChargingYrK: number } {
   const { map } = ctx;
   interface Agg {
@@ -1027,6 +1045,17 @@ function stepCouncils(
         // resourced, engaged customer team lifts the mood and wins trust
         // back faster after an outage
         target = Math.min(100, Math.max(0, target + touOffset + satisfactionBonus(state.org)));
+        // storm call-handling: if the call centre can't answer inside the
+        // < 5 s target during the surge, the residents who are OFF supply
+        // and can't get through punish the mood. The licence-wide answer-
+        // time CSAT delta lands in proportion to THIS council's off
+        // fraction — the people actually on hold — so a well-supplied
+        // council barely feels it (their lights are on, they're not
+        // calling). Negative only; adequate call handling = no hit.
+        if (callCsat < 0) {
+          const offFrac = agg.tot > 0 ? agg.off / agg.tot : 0;
+          target = Math.max(0, target + callCsat * offFrac);
+        }
       }
       stepSatisfaction(cs, target, dtMin);
       const before = { ev: cs.ev, hp: cs.hp, pv: cs.pv };
