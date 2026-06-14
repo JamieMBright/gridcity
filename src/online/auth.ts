@@ -70,7 +70,16 @@ export async function signUpWithPassword(
     }
     return error.message;
   }
-  // No session means email confirmation is required before sign-in.
+  // Supabase anti-enumeration: signing up an ALREADY-registered email
+  // returns a user with NO identities and no session — and sends no email.
+  // We used to misreport that as "check your email to confirm" (so the
+  // user waits forever for a mail that never comes). Detect it and tell
+  // them to sign in instead.
+  if (data.user && (data.user.identities?.length ?? 0) === 0) {
+    return 'that email already has an account — sign in instead';
+  }
+  // No session (with identities present) means the project requires email
+  // confirmation before sign-in.
   if (!data.session) return CONFIRM_EMAIL;
   return ensureUsername(username);
 }
