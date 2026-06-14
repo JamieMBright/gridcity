@@ -649,71 +649,79 @@ export function notredameTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const P2 = (u: number, v: number, z: number): Pt => iso.P(u, v, z);
   iso.shadow(0.32, 0.44, 1.8, 1.84, 0.22, 0.24);
 
-  // 2×2 footprint, drawn TALL so it towers over the surrounding fabric.
-  const nu0 = 0.68;
-  const nu1 = 1.32;
-  const nv0 = 0.6; // apse (back)
-  const nv1 = 1.64; // crossing toward the front
-  const navH = 42;
+  // 2×2 footprint, drawn TALL and WIDE so it towers over the surrounding
+  // fabric (ordinary tower blocks read ~96px; the twin west towers must clear
+  // that decisively). Fill the square: the building spans nearly the full 2
+  // tiles, and the silhouette climbs well above the neighbours.
+  const nu0 = 0.66;
+  const nu1 = 1.34;
+  const nv0 = 0.52; // apse (back)
+  const nv1 = 1.7; // crossing toward the front
+  const navH = 60;
 
-  // side aisles (lower) flanking the nave, with lean-to lead roofs
-  iso.box(0.44, nv0 + 0.08, nu0, nv1, 0, 24, GST);
-  iso.box(nu1, nv0 + 0.08, 1.56, nv1, 0, 24, GST);
-  iso.quad(0.44, nv0 + 0.08, nu0, nv1, 24, shaded(ROOF, 0.04));
-  iso.quad(nu1, nv0 + 0.08, 1.56, nv1, 24, lit(ROOF, 0.04));
+  // side aisles (lower) flanking the nave, with lean-to lead roofs — pushed
+  // wider (0.28..1.72) so the mass fills the square
+  iso.box(0.28, nv0 + 0.08, nu0, nv1, 0, 38, GST);
+  iso.box(nu1, nv0 + 0.08, 1.72, nv1, 0, 38, GST);
+  iso.quad(0.28, nv0 + 0.08, nu0, nv1, 38, shaded(ROOF, 0.04));
+  iso.quad(nu1, nv0 + 0.08, 1.72, nv1, 38, lit(ROOF, 0.04));
   // tall pointed lancet windows down the visible (left) aisle wall
-  for (let i = 0; i < 6; i++) {
-    const u = 0.52 + i * 0.11;
+  for (let i = 0; i < 7; i++) {
+    const u = 0.36 + i * 0.12;
     iso.r.poly(
-      [P2(u, nv1, 7), P2(u + 0.05, nv1, 7), P2(u + 0.05, nv1, 18), P2(u + 0.025, nv1, 22), P2(u, nv1, 18)],
+      [P2(u, nv1, 10), P2(u + 0.055, nv1, 10), P2(u + 0.055, nv1, 28), P2(u + 0.028, nv1, 34), P2(u, nv1, 28)],
       GLASS,
     );
   }
 
   // the nave clerestory + steep gable roof (ridge front-to-back along v)
   iso.box(nu0, nv0, nu1, nv1, 0, navH, GST);
-  iso.gable(nu0, nv0, nu1, nv1, navH, 26, 'v', ROOF, GST);
+  iso.gable(nu0, nv0, nu1, nv1, navH, 34, 'v', ROOF, GST);
 
   // rounded apse / chevet at the back (low v) under a conical roof
-  iso.box(nu0 + 0.04, nv0 - 0.16, nu1 - 0.04, nv0 + 0.08, 0, navH - 8, GST);
-  iso.hip(nu0, nv0 - 0.2, nu1, nv0 + 0.12, navH - 8, 18, ROOF);
+  iso.box(nu0 + 0.04, nv0 - 0.16, nu1 - 0.04, nv0 + 0.08, 0, navH - 10, GST);
+  iso.hip(nu0, nv0 - 0.2, nu1, nv0 + 0.12, navH - 10, 22, ROOF);
 
   // suggested flying buttresses along the apse flanks
-  for (const v of [nv0 + 0.04, nv0 + 0.32, nv0 + 0.6]) {
-    iso.r.line(P2(0.44, v, 22), P2(nu0, v, navH - 5), 1.4 * RES, GST_D);
-    iso.r.line(P2(1.56, v, 22), P2(nu1, v, navH - 5), 1.4 * RES, GST_D);
+  for (const v of [nv0 + 0.04, nv0 + 0.34, nv0 + 0.64]) {
+    iso.r.line(P2(0.28, v, 34), P2(nu0, v, navH - 6), 1.6 * RES, GST_D);
+    iso.r.line(P2(1.72, v, 34), P2(nu1, v, navH - 6), 1.6 * RES, GST_D);
   }
 
   // the central flèche (spire) over the crossing — towers far above the city
   const su = (nu0 + nu1) / 2;
-  const sv = nv0 + (nv1 - nv0) * 0.4;
-  iso.box(su - 0.05, sv - 0.05, su + 0.05, sv + 0.05, navH + 26, navH + 38, GST_D, { ink: false });
-  const base = P2(su, sv, navH + 38);
-  const tip = P2(su, sv, navH + 96);
-  iso.r.poly([[base[0] - 6 * RES, base[1]], tip, [base[0], base[1] - 2 * RES]], shaded(ROOF, 0.12));
-  iso.r.poly([[base[0], base[1] - 2 * RES], tip, [base[0] + 6 * RES, base[1]]], lit(ROOF, 0.1));
-  iso.r.polyline([[base[0] - 6 * RES, base[1]], tip, [base[0] + 6 * RES, base[1]]], INK_W * 0.8, INK);
-  iso.r.line(tip, [tip[0], tip[1] - 8 * RES], 1.4 * RES, COLORS.glassLit);
+  const sv = nv0 + (nv1 - nv0) * 0.42;
+  iso.box(su - 0.05, sv - 0.05, su + 0.05, sv + 0.05, navH + 30, navH + 44, GST_D, { ink: false });
+  const base = P2(su, sv, navH + 44);
+  const tip = P2(su, sv, navH + 118);
+  iso.r.poly([[base[0] - 7 * RES, base[1]], tip, [base[0], base[1] - 2 * RES]], shaded(ROOF, 0.12));
+  iso.r.poly([[base[0], base[1] - 2 * RES], tip, [base[0] + 7 * RES, base[1]]], lit(ROOF, 0.1));
+  iso.r.polyline([[base[0] - 7 * RES, base[1]], tip, [base[0] + 7 * RES, base[1]]], INK_W * 0.8, INK);
+  iso.r.line(tip, [tip[0], tip[1] - 9 * RES], 1.6 * RES, COLORS.glassLit);
 
-  // twin FLAT-TOPPED west towers at the front (high v) — the dominant masses
-  for (const tu of [0.56, 1.44] as const) {
-    iso.box(tu - 0.2, 1.56, tu + 0.2, 1.84, 0, 78, GST);
-    // pointed belfry opening on the front face
-    iso.r.poly(
-      [P2(tu - 0.1, 1.84, 44), P2(tu + 0.1, 1.84, 44), P2(tu + 0.1, 1.84, 66), P2(tu, 1.84, 72), P2(tu - 0.1, 1.84, 66)],
-      GLASS,
-    );
+  // twin FLAT-TOPPED west towers at the front (high v) — the dominant masses,
+  // drawn TALL (z≈120, well above the ordinary tower fabric) and wide-set
+  for (const tu of [0.52, 1.48] as const) {
+    iso.box(tu - 0.26, 1.6, tu + 0.26, 1.9, 0, 120, GST);
+    // two stacked pointed belfry openings on the front face
+    for (const [zb, zt, zp] of [[58, 84, 90], [94, 112, 118]] as const) {
+      iso.r.poly(
+        [P2(tu - 0.13, 1.9, zb), P2(tu + 0.13, 1.9, zb), P2(tu + 0.13, 1.9, zt), P2(tu, 1.9, zp), P2(tu - 0.13, 1.9, zt)],
+        GLASS,
+      );
+    }
     // the gallery parapet + four corner pinnacles (flat top, no spire)
-    iso.box(tu - 0.22, 1.54, tu + 0.22, 1.86, 78, 83, lighten(GST, 0.08), { ink: false });
-    for (const [pu, pv] of [[tu - 0.2, 1.56], [tu + 0.2, 1.56], [tu - 0.2, 1.84], [tu + 0.2, 1.84]] as const) {
-      iso.box(pu - 0.026, pv - 0.026, pu + 0.026, pv + 0.026, 83, 93, GST_D, { ink: false });
+    iso.box(tu - 0.28, 1.58, tu + 0.28, 1.92, 120, 126, lighten(GST, 0.08), { ink: false });
+    for (const [pu, pv] of [[tu - 0.26, 1.6], [tu + 0.26, 1.6], [tu - 0.26, 1.9], [tu + 0.26, 1.9]] as const) {
+      iso.box(pu - 0.03, pv - 0.03, pu + 0.03, pv + 0.03, 126, 140, GST_D, { ink: false });
     }
   }
 
-  // west-front gable wall + the great ROSE WINDOW + three portals
-  iso.box(0.76, 1.72, 1.24, 1.84, 0, 56, GST);
-  const [rx, ry] = P2(1.0, 1.84, 40);
-  const RR = 11 * RES;
+  // west-front gable wall + the great ROSE WINDOW + three portals, between the
+  // towers and rising with them
+  iso.box(0.74, 1.78, 1.26, 1.9, 0, 88, GST);
+  const [rx, ry] = P2(1.0, 1.9, 64);
+  const RR = 14 * RES;
   const rose: Pt[] = [];
   for (let i = 0; i <= 18; i++) {
     const a = (i / 18) * Math.PI * 2;
@@ -721,11 +729,11 @@ export function notredameTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   }
   iso.r.poly(rose, GLASS);
   iso.r.polyline(rose, INK_W * 0.7, INK, true);
-  iso.r.line([rx - RR, ry], [rx + RR, ry], 1 * RES, alpha(COLORS.white, 0.55));
-  iso.r.line([rx, ry - RR * 0.92], [rx, ry + RR * 0.92], 1 * RES, alpha(COLORS.white, 0.55));
-  for (const pu of [0.86, 1.0, 1.14]) {
+  iso.r.line([rx - RR, ry], [rx + RR, ry], 1.2 * RES, alpha(COLORS.white, 0.55));
+  iso.r.line([rx, ry - RR * 0.92], [rx, ry + RR * 0.92], 1.2 * RES, alpha(COLORS.white, 0.55));
+  for (const pu of [0.84, 1.0, 1.16]) {
     iso.r.poly(
-      [P2(pu - 0.04, 1.84, 0), P2(pu + 0.04, 1.84, 0), P2(pu + 0.04, 1.84, 13), P2(pu, 1.84, 17), P2(pu - 0.04, 1.84, 13)],
+      [P2(pu - 0.05, 1.9, 0), P2(pu + 0.05, 1.9, 0), P2(pu + 0.05, 1.9, 17), P2(pu, 1.9, 23), P2(pu - 0.05, 1.9, 17)],
       darken(GST_D, 0.22),
     );
   }
@@ -843,8 +851,9 @@ export function grandTile(seed: number, variant: number): Uint8ClampedArray<Arra
   const roof = roofSet[(variant >> 1) % roofSet.length] ?? LEAD;
   const crown = variant % 4;
   // tall enough to TOWER over the ordinary fabric (Haussmann reads ~70px with
-  // its mansard) — a hero must stand proud by height, not just footprint.
-  const H = 64 + (variant % 3) * 16; // 64..96, + the crown above
+  // its mansard, ordinary towers ~96) — a hero must stand proud by HEIGHT, not
+  // just footprint, or a wide 3×3 block just reads as a flat "marble square".
+  const H = 100 + (variant % 3) * 16; // 100..132, + the crown above
   const u0 = 0.36;
   const u1 = 2.64;
   const v0 = 0.45;
@@ -922,9 +931,24 @@ export function grandTile(seed: number, variant: number): Uint8ClampedArray<Arra
     iso.r.line([clx - 3.4 * S, cly], [clx + 3.4 * S, cly], 1.4 * S, COLORS.white); // clock face hint
     iso.hip(cx - 0.27, v0 + 0.27, cx + 0.27, v0 + 0.81, H + 38, 15, roof);
   } else {
-    // a flat roof with a statued balustrade + central acroterion
-    iso.box(cx - 0.75, cy - 0.63, cx + 0.75, cy + 0.63, H + 3, H + 7, lighten(stone, 0.04), { ink: false });
-    for (const su of [u0 + 0.18, cx, u1 - 0.18]) {
+    // a raised central attic storey + a crowning lantern cupola, so even the
+    // "no dome/tower" variant has vertical punctuation (never a flat slab top)
+    iso.box(cx - 0.6, cy - 0.5, cx + 0.6, cy + 0.5, H + 3, H + 26, lighten(stone, 0.04));
+    iso.windowsLeft(cy + 0.5, cx - 0.5, cx + 0.5, H + 8, H + 22, 4, alpha(COLORS.glassDark, 0.8), COLORS.white);
+    // octagonal lantern + small dome on top
+    iso.box(cx - 0.22, cy - 0.22, cx + 0.22, cy + 0.22, H + 26, H + 38, lighten(stone, 0.1));
+    const [lx, lyB] = iso.P(cx, cy, H + 38);
+    const LR = 0.24 * (CELL_W / 2);
+    const cup: Pt[] = [];
+    for (let i = 0; i <= 16; i++) {
+      const a = Math.PI * (i / 16);
+      cup.push([lx + Math.cos(a) * LR, lyB - Math.sin(a) * LR * 1.2]);
+    }
+    iso.r.poly(cup, shaded(roof, 0.05), lit(roof, 0.06));
+    iso.r.polyline(cup, INK_W * 0.9, INK);
+    iso.r.line([lx, lyB - LR * 1.2], [lx, lyB - LR * 1.2 - 9 * RES], 1.4 * RES, COLORS.glassLit);
+    // statued balustrade along the front cornice
+    for (const su of [u0 + 0.18, u1 - 0.18]) {
       iso.box(su - 0.04, v1 - 0.09, su + 0.04, v1, H + 3, H + 13, lighten(stone, 0.1), { ink: false });
     }
   }

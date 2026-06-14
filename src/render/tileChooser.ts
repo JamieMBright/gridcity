@@ -185,7 +185,7 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
         xx >= 0 && xx < map.width && yy >= 0 && yy < map.height &&
         (map.landmark?.[yy * map.width + xx] ?? LANDMARK.none) === LANDMARK.grand;
       const anchorG = !sameG(x - 1, y) && !sameG(x, y + 1) && !sameG(x - 1, y + 1);
-      return anchorG ? `lm_grand${tileHash(x, y) % 6}` : undefined;
+      return anchorG ? `lm_grand${tileHash(x, y) % 4}` : undefined;
     }
     const name = LANDMARK_SPRITE[lm];
     if (name && BLOCK_LANDMARKS.has(lm)) {
