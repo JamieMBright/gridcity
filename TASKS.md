@@ -12,7 +12,97 @@
 
 ## Open
 
-- [x] **AUTH BUG (owner, 2026-06-14 06:37): "created account → check email →
+- [ ] **CITY-REALISM: reference-anchored render loop + bespoke repo skill
+      (owner, 2026-06-14 09:52). "You're too easily pleased — go hard in
+      pursuit of perfection."** Owner critique of my Arc/Étoile render vs the
+      real aerial photo: (a) NO roundabout — the Place de l'Étoile is a giant
+      circular carriageway with the Arc on a central island; I drew lines to a
+      point; (b) avenues are GRASS, not paved boulevards lined continuously
+      with buildings to the kerb (I cleared them to park to make them visible
+      — reads as a garden city); (c) wall-to-wall identical buildings on a
+      green underlay, no courtyards/gaps (real Haussmann = perimeter blocks
+      around interior courtyards, varied frontage, paved street grid). Same
+      lens damns London (Canary Wharf with no One Canada Square + no dock
+      water isn't Canary Wharf).
+  - **Root cause:** I grade renders against my own vibes, not the real place.
+  - **THE FIX — discipline mechanisms (bake into the skill):** (1) reference-
+    pinned critique — no verdict without the real aerial/photo on screen;
+    (2) defect quota — list ≥6 concrete differences from the reference before
+    the word "good" is allowed; (3) binary PASS/FAIL rubric (roundabout
+    present? ground paved? buildings front the street? courtyards? landmark
+    to scale? would a LOCAL recognise it?) — any FAIL → iterate; (4) owner is
+    the final rubric — each district ends with a side-by-side sent to owner.
+  - **Bespoke repo skill `city-realism`** (`.claude/skills/city-realism/`):
+    forces DOSSIER → BUILD → CRITIQUE → GATE.
+    - DOSSIER (saved `docs/cities/<city>/`): real road topology (roundabouts,
+      block shapes, street grid) ideally as OSM geometry; architecture specs
+      per typology via WebSearch (Haussmann apt: 6–7 storeys, 45° mansard,
+      continuous balconies fl.2&5, perimeter-block-around-courtyard; HLM;
+      hôpital; school; warehouse; La Défense towers; …); per-landmark visual
+      spec; ground-surface map (paved boulevards/cobbles vs parks).
+    - BUILD → CRITIQUE (render far/mid/close + per-landmark crops, run the
+      rubric with the reference open) → GATE.
+  - **ENGINE work the critique demands (the renderer currently CAN'T draw
+    these):** (1) roundabout/`place` primitive — circular paved carriageway +
+    central-island monument; (2) paved boulevards WITH continuous building
+    frontage (kill the grass-clearing hack); (3) block+courtyard street-grid
+    generator (perimeter blocks, interior courtyards, streets between); (4)
+    ground-surface correctness (city = cobble/asphalt, never grass underlay);
+    (5) building variety + an "iconic building" vocabulary (One Canada Square,
+    dock water, the wedge Haussmann blocks).
+  - **Tools/services (owner will pay/register):** HIGHEST value = OSM
+    Overpass (free) for exact roads/roundabouts/footprints — needs
+    `overpass-api.de` (+ `*.overpass-api.de`, `nominatim.openstreetmap.org`,
+    `*.tile.openstreetmap.org`) added to the env network egress via the
+    **Custom** access level (TICK "also include default package managers" so
+    npm/GitHub still work). Owner is setting this up + starting a FRESH
+    session (the network policy is fixed at session start). First test in the
+    new session: `curl overpass-api.de` for the Étoile, report way counts.
+    Mapbox/Google satellite (paid) = optional references. AI image-gen
+    (Higgsfield/MJ/SD) = NOT for shipping sprites (game art stays
+    deterministic code) — only reference/mood boards.
+  - **Phasing:** 1) build the skill + dossier (Étoile, from owner's photo +
+    WebSearch); 2) engine (roundabout + paved boulevards + block/courtyard +
+    ground fix) on a tiny test district; 3) PROOF: redo the Étoile to the
+    "a Parisian is impressed" bar, send owner the side-by-side (go/no-go);
+    4) roll across Paris + BACK-FIX London (Canary Wharf docks+towers);
+    5) new cities = fill the dossier.
+
+- [ ] **TUTORIAL 1 (First Light) — mobile playtest fixes (owner, 2026-06-14
+      10:41; all tested on MOBILE).** The campaign-as-tutorial needs a polish
+      pass so step 1 teaches cleanly on a phone:
+  - [ ] CAMERA: step 0 must open CENTRED on Aldesbrook/the town — currently it
+        only centres after you press "next".
+  - [ ] SPOTLIGHT highlight (the big one): replace the clumsy inbox-style
+        highlight with a proper DIM-EVERYTHING-ELSE spotlight + a slow looping
+        pulse/flash on JUST the target (e.g. the onshore wind farm at step 2),
+        persisting until the target is tapped. Apply to every "tap X" step
+        (onshore wind, the distribution-substation build target, etc.) — the
+        dist-sub build target currently isn't highlighted at all.
+  - [ ] The STEP STRIP must get OUT OF THE WAY while the user is actually
+        doing things (less obtrusive / shift aside during interaction).
+  - [ ] MESSAGES/ALERTS bar (mobile) collapse bug: tapping expands the wider
+        messages; collapsing does NOT return to the button icon — it leaves a
+        horizontal bar that only vanishes when you tap off it. Fix collapse to
+        return to the icon.
+  - [ ] INSPECT panel is fullscreen on mobile, but its "compare" option needs
+        you to select another site — impossible while the popup fills the
+        screen. Make inspect non-fullscreen (or make compare's site-pick
+        reachable).
+  - [ ] INSPECT tab doesn't work inside Tutorial 1 — fix.
+  - [ ] Add an INFOGRAPHIC of the voltage step-down logic (400 → 132 → 33 kV →
+        LV), not just text.
+  - [ ] GATE "next": the user must NOT be able to advance until the step's
+        challenge is actually completed.
+  - [ ] MOBILE placement (distribution sub): two-tap confirm — first tap sets
+        the position + shows the service RADIUS; second tap on the SAME tile
+        builds. Tapping a different tile moves the radius preview there
+        (re-arm) until the same tile is tapped twice.
+  - [ ] MISSION SUCCESS: add a celebratory animation (electrical arc around
+        the screen edge) and a beat to "bask" BEFORE the completion popup —
+        don't fire the popup instantly the moment the 33 kV connects.
+
+
       nothing; should auto sign-in; login didn't work."** Diagnosed against
       the DB: the account already existed (created 2026-06-13, has a
       password, confirmed, signed in once). Today's "create account" was a
