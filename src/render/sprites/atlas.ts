@@ -32,6 +32,7 @@ import {
   churchTile,
   datacentreTile,
   domeTile,
+  eiffelTile,
   EXCEL_H,
   EXCEL_W,
   excelTile,
@@ -248,6 +249,7 @@ function buildSpriteCells(): Map<string, Cell> {
   set('lm_dome', domeTile(213), 2, 2, true);
   set('lm_spire', spireTile(214));
   set('lm_notredame', notredameTile(353)); // bespoke Paris gothic cathedral
+  set('lm_eiffel', eiffelTile(354)); // bespoke Paris iron tower
   set('lm_gherkin', gherkinTile(223));
   set('lm_fortress', fortressTile(215));
   set('lm_bridge', towerBridgeTile(216), 1, 4, true);

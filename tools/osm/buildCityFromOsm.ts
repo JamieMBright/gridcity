@@ -515,6 +515,8 @@ const HERO_KEYWORDS: Array<[RegExp, Landmark]> = [
 
 function landmarkFor(name: string, tags: Record<string, string>): Landmark {
   if (tags.aeroway === 'aerodrome') return LANDMARK.airport;
+  // bespoke Paris icons (checked before the generic tower/cathedral rules)
+  if (/eiffel/i.test(name)) return LANDMARK.eiffel;
   // the bespoke gothic cathedral is reserved for Notre-Dame specifically (so
   // a city's other cathedrals don't all become identical twins of it)
   if (/notre[- ]?dame/i.test(name)) return LANDMARK.notredame;

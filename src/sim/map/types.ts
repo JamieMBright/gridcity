@@ -98,6 +98,7 @@ export const LANDMARK = {
   // Bespoke per-city heroes (OSM pipeline). Append-only so existing
   // landmark-raster values never shift under old saves.
   notredame: 33, // gothic cathedral — twin towers, rose window, flèche (Paris)
+  eiffel: 34, // the wrought-iron lattice tower with the great base arch (Paris)
 } as const;
 export type Landmark = (typeof LANDMARK)[keyof typeof LANDMARK];
 

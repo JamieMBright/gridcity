@@ -730,6 +730,104 @@ export function notredameTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
+/**
+ * THE EIFFEL TOWER: bespoke Paris icon (owner reference, 2026-06-14). The
+ * unmistakable wrought-iron silhouette — four splayed legs and the great base
+ * arch, the two observation platforms, the tapering lattice shaft to the point,
+ * drawn in Eiffel brown with cross-hatch latticework. A tall 1×1, like the
+ * Shard/BT-tower (drawn as a near-symmetric silhouette).
+ */
+export function eiffelTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const IRON = hex('#6e5640');
+  const IRONL = lighten(IRON, 0.16);
+  const IROND = darken(IRON, 0.2);
+  const S = RES;
+  const [bx, by] = iso.P(0.5, 0.58, 0);
+  const y0 = by;
+  const y1 = by - 40 * S; // first platform
+  const y2 = by - 82 * S; // second platform
+  const yA = by - 156 * S; // apex — it towers over the Haussmann roofscape
+  const wB = 30 * S; // half-width at the feet
+  const w1 = 17 * S; // at platform 1
+  const w2 = 7 * S; // at platform 2
+  const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+
+  // --- the four legs + the great arch (below platform 1) ---
+  const legW = 5.2 * S;
+  for (const s of [-1, 1] as const) {
+    // outer + inner edges of a splayed leg, concave (curve inward as it rises)
+    const ox0 = bx + s * wB;
+    const ix0 = bx + s * (wB - legW);
+    const ox1 = bx + s * w1;
+    const ix1 = bx + s * (w1 - legW * 0.7);
+    const midOut = bx + s * lerp(wB, w1, 0.5) * 0.86;
+    const midIn = bx + s * (lerp(wB - legW, w1 - legW * 0.7, 0.5) * 0.86);
+    const ym = (y0 + y1) / 2;
+    iso.r.poly([[ox0, y0], [ix0, y0], [midIn, ym], [ix1, y1], [ox1, y1], [midOut, ym]], s < 0 ? IROND : IRONL);
+    iso.r.polyline([[ox0, y0], [midOut, ym], [ox1, y1]], INK_W * 0.6, alpha(INK, 0.5));
+    // lattice cross-hatch on the leg
+    for (let t = 0.1; t < 1; t += 0.18) {
+      const yA2 = lerp(y0, y1, t);
+      const xa = lerp(ox0, ox1, t);
+      const xb = lerp(ix0, ix1, t);
+      iso.r.line([xa, yA2], [xb, yA2 - 3 * S], 0.7 * S, alpha(IROND, 0.7));
+    }
+  }
+  // the iconic base arch (a curve spanning under platform 1)
+  const arch: Pt[] = [];
+  for (let i = 0; i <= 16; i++) {
+    const t = i / 16;
+    const x = lerp(bx - (w1 - 1 * S), bx + (w1 - 1 * S), t);
+    const yy = y1 - Math.sin(t * Math.PI) * 11 * S;
+    arch.push([x, yy]);
+  }
+  iso.r.polyline(arch, 1.4 * S, IRON);
+
+  // --- platform 1 deck ---
+  iso.r.rect(bx - w1 - 2 * S, y1 - 2.5 * S, bx + w1 + 2 * S, y1 + 1.5 * S, IRON);
+  iso.r.line([bx - w1 - 2 * S, y1 - 2.5 * S], [bx + w1 + 2 * S, y1 - 2.5 * S], 0.8 * S, IRONL);
+
+  // --- the shaft from platform 1 → platform 2 (tapering lattice) ---
+  const body1: Pt[] = [];
+  const body2: Pt[] = [];
+  const Nb = 10;
+  for (let i = 0; i <= Nb; i++) {
+    const t = i / Nb;
+    const y = lerp(y1, y2, t);
+    const w = lerp(w1, w2, t) * (1 - 0.15 * Math.sin(t * Math.PI)); // gentle concave
+    body1.push([bx - w, y]);
+    body2.push([bx + w, y]);
+  }
+  iso.r.poly([...body1, ...body2.reverse()], IRON);
+  // lattice X-bracing
+  for (let i = 0; i < Nb; i += 1) {
+    const t0 = i / Nb;
+    const t1 = (i + 1) / Nb;
+    const yA3 = lerp(y1, y2, t0);
+    const yB3 = lerp(y1, y2, t1);
+    const wa = lerp(w1, w2, t0) * 0.9;
+    const wb = lerp(w1, w2, t1) * 0.9;
+    iso.r.line([bx - wa, yA3], [bx + wb, yB3], 0.6 * S, alpha(IROND, 0.6));
+    iso.r.line([bx + wa, yA3], [bx - wb, yB3], 0.6 * S, alpha(IROND, 0.6));
+  }
+
+  // --- platform 2 deck ---
+  iso.r.rect(bx - w2 - 1.5 * S, y2 - 2 * S, bx + w2 + 1.5 * S, y2 + 1 * S, IRON);
+
+  // --- the upper shaft tapering to the point + the beacon ---
+  iso.r.poly([[bx - w2, y2], [bx + w2, y2], [bx + 0.8 * S, yA], [bx - 0.8 * S, yA]], IRONL);
+  for (let y = y2; y > yA; y -= 5 * S) {
+    const t = (y2 - y) / (y2 - yA);
+    const w = lerp(w2, 0.8 * S, t);
+    iso.r.line([bx - w, y], [bx + w, y - 3 * S], 0.5 * S, alpha(IROND, 0.55));
+  }
+  iso.r.polyline([[bx - w2, y2], [bx, yA], [bx + w2, y2]], INK_W * 0.5, alpha(INK, 0.5));
+  iso.r.line([bx, yA], [bx, yA - 5 * S], 1 * S, COLORS.glassLit); // the tip beacon
+  return iso.build();
+}
+
 /** TOWER BRIDGE, whole: one sprite spanning the river's four tiles
  *  (1x4, SW-anchored on the southernmost water tile). Two gothic stone
  *  towers with corner turrets rise from mid-river piers, the twin high
