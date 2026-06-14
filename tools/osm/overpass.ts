@@ -218,6 +218,46 @@ function polyCentroidLL(poly: LLPolygon): LL | null {
   return [sx / ring.length, sy / ring.length];
 }
 
+/** A real OSM building footprint + its height in metres (0 if unknown). */
+export interface BuildingFootprint {
+  poly: LLPolygon;
+  heightM: number;
+}
+
+/** Fetch EVERY building footprint in the bbox (not just the named/notable
+ *  ones) — for the "blank real shapes" evaluation layer. Heavy, so cached. */
+export async function fetchAllBuildings(bbox: Bbox): Promise<BuildingFootprint[]> {
+  const b = `${bbox.minLat},${bbox.minLon},${bbox.maxLat},${bbox.maxLon}`;
+  const query = `[out:json][timeout:240];(way["building"](${b});relation["building"]["type"="multipolygon"](${b}););out geom;`;
+  let lastErr: unknown;
+  for (const endpoint of ENDPOINTS) {
+    try {
+      const text = await cachedFetch(endpoint, {
+        body: 'data=' + encodeURIComponent(query),
+        cacheKey: query,
+        label: `overpass buildings ${endpoint}`,
+      });
+      const json = JSON.parse(text) as { elements?: OsmElement[] };
+      const els = json.elements ?? [];
+      if (els.length === 0) throw new Error('no buildings');
+      const out: BuildingFootprint[] = [];
+      for (const el of els) {
+        const poly = polygonOf(el);
+        if (!poly.length) continue;
+        const t = el.tags ?? {};
+        const levels = Number(t['building:levels'] ?? 0);
+        const heightM = Number(String(t.height ?? '').replace(/[^\d.]/g, '')) || levels * 3 || 0;
+        out.push({ poly, heightM });
+      }
+      return out;
+    } catch (err) {
+      lastErr = err;
+      console.log(`  buildings endpoint failed (${endpoint}): ${String(err)}`);
+    }
+  }
+  throw new Error(`all overpass endpoints failed for buildings: ${String(lastErr)}`);
+}
+
 export async function fetchOsmFeatures(bbox: Bbox): Promise<OsmFeatures> {
   const query = buildQuery(bbox);
   let lastErr: unknown;
