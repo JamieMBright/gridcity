@@ -28,6 +28,55 @@ const TILE_RED = hex('#8f4438');
 const POT_CLAY = hex('#9c5a3a');
 const BUFF_BRICK = hex('#c8a878');
 
+/** A Haussmann apartment block — the uniform Paris street wall: cream
+ *  limestone, ~six storeys of tall French windows with continuous
+ *  wrought-iron balconies on the second and fifth floors, and the iconic
+ *  grey-zinc MANSARD roof with dormers. Three seed-rotated variants keep a
+ *  boulevard from tiling. */
+export function haussmannTile(seed: number, variantIx: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 90163 + variantIx * 41 + 3);
+  const STONE = [hex('#e6dcc4'), hex('#e9e1cb'), hex('#ded3b9')][variantIx % 3] ?? hex('#e6dcc4');
+  const ZINC = hex('#6a6d78'); // the grey zinc mansard
+  const IRONB = hex('#2b2733'); // wrought-iron balconies + railings
+  const u0 = 0.04;
+  const u1 = 0.96;
+  const v0 = 0.06;
+  const v1 = 0.92;
+  const H = 48 + (variantIx % 2) * 4; // ~six storeys, even along the street
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  iso.box(u0, v0, u1, v1, 0, H, STONE, { topC: darken(STONE, 0.1) });
+  // the rusticated ground-floor / shopfront band and the floor cornices
+  iso.r.poly([P(u0, v1, 13), P(u1, v1, 13), P(u1, v1, 12), P(u0, v1, 12)], darken(STONE, 0.2));
+  iso.r.poly([P(u1, v0, 13), P(u1, v1, 13), P(u1, v1, 12), P(u1, v0, 12)], darken(STONE, 0.26));
+  // four window storeys above the shopfront, both visible faces
+  const storeys: Array<[number, number]> = [
+    [15, 22],
+    [25, 32],
+    [35, 41],
+    [43, H - 2],
+  ];
+  for (const [z0, z1] of storeys) {
+    iso.windowsLeft(v1, 0.06, 0.94, z0, z1, 5, glass(rng, 0.4), darken(STONE, 0.22));
+    iso.windowsRight(u1, v0 + 0.02, v1 - 0.02, z0, z1, 4, glass(rng, 0.34), darken(STONE, 0.28));
+  }
+  // the continuous wrought-iron balconies (2nd + 5th floors — the tell)
+  for (const z of [25, 43]) {
+    iso.r.line(P(u0, v1 + 0.05, z), P(u1, v1 + 0.05, z), 1.6, IRONB);
+    iso.r.line(P(u1 + 0.05, v0, z), P(u1 + 0.05, v1, z), 1.6, IRONB);
+    for (let u = u0 + 0.04; u < u1; u += 0.05) iso.r.line(P(u, v1 + 0.05, z - 3), P(u, v1 + 0.05, z), 1, IRONB);
+  }
+  // the grey-zinc mansard roof + dormer windows
+  iso.hip(u0 + 0.02, v0 + 0.02, u1 - 0.02, v1 - 0.02, H, 11, ZINC);
+  for (const u of [0.24, 0.5, 0.76]) {
+    iso.box(u - 0.05, v1 - 0.14, u + 0.05, v1 - 0.06, H + 1, H + 6, ZINC, { ink: false });
+    iso.r.poly([P(u - 0.03, v1 - 0.07, H + 5), P(u + 0.03, v1 - 0.07, H + 5), P(u + 0.03, v1 - 0.07, H + 1.5), P(u - 0.03, v1 - 0.07, H + 1.5)], alpha(COLORS.glassLit, 0.85));
+  }
+  // chimney stacks
+  for (const cu of [0.2, 0.7]) iso.box(cu, v0 + 0.2, cu + 0.06, v0 + 0.28, H + 6, H + 13, hex('#b9a37e'));
+  return iso.build();
+}
+
 /** Row of three attached townhouses (urban terraces / high street). */
 export function terraceTile(seed: number, shops: boolean): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();

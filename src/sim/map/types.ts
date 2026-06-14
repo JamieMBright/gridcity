@@ -190,6 +190,9 @@ export interface CityMap {
    *  bit 2: brownfield / previously-developed land — see TILE_FLAG). */
   flags?: Uint8Array | undefined;
   councils: CouncilProfile[];
+  /** Architectural style key for the renderer's building palette (e.g.
+   *  'paris' → Haussmann mid-rise). Absent ⇒ the default London fabric. */
+  style?: string | undefined;
 }
 
 export const NO_COUNCIL = 255;

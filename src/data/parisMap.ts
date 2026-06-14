@@ -759,5 +759,6 @@ export function buildParisMap(): CityMap {
     landmark,
     flags,
     councils: COUNCIL_SEEDS.map(({ x: _x, y: _y, ...profile }) => profile),
+    style: 'paris',
   };
 }

@@ -220,6 +220,9 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
 
   const estate = estateOf(x, y);
   const shops = ((map.flags?.[i] ?? 0) & FLAG_SHOPS) !== 0;
+  // Paris wears one uniform street wall: the cream Haussmann mid-rise with
+  // its grey mansard, across the whole dense core (La Défense keeps towers).
+  const haussmann = map.style === 'paris';
 
   switch (zone) {
     case ZONE.cbd:
@@ -227,10 +230,12 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
       // CBD fabric is plain skyscrapers — no fixed-tile special-case
       return `sky_${v % 3}`;
     case ZONE.urbanCore:
+      if (haussmann) return `haussmann_${v % 3}`;
       if (v % 7 < 2) return `tower_${v % 2}`;
       if (v % 7 === 2) return `office_${v % 2}`;
       return `terrace_${v % 4}`;
     case ZONE.urban: {
+      if (haussmann) return `haussmann_${(estate + v) % 3}`;
       if (shops) return `vicshop_${v % 2}`;
       const pick = estate % 5;
       // sector character: the East End leans terraces + council blocks,

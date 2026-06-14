@@ -19,6 +19,7 @@ import {
   towerTile,
   vicshopTile,
   victerraceTile,
+  haussmannTile,
   villaTile,
   warehouseTile,
 } from './buildingSprites';
@@ -242,6 +243,7 @@ function buildSpriteCells(): Map<string, Cell> {
   set('solarfarm_0', solarFarmTile(171));
   // skyscraper districts + landmarks
   for (let i = 0; i < 3; i++) set(`sky_${i}`, skyscraperTile(201 + i, i));
+  for (let i = 0; i < 3; i++) set(`haussmann_${i}`, haussmannTile(341 + i, i));
   // multi-tile icons are SW-anchored sprites: the chooser emits them on
   // their block's (min x, max y) tile and standard placement covers all
   set('lm_parliament', parliamentTile(211), 3, 5, true);
