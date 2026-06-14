@@ -21,6 +21,11 @@ model it the way GB actually works, then simplify for fun.
 
 ## How to work (the owner's standing instructions)
 
+- **Model: use Opus, NEVER Fable** (owner, 2026-06-14). Run the main
+  thread and every subagent on Opus (`claude-opus-4-8`). Do NOT select or
+  switch to the Fable model — it is unavailable until Anthropic re-enable
+  it, and a revoked model silently kills running agents/gates. When
+  spawning agents, pass `model: "opus"` explicitly.
 - **Go deep.** Take time; deep-research unfamiliar industry topics before
   modelling them; prefer correct-then-simplified over shallow.
 - **Integration-test everything.** Unit tests for sim logic, Playwright
