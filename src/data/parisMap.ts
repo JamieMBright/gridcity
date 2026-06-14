@@ -712,6 +712,7 @@ export function buildParisMap(): CityMap {
     }
   };
   placeLandmark(85, 93, LANDMARK.eiffel); // the Eiffel Tower, on the Champ-de-Mars
+  placeLandmark(76, 70, LANDMARK.arc); // the Arc de Triomphe at the Étoile
   placeLandmark(104, 90, LANDMARK.church); // Notre-Dame, on the island
   placeLandmark(98, 65, LANDMARK.church); // Sacré-Cœur, on the butte
   placeLandmark(108, 89, LANDMARK.townhall); // Hôtel de Ville

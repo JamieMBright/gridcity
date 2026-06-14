@@ -31,6 +31,7 @@ import {
   churchTile,
   datacentreTile,
   eiffelTile,
+  arcTriompheTile,
   domeTile,
   EXCEL_H,
   EXCEL_W,
@@ -263,6 +264,7 @@ function buildSpriteCells(): Map<string, Cell> {
   set('lm_kewhouse', kewhouseTile(316));
   set('lm_bttower', bttowerTile(317));
   set('lm_eiffel', eiffelTile(330));
+  set('lm_arc', arcTriompheTile(331));
   set('lm_heathrow', heathrowTile(318), HEATHROW_W, HEATHROW_H, true);
   // Queen Elizabeth Olympic Park, Stratford (stadium reuses lm_stadium)
   set('lm_velodrome', velodromeTile(321));

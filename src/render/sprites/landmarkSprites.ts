@@ -148,6 +148,72 @@ export function eiffelTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
+/** The Arc de Triomphe — a massive Neoclassical stone arch at the centre of
+ *  the Étoile, where the twelve avenues meet. A solid 3-D pale-stone block
+ *  with the great archway driven through both visible faces and a corniced
+ *  attic on top. */
+export function arcTriompheTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  void seed;
+  const iso = new Iso();
+  const u0 = 0.16;
+  const v0 = 0.16;
+  const u1 = 0.84;
+  const v1 = 0.84;
+  const H = 62;
+  const FACE = PORTLAND;
+  iso.shadow(u0, v0, u1, v1, 0.45, 0.34);
+  iso.box(u0, v0, u1, v1, 0, H, FACE);
+  // the great arch, cut as a dusk void into each of the two visible faces
+  const VOID = hex('#2a2336');
+  const archL = (): void => {
+    const uL = u0 + 0.2;
+    const uR = u1 - 0.2;
+    const uM = (uL + uR) / 2;
+    const zS = H * 0.42; // springline
+    const zT = H * 0.66; // crown
+    iso.r.poly(
+      [
+        iso.P(uL, v1, 0),
+        iso.P(uL, v1, zS),
+        iso.P(uM - 0.07, v1, zT),
+        iso.P(uM + 0.07, v1, zT),
+        iso.P(uR, v1, zS),
+        iso.P(uR, v1, 0),
+      ],
+      VOID,
+      darken(VOID, 0.2),
+    );
+  };
+  const archR = (): void => {
+    const vL = v0 + 0.2;
+    const vR = v1 - 0.2;
+    const vM = (vL + vR) / 2;
+    const zS = H * 0.42;
+    const zT = H * 0.66;
+    iso.r.poly(
+      [
+        iso.P(u1, vL, 0),
+        iso.P(u1, vL, zS),
+        iso.P(u1, vM - 0.07, zT),
+        iso.P(u1, vM + 0.07, zT),
+        iso.P(u1, vR, zS),
+        iso.P(u1, vR, 0),
+      ],
+      darken(VOID, 0.12),
+    );
+  };
+  archL();
+  archR();
+  // the corniced attic storey
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, H, H + 4, top(FACE, 0.18)); // cornice lip
+  iso.box(u0 + 0.05, v0 + 0.05, u1 - 0.05, v1 - 0.05, H + 4, H + 16, FACE);
+  // ink the silhouette + the attic
+  iso.edge(iso.P(u0, v1, 0), iso.P(u0, v1, H));
+  iso.edge(iso.P(u1, v1, 0), iso.P(u1, v1, H));
+  iso.edge(iso.P(u1, v0, 0), iso.P(u1, v0, H));
+  return iso.build();
+}
+
 // --- Riverside icons ---------------------------------------------------------
 
 /** The Palace of Westminster, to scale: a gothic riverfront palace in

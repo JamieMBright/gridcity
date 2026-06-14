@@ -66,6 +66,7 @@ const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {
   [LANDMARK.orbit]: 'lm_orbit',
   [LANDMARK.westfield]: 'lm_westfield',
   [LANDMARK.eiffel]: 'lm_eiffel',
+  [LANDMARK.arc]: 'lm_arc',
 };
 
 function at(map: CityMap, x: number, y: number, arr: Uint8Array): number {
