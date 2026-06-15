@@ -37,8 +37,10 @@ TOWER, proportionally, each one bespoke."
       footprints keep neighbours visible. Unit test `tests/spriteHeadroom.test.ts`
       (floor-pinning invariant + cap-exceed + atlas auto-detect); atlas stays
       3840×3829 < 4096. Design-gated: far/mid/close London crops + per-hero
-      dumps. STILL TBD below: per-hero bespoke sizing, civic "marble squares",
-      researched heroes, per-city palettes, the 8 new cities.
+      dumps. (This session ALSO shipped: civic split ✓ + bespoke per-city
+      palettes/terrain ✓ — see below.) STILL TBD: per-hero bespoke sizing
+      (Heathrow MONSTER / Eiffel open space), bespoke sprites for the hero
+      long-tail, and the 8 city-map DATA builds (only paris.ts exists).
 - [ ] **Per-hero SIZE is bespoke, not a blanket footprint (21:10 / 21:15):**
       "height AND width WITHIN the square — it towers over neighbours and is tall
       and wide within whatever square it stands in. 3×3 as a blanket rule won't
@@ -80,24 +82,27 @@ TOWER, proportionally, each one bespoke."
       preview/civictile-{paris,newyork,cairo,london}.png (isolated) + hero-
       {grand,townhall}-*.png. Marble-square aprons GONE; ordinary civic reads
       as tile-sized city-styled blocks; town-hall-class buildings = grand heroes.
-- [ ] **Every hero RESEARCHED + bespoke, never reused (21:19 / 23:47):** research
-      each building (Wikimedia images + accurate descriptions), write a tailored
-      recreate-it prompt/spec, and STORE the research (docs/landmarks/*) so future
-      re-renders (better drawing skills) can reuse it. Don't share one sprite
-      across heroes. London AND Paris each get up to 100 heroes; reduce the count
-      for smaller cities if 100 stops making sense.
-- [~] **Per-city PALETTE + STYLE (23:47):** "everywhere had the same red brick as
-      London — each city should have its own palette and style." STORED the
-      research: `docs/cities/<city>.md` × 8 (palette hex tokens + character +
-      top-20 heroes, verified heights) — committed. AUDIT of existing code: the
-      per-city `FABRICS` palettes ALREADY EXIST in buildingSprites.ts (london…
-      athens, distinct + flatRoof flags) BUT (a) `tools/previewCity.ts:35` hard-
-      codes `paris`-or-`london` so the others never apply; (b) the fabric only
-      recolours the LOW DOMESTIC fabric — towerTile/officeTile/skyscraperTile/
-      heroes still use the London COLORS, so a skyline reads London regardless.
-      → REAL WORK: wire `applyCityFabric(data.fabric)` everywhere + thread the
-      fabric palette through towers/offices/skyscrapers/heroes, then verify per
-      city. (Research is done; this is wiring + sprite-palette plumbing.)
+- [~] **Every hero RESEARCHED + bespoke, never reused (21:19 / 23:47):** research
+      STORED — ~1000 per-building docs in `docs/heroes/<city>/` (100/city, prior
+      session) + `docs/cities/<city>.md` × 8 (palette + ranked top-20 with verified
+      heights, this session). The marquee London/Paris heroes are bespoke + now
+      TOWER (z-cap). OPEN: build bespoke sprites FROM the stored research for the
+      long tail (most non-marquee heroes still use archetypes), one city at a time.
+- [x] **Per-city PALETTE + STYLE — DONE (23:47 + 06-15 12:10): "bespoke per city…
+      super rich blues of Sydney, grey drab of NYC, dusty Cairo… TERRAIN is more
+      important for tile colours."** Implemented bespoke per-city palettes that
+      carry each city's FEEL via TERRAIN (ground/water/vegetation) + skyline
+      (tower/office/skyscraper glass+concrete) + walls/roofs — not just low fabric.
+      `palette.ts`: COLORS made mutable + terrain tokens (soil/marsh/aridSand/rock);
+      `EnvPalette`/`setEnvPalette()` overlays a city's tokens over a captured London
+      baseline. `buildingSprites.FABRICS[city].env` authored per city; `applyCity-
+      Fabric` sets it. `previewCity.ts` now applies the real `data.fabric`.
+      Design-gated ALL 8: Sydney rich blue, NYC drab grey + Central Park, Cairo
+      dusty desert + Nile, Athens pale Mediterranean, HK teal glass, Cape Town
+      Atlantic, Berlin grey horizontal, Shanghai jade. London BYTE-IDENTICAL
+      (md5 68918a…), atlas ≤4096, vitest 682. Polish TODO: Cairo's wide-water
+      reads a touch bright at mid-zoom (env water `#5e8ba0`) — could mudden the
+      Nile; verify the seededCity wide-water uses the env water token.
 - [ ] **RENDER MAPS for a batch of cities (21:22):** NY, Sydney, Berlin, Shanghai,
       HK, Cape Town, Cairo, Athens. AUDIT: only `src/data/cities/paris.ts` has
       render DATA today — the OSM pipeline (PR #63) must be RUN per city (geocode
