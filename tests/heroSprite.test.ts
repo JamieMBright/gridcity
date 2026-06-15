@@ -4,7 +4,8 @@
 // hero's type / Wikidata-style / name / OSM tags → the best sprite landmark;
 // both seeding pipelines route through it. These tests pin the mapping —
 // crucially, that a discovered PYRAMID (any city, by name OR by type) resolves
-// to the bespoke lm_pyramid, plus a few representative others.
+// to the right bespoke split hero (Khufu/Khafre/Menkaure/Sphinx), plus a few
+// representative others.
 
 import { describe, expect, it } from 'vitest';
 import { BESPOKE_FOOT, resolveHeroSprite } from '../tools/osm/heroSprite';
@@ -14,23 +15,40 @@ import { LANDMARK } from '../src/sim/map/types';
 import { LANDMARK_SPRITE as SPRITE } from '../src/render/tileChooser';
 
 describe('hero type → sprite resolver', () => {
-  it('resolves the Pyramids of Giza to lm_pyramid — by name, type, AND native script', () => {
-    // by famous proper noun, in several forms a discovery might surface
-    for (const name of ['Great Pyramid of Giza', 'Pyramid of Khufu', 'Khafre', 'Pyramid of Menkaure', 'Pyramides de Gizeh']) {
+  it('resolves the Pyramids of Giza to the SPLIT free-standing heroes — by name, type, AND native script', () => {
+    // each named pyramid → its OWN bespoke sprite (the owner's 2026-06-15 split:
+    // the real plateau spreads them out, so they're no longer one monolith).
+    const byName: Array<[string, (typeof LANDMARK)[keyof typeof LANDMARK], string]> = [
+      ['Great Pyramid of Giza', LANDMARK.pyramidGreat, 'lm_pyramid_great'],
+      ['Pyramid of Khufu', LANDMARK.pyramidGreat, 'lm_pyramid_great'],
+      ['Cheops', LANDMARK.pyramidGreat, 'lm_pyramid_great'],
+      ['Pyramid of Khafre', LANDMARK.pyramidKhafre, 'lm_pyramid_khafre'],
+      ['Chephren', LANDMARK.pyramidKhafre, 'lm_pyramid_khafre'],
+      ['Pyramid of Menkaure', LANDMARK.pyramidMenkaure, 'lm_pyramid_menkaure'],
+      ['Mykerinos', LANDMARK.pyramidMenkaure, 'lm_pyramid_menkaure'],
+      // bare "pyramid"/"giza" with no pharaoh named → the Great Pyramid default
+      ['Pyramides de Gizeh', LANDMARK.pyramidGreat, 'lm_pyramid_great'],
+      ['الجيزة', LANDMARK.pyramidGreat, 'lm_pyramid_great'],
+    ];
+    for (const [name, lm, sprite] of byName) {
       const v = resolveHeroSprite({ name });
-      expect(v.landmark, `"${name}" → pyramid`).toBe(LANDMARK.pyramid);
+      expect(v.landmark, `"${name}" → ${sprite}`).toBe(lm);
       expect(v.kind).toBe('bespoke');
-      expect(SPRITE[v.landmark]).toBe('lm_pyramid');
+      expect(SPRITE[v.landmark]).toBe(sprite);
     }
-    // the Sphinx shares the bespoke Giza group sprite (incl. its Arabic name)
-    expect(resolveHeroSprite({ name: 'Great Sphinx of Giza' }).landmark).toBe(LANDMARK.pyramid);
-    expect(resolveHeroSprite({ name: 'تمثال أبو الهول' }).landmark).toBe(LANDMARK.pyramid);
-    // by Wikidata TYPE when the name doesn't match the proper-noun list
+    // the Sphinx is its OWN free-standing hero (incl. its Arabic name)
+    expect(resolveHeroSprite({ name: 'Great Sphinx of Giza' }).landmark).toBe(LANDMARK.sphinx);
+    expect(resolveHeroSprite({ name: 'تمثال أبو الهول' }).landmark).toBe(LANDMARK.sphinx);
+    expect(SPRITE[LANDMARK.sphinx]).toBe('lm_sphinx');
+    // by Wikidata TYPE when the name doesn't name a pharaoh → the Great default
     const byType = resolveHeroSprite({ name: 'Red Pyramid', type: 'pyramid' });
-    expect(byType.landmark).toBe(LANDMARK.pyramid);
+    expect(byType.landmark).toBe(LANDMARK.pyramidGreat);
     expect(byType.kind).toBe('bespoke');
-    // the bespoke footprint is the MASSIVE, LOW 5×4 (its own bespoke size)
-    expect(BESPOKE_FOOT[LANDMARK.pyramid]).toEqual({ w: 5, h: 4 });
+    // each split hero carries its own broad+low bespoke footprint
+    expect(BESPOKE_FOOT[LANDMARK.pyramidGreat]).toEqual({ w: 4, h: 4 });
+    expect(BESPOKE_FOOT[LANDMARK.pyramidKhafre]).toEqual({ w: 3, h: 3 });
+    expect(BESPOKE_FOOT[LANDMARK.pyramidMenkaure]).toEqual({ w: 2, h: 2 });
+    expect(BESPOKE_FOOT[LANDMARK.sphinx]).toEqual({ w: 3, h: 2 });
   });
 
   it('routes other bespoke icons to their own sprites', () => {

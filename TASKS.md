@@ -141,12 +141,40 @@ TOWER, proportionally, each one bespoke."
         map + demand model (Cairo data must be built first).
   - [x] v1 SHIPPED (016bd9d): a single `pyramidTile` (5×4) holds the whole Giza
         group + the type→sprite resolver auto-maps any discovered pyramid to it.
-  - [ ] REFINE (owner, 2026-06-15 13:57 + high-level Giza photo): the real plateau
+  - [~] REFINE (owner, 2026-06-15 13:57 + high-level Giza photo): the real plateau
         SPREADS the structures out — split into SEPARATE heroes: three distinct
         pyramid heroes (Khufu largest, Khafre with the casing CAP, Menkaure
         smaller) + the SPHINX as its OWN hero, each with its own footprint so they
         stand FREE on open desert (no occluding cluster). Resolver maps each
         type/name → its sprite; placement spreads them with cleared sand aprons.
+        FINISH PASS (subagent, 2026-06-15) — completed the stalled split:
+    - [x] Separate sprites lm_pyramid_great/khafre/menkaure verified GOOD
+          (broad+low, Khufu missing-capstone + casing remnants, Khafre keeps the
+          summit casing cap, Menkaure smallest); wired in atlas + tileChooser +
+          BESPOKE_FOOT + PYRAMID_FOOT.
+    - [x] REDREW the Sphinx (3 passes): low long couchant lion body (longer than
+          tall), forepaws stretched forward, upright head in the striped trapezoidal
+          NEMES headdress (wider at the shoulders), honey-grey limestone, 2 base
+          floodlights. Footprint 2×1 → 3×2 (room for the long body + paws); built
+          from solid extruded boxes so masses read, not thin billboards. Reads
+          unmistakably as a couchant Sphinx at iso scale (isolated dump + in-scene).
+    - [x] Retired the old monolith: pyramidTile is now the parameterised single
+          pyramid; the old whole-Giza sprite + its lm_pyramid atlas frame are GONE
+          (asserted: buildAtlas has no 'lm_pyramid' frame). LANDMARK.pyramid (41)
+          kept as a deprecated enum value, aliased in LANDMARK_SPRITE →
+          lm_pyramid_great for old-save stability.
+    - [x] Resolver mapping confirmed (Khufu/Cheops→great, Khafre/Chephren→khafre,
+          Menkaure/Mykerinos→menkaure, Sphinx/أبو الهول→sphinx, bare pyramid/giza→
+          great); tests/heroSprite.test.ts rewritten to the split heroes (4 tests
+          green).
+    - [x] Placement spreads the four on open desert with cleared aprons — both
+          pipelines (seededCity + buildCityFromOsm) route each Giza structure as a
+          SEPARATE discovered hero through the resolver, each with its own footprint
+          + apron, so they stand free (no monolith stacking). Stale 5×4 comments
+          updated.
+    - [x] Gates: London md5 = 68918a994f3e543bc2589c88e055c66c (byte-identical);
+          atlas 3965×3935 ≤4096; tsc + eslint clean; vitest 686/686; build OK.
+          Design render: 4 heroes free + spread in a diagonal, Sphinx out front.
 - [ ] **PER-HERO ELECTRIFICATION LIGHT-SHOW ANIMATIONS (owner, 2026-06-15 13:28):
       "some form of electrification animation for each of the heroes — like a
       night-time light show on the Eiffel Tower etc."** Every hero gets a BESPOKE,

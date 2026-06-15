@@ -105,7 +105,14 @@ export const LANDMARK = {
   grand: 38, // parameterized grand civic building (the ~100 notable-building heroes)
   skyscraper: 39, // generic TALL tower hero — tall+slim, towers over the fabric
   civic: 40, // ORDINARY civic — a 1×1 tile-sized municipal building in the city palette (no apron)
-  pyramid: 41, // the Pyramids of Giza — the Great Pyramid + Khafre + Menkaure + the Sphinx (Cairo)
+  pyramid: 41, // DEPRECATED: the old monolithic Giza group (Great+Khafre+Menkaure+Sphinx in one sprite). Kept for old-save raster stability; split into the separate heroes below (owner, 2026-06-15).
+  // The Pyramids of Giza, SPLIT into free-standing heroes (owner, 2026-06-15:
+  // the real plateau spreads them out — three separate pyramids + the Sphinx).
+  // Append-only so existing landmark-raster values never shift under old saves.
+  pyramidGreat: 42, // the Great Pyramid (Khufu) — broadest + tallest mass (Cairo)
+  pyramidKhafre: 43, // Khafre — slightly smaller, keeps the smooth casing cap at its tip
+  pyramidMenkaure: 44, // Menkaure — clearly the smallest pyramid
+  sphinx: 45, // the Great Sphinx — low, long, couchant lion body + pharaoh head
 } as const;
 export type Landmark = (typeof LANDMARK)[keyof typeof LANDMARK];
 

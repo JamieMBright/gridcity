@@ -6,9 +6,9 @@
 // loop: ONE function that maps a discovered hero's TYPE / Wikidata-style / name
 // / OSM tags → the best sprite landmark id, with NO per-building hand-curation.
 // Both seeding pipelines (tools/seededCity.ts and tools/osm/buildCityFromOsm.ts)
-// route their heroes through here, so adding a new bespoke sprite (e.g. the
-// Pyramids of Giza → lm_pyramid) makes EVERY matching discovered hero, in any
-// city, auto-render it.
+// route their heroes through here, so adding a new bespoke sprite (e.g. each of
+// the Pyramids of Giza → lm_pyramid_great/khafre/menkaure, the Sphinx →
+// lm_sphinx) makes EVERY matching discovered hero, in any city, auto-render it.
 //
 // The decision is a cascade, most-specific first:
 //   1) BESPOKE icons — a hand-drawn one-of-a-kind sprite exists (pyramid,
@@ -66,7 +66,12 @@ export interface HeroVerdict {
  *  (everything else bespoke is sized from its real OSM extent). Mirrors the
  *  Iso(w,h) the sprite is registered with in atlas.ts. */
 export const BESPOKE_FOOT: Partial<Record<Landmark, { w: number; h: number }>> = {
-  [LANDMARK.pyramid]: { w: 5, h: 4 }, // the Giza group — MASSIVE + LOW, its own bespoke size
+  // the Pyramids of Giza, SPLIT into free-standing heroes (owner, 2026-06-15) —
+  // each broad + LOW, in its own size (mirrors PYRAMID_FOOT in landmarkSprites).
+  [LANDMARK.pyramidGreat]: { w: 4, h: 4 }, // Khufu — the broadest, tallest mass
+  [LANDMARK.pyramidKhafre]: { w: 3, h: 3 }, // Khafre — slightly smaller (casing cap)
+  [LANDMARK.pyramidMenkaure]: { w: 2, h: 2 }, // Menkaure — clearly the smallest
+  [LANDMARK.sphinx]: { w: 3, h: 2 }, // the Great Sphinx — low + long, couchant lion
   [LANDMARK.eiffel]: { w: 3, h: 3 },
   [LANDMARK.notredame]: { w: 2, h: 2 },
   [LANDMARK.louvre]: { w: 1, h: 1 },
@@ -78,9 +83,17 @@ export const BESPOKE_FOOT: Partial<Record<Landmark, { w: number; h: number }>> =
  *  a non-English OSM name still resolves). Most specific → first. Each maps a
  *  recognisable monument to its bespoke sprite, in any city it's discovered. */
 const NAME_ICONS: Array<[RegExp, Landmark]> = [
-  // The Pyramids of Giza (+ the Sphinx, which shares the bespoke group sprite).
-  // English, French, and the Arabic for "the pyramids" / "Sphinx" (أبو الهول).
-  [/\bpyramid|\bgiza\b|gizeh|gîza|khufu|cheops|khafre|khafra|chephren|menkaure|mykerinos|sphinx|أهرام|هرم|الجيزة|أبو ?الهول/iu, LANDMARK.pyramid],
+  // The Pyramids of Giza + the Great Sphinx — SPLIT into free-standing heroes
+  // (owner, 2026-06-15), each mapped to its own bespoke sprite. ORDER MATTERS:
+  // the Sphinx first (so it never gets eaten by a "pyramid"/"giza" rule), then
+  // each named pyramid → its size, then bare "pyramid"/"giza" → the Great as the
+  // default. Native script: Arabic for "Sphinx" (أبو الهول) / "pyramid(s)".
+  [/sphinx|أبو ?الهول|تمثال أبو/iu, LANDMARK.sphinx],
+  [/khafre|khafra|chephren|الهرم الأوسط/iu, LANDMARK.pyramidKhafre], // keeps the casing cap
+  [/menkaure|mykerinos|menkaura|الهرم الأصغر/iu, LANDMARK.pyramidMenkaure],
+  [/khufu|cheops|great pyramid|الهرم الأكبر/iu, LANDMARK.pyramidGreat],
+  // bare "pyramid"/"giza" (no pharaoh named) → the Great Pyramid as the default
+  [/\bpyramid|\bgiza\b|gizeh|gîza|أهرام|هرم|الجيزة/iu, LANDMARK.pyramidGreat],
   [/eiffel|tour eiffel/iu, LANDMARK.eiffel],
   [/notre[- ]?dame/iu, LANDMARK.notredame],
   [/louvre/iu, LANDMARK.louvre],
@@ -95,7 +108,8 @@ const NAME_ICONS: Array<[RegExp, Landmark]> = [
  *  a thing typed "pyramid" gets the pyramid sprite even when its name didn't
  *  match the proper-noun list above. */
 const TYPE_ICONS: Array<[RegExp, Landmark]> = [
-  [/pyramid|mastaba/i, LANDMARK.pyramid],
+  // a thing TYPED a pyramid (name didn't name a pharaoh) → the Great as default
+  [/pyramid|mastaba/i, LANDMARK.pyramidGreat],
   [/triumphal arch|city gate/i, LANDMARK.arch],
 ];
 

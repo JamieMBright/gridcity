@@ -57,9 +57,11 @@ import {
   palacemastTile,
   parliamentTile,
   powerstationTile,
-  PYRAMID_H,
-  PYRAMID_W,
+  PYRAMID_FOOT,
   pyramidTile,
+  SPHINX_H,
+  SPHINX_W,
+  sphinxTile,
   sacrecoeurTile,
   schoolTile,
   sewageTile,
@@ -278,8 +280,13 @@ function buildSpriteCells(): Map<string, Cell> {
   set('lm_arch', archTile(355)); // triumphal arch (Arc de Triomphe / gates)
   set('lm_basilica', sacrecoeurTile(356)); // Sacré-Cœur
   set('lm_louvre', louvreTile(357)); // the palace + glass pyramid
-  // the Pyramids of Giza — a MASSIVE, LOW 5×4 SW-anchored precinct (Cairo)
-  set('lm_pyramid', pyramidTile(358), PYRAMID_W, PYRAMID_H, true);
+  // the Pyramids of Giza — SPLIT into separate free-standing heroes (owner,
+  // 2026-06-15): three broad+low pyramids in their own sizes + the Sphinx, each
+  // SW-anchored on its own tawny apron so the pipelines spread them apart.
+  set('lm_pyramid_great', pyramidTile(358, 'great'), PYRAMID_FOOT.great.w, PYRAMID_FOOT.great.h, true);
+  set('lm_pyramid_khafre', pyramidTile(359, 'khafre'), PYRAMID_FOOT.khafre.w, PYRAMID_FOOT.khafre.h, true);
+  set('lm_pyramid_menkaure', pyramidTile(361, 'menkaure'), PYRAMID_FOOT.menkaure.w, PYRAMID_FOOT.menkaure.h, true);
+  set('lm_sphinx', sphinxTile(362), SPHINX_W, SPHINX_H, true);
   // the ~100-hero grand-civic generator: 12 variants (dome/towers/clock/
   // balustrade × stone × height), 2×2 SW-anchored blocks
   for (let i = 0; i < 4; i++) set(`lm_grand${i}`, grandTile(360 + i, i), 3, 3, true);

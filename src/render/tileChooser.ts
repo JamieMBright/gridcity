@@ -34,8 +34,12 @@ const BLOCK_LANDMARKS: ReadonlySet<Landmark> = new Set<Landmark>([
   // 2×2 Notre-Dame
   LANDMARK.eiffel,
   LANDMARK.notredame,
-  // the Pyramids of Giza — a MASSIVE, LOW 5×4 precinct (Cairo)
-  LANDMARK.pyramid,
+  // the Pyramids of Giza — SPLIT into free-standing heroes (owner, 2026-06-15),
+  // each a broad+low SW-anchored block on its own desert apron + the Sphinx
+  LANDMARK.pyramidGreat,
+  LANDMARK.pyramidKhafre,
+  LANDMARK.pyramidMenkaure,
+  LANDMARK.sphinx,
 ]);
 
 export const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {
@@ -76,7 +80,14 @@ export const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {
   [LANDMARK.arch]: 'lm_arch',
   [LANDMARK.basilica]: 'lm_basilica',
   [LANDMARK.louvre]: 'lm_louvre',
-  [LANDMARK.pyramid]: 'lm_pyramid',
+  // the old monolithic Giza group (LANDMARK.pyramid, deprecated 2026-06-15) was
+  // split into the separate heroes below; alias it to the Great Pyramid so any
+  // old save baking landmark value 41 still resolves to a real sprite.
+  [LANDMARK.pyramid]: 'lm_pyramid_great',
+  [LANDMARK.pyramidGreat]: 'lm_pyramid_great',
+  [LANDMARK.pyramidKhafre]: 'lm_pyramid_khafre',
+  [LANDMARK.pyramidMenkaure]: 'lm_pyramid_menkaure',
+  [LANDMARK.sphinx]: 'lm_sphinx',
 };
 
 function at(map: CityMap, x: number, y: number, arr: Uint8Array): number {

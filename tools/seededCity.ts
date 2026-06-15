@@ -305,7 +305,10 @@ async function main(): Promise<void> {
   for (const { b, ext } of notable) {
     if (heroes >= 100 && civics >= 220) break;
     // ONE resolver call decides the sprite — no per-building hand-curation. A
-    // discovered Pyramid/Eiffel/town-hall/tall-tower all auto-resolve here.
+    // discovered Pyramid/Eiffel/town-hall/tall-tower all auto-resolve here; each
+    // Giza structure (Khufu/Khafre/Menkaure/Sphinx) is a SEPARATE discovered
+    // feature, so they place SPREAD on the desert — each its own footprint +
+    // cleared apron — rather than stacked in one monolith.
     const verdict = resolveHeroSprite(heroInputOf(b));
     let lm = verdict.landmark;
     let kind = verdict.kind;

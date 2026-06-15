@@ -28,7 +28,12 @@ const NAMES: Record<string, Landmark> = {
   church: LANDMARK.church,
   townhall: LANDMARK.townhall,
   civic: LANDMARK.civic,
-  pyramid: LANDMARK.pyramid,
+  // the Pyramids of Giza, split into free-standing heroes (owner, 2026-06-15)
+  pyramid: LANDMARK.pyramidGreat, // bare "pyramid" → the Great Pyramid
+  pyramidgreat: LANDMARK.pyramidGreat,
+  pyramidkhafre: LANDMARK.pyramidKhafre,
+  pyramidmenkaure: LANDMARK.pyramidMenkaure,
+  sphinx: LANDMARK.sphinx,
 };
 
 function main(): void {

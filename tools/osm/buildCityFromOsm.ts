@@ -518,8 +518,8 @@ function seedGenerationSites(
 }
 
 /** Multi-tile hero footprints (W×H tiles, SW-anchored). Default 1×1. Sourced
- *  from the resolver's BESPOKE_FOOT so the sprite's true size (e.g. the 5×4
- *  Pyramids of Giza, the 3×3 Eiffel) is decided in ONE place. */
+ *  from the resolver's BESPOKE_FOOT so the sprite's true size (e.g. the 4×4
+ *  Great Pyramid, the 3×3 Eiffel, the 3×2 Sphinx) is decided in ONE place. */
 const heroFoot = (lm: number): { w: number; h: number } =>
   BESPOKE_FOOT[lm as keyof typeof BESPOKE_FOOT] ?? { w: 1, h: 1 };
 
@@ -590,8 +590,9 @@ function placeHeroes(
       // a single tile-sized civic building on normal street fabric (no apron)
       landmark[idx(x, y)] = lm;
     } else if (isHero) {
-      // multi-tile heroes (e.g. the massive 3×3 Eiffel, the 5×4 Pyramids of
-      // Giza) stamp a W×H block, SW-anchored on (x,y) so the renderer's
+      // multi-tile heroes (e.g. the massive 3×3 Eiffel, the 4×4 Great Pyramid;
+      // each Giza structure is its own separate hero, so they spread across the
+      // desert) stamp a W×H block, SW-anchored on (x,y) so the renderer's
       // block-anchor lands the one sprite; (x,y) is the south-west corner,
       // extending E (+x) and N (-y).
       let { w: fw, h: fh } = heroFoot(lm);
