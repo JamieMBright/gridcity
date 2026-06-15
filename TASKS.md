@@ -56,12 +56,26 @@ TOWER, proportionally, each one bespoke."
       re-renders (better drawing skills) can reuse it. Don't share one sprite
       across heroes. London AND Paris each get up to 100 heroes; reduce the count
       for smaller cities if 100 stops making sense.
-- [ ] **Per-city PALETTE + STYLE (23:47):** "you said everywhere had the same red
-      brick as London — each city should have its own palette and style." (Partly
-      started: commit 8d8a1cc per-city fabric — needs to actually bite per city.)
-- [ ] **RENDER MAPS for a batch of cities (21:22):** New York, Sydney, Berlin,
-      Shanghai, Hong Kong, Cape Town, Cairo, Athens (+ existing London, Paris).
-      Geographic accuracy + per-city palette + researched heroes.
+- [~] **Per-city PALETTE + STYLE (23:47):** "everywhere had the same red brick as
+      London — each city should have its own palette and style." STORED the
+      research: `docs/cities/<city>.md` × 8 (palette hex tokens + character +
+      top-20 heroes, verified heights) — committed. AUDIT of existing code: the
+      per-city `FABRICS` palettes ALREADY EXIST in buildingSprites.ts (london…
+      athens, distinct + flatRoof flags) BUT (a) `tools/previewCity.ts:35` hard-
+      codes `paris`-or-`london` so the others never apply; (b) the fabric only
+      recolours the LOW DOMESTIC fabric — towerTile/officeTile/skyscraperTile/
+      heroes still use the London COLORS, so a skyline reads London regardless.
+      → REAL WORK: wire `applyCityFabric(data.fabric)` everywhere + thread the
+      fabric palette through towers/offices/skyscrapers/heroes, then verify per
+      city. (Research is done; this is wiring + sprite-palette plumbing.)
+- [ ] **RENDER MAPS for a batch of cities (21:22):** NY, Sydney, Berlin, Shanghai,
+      HK, Cape Town, Cairo, Athens. AUDIT: only `src/data/cities/paris.ts` has
+      render DATA today — the OSM pipeline (PR #63) must be RUN per city (geocode
+      → overpass → tune span) to emit each `*.ts`. ~1000 per-building research
+      docs already exist in `docs/heroes/<city>/` (prior session) + the new
+      `docs/cities/*.md`. So the gap is: run the pipeline ×8, apply per-city
+      palette, build bespoke towering heroes (now possible via the z-cap) from the
+      stored research, register as scenarios, design-gate each. Large/multi-session.
 
 ### 🛠 OSM PIPELINE BUILD (fresh env w/ egress, 2026-06-14 ~14:50) — IN PROGRESS
 The fresh env HAS the OSM/Wikidata egress. Built the pipeline PROPER
