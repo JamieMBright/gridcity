@@ -24,6 +24,7 @@ import type { CityData } from '../src/data/cityData';
 const FABRICS: ReadonlyArray<NonNullable<CityData['fabric']>> = [
   'london', 'paris', 'newyork', 'sydney', 'berlin',
   'shanghai', 'hongkong', 'capetown', 'cairo', 'athens',
+  'pune', 'northeast',
 ];
 
 function arg(flag: string): string | undefined {

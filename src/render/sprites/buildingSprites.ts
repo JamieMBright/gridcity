@@ -47,7 +47,8 @@ let FLAT_ROOF = false;
  *  so the live game's atlas is unchanged unless a city opts in. */
 export type CityFabric =
   | 'london' | 'paris' | 'newyork' | 'sydney' | 'berlin'
-  | 'shanghai' | 'hongkong' | 'capetown' | 'cairo' | 'athens';
+  | 'shanghai' | 'hongkong' | 'capetown' | 'cairo' | 'athens'
+  | 'pune' | 'northeast';
 
 interface FabricSpec {
   brickRed: RGBA; brickBrown: RGBA; brickOrange: RGBA;
@@ -293,6 +294,62 @@ const FABRICS: Record<CityFabric, FabricSpec> = {
       glassSky: H('#a6c0cc'), glassSunset: H('#9bb6c2'), glassDark: H('#33454e'),
       glassLit: H('#e9c277'), glassHot: H('#d4a85a'),
       steel: H('#a4aaa0'), steelDark: H('#727870'),
+    },
+  },
+  // Pune — warm cream/ochre cement render + black Deccan basalt + saffron/
+  // vermilion temples + red Mangalore-tile roofs. Flat RCC roofscape dominates
+  // (water tanks, dishes) so the city reads flat-topped and dusty-ochre, not
+  // London-red; the red tile lives in the tileRed accent. Brick tones pulled
+  // to warm ochre render so a street reads cream-buff, studded with basalt.
+  pune: {
+    brickRed: H('#c9a86a'), brickBrown: H('#a8895a'), brickOrange: H('#d4b378'),
+    renderCream: H('#d9c39a'), pebbledash: H('#c9b88e'),
+    slate: H('#807468'), slateDark: H('#665e54'), tileRed: H('#a4452e'),
+    potClay: H('#8a6a48'), buffBrick: H('#d9c39a'),
+    walls: [H('#d9c39a'), H('#c9a86a'), H('#e7e0ce'), H('#d4b378'), H('#b29464'), H('#e8821e'), H('#b23a2e'), H('#cabb92')],
+    roofs: [H('#807468'), H('#a4452e'), H('#665e54'), H('#8a7c6a')],
+    flatRoof: true,
+    // DUSTY HAZY plateau: tawny dry soil, the muddy olive-brown Mula-Mutha
+    // (silty, low — never blue), dusty monsoon-green banyan/garden green that
+    // dries khaki, hazy blue-grey IT-tower glass. Warm grey-beige paving.
+    env: {
+      water: H('#7e7a5a'), waterDeep: H('#64613f'), waterGlint: H('#cbb98a'),
+      grass: H('#5f7a39'), grassDark: H('#4e652f'),
+      field: H('#a8a052'), fieldDark: H('#8e8744'),
+      treeGreen: H('#5f7a39'), treeDeep: H('#475c2c'), treeLime: H('#7e8c46'),
+      moor: H('#8a8c4e'), brownfield: H('#b0a484'),
+      soil: H('#c9ab73'), marsh: H('#8a8c4e'), aridSand: H('#d2b67e'), rock: H('#4a4640'),
+      sand: H('#dcc593'), pavement: H('#bdae96'), concrete: H('#c0b496'),
+      glassSky: H('#8fa9b0'), glassSunset: H('#a8b0b2'), glassDark: H('#3a4548'),
+      glassLit: H('#e6b65c'), glassHot: H('#cf9a4e'),
+      steel: H('#9aa4a0'), steelDark: H('#6c726c'),
+    },
+  },
+  // North-East England — honey/buff Grainger-Town sandstone + red Tyneside
+  // brick under dark Welsh-slate PITCHED roofs, damped by a cold grey-green
+  // North Sea and moorland green. The rust-orange Angel + silver-grey bridges
+  // are bespoke heroes; the everyday fabric is sandstone-and-brick under slate.
+  northeast: {
+    brickRed: H('#a8492e'), brickBrown: H('#8a4434'), brickOrange: H('#b9603f'),
+    renderCream: H('#d9c39a'), pebbledash: H('#c2a877'),
+    slate: H('#4a4e55'), slateDark: H('#3a3e44'), tileRed: H('#7a4632'),
+    potClay: H('#7a4632'), buffBrick: H('#d9c39a'),
+    walls: [H('#d9c39a'), H('#c2a877'), H('#a8492e'), H('#cab896'), H('#b9603f'), H('#b9ae96'), H('#8a4434'), H('#d2c2a0')],
+    roofs: [H('#4a4e55'), H('#3a3e44'), H('#7a4632'), H('#52565d')],
+    // COLD NORTHERN coast: slate-teal grey-green North Sea (flat, low-reflectance),
+    // desaturated moorland/pasture green (heather-dulled, never tropical), cool
+    // soil, grey granite-sett paving, cool blue-grey Quayside curtain glass.
+    env: {
+      water: H('#566e70'), waterDeep: H('#41585a'), waterGlint: H('#b8c2b0'),
+      grass: H('#5e7048'), grassDark: H('#4c5c3a'),
+      field: H('#a89e6a'), fieldDark: H('#928858'),
+      treeGreen: H('#5e7048'), treeDeep: H('#445436'), treeLime: H('#788a54'),
+      moor: H('#6e7858'), brownfield: H('#9b9488'),
+      soil: H('#7c7a5e'), marsh: H('#6e7650'), aridSand: H('#b0a884'), rock: H('#b9ae96'),
+      sand: H('#dccfae'), pavement: H('#9b948b'), concrete: H('#a8a6a4'),
+      glassSky: H('#9fb6be'), glassSunset: H('#9bb0b6'), glassDark: H('#2c313d'),
+      glassLit: H('#e7be74'), glassHot: H('#d4a85a'),
+      steel: H('#9aa4a8'), steelDark: H('#6c7478'),
     },
   },
 };

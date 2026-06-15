@@ -244,6 +244,7 @@ export interface CityMap {
   fabric?:
     | 'london' | 'paris' | 'newyork' | 'sydney' | 'berlin'
     | 'shanghai' | 'hongkong' | 'capetown' | 'cairo' | 'athens'
+    | 'pune' | 'northeast'
     | undefined;
   /** Renderer/UI scenery (NOT serialized — rebuilt with the map from
    *  scenarioId). The renderer reads its labels, towns and air fleet from

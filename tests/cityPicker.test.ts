@@ -23,6 +23,8 @@ describe('city registry + picker roster', () => {
     expect(ids).toContain('capetown');
     expect(ids).toContain('cairo');
     expect(ids).toContain('athens');
+    expect(ids).toContain('pune');
+    expect(ids).toContain('northeast');
   });
 
   it('the data-backed (lazy) cities are the OSM artifacts; London is code-drawn', async () => {
@@ -38,6 +40,8 @@ describe('city registry + picker roster', () => {
       'capetown',
       'cairo',
       'athens',
+      'pune',
+      'northeast',
     ]);
     // London needs no preload (no artifact), Paris/NY do.
     await expect(loadScenarioData('london')).resolves.toBeUndefined();

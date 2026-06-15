@@ -57,6 +57,8 @@ describe('CityScenario v2 resolves to London by default', () => {
       'capetown',
       'cairo',
       'athens',
+      'pune',
+      'northeast',
       'm1-first-light',
       'm2-step-up',
       'm3-storm',

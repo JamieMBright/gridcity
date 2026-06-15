@@ -193,6 +193,30 @@ export const CITY_SCENARIOS: CityScenario[] = [
     unlockAtRank: 10,
   },
   {
+    // Pune — OSM artifact (src/data/cities/pune.ts): a dense Deccan-plateau
+    // city, the muddy Mula-Mutha looping through, basalt forts and saffron
+    // temples in the old peths, mirror-glass IT parks on the fringes. Resolves
+    // to LONDON_PROFILE for now; fully PLAYABLE — open to all for testing.
+    id: 'pune',
+    name: 'Pune & the Mula-Mutha',
+    tagline: 'A hazy plateau city of fort-stone, temples and tech towers.',
+    build: () => buildCityFromData(cityDataFor('pune')),
+    difficulty: 6,
+    unlockAtRank: 11,
+  },
+  {
+    // North-East England — OSM artifact (src/data/cities/northeast.ts): a
+    // coastal REGION, the Tyne and Wear cutting to the North Sea, Newcastle and
+    // Gateshead on the gorge, the quaysides, castles and the cold grey coast.
+    // Resolves to LONDON_PROFILE for now; fully PLAYABLE — open to all.
+    id: 'northeast',
+    name: 'North-East England & the Tyne',
+    tagline: 'Honey sandstone, steel bridges and a cold North Sea coast.',
+    build: () => buildCityFromData(cityDataFor('northeast')),
+    difficulty: 4,
+    unlockAtRank: 11,
+  },
+  {
     id: 'm1-first-light',
     name: 'First Light',
     tagline: 'One village, one wind tender, one wire.',

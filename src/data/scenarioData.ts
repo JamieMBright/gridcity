@@ -30,6 +30,8 @@ const CITY_ARTIFACTS: Record<string, () => Promise<{ default?: unknown } & Recor
   capetown: () => import('./cities/capetown'),
   cairo: () => import('./cities/cairo'),
   athens: () => import('./cities/athens'),
+  pune: () => import('./cities/pune'),
+  northeast: () => import('./cities/northeast'),
 };
 
 /** Scenario ids whose map is a committed (lazy-loaded) artifact, not a
