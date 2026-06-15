@@ -2678,3 +2678,265 @@ export function westfieldTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   }
   return iso.build();
 }
+
+/** THE PYRAMIDS OF GIZA (owner, 2026-06-15: "Do the Pyramids of Giza feature?
+ *  They should"). The Giza group on tawny desert sand — bespoke, MASSIVE and
+ *  LOW, NOT a tall tower: a broad multi-tile (5×4 SW-anchored) precinct.
+ *   · the GREAT PYRAMID (Khufu): broad-based ~1.57:1 base:height, honey
+ *     limestone, weathered STEPPED faces, smooth white casing gone except faint
+ *     remnant patches near the apex; the capstone gone (a small flat top).
+ *   · KHAFRE beside it (slightly smaller) — keeps a smooth casing CAP at its tip.
+ *   · MENKAURE (smaller again).
+ *   · the GREAT SPHINX in front (low, long, couchant; lion body + a pharaoh
+ *     head in the striped nemes headdress, facing the viewer/east, honey-grey,
+ *     nose broken).
+ *  Per-hero light-show (the nightly Sound-&-Light): floodlight FIXTURES round
+ *  the base + faint warm UPLIGHTING washing the pyramid faces (the dynamic
+ *  energised glow ties into the demand model later). docs/cities/cairo.md. */
+export const PYRAMID_W = 5;
+export const PYRAMID_H = 4;
+export function pyramidTile(seed: number, variant = 0): Uint8ClampedArray<ArrayBuffer> {
+  // headroom lets the Great Pyramid's apex climb past the low 5×4 cap while
+  // staying a BROAD, ground-hugging mass — it must read MASSIVE (the real
+  // Great Pyramid towers over the city), yet LOW + broad, never a spike.
+  const iso = new Iso(PYRAMID_W, PYRAMID_H, { swAnchor: true, headroom: 150 });
+  const rng = new Rng(seed * 49297 + variant * 131 + 11);
+  const S = RES;
+  // honey limestone of the weathered core masonry, + the pale smooth casing
+  const STONE = hex('#d6c29a'); // honey limestone (cairo.md `stone`)
+  const STONE_W = hex('#c2ad82'); // shaded core
+  const CASING = hex('#ece2cc'); // pale smooth Tura casing remnant
+  const SAND = COLORS.aridSand; // tawny desert sand (cairo env: #d8b777)
+  const SAND_D = darken(SAND, 0.1);
+
+  // tawny desert apron over the whole footprint (a touch lighter than the map
+  // ground so the precinct reads as the cleared Giza plateau)
+  iso.floor(lighten(SAND, 0.04), SAND_D);
+  // drifted sand mounds / scattered tonal patches so it isn't a flat slab
+  for (let k = 0; k < 26; k++) {
+    const u = rng.range(0.2, PYRAMID_W - 0.2);
+    const v = rng.range(0.2, PYRAMID_H - 0.2);
+    const [px, py] = iso.P(u, v, 0);
+    const r = rng.range(2, 5) * S;
+    iso.r.poly(
+      [[px - r, py], [px, py - r * 0.5], [px + r, py], [px, py + r * 0.5]],
+      alpha(rng.chance(0.5) ? lighten(SAND, 0.08) : SAND_D, 0.5),
+    );
+  }
+
+  // A single weathered, STEPPED pyramid mass centred at (cu,cv) with half-base
+  // `hb` (tile units) and apex height `H` px. Drawn as the two visible faces
+  // (SW shade + SE lit), with course lines for the stepped look, faint warm
+  // UPLIGHTING rising from the base, optional smooth casing cap, and a small
+  // flat top where the capstone is gone. Returns the apex screen point.
+  const pyramid = (
+    cu: number,
+    cv: number,
+    hb: number,
+    H: number,
+    opts: { capstone?: boolean; casingRemnant?: boolean; flatTop?: number } = {},
+  ): Pt => {
+    const flat = opts.flatTop ?? hb * 0.05; // half-width of the missing-capstone flat
+    iso.shadow(cu - hb, cv - hb * 0.5, cu + hb, cv + hb, hb * 0.5, 0.22);
+    // base corners (z=0) and the (near-)apex
+    const w = iso.P(cu - hb, cv + hb, 0); // west / left corner
+    const s = iso.P(cu + hb, cv + hb, 0); // south / front corner
+    const e = iso.P(cu + hb, cv - hb, 0); // east / right corner
+    const apexL = iso.P(cu - flat, cv - flat, H); // flat-top NW lip
+    const apexS = iso.P(cu + flat, cv + flat, H); // flat-top front lip
+    const apexE = iso.P(cu + flat, cv - flat, H); // flat-top E lip
+    // the two visible triangular faces (a near-square flat top, capstone gone)
+    iso.r.poly([w, s, apexS, apexL], shaded(STONE, 0.16)); // SW face (in shade)
+    iso.r.poly([s, e, apexE, apexS], lit(STONE, 0.06)); // SE face (sun-lit)
+    // the tiny flat top (where the gold capstone is missing)
+    iso.r.poly([apexL, apexS, apexE], top(STONE, 0.28));
+
+    // weathered STEPPED courses: faint horizontal step lines climbing each face
+    const courses = Math.max(7, Math.round(H / 7));
+    for (let i = 1; i < courses; i++) {
+      const t = i / courses;
+      const lw = hb * (1 - t) + flat * t;
+      // SW face course (west edge → front edge)
+      const a = iso.P(cu - lw, cv + lw, H * t);
+      const b = iso.P(cu + lw, cv + lw, H * t);
+      iso.r.line(a, b, 0.55 * S, alpha(darken(STONE, 0.22), 0.5));
+      // SE face course (front edge → east edge)
+      const c = iso.P(cu + lw, cv - lw, H * t);
+      iso.r.line(b, c, 0.55 * S, alpha(darken(STONE, 0.14), 0.42));
+      // a few jagged step nicks so the silhouette isn't a clean ruled triangle
+      if (i % 2 === 0) {
+        iso.r.line(a, [a[0], a[1] - 1.4 * S], 0.5 * S, alpha(STONE_W, 0.6));
+        iso.r.line(c, [c[0], c[1] - 1.4 * S], 0.5 * S, alpha(STONE_W, 0.5));
+      }
+    }
+
+    // faint warm UPLIGHTING — the Sound-&-Light wash, brightest at the base,
+    // fading up the faces (a translucent honey gradient over the lower courses)
+    for (let i = 0; i < 5; i++) {
+      const t0 = i / 5;
+      const t1 = (i + 1) / 5;
+      const a0 = alpha(COLORS.glassLit, 0.12 * (1 - t0));
+      const lw0 = hb * (1 - t0) + flat * t0;
+      const lw1 = hb * (1 - t1) + flat * t1;
+      const wL = iso.P(cu - lw0, cv + lw0, H * t0);
+      const sL = iso.P(cu + lw0, cv + lw0, H * t0);
+      const sH = iso.P(cu + lw1, cv + lw1, H * t1);
+      const wH = iso.P(cu - lw1, cv + lw1, H * t1);
+      iso.r.poly([wL, sL, sH, wH], a0); // wash on the SW face
+      const eL = iso.P(cu + lw0, cv - lw0, H * t0);
+      const eH = iso.P(cu + lw1, cv - lw1, H * t1);
+      iso.r.poly([sL, eL, eH, sH], alpha(COLORS.glassHot, 0.1 * (1 - t0))); // SE face
+    }
+
+    // faint remnant patches of the smooth pale casing near the apex
+    if (opts.casingRemnant) {
+      for (const [du, sgn] of [[-1, 1], [1, -1]] as const) {
+        const ta = 0.66 + rng.range(0, 0.08);
+        const tb = 0.9;
+        const lwa = hb * (1 - ta) + flat * ta;
+        const lwb = hb * (1 - tb) + flat * tb;
+        const pa = iso.P(cu + du * lwa * 0.2, cv + sgn * lwa, H * ta);
+        const pb = iso.P(cu + du * lwa, cv + sgn * lwa, H * ta);
+        const pc = iso.P(cu + du * lwb, cv + sgn * lwb, H * tb);
+        const pd = iso.P(cu + du * lwb * 0.2, cv + sgn * lwb, H * tb);
+        iso.r.poly([pa, pb, pc, pd], alpha(CASING, 0.7));
+      }
+    }
+    // a smooth intact casing CAP at the very tip (Khafre keeps this)
+    if (opts.capstone) {
+      const tc = 0.82;
+      const lw = hb * (1 - tc) + flat * tc;
+      const cw = iso.P(cu - lw, cv + lw, H * tc);
+      const cs = iso.P(cu + lw, cv + lw, H * tc);
+      const ce = iso.P(cu + lw, cv - lw, H * tc);
+      iso.r.poly([cw, cs, apexS, apexL], shaded(CASING, 0.08)); // SW casing cap
+      iso.r.poly([cs, ce, apexE, apexS], lit(CASING, 0.05)); // SE casing cap
+      iso.r.polyline([cw, apexL, apexE, ce], INK_W * 0.4, alpha(INK, 0.4));
+    }
+
+    // crisp ink arrises (the three visible edges) so the mass reads sharp
+    iso.r.polyline([w, apexL], INK_W * 0.55, alpha(INK, 0.7));
+    iso.r.polyline([s, apexS], INK_W * 0.7, INK); // the near (front) arris, boldest
+    iso.r.polyline([e, apexE], INK_W * 0.55, alpha(INK, 0.7));
+    iso.r.polyline([w, s, e], INK_W * 0.5, alpha(INK, 0.55)); // the base line
+    return apexS;
+  };
+
+  // floodlight FIXTURE: a short dark stand on the sand throwing a warm fan of
+  // light back toward the monument (the energisable Sound-&-Light rig)
+  const floodlight = (u: number, v: number, toward: Pt): void => {
+    const base = iso.P(u, v, 0);
+    const head: Pt = [base[0], base[1] - 6 * S];
+    iso.r.line(base, head, 1.1 * S, COLORS.steelDark); // the mast
+    iso.r.rect(head[0] - 2 * S, head[1] - 2 * S, head[0] + 2 * S, head[1], COLORS.glassLit); // the lamp
+    // a soft cone of warm light fanning toward the monument
+    const dx = toward[0] - head[0];
+    const dy = toward[1] - head[1];
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = (-dy / len) * 7 * S;
+    const ny = (dx / len) * 7 * S;
+    iso.r.poly(
+      [head, [toward[0] + nx, toward[1] + ny], [toward[0] - nx, toward[1] - ny]],
+      alpha(COLORS.glassLit, 0.1),
+    );
+    iso.glint(head, 1.8 * S);
+  };
+
+  // --- the three pyramids, in the recognisable Giza row -----------------------
+  // Read like the classic postcard: three honey triangles stepping down a
+  // diagonal, ALL clearly visible (none buried behind another), and MASSIVE —
+  // they must out-scale the whole city. The iso draw order is by (u+v), so the
+  // back pyramids sit at LOW (u+v) — up-screen, to the left — and are spread
+  // far enough that the Great Pyramid never eats them.
+  // Menkaure — smallest, furthest back-left (low u, low v): far enough up-left
+  // that its peak clears the Great Pyramid's silhouette.
+  pyramid(0.78, 0.72, 0.72, 92, { flatTop: 0.05 });
+  // Khafre — mid-size, KEEPS a smooth casing cap at its tip; set up-left so its
+  // full triangle + cap stand clear above the Great Pyramid's left arris.
+  pyramid(1.62, 1.18, 1.12, 146, { capstone: true });
+  // THE GREAT PYRAMID (Khufu) — the broadest + tallest, front-right. half-base
+  // ~1.55 tiles, apex ~178px ⇒ base:height ≈ 1.55:1, the real broad-based
+  // proportion. Front (high u+v) so it draws last and sits proud; sized so it
+  // dominates yet leaves its two siblings clearly visible up-left. ENORMOUS.
+  pyramid(3.15, 2.5, 1.55, 178, { casingRemnant: true, flatTop: 0.08 });
+
+  // --- THE GREAT SPHINX — LOW, LONG, couchant, in FRONT of the pyramids (east
+  //     of + below them), facing the viewer. A long lion body lying along the
+  //     u-axis (reads as a long flank on the SE face), the rump at the back
+  //     (low u) and the reared chest + pharaoh head at the FRONT (high u),
+  //     turned to face the viewer. Honey-grey, the nemes headdress striped,
+  //     the nose broken. Kept low so it reads as couchant, never a tower. ----
+  {
+    const su = 0.95; // rump end (back of the body)
+    const sv = 3.45; // out in front of the pyramids
+    const SPH = hex('#c9b58e'); // honey-grey weathered limestone
+    const len = 1.4; // body LENGTH in tiles, along u (long + low)
+    const hw = 0.26; // body half-depth (along v)
+    const bodyZ = 16; // low couchant body
+    const headU = su + len; // the chest/head end (front, high u)
+    const cv = sv; // body centre v
+    iso.shadow(su - 0.1, cv - hw - 0.1, headU + 0.4, cv + hw + 0.2, 0.2, 0.24);
+    // the long couchant body — a low block stretched along u; the SE long flank
+    // (u rises L→R) is the lion's side
+    iso.box(su, cv - hw, headU, cv + hw, 0, bodyZ, SPH);
+    // faint weathering striations down the long sunlit flank (the SE face)
+    iso.windowsRight(headU, cv - hw + 0.03, cv + hw - 0.03, 3, bodyZ - 2, 2, alpha(shaded(SPH, 0.16), 0.4), undefined);
+    for (let u = su + 0.12; u < headU; u += 0.18) {
+      iso.r.line(iso.P(u, cv + hw, 1), iso.P(u, cv + hw, bodyZ - 1), 0.5 * S, alpha(darken(SPH, 0.16), 0.4));
+    }
+    // the haunch at the rump (a slightly taller rounded block at the back)
+    iso.box(su, cv - hw + 0.01, su + 0.3, cv + hw - 0.01, 0, bodyZ + 6, lit(SPH, 0.02));
+    // the forepaws stretched forward past the chest (toward +u), two long low
+    // ridges — the unmistakable couchant lion paws
+    for (const dv of [-hw + 0.04, hw - 0.16] as const) {
+      iso.box(headU, cv + dv, headU + 0.55, cv + dv + 0.12, 0, 7, lit(SPH, 0.05));
+    }
+    // the reared CHEST + head, at the front end, kept modest so it stays
+    // couchant. The chest is a short upright block; the head sits on it.
+    const chestU = headU - 0.05;
+    iso.box(chestU, cv - 0.17, headU + 0.02, cv + 0.17, 0, 34, SPH);
+    const hb0 = 34; // head springs from the chest top
+    const hb1 = 52;
+    // the nemes headdress, drawn on the front-RIGHT (u+) face so it faces the
+    // viewer — a broad trapezoid wider than the face, lappets framing it
+    const fu = headU + 0.02;
+    const fL = iso.P(fu, cv - 0.17, hb0);
+    const fR = iso.P(fu, cv + 0.17, hb0);
+    const tL = iso.P(fu, cv - 0.21, hb1);
+    const tR = iso.P(fu, cv + 0.21, hb1);
+    iso.r.poly([fL, fR, tR, tL], lit(SPH, 0.06)); // the nemes head-cloth
+    iso.r.polyline([fL, fR, tR, tL], INK_W * 0.5, alpha(INK, 0.6), true);
+    // striped nemes bands (alternating warm/pale)
+    for (let i = 1; i < 7; i++) {
+      const t = i / 7;
+      const a = iso.P(fu, cv - 0.17 - 0.04 * t, hb0 + (hb1 - hb0) * t);
+      const b = iso.P(fu, cv + 0.17 + 0.04 * t, hb0 + (hb1 - hb0) * t);
+      iso.r.line(a, b, 0.8 * S, alpha(i % 2 ? darken(SPH, 0.22) : CASING, 0.65));
+    }
+    // the face panel (paler), broken-nose pit, eyes + brow
+    const faceL = iso.P(fu + 0.004, cv - 0.12, hb0 + 1);
+    const faceR = iso.P(fu + 0.004, cv + 0.12, hb0 + 1);
+    const faceT = iso.P(fu + 0.004, cv, hb1 - 4);
+    iso.r.poly([faceL, faceR, faceT], lighten(SPH, 0.08));
+    iso.r.polyline([faceL, faceT, faceR], INK_W * 0.4, alpha(INK, 0.4));
+    const nose = iso.P(fu + 0.008, cv, hb0 + 9);
+    iso.r.poly([[nose[0] - 2.6 * S, nose[1]], [nose[0] + 2.6 * S, nose[1]], [nose[0], nose[1] + 4.6 * S]], alpha(shaded(SPH, 0.42), 0.85)); // broken-nose pit
+    for (const dy of [-0.06, 0.06]) {
+      const e = iso.P(fu + 0.008, cv + dy, hb0 + 13);
+      iso.r.line([e[0] - 1.8 * S, e[1]], [e[0] + 1.8 * S, e[1]], 1.0 * S, alpha(INK, 0.55)); // eyes
+    }
+    // the lappets dropping at each side of the head onto the shoulders
+    iso.r.line(tL, iso.P(fu, cv - 0.22, hb0 - 7), 2.0 * S, shaded(SPH, 0.12));
+    iso.r.line(tR, iso.P(fu, cv + 0.22, hb0 - 7), 2.0 * S, lit(SPH, 0.05));
+    // a dedicated floodlight raking the Sphinx face from in front
+    floodlight(headU + 0.6, cv, iso.P(fu, cv, hb1 - 6));
+  }
+
+  // --- the floodlight RIG: fixtures ringing the bases, fanning warm light at
+  //     the monuments (the energisable nightly show) ---------------------------
+  floodlight(2.3, 3.85, iso.P(3.05, 2.5, 90)); // aimed at the Great Pyramid
+  floodlight(4.3, 3.4, iso.P(3.05, 2.5, 80)); // the Great Pyramid, east side
+  floodlight(4.4, 1.2, iso.P(1.95, 1.5, 90)); // back-right, raking Khafre
+  floodlight(0.55, 2.0, iso.P(1.0, 0.9, 60)); // raking Menkaure
+  return iso.build();
+}

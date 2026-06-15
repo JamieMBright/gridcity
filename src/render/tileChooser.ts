@@ -34,9 +34,11 @@ const BLOCK_LANDMARKS: ReadonlySet<Landmark> = new Set<Landmark>([
   // 2×2 Notre-Dame
   LANDMARK.eiffel,
   LANDMARK.notredame,
+  // the Pyramids of Giza — a MASSIVE, LOW 5×4 precinct (Cairo)
+  LANDMARK.pyramid,
 ]);
 
-const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {
+export const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {
   [LANDMARK.parliament]: 'lm_parliament',
   [LANDMARK.eye]: 'lm_eye',
   [LANDMARK.dome]: 'lm_dome',
@@ -74,6 +76,7 @@ const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {
   [LANDMARK.arch]: 'lm_arch',
   [LANDMARK.basilica]: 'lm_basilica',
   [LANDMARK.louvre]: 'lm_louvre',
+  [LANDMARK.pyramid]: 'lm_pyramid',
 };
 
 function at(map: CityMap, x: number, y: number, arr: Uint8Array): number {

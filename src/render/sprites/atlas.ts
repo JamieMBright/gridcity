@@ -57,6 +57,9 @@ import {
   palacemastTile,
   parliamentTile,
   powerstationTile,
+  PYRAMID_H,
+  PYRAMID_W,
+  pyramidTile,
   sacrecoeurTile,
   schoolTile,
   sewageTile,
@@ -275,6 +278,8 @@ function buildSpriteCells(): Map<string, Cell> {
   set('lm_arch', archTile(355)); // triumphal arch (Arc de Triomphe / gates)
   set('lm_basilica', sacrecoeurTile(356)); // Sacré-Cœur
   set('lm_louvre', louvreTile(357)); // the palace + glass pyramid
+  // the Pyramids of Giza — a MASSIVE, LOW 5×4 SW-anchored precinct (Cairo)
+  set('lm_pyramid', pyramidTile(358), PYRAMID_W, PYRAMID_H, true);
   // the ~100-hero grand-civic generator: 12 variants (dome/towers/clock/
   // balustrade × stone × height), 2×2 SW-anchored blocks
   for (let i = 0; i < 4; i++) set(`lm_grand${i}`, grandTile(360 + i, i), 3, 3, true);

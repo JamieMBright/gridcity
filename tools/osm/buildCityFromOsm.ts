@@ -26,6 +26,7 @@ import {
 } from './geometry';
 import type { LLPolygon, OsmFeatures } from './overpass';
 import { TileProjector } from './project';
+import { BESPOKE_FOOT, resolveHeroSprite } from './heroSprite';
 
 export interface NamedPlace {
   x: number;
@@ -516,52 +517,21 @@ function seedGenerationSites(
   }
 }
 
-/** Multi-tile hero footprints (N×N, SW-anchored). Default 1×1. */
-const LANDMARK_FOOT: Partial<Record<number, number>> = {
-  [LANDMARK.eiffel]: 3, // the massive iron tower
-};
+/** Multi-tile hero footprints (W×H tiles, SW-anchored). Default 1×1. Sourced
+ *  from the resolver's BESPOKE_FOOT so the sprite's true size (e.g. the 5×4
+ *  Pyramids of Giza, the 3×3 Eiffel) is decided in ONE place. */
+const heroFoot = (lm: number): { w: number; h: number } =>
+  BESPOKE_FOOT[lm as keyof typeof BESPOKE_FOOT] ?? { w: 1, h: 1 };
 
-const HERO_KEYWORDS: Array<[RegExp, Landmark]> = [
-  [/cathedral|basilica|minster|duomo|mosque|temple/i, LANDMARK.dome],
-  [/church|chapel|synagogue|abbey/i, LANDMARK.church],
-  [/castle|fort|citadel|palace|château|chateau/i, LANDMARK.fortress],
-  [/stadium|stade|arena|estadio/i, LANDMARK.stadium],
-  [/\bzoo\b|aquarium/i, LANDMARK.zoo],
-  [/tower|tour\b/i, LANDMARK.bttower],
-  // town hall / seat of government / opera / major museum → the GRAND civic
-  // hero block (owner, 2026-06-15: town halls ALWAYS heroes). Ordinary civic
-  // is handled separately (LANDMARK.civic, 1×1, no apron).
-  [/city hall|town hall|guildhall|hôtel de ville|rathaus|parliament|capitol|ministry/i, LANDMARK.grand],
-  [/opera|concert hall|philharmoni|conservatoire/i, LANDMARK.grand],
-  [/museum|gallery|galerie/i, LANDMARK.grand],
-  [/airport|aéroport|aeroport|aerodrome/i, LANDMARK.airport],
-  [/mall|centre commercial|shopping/i, LANDMARK.mall],
-  [/station|gare\b/i, LANDMARK.station],
-];
-
+/** Map a discovered POI → its sprite landmark. The TYPE→sprite decision lives
+ *  in ONE place — tools/osm/heroSprite.ts — so every discovered hero (the
+ *  Pyramids of Giza, Eiffel, a town hall, a tall tower…) auto-resolves with no
+ *  per-building hand-curation. A couple of POI-only signals the resolver can't
+ *  see (zoo / mall, which this pipeline keys off tags) are checked here first. */
 function landmarkFor(name: string, tags: Record<string, string>): Landmark {
-  if (tags.aeroway === 'aerodrome') return LANDMARK.airport;
-  // bespoke Paris icons (checked before the generic tower/cathedral rules)
-  if (/eiffel/i.test(name)) return LANDMARK.eiffel;
-  if (/arc de triomphe|porte saint[- ]?(denis|martin)|triumphal/i.test(name)) return LANDMARK.arch;
-  if (/sacr[ée][- ]?c[œoe]ur|basilique/i.test(name)) return LANDMARK.basilica;
-  if (/louvre/i.test(name)) return LANDMARK.louvre;
-  // the bespoke gothic cathedral is reserved for Notre-Dame specifically (so
-  // a city's other cathedrals don't all become identical twins of it)
-  if (/notre[- ]?dame/i.test(name)) return LANDMARK.notredame;
-  // town hall / government seat — ALWAYS a hero (grand fallback block)
-  if (tags.office === 'government' || tags.amenity === 'townhall') return LANDMARK.grand;
-  if (tags.building === 'cathedral' || tags.building === 'church') {
-    return /cathedral|basilica|minster/i.test(name) ? LANDMARK.dome : LANDMARK.church;
-  }
-  for (const [re, lm] of HERO_KEYWORDS) if (re.test(name)) return lm;
-  if (tags.historic === 'castle' || tags.historic === 'fort') return LANDMARK.fortress;
-  if (tags.tourism === 'zoo') return LANDMARK.zoo;
-  // ordinary civic (library, clinic, public office) → tile-sized civic building
-  if (tags.amenity === 'library' || tags.amenity === 'clinic' || tags.amenity === 'public_building' || tags.office === 'public') {
-    return LANDMARK.civic;
-  }
-  return LANDMARK.none;
+  if (tags.tourism === 'zoo' || /\bzoo\b|aquarium/i.test(name)) return LANDMARK.zoo;
+  if (tags.shop === 'mall' || /\bmall\b|centre commercial|shopping centre/i.test(name)) return LANDMARK.mall;
+  return resolveHeroSprite({ name, tags }).landmark;
 }
 
 /** Notability score: heritage/wikidata weigh most, then tourism/historic. */
@@ -620,13 +590,14 @@ function placeHeroes(
       // a single tile-sized civic building on normal street fabric (no apron)
       landmark[idx(x, y)] = lm;
     } else if (isHero) {
-      // multi-tile heroes (e.g. the massive 3×3 Eiffel) stamp an N×N block,
-      // SW-anchored on (x,y) so the renderer's block-anchor lands the one
-      // sprite; (x,y) is the south-west corner, extending N + E.
-      let n = LANDMARK_FOOT[lm] ?? 1;
-      if (x + n - 1 >= w - 1 || y - (n - 1) <= 0) n = 1; // no room → demote
-      for (let dx = 0; dx < n; dx++) {
-        for (let dy = 0; dy < n; dy++) {
+      // multi-tile heroes (e.g. the massive 3×3 Eiffel, the 5×4 Pyramids of
+      // Giza) stamp a W×H block, SW-anchored on (x,y) so the renderer's
+      // block-anchor lands the one sprite; (x,y) is the south-west corner,
+      // extending E (+x) and N (-y).
+      let { w: fw, h: fh } = heroFoot(lm);
+      if (x + fw - 1 >= w - 1 || y - (fh - 1) <= 0) { fw = 1; fh = 1; } // no room → demote
+      for (let dx = 0; dx < fw; dx++) {
+        for (let dy = 0; dy < fh; dy++) {
           const i = idx(x + dx, y - dy);
           if (terrain[i] === TERRAIN.water) continue;
           landmark[i] = lm;
@@ -637,8 +608,8 @@ function placeHeroes(
       // a parvis/garden apron ringing the whole block so the monument stands
       // proud instead of being buried behind the blocks painted in front of it.
       // Heroes only — ordinary civic (handled above) gets no apron.
-      for (let dy = -(n + 1); dy <= 2; dy++) {
-        for (let dx = -1; dx <= n + 1; dx++) {
+      for (let dy = -(fh + 1); dy <= 2; dy++) {
+        for (let dx = -1; dx <= fw + 1; dx++) {
           const nx = x + dx;
           const ny = y + dy;
           if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;

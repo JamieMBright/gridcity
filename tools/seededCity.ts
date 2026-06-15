@@ -20,10 +20,10 @@ import {
   TERRAIN,
   ZONE,
   type CityMap,
-  type Landmark,
   type TransportRoute,
 } from '../src/sim/map/types';
 import { fillPolygonTiles, simplifyPath, strokePolylineTiles, type Pt } from './osm/geometry';
+import { BESPOKE_FOOT, type HeroInput, resolveHeroSprite } from './osm/heroSprite';
 import { geocode } from './osm/nominatim';
 import { fetchAllBuildings, fetchCoastline, fetchOsmFeatures, type BuildingFootprint } from './osm/overpass';
 import { projectorFromCentre, type TileProjector } from './osm/project';
@@ -39,67 +39,45 @@ function arg(flag: string, d: number): number {
 
 type Cls = 'domestic' | 'commercial' | 'civic' | 'industrial';
 /**
- * Classify a footprint. For civic we return BOTH a `special` (a bespoke
- * tile/hero landmark for the recognisable kinds) AND a `grandCivic` flag —
- * owner, 2026-06-15: the GRAND civic TYPES (town hall, government seat, opera/
- * concert hall, major museum, cathedral/mosque/temple, grand rail terminus,
- * stadium, airport) are FORCED to hero treatment regardless of notability;
- * everything else civic is an ORDINARY tile-sized building (LANDMARK.civic).
- * Town halls are ALWAYS heroes.
+ * Coarse fabric class of a footprint — feeds the per-tile zone voting only
+ * (domestic→housing, commercial→shops/offices, industrial→warehouses). The
+ * HERO landmark decision is NOT made here; it lives in the shared resolver
+ * (tools/osm/heroSprite.ts) so every discovered hero auto-resolves with no
+ * per-building hand-curation. Civic = anything public/worship/government.
  */
-function classify(b: BuildingFootprint): { cls: Cls; special: Landmark; grandCivic: boolean } {
+function classify(b: BuildingFootprint): Cls {
   const k = b.kind;
   const am = b.amenity ?? '';
-  const name = b.name ?? '';
-  const civic = (special: Landmark, grandCivic = false): { cls: Cls; special: Landmark; grandCivic: boolean } =>
-    ({ cls: 'civic', special, grandCivic });
-  // worship: a cathedral/basilica/minster/mosque/temple is a GRAND domed hero;
-  // an ordinary church/chapel keeps its tile-sized parish-church sprite.
-  if (am === 'place_of_worship' || /church|cathedral|chapel|mosque|temple|basilica|synagogue/.test(k)) {
-    const grand = /cathedral|basilica|minster|mosque|temple|duomo/i.test(k + ' ' + name);
-    return civic(grand ? LANDMARK.dome : LANDMARK.church, grand);
+  if (am === 'place_of_worship' || /church|cathedral|chapel|mosque|temple|basilica|synagogue/.test(k)) return 'civic';
+  if (b.office === 'government' || am === 'townhall' || am === 'school' || am === 'college' || am === 'university' ||
+      am === 'hospital' || am === 'clinic' || am === 'library' || am === 'public_building' || b.office === 'public' ||
+      b.tourism === 'museum' || b.tourism === 'gallery' ||
+      /school|university|hospital|public|civic|government/.test(k)) {
+    return 'civic';
   }
-  // seat of government / town hall — ALWAYS a hero (grand fallback block)
-  if (b.office === 'government' || am === 'townhall' || /city hall|town hall|guildhall|hôtel de ville|parliament|capitol|ministry|rathaus/i.test(name)) {
-    return civic(LANDMARK.grand, true);
-  }
-  // opera / concert hall — grand hero
-  if (/opera|concert hall|philharmoni|symphony|conservatoire/i.test(name)) return civic(LANDMARK.grand, true);
-  // museum / gallery — a MAJOR one (named + tourism-tagged) is a grand hero;
-  // a small local gallery stays ordinary civic
-  if (b.tourism === 'museum' || b.tourism === 'gallery' || /museum|gallery|galerie/i.test(name)) {
-    const major = (b.tourism === 'museum' || b.tourism === 'gallery') && name.length > 0;
-    return civic(major ? LANDMARK.grand : LANDMARK.civic, major);
-  }
-  // schools/colleges/universities — tile-sized civic special (not a hero)
-  if (am === 'school' || am === 'college' || am === 'university' || k === 'school' || k === 'university') {
-    return civic(LANDMARK.school);
-  }
-  // hospitals/clinics — ordinary civic (was a sewage-icon stand-in hero; now a
-  // tile-sized municipal building in the city palette)
-  if (am === 'hospital' || am === 'clinic' || k === 'hospital') return civic(LANDMARK.civic);
-  // public/civic buildings that aren't one of the recognisable kinds above →
-  // the generic tile-sized civic building (library, public office, depot…)
-  if (am === 'library' || am === 'public_building' || b.office === 'public' || k === 'public' || k === 'civic' || k === 'government') {
-    return civic(LANDMARK.civic);
-  }
-  if (/industrial|warehouse|factory|shed|service|roof|hangar/.test(k)) return { cls: 'industrial', special: LANDMARK.none, grandCivic: false };
+  if (/industrial|warehouse|factory|shed|service|roof|hangar/.test(k)) return 'industrial';
   if (/office|retail|commercial|hotel|supermarket|kiosk/.test(k) || b.shop || b.office || b.tourism === 'hotel') {
-    return { cls: 'commercial', special: LANDMARK.none, grandCivic: false };
+    return 'commercial';
   }
-  return { cls: 'domestic', special: LANDMARK.none, grandCivic: false }; // apartments/house/residential/yes
+  return 'domestic'; // apartments/house/residential/yes
 }
 
-const HERO: Array<[RegExp, Landmark]> = [
-  [/eiffel/i, LANDMARK.eiffel],
-  [/notre[- ]?dame/i, LANDMARK.notredame],
-  [/louvre/i, LANDMARK.louvre],
-  [/arc de triomphe|porte saint/i, LANDMARK.arch],
-  [/sacr[ée][- ]?c[œoe]ur|basilique/i, LANDMARK.basilica],
-];
-function heroOf(name: string): Landmark {
-  for (const [re, lm] of HERO) if (re.test(name)) return lm;
-  return LANDMARK.none;
+/** Adapt a real OSM building footprint into the resolver's HeroInput: its
+ *  `building=` value is the closest thing to a Wikidata `type` we have here. */
+function heroInputOf(b: BuildingFootprint): HeroInput {
+  const tags: Record<string, string> = { building: b.kind };
+  if (b.amenity) tags.amenity = b.amenity;
+  if (b.office) tags.office = b.office;
+  if (b.shop) tags.shop = b.shop;
+  if (b.tourism) tags.tourism = b.tourism;
+  if (b.historic) tags.historic = b.historic;
+  return {
+    name: b.name,
+    type: b.kind,
+    tags,
+    heightM: b.heightM || undefined,
+    levels: b.levels || undefined,
+  };
 }
 
 // Flood the open SEA from OSM coastlines. OSM coastlines are open ways drawn
@@ -219,7 +197,7 @@ async function main(): Promise<void> {
     if (x < 0 || x >= W || y < 0 || y >= H) continue;
     const i = idx(x, y);
     if (terrain[i] === TERRAIN.water) continue;
-    const ci = CLS_IX[classify(b).cls];
+    const ci = CLS_IX[classify(b)];
     const lev = Math.min(60, b.levels || Math.round((b.heightM || 9) / 3) || 3);
     cover[i] = Math.min(65535, (cover[i] ?? 0) + 1);
     votes[i * 4 + ci] = Math.min(255, (votes[i * 4 + ci] ?? 0) + 1);
@@ -310,7 +288,6 @@ async function main(): Promise<void> {
   // local landmark is small). No artificial apron — heroes stand proud by
   // being TALLER/WIDER within their square; clearance comes only where the real
   // building has open ground (parks/squares the seeded map already left empty).
-  const FOOT: Record<number, number> = { [LANDMARK.eiffel]: 3, [LANDMARK.notredame]: 2 };
   const footExtent = (ring: [number, number][]): number => {
     let mnx = Infinity, mny = Infinity, mxx = -Infinity, mxy = -Infinity;
     for (const [lo, la] of ring) {
@@ -319,12 +296,6 @@ async function main(): Promise<void> {
     }
     return Math.max(mxx - mnx, mxy - mny); // real size in tiles
   };
-  // ORDINARY civic (council/clinic/library/depot + small named civic) is a
-  // 1×1 tile-sized building in the city palette with NO apron; the small civic
-  // SPECIALS (parish church, school) keep their own tile sprites. Heroes get a
-  // footprint clear (their own tiles → park, like every map hero) but ordinary
-  // civic does NOT — it sits on normal street fabric.
-  const TILE_CIVIC = new Set<Landmark>([LANDMARK.civic, LANDMARK.church, LANDMARK.school]);
   const notable = buildings
     .filter((b) => b.name && b.poly[0])
     .map((b) => ({ b, ext: footExtent(b.poly[0]!) }))
@@ -333,27 +304,28 @@ async function main(): Promise<void> {
   let civics = 0;
   for (const { b, ext } of notable) {
     if (heroes >= 100 && civics >= 220) break;
-    const name = b.name ?? '';
-    const lev = b.levels || Math.round((b.heightM ?? 0) / 3) || 0; // real height
-    const { special, grandCivic } = classify(b);
-    let lm = heroOf(name);
-    if (lm === LANDMARK.none) {
-      // FORCE the grand civic TYPES to hero treatment regardless of size; route
-      // ordinary civic to its tile sprite; a TALL building → a skyscraper hero;
-      // a wide named (non-civic) building → the grand block; tiny rest skipped.
-      if (grandCivic) lm = special; // dome (cathedral/mosque) or grand (townhall/museum/opera)
-      else if (TILE_CIVIC.has(special)) lm = special; // ordinary civic — tile-sized, no apron
-      else if (lev >= 12) lm = LANDMARK.skyscraper;
-      else if (ext >= 2.2) lm = LANDMARK.grand;
+    // ONE resolver call decides the sprite — no per-building hand-curation. A
+    // discovered Pyramid/Eiffel/town-hall/tall-tower all auto-resolve here.
+    const verdict = resolveHeroSprite(heroInputOf(b));
+    let lm = verdict.landmark;
+    let kind = verdict.kind;
+    if (kind === 'none') {
+      // not matched by type/name, but a big-footprint named building is still a
+      // hero: a TALL one → a skyscraper, a WIDE one → the grand block.
+      const lev = b.levels || Math.round((b.heightM ?? 0) / 3) || 0;
+      if (lev >= 12) { lm = LANDMARK.skyscraper; kind = 'archetype'; }
+      else if (ext >= 2.2) { lm = LANDMARK.grand; kind = 'archetype'; }
       else continue;
     }
-    const isTileCivic = TILE_CIVIC.has(lm);
+    // tile-civic (parish church, school, ordinary civic, station) is a 1×1
+    // building on normal street fabric — NO apron; heroes get a footprint clear.
+    const isTileCivic = kind === 'tileCivic';
     if (isTileCivic ? civics >= 220 : heroes >= 100) continue;
-    // footprint: tile-civic + the small specials are 1×1; bespoke fixed sizes;
-    // skyscraper / grand = 3×3; else size to the real extent (1..4)
-    const N = isTileCivic
-      ? 1
-      : (FOOT[lm] ?? (lm === LANDMARK.grand || lm === LANDMARK.skyscraper ? 3 : Math.max(1, Math.min(4, Math.round(ext)))));
+    // footprint: tile-civic = 1×1; bespoke uses its baked W×H; archetype
+    // grand/skyscraper = 3×3; else size to the real extent (1..4).
+    const bespoke = BESPOKE_FOOT[lm as keyof typeof BESPOKE_FOOT];
+    const fw = isTileCivic ? 1 : bespoke?.w ?? (lm === LANDMARK.grand || lm === LANDMARK.skyscraper ? 3 : Math.max(1, Math.min(4, Math.round(ext))));
+    const fh = isTileCivic ? 1 : bespoke?.h ?? fw;
     const c = b.poly[0]!;
     let sx = 0;
     let sy = 0;
@@ -361,9 +333,9 @@ async function main(): Promise<void> {
     const [tx, ty] = proj.toTile(sx / c.length, sy / c.length);
     const x = Math.round(tx);
     const y = Math.round(ty);
-    if (x < 1 || x + N - 1 >= W - 1 || y - (N - 1) <= 0 || y >= H - 1) continue;
+    if (x < 1 || x + fw - 1 >= W - 1 || y - (fh - 1) <= 0 || y >= H - 1) continue;
     let clear = true;
-    for (let dx = 0; dx < N && clear; dx++) for (let dy = 0; dy < N; dy++) if (landmark[idx(x + dx, y - dy)] !== LANDMARK.none) clear = false;
+    for (let dx = 0; dx < fw && clear; dx++) for (let dy = 0; dy < fh; dy++) if (landmark[idx(x + dx, y - dy)] !== LANDMARK.none) clear = false;
     if (!clear) continue;
     if (isTileCivic) {
       // a single tile-sized civic building on normal street fabric — NO apron,
@@ -371,7 +343,7 @@ async function main(): Promise<void> {
       landmark[idx(x, y)] = lm;
       civics++;
     } else {
-      for (let dx = 0; dx < N; dx++) for (let dy = 0; dy < N; dy++) { const j = idx(x + dx, y - dy); landmark[j] = lm; zone[j] = ZONE.park; }
+      for (let dx = 0; dx < fw; dx++) for (let dy = 0; dy < fh; dy++) { const j = idx(x + dx, y - dy); landmark[j] = lm; zone[j] = ZONE.park; }
       heroes++;
     }
   }

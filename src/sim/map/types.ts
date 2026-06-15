@@ -105,6 +105,7 @@ export const LANDMARK = {
   grand: 38, // parameterized grand civic building (the ~100 notable-building heroes)
   skyscraper: 39, // generic TALL tower hero — tall+slim, towers over the fabric
   civic: 40, // ORDINARY civic — a 1×1 tile-sized municipal building in the city palette (no apron)
+  pyramid: 41, // the Pyramids of Giza — the Great Pyramid + Khafre + Menkaure + the Sphinx (Cairo)
 } as const;
 export type Landmark = (typeof LANDMARK)[keyof typeof LANDMARK];
 
