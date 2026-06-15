@@ -65,6 +65,13 @@ import { WIND_HUBS, windHubOffset } from './sprites/networkSprites';
 import { applyCityFabric } from './sprites/buildingSprites';
 import { groundSpriteFor, structureSpriteFor } from './tileChooser';
 import { constructionSpriteFor, constructionStage } from './construction';
+import {
+  drawHeroLights,
+  heroLightKind,
+  HERO_GEOM,
+  HERO_LIGHT_LANDMARKS,
+  type HeroLight,
+} from './heroLights';
 
 const HALF_W = CELL_W / 2;
 const HALF_H = FLOOR_H / 2;
@@ -422,6 +429,19 @@ export class MapRenderer {
   private gleamG = new Graphics();
   /** Hero landmark anchors (tile centres + radius) for the rim treatment. */
   private gleamHeroes: Array<{ x: number; y: number; r: number; glass: boolean }> = [];
+  /** Per-hero ELECTRIFICATION light-show (owner, 2026-06-15): each hero lights
+   *  up with a bespoke night light-show WHEN ENERGISED by the player's network
+   *  (powering literally lights it up). Additive, rides the glow layer, gated
+   *  to energised heroes at mid/close zoom — a fresh blank game shows nothing.*/
+  private heroLightsG = new Graphics();
+  /** Every hero anchor on the map, with its footprint tiles + bespoke effect —
+   *  scanned once when the map loads (see buildHeroLightAnchors). */
+  private heroLightAnchors: Array<{ light: HeroLight; tiles: number[] }> = [];
+  /** Indices into heroLightAnchors whose footprint reads energised this frame
+   *  (recomputed only when the coverage hash changes). */
+  private heroLitNow: HeroLight[] = [];
+  /** Shared animation clock for the hero light-show (twinkle/cycle phases). */
+  private heroClock = 0;
   /** Wet sheen + rain streaks + lightning, screen-space. */
   private sheenG = new Graphics();
   private rainG = new Graphics();
@@ -536,9 +556,13 @@ export class MapRenderer {
     this.bloomG.blendMode = 'add';
     this.gleamG.blendMode = 'add';
     this.gleamG.eventMode = 'none';
+    this.heroLightsG.blendMode = 'add';
+    this.heroLightsG.eventMode = 'none';
     this.glowWorld.addChild(this.bloomG);
     this.glowWorld.addChild(this.gleamG);
+    this.glowWorld.addChild(this.heroLightsG);
     this.buildGleamHeroes();
+    this.buildHeroLightAnchors();
     this.vignette = new Sprite(makeVignetteTexture());
     for (const layer of [
       this.skyG,
@@ -1173,6 +1197,108 @@ export class MapRenderer {
     }
   }
 
+  /** Scan the map once for hero anchors that earn an ELECTRIFICATION light-show
+   *  (owner, 2026-06-15). One entry per reservation (the min-x/min-y tile);
+   *  collects the contiguous footprint tiles (so energisation can be read off
+   *  the coverage array) and bakes the world-pixel anchor + lit-crown height +
+   *  bespoke effect kind. Mirrors buildGleamHeroes' anchor rule. */
+  private buildHeroLightAnchors(): void {
+    this.heroLightAnchors = [];
+    this.heroLitNow = [];
+    const map = this.map;
+    if (!map || !map.landmark) return;
+    const lmAt = (xx: number, yy: number): Landmark =>
+      xx >= 0 && yy >= 0 && xx < map.width && yy < map.height
+        ? ((map.landmark?.[yy * map.width + xx] ?? 0) as Landmark)
+        : (0 as Landmark);
+    for (let y = 0; y < map.height; y++) {
+      for (let x = 0; x < map.width; x++) {
+        const lm = lmAt(x, y);
+        if (!HERO_LIGHT_LANDMARKS.has(lm)) continue;
+        // anchor = the reservation's top-left tile (no same-id tile N or W)
+        if (lmAt(x - 1, y) === lm || lmAt(x, y - 1) === lm) continue;
+        // collect the contiguous same-id block (rectangular reservation): its
+        // tile indices feed the energisation test, and its extent feeds the
+        // anchor centre + world half-width.
+        let x1 = x;
+        while (lmAt(x1 + 1, y) === lm) x1++;
+        let y1 = y;
+        while (lmAt(x, y1 + 1) === lm) y1++;
+        const tiles: number[] = [];
+        for (let ty = y; ty <= y1; ty++) {
+          for (let tx = x; tx <= x1; tx++) {
+            if (lmAt(tx, ty) === lm) tiles.push(ty * map.width + tx);
+          }
+        }
+        const kind = heroLightKind(lm);
+        // footprint centre on the ground, in world px
+        const cxTile = (x + x1) / 2;
+        const cyTile = (y + y1) / 2;
+        const c = this.tileCentre(cxTile, cyTile);
+        // accurate sprite geometry (matched to the art so the lit crown lands
+        // ON the silhouette — the Eye proved generic estimates read as a
+        // searchlight). Fall back to a footprint estimate for unlisted heroes.
+        const geom = HERO_GEOM[lm];
+        const spanTiles = x1 - x + (y1 - y) + 1;
+        const w = geom
+          ? Math.max(geom.halfW * HALF_W, HALF_W * 0.6)
+          : Math.max(spanTiles * HALF_W * 0.5, HALF_W * 0.7);
+        const topZ = geom ? geom.topZ : 60;
+        const topY = c.y - topZ * RES;
+        // deterministic per-hero phase from the anchor tile (stable across runs)
+        const phase = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+        this.heroLightAnchors.push({
+          light: { kind, cx: c.x, cy: c.y, topY, w, phase: (phase % 1000) / 1000 },
+          tiles,
+        });
+      }
+    }
+  }
+
+  /** Recompute which hero light-shows are lit from the latest coverage. A hero
+   *  is ENERGISED when any tile of its footprint reads on/brownout; for the
+   *  zero-customer heroes (tower bridge over water, the old power station, the
+   *  Paris/Cairo monuments, generic grand/skyscraper blocks) — whose own tiles
+   *  never carry demand — fall back to the 8-neighbour ring, so a landmark fed
+   *  from the powered district around it lights up too. */
+  private recomputeHeroLit(coverage: Uint8Array): void {
+    const map = this.map;
+    this.heroLitNow = [];
+    if (!map) return;
+    const lit = (i: number): boolean => coverage[i] === COV.on || coverage[i] === COV.brownout;
+    for (const { light, tiles } of this.heroLightAnchors) {
+      let on = false;
+      let hasDemand = false;
+      for (const i of tiles) {
+        if (lit(i)) {
+          on = true;
+          break;
+        }
+        if (coverage[i] !== COV.empty) hasDemand = true;
+      }
+      if (!on && !hasDemand) {
+        // zero-demand hero: look at the served district around the footprint
+        for (const i of tiles) {
+          const tx = i % map.width;
+          const ty = Math.floor(i / map.width);
+          for (let dy = -1; dy <= 1 && !on; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              const nx = tx + dx;
+              const ny = ty + dy;
+              if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) continue;
+              if (lit(ny * map.width + nx)) {
+                on = true;
+                break;
+              }
+            }
+          }
+          if (on) break;
+        }
+      }
+      if (on) this.heroLitNow.push(light);
+    }
+  }
+
   /** The per-frame hero RIM-LIGHT (NOT the old electric gleam). A single,
    *  steady, very low warm arc catching each hero's sun-facing (NE) edge —
    *  golden-hour light grazing a landmark, not a glowing/electrified object.
@@ -1206,6 +1332,35 @@ export class MapRenderer {
       arc(2.4 * RES, 0.12 * base);
       arc(1.0 * RES, 0.4 * base);
     }
+  }
+
+  /** Per-frame: draw the bespoke light-show for every ENERGISED hero that is
+   *  on screen, into the additive glow layer. Gated to mid/close zoom (the far
+   *  overview stays clean) and off entirely under grid view; nothing draws when
+   *  no hero is lit, so a fresh blank game leaves the layer empty. */
+  private drawHeroLightsFrame(): void {
+    // far-view cleanliness: only show the light-shows once the camera is in far
+    // enough that a hero reads as a building, not a dot. The town-label band
+    // (sc≥0.12, see animate) is a good threshold — heroes light as you zoom in.
+    const sc = this.world.scale.x;
+    if (this.gridViewOn || sc < 0.13 || this.heroLitNow.length === 0) {
+      this.heroLightsG.clear();
+      return;
+    }
+    // cull to the visible world rect (+ a margin for tall heroes) so a big map
+    // only pays for the heroes actually on screen
+    const w = this.app.screen.width;
+    const hgt = this.app.screen.height;
+    const m = 220 * RES * sc;
+    const x0 = (-this.world.x - m) / sc;
+    const y0 = (-this.world.y - m) / sc;
+    const x1 = (w - this.world.x + m) / sc;
+    const y1 = (hgt - this.world.y + m) / sc;
+    const onScreen: HeroLight[] = [];
+    for (const h of this.heroLitNow) {
+      if (h.cx >= x0 && h.cx <= x1 && h.cy >= y0 && h.topY <= y1) onScreen.push(h);
+    }
+    drawHeroLights(this.heroLightsG, onScreen, this.heroClock, this.grade?.glow ?? 0);
   }
 
   /** While the line tool is armed: ring every asset with a bay at that
@@ -1369,6 +1524,7 @@ export class MapRenderer {
       this.spawnPulses(coverage);
       this.drawCoverage(coverage);
       this.rebuildLights(coverage);
+      this.recomputeHeroLit(coverage);
       this.prevCoverage = coverage.slice();
     }
   }
@@ -1904,6 +2060,13 @@ export class MapRenderer {
     // map loaded); steady warm edge keyed only to the eased grade glow — no
     // pulse/sweep (those read as electricity, owner playtest 2026-06-13)
     this.drawGleam(this.grade?.glow ?? 0);
+    // the per-hero ELECTRIFICATION light-show (owner, 2026-06-15): bespoke
+    // animated night lighting on each ENERGISED hero, strongest at dusk/night
+    // and gone by day. Gated to mid/close zoom so the far overview stays clean,
+    // and skipped entirely while grid view holds the engineering palette. The
+    // shared clock runs at sim-speed so twinkles match the game clock.
+    this.heroClock += mdt;
+    this.drawHeroLightsFrame();
     {
       // labels: visible zoomed out, gone close in, each held at a CONSTANT
       // on-screen px floor. The layer rides the world scale `sc`, so a
