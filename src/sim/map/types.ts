@@ -103,6 +103,7 @@ export const LANDMARK = {
   basilica: 36, // white Romano-Byzantine domed basilica — Sacré-Cœur
   louvre: 37, // classical palace wings around the glass pyramid (Paris)
   grand: 38, // parameterized grand civic building (the ~100 notable-building heroes)
+  skyscraper: 39, // generic TALL tower hero — tall+slim, towers over the fabric
 } as const;
 export type Landmark = (typeof LANDMARK)[keyof typeof LANDMARK];
 

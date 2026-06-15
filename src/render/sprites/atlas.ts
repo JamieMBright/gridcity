@@ -41,6 +41,7 @@ import {
   fortressTile,
   gherkinTile,
   grandTile,
+  skyscraperHeroTile,
   HEATHROW_H,
   HEATHROW_W,
   heathrowTile,
@@ -262,6 +263,9 @@ function buildSpriteCells(): Map<string, Cell> {
   // the ~100-hero grand-civic generator: 12 variants (dome/towers/clock/
   // balustrade × stone × height), 2×2 SW-anchored blocks
   for (let i = 0; i < 4; i++) set(`lm_grand${i}`, grandTile(360 + i, i), 3, 3, true);
+  // generic skyscraper heroes: tall towers (slim tower + plaza) on a 3×3 frame,
+  // for notable tall buildings — the 3×3 canvas gives the height to TOWER
+  for (let i = 0; i < 4; i++) set(`lm_sky${i}`, skyscraperHeroTile(370 + i, i), 3, 3, true);
   set('lm_gherkin', gherkinTile(223));
   set('lm_fortress', fortressTile(215));
   set('lm_bridge', towerBridgeTile(216), 1, 4, true);

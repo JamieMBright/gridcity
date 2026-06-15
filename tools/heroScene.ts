@@ -19,6 +19,7 @@ import { renderCityCrop } from './preview';
 const NAMES: Record<string, Landmark> = {
   notredame: LANDMARK.notredame,
   grand: LANDMARK.grand,
+  skyscraper: LANDMARK.skyscraper,
   eiffel: LANDMARK.eiffel,
   louvre: LANDMARK.louvre,
   arch: LANDMARK.arch,

@@ -956,10 +956,90 @@ export function grandTile(seed: number, variant: number): Uint8ClampedArray<Arra
 }
 
 /**
- * THE LOUVRE: bespoke Paris icon. The long classical palace wings in cream
- * stone with grey mansard roofs and corner pavilions, wrapped around the court
- * where I.M. Pei's glass PYRAMID stands — the unmistakable signature.
+ * GENERIC SKYSCRAPER HERO: the tall tail of notable buildings that are TOWERS,
+ * not wide civic blocks — "Citibank is a skyscraper amongst skyscrapers" (owner).
+ * A blanket 3×3 grand block is wrong for these; this is sized tall+slim within a
+ * 2×2 footprint so it TOWERS over the surrounding fabric (ordinary sky-towers
+ * read ~96px, grand civic ~120; this rises ~200+). Picks up the live city
+ * fabric via COLORS.walls (NYC limestone-grey, Shanghai/HK glass-teal), with four
+ * massing variants: glass curtain-wall · Art-Deco stone setback + spire ·
+ * tapered antenna tower · flat glass beacon crown.
  */
+export function skyscraperHeroTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true });
+  const rng = new Rng(seed * 9173 + variant * 313 + 7);
+  const S = RES;
+  const iP = (u: number, v: number, z: number): Pt => iso.P(u, v, z);
+  const wall = COLORS.walls[variant % COLORS.walls.length] ?? STONE;
+  const glassy = variant === 0 || variant === 3;
+  const skin = glassy ? mix(wall, COLORS.glassSky, 0.5) : wall;
+  const reflect = rng.chance(0.5) ? COLORS.glassSky : COLORS.glassSunset;
+
+  // The tower fills most of the 3×3 and rises to ~z160 + a crown/spire to ~z195
+  // — the tallest the sprite canvas allows (a 3×3 swAnchor frame is 576px; the
+  // ordinary CBD fabric tops out ~z120 and even the Shard ~z170), so this
+  // genuinely TOWERS, "a skyscraper among skyscrapers". A slim plaza edge is
+  // left around it (real towers sit on plazas).
+  const u0 = 0.55, u1 = 2.45, v0 = 0.7, v1 = 2.3;
+  iso.shadow(u0, v0, u1 + 0.4, v1 + 0.4, 0.34, 0.2);
+  iso.box(u0 - 0.16, v0 - 0.16, u1 + 0.16, v1 + 0.16, 0, 14, shaded(skin, 0.14), { ink: false }); // podium
+
+  // stacked setback sections (each narrower as it rises) — the classic mass
+  const secs = [
+    { du: 0.0, z0: 0, z1: 96 },
+    { du: 0.26, z0: 96, z1: 138 },
+    { du: 0.5, z0: 138, z1: 162 },
+  ];
+  for (let s = 0; s < secs.length; s++) {
+    const { du, z0, z1 } = secs[s]!;
+    const a0 = u0 + du, a1 = u1 - du, b0 = v0 + du * 0.9, b1 = v1 - du * 0.9;
+    const body = s === 0 ? skin : lighten(skin, 0.04 * s);
+    iso.box(a0, b0, a1, b1, z0, z1, body);
+    // glazing: floor bands of windows on both visible faces
+    const floors = Math.max(4, Math.round((z1 - z0) / 10));
+    for (let f = 0; f < floors; f++) {
+      const zb = z0 + 3 + (f * (z1 - z0 - 4)) / floors;
+      const zt = z0 + 3 + ((f + 1) * (z1 - z0 - 4)) / floors - 2;
+      const litc = rng.chance(glassy ? 0.55 : 0.4) ? COLORS.glassLit : alpha(reflect, 0.8);
+      const frame = glassy ? alpha(skin, 0.6) : COLORS.white;
+      iso.windowsLeft(b1, a0 + 0.08, a1 - 0.08, zb, zt, glassy ? 13 : 10, litc, frame);
+      iso.windowsRight(a1, b0 + 0.08, b1 - 0.08, zb, zt, glassy ? 13 : 10, litc, frame);
+    }
+    // vertical mullions/pilasters so the shaft reads ribbed, not a flat slab
+    for (let u = a0 + 0.12; u <= a1 - 0.05; u += 0.3) {
+      iso.r.line(iP(u, b1, z0 + 1), iP(u, b1, z1 - 1), 1.3 * S, alpha(shaded(skin, 0.18), 0.5));
+    }
+  }
+
+  const topZ = 162;
+  const cx = (u0 + u1) / 2, cy = (v0 + v1) / 2;
+  if (variant === 1) {
+    // Art-Deco stepped crown + slim spire (Empire State / Chrysler family)
+    let cz = topZ, cw = 0.5;
+    for (let k = 0; k < 3; k++) {
+      iso.box(cx - cw, cy - cw, cx + cw, cy + cw, cz, cz + 8, lighten(skin, 0.05 + 0.03 * k));
+      cz += 8; cw -= 0.12;
+    }
+    const [sx, syB] = iso.P(cx, cy, cz);
+    iso.r.line([sx, syB], [sx, syB - 18 * S], 1.8 * S, COLORS.steel);
+    iso.r.line([sx, syB - 12 * S], [sx, syB - 22 * S], 2.6 * S, COLORS.glassLit);
+  } else if (variant === 2) {
+    // tapered top + antenna mast with an aircraft beacon
+    iso.box(cx - 0.44, cy - 0.44, cx + 0.44, cy + 0.44, topZ, topZ + 14, lighten(skin, 0.05));
+    const [sx, syB] = iso.P(cx, cy, topZ + 14);
+    iso.r.line([sx, syB], [sx, syB - 30 * S], 1.6 * S, COLORS.steel);
+    iso.r.line([sx, syB - 26 * S], [sx, syB - 32 * S], 3.0 * S, COLORS.glassHot);
+  } else {
+    // flat glass crown + lit parapet + corner beacon (modern CBD tower)
+    iso.box(cx - 0.62, cy - 0.62, cx + 0.62, cy + 0.62, topZ, topZ + 12, mix(skin, COLORS.glassSky, 0.4), { topC: top(reflect, 0.2) });
+    const [sx, syB] = iso.P(cx, cy, topZ + 12);
+    iso.r.line([sx, syB], [sx, syB - 22 * S], 1.5 * S, COLORS.steel);
+    iso.r.line([sx, syB - 18 * S], [sx, syB - 24 * S], 2.6 * S, COLORS.glassHot);
+  }
+  return iso.build();
+}
+
+
 export function louvreTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   void seed;

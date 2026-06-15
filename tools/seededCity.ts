@@ -292,18 +292,24 @@ async function main(): Promise<void> {
   for (const { b, ext } of notable) {
     if (heroes >= 100) break;
     const name = b.name ?? '';
+    const lev = b.levels || Math.round((b.heightM ?? 0) / 3) || 0; // real height
     let lm = heroOf(name);
     if (lm === LANDMARK.none) {
       const sp = classify(b).special;
-      // only genuinely LARGE notable buildings become grand civic blocks; the
-      // small/medium named civic get their compact specials; tiny named
-      // ordinary buildings aren't heroes at all
+      // route each notable to the right ARCHETYPE by its real shape: a TALL
+      // building (even a slim one) becomes a skyscraper hero that towers over
+      // the fabric — "a skyscraper amongst skyscrapers" — not a flat 3×3 civic
+      // block; a wide low building becomes the grand civic block; the small/
+      // medium named civic get their compact specials; tiny ones aren't heroes.
       if (sp !== LANDMARK.none) lm = sp;
+      else if (lev >= 12) lm = LANDMARK.skyscraper;
       else if (ext >= 2.2) lm = LANDMARK.grand;
       else continue;
     }
-    // footprint: bespoke fixed sizes, else size to the real extent (1..4)
-    const N = FOOT[lm] ?? (lm === LANDMARK.grand ? 3 : Math.max(1, Math.min(4, Math.round(ext))));
+    // footprint: bespoke fixed sizes; skyscraper = slim 2×2 (tall, not wide);
+    // grand = 3×3; else size to the real extent (1..4)
+    const N = FOOT[lm]
+      ?? (lm === LANDMARK.grand || lm === LANDMARK.skyscraper ? 3 : Math.max(1, Math.min(4, Math.round(ext))));
     const c = b.poly[0]!;
     let sx = 0;
     let sy = 0;

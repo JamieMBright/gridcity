@@ -187,6 +187,15 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
       const anchorG = !sameG(x - 1, y) && !sameG(x, y + 1) && !sameG(x - 1, y + 1);
       return anchorG ? `lm_grand${tileHash(x, y) % 4}` : undefined;
     }
+    // generic skyscraper heroes: a 2×2 reservation, variant by anchor hash, so
+    // the tall tail of notable buildings reads as many distinct towers.
+    if (lm === LANDMARK.skyscraper) {
+      const sameK = (xx: number, yy: number): boolean =>
+        xx >= 0 && xx < map.width && yy >= 0 && yy < map.height &&
+        (map.landmark?.[yy * map.width + xx] ?? LANDMARK.none) === LANDMARK.skyscraper;
+      const anchorK = !sameK(x - 1, y) && !sameK(x, y + 1) && !sameK(x - 1, y + 1);
+      return anchorK ? `lm_sky${tileHash(x, y) % 4}` : undefined;
+    }
     const name = LANDMARK_SPRITE[lm];
     if (name && BLOCK_LANDMARKS.has(lm)) {
       // one sprite per reservation: only the (min x, max y) tile emits
