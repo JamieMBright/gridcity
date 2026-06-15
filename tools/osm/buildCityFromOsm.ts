@@ -522,13 +522,18 @@ const LANDMARK_FOOT: Partial<Record<number, number>> = {
 };
 
 const HERO_KEYWORDS: Array<[RegExp, Landmark]> = [
-  [/cathedral|basilica|minster|duomo/i, LANDMARK.dome],
-  [/church|chapel|temple|mosque|synagogue|abbey/i, LANDMARK.church],
+  [/cathedral|basilica|minster|duomo|mosque|temple/i, LANDMARK.dome],
+  [/church|chapel|synagogue|abbey/i, LANDMARK.church],
   [/castle|fort|citadel|palace|château|chateau/i, LANDMARK.fortress],
   [/stadium|stade|arena|estadio/i, LANDMARK.stadium],
   [/\bzoo\b|aquarium/i, LANDMARK.zoo],
   [/tower|tour\b/i, LANDMARK.bttower],
-  [/museum|gallery|galerie/i, LANDMARK.townhall],
+  // town hall / seat of government / opera / major museum → the GRAND civic
+  // hero block (owner, 2026-06-15: town halls ALWAYS heroes). Ordinary civic
+  // is handled separately (LANDMARK.civic, 1×1, no apron).
+  [/city hall|town hall|guildhall|hôtel de ville|rathaus|parliament|capitol|ministry/i, LANDMARK.grand],
+  [/opera|concert hall|philharmoni|conservatoire/i, LANDMARK.grand],
+  [/museum|gallery|galerie/i, LANDMARK.grand],
   [/airport|aéroport|aeroport|aerodrome/i, LANDMARK.airport],
   [/mall|centre commercial|shopping/i, LANDMARK.mall],
   [/station|gare\b/i, LANDMARK.station],
@@ -544,12 +549,18 @@ function landmarkFor(name: string, tags: Record<string, string>): Landmark {
   // the bespoke gothic cathedral is reserved for Notre-Dame specifically (so
   // a city's other cathedrals don't all become identical twins of it)
   if (/notre[- ]?dame/i.test(name)) return LANDMARK.notredame;
+  // town hall / government seat — ALWAYS a hero (grand fallback block)
+  if (tags.office === 'government' || tags.amenity === 'townhall') return LANDMARK.grand;
   if (tags.building === 'cathedral' || tags.building === 'church') {
     return /cathedral|basilica|minster/i.test(name) ? LANDMARK.dome : LANDMARK.church;
   }
   for (const [re, lm] of HERO_KEYWORDS) if (re.test(name)) return lm;
   if (tags.historic === 'castle' || tags.historic === 'fort') return LANDMARK.fortress;
   if (tags.tourism === 'zoo') return LANDMARK.zoo;
+  // ordinary civic (library, clinic, public office) → tile-sized civic building
+  if (tags.amenity === 'library' || tags.amenity === 'clinic' || tags.amenity === 'public_building' || tags.office === 'public') {
+    return LANDMARK.civic;
+  }
   return LANDMARK.none;
 }
 
@@ -600,8 +611,15 @@ function placeHeroes(
     if (seen.has(key)) continue;
     seen.add(key);
     const lm = landmarkFor(p.name, p.tags);
-    const isHero = lm !== LANDMARK.none && score >= 2;
-    if (isHero) {
+    // ORDINARY civic + the small tile specials are 1×1 buildings styled by the
+    // city palette — NO parvis apron, NO park clear (owner, 2026-06-15: make
+    // ordinary civic a standard tile-sized building, not a grand marble block).
+    const TILE_CIVIC = lm === LANDMARK.civic || lm === LANDMARK.church || lm === LANDMARK.school || lm === LANDMARK.station;
+    const isHero = lm !== LANDMARK.none && !TILE_CIVIC && score >= 2;
+    if (TILE_CIVIC && terrain[idx(x, y)] !== TERRAIN.water) {
+      // a single tile-sized civic building on normal street fabric (no apron)
+      landmark[idx(x, y)] = lm;
+    } else if (isHero) {
       // multi-tile heroes (e.g. the massive 3×3 Eiffel) stamp an N×N block,
       // SW-anchored on (x,y) so the renderer's block-anchor lands the one
       // sprite; (x,y) is the south-west corner, extending N + E.
@@ -617,7 +635,8 @@ function placeHeroes(
         }
       }
       // a parvis/garden apron ringing the whole block so the monument stands
-      // proud instead of being buried behind the blocks painted in front of it
+      // proud instead of being buried behind the blocks painted in front of it.
+      // Heroes only — ordinary civic (handled above) gets no apron.
       for (let dy = -(n + 1); dy <= 2; dy++) {
         for (let dx = -1; dx <= n + 1; dx++) {
           const nx = x + dx;

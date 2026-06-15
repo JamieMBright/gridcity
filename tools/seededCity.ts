@@ -38,21 +38,56 @@ function arg(flag: string, d: number): number {
 }
 
 type Cls = 'domestic' | 'commercial' | 'civic' | 'industrial';
-function classify(b: BuildingFootprint): { cls: Cls; special: Landmark } {
+/**
+ * Classify a footprint. For civic we return BOTH a `special` (a bespoke
+ * tile/hero landmark for the recognisable kinds) AND a `grandCivic` flag —
+ * owner, 2026-06-15: the GRAND civic TYPES (town hall, government seat, opera/
+ * concert hall, major museum, cathedral/mosque/temple, grand rail terminus,
+ * stadium, airport) are FORCED to hero treatment regardless of notability;
+ * everything else civic is an ORDINARY tile-sized building (LANDMARK.civic).
+ * Town halls are ALWAYS heroes.
+ */
+function classify(b: BuildingFootprint): { cls: Cls; special: Landmark; grandCivic: boolean } {
   const k = b.kind;
   const am = b.amenity ?? '';
-  // civic specials → a placed landmark
-  if (am === 'hospital' || k === 'hospital') return { cls: 'civic', special: LANDMARK.sewage }; // (stand-in icon)
-  if (am === 'school' || am === 'college' || am === 'university' || k === 'school') return { cls: 'civic', special: LANDMARK.school };
-  if (am === 'place_of_worship' || k === 'church' || k === 'cathedral' || k === 'chapel') {
-    return { cls: 'civic', special: /cathedral|basilica/.test(k) ? LANDMARK.dome : LANDMARK.church };
+  const name = b.name ?? '';
+  const civic = (special: Landmark, grandCivic = false): { cls: Cls; special: Landmark; grandCivic: boolean } =>
+    ({ cls: 'civic', special, grandCivic });
+  // worship: a cathedral/basilica/minster/mosque/temple is a GRAND domed hero;
+  // an ordinary church/chapel keeps its tile-sized parish-church sprite.
+  if (am === 'place_of_worship' || /church|cathedral|chapel|mosque|temple|basilica|synagogue/.test(k)) {
+    const grand = /cathedral|basilica|minster|mosque|temple|duomo/i.test(k + ' ' + name);
+    return civic(grand ? LANDMARK.dome : LANDMARK.church, grand);
   }
-  if (b.office === 'government' || am === 'townhall') return { cls: 'civic', special: LANDMARK.townhall };
-  if (/industrial|warehouse|factory|shed|service|roof|hangar/.test(k)) return { cls: 'industrial', special: LANDMARK.none };
-  if (/office|retail|commercial|hotel|supermarket|kiosk|public/.test(k) || b.shop || b.office || b.tourism === 'hotel') {
-    return { cls: 'commercial', special: LANDMARK.none };
+  // seat of government / town hall — ALWAYS a hero (grand fallback block)
+  if (b.office === 'government' || am === 'townhall' || /city hall|town hall|guildhall|hôtel de ville|parliament|capitol|ministry|rathaus/i.test(name)) {
+    return civic(LANDMARK.grand, true);
   }
-  return { cls: 'domestic', special: LANDMARK.none }; // apartments/house/residential/yes
+  // opera / concert hall — grand hero
+  if (/opera|concert hall|philharmoni|symphony|conservatoire/i.test(name)) return civic(LANDMARK.grand, true);
+  // museum / gallery — a MAJOR one (named + tourism-tagged) is a grand hero;
+  // a small local gallery stays ordinary civic
+  if (b.tourism === 'museum' || b.tourism === 'gallery' || /museum|gallery|galerie/i.test(name)) {
+    const major = (b.tourism === 'museum' || b.tourism === 'gallery') && name.length > 0;
+    return civic(major ? LANDMARK.grand : LANDMARK.civic, major);
+  }
+  // schools/colleges/universities — tile-sized civic special (not a hero)
+  if (am === 'school' || am === 'college' || am === 'university' || k === 'school' || k === 'university') {
+    return civic(LANDMARK.school);
+  }
+  // hospitals/clinics — ordinary civic (was a sewage-icon stand-in hero; now a
+  // tile-sized municipal building in the city palette)
+  if (am === 'hospital' || am === 'clinic' || k === 'hospital') return civic(LANDMARK.civic);
+  // public/civic buildings that aren't one of the recognisable kinds above →
+  // the generic tile-sized civic building (library, public office, depot…)
+  if (am === 'library' || am === 'public_building' || b.office === 'public' || k === 'public' || k === 'civic' || k === 'government') {
+    return civic(LANDMARK.civic);
+  }
+  if (/industrial|warehouse|factory|shed|service|roof|hangar/.test(k)) return { cls: 'industrial', special: LANDMARK.none, grandCivic: false };
+  if (/office|retail|commercial|hotel|supermarket|kiosk/.test(k) || b.shop || b.office || b.tourism === 'hotel') {
+    return { cls: 'commercial', special: LANDMARK.none, grandCivic: false };
+  }
+  return { cls: 'domestic', special: LANDMARK.none, grandCivic: false }; // apartments/house/residential/yes
 }
 
 const HERO: Array<[RegExp, Landmark]> = [
@@ -284,32 +319,41 @@ async function main(): Promise<void> {
     }
     return Math.max(mxx - mnx, mxy - mny); // real size in tiles
   };
+  // ORDINARY civic (council/clinic/library/depot + small named civic) is a
+  // 1×1 tile-sized building in the city palette with NO apron; the small civic
+  // SPECIALS (parish church, school) keep their own tile sprites. Heroes get a
+  // footprint clear (their own tiles → park, like every map hero) but ordinary
+  // civic does NOT — it sits on normal street fabric.
+  const TILE_CIVIC = new Set<Landmark>([LANDMARK.civic, LANDMARK.church, LANDMARK.school]);
   const notable = buildings
     .filter((b) => b.name && b.poly[0])
     .map((b) => ({ b, ext: footExtent(b.poly[0]!) }))
     .sort((a, b) => b.ext - a.ext);
   let heroes = 0;
+  let civics = 0;
   for (const { b, ext } of notable) {
-    if (heroes >= 100) break;
+    if (heroes >= 100 && civics >= 220) break;
     const name = b.name ?? '';
     const lev = b.levels || Math.round((b.heightM ?? 0) / 3) || 0; // real height
+    const { special, grandCivic } = classify(b);
     let lm = heroOf(name);
     if (lm === LANDMARK.none) {
-      const sp = classify(b).special;
-      // route each notable to the right ARCHETYPE by its real shape: a TALL
-      // building (even a slim one) becomes a skyscraper hero that towers over
-      // the fabric — "a skyscraper amongst skyscrapers" — not a flat 3×3 civic
-      // block; a wide low building becomes the grand civic block; the small/
-      // medium named civic get their compact specials; tiny ones aren't heroes.
-      if (sp !== LANDMARK.none) lm = sp;
+      // FORCE the grand civic TYPES to hero treatment regardless of size; route
+      // ordinary civic to its tile sprite; a TALL building → a skyscraper hero;
+      // a wide named (non-civic) building → the grand block; tiny rest skipped.
+      if (grandCivic) lm = special; // dome (cathedral/mosque) or grand (townhall/museum/opera)
+      else if (TILE_CIVIC.has(special)) lm = special; // ordinary civic — tile-sized, no apron
       else if (lev >= 12) lm = LANDMARK.skyscraper;
       else if (ext >= 2.2) lm = LANDMARK.grand;
       else continue;
     }
-    // footprint: bespoke fixed sizes; skyscraper = slim 2×2 (tall, not wide);
-    // grand = 3×3; else size to the real extent (1..4)
-    const N = FOOT[lm]
-      ?? (lm === LANDMARK.grand || lm === LANDMARK.skyscraper ? 3 : Math.max(1, Math.min(4, Math.round(ext))));
+    const isTileCivic = TILE_CIVIC.has(lm);
+    if (isTileCivic ? civics >= 220 : heroes >= 100) continue;
+    // footprint: tile-civic + the small specials are 1×1; bespoke fixed sizes;
+    // skyscraper / grand = 3×3; else size to the real extent (1..4)
+    const N = isTileCivic
+      ? 1
+      : (FOOT[lm] ?? (lm === LANDMARK.grand || lm === LANDMARK.skyscraper ? 3 : Math.max(1, Math.min(4, Math.round(ext)))));
     const c = b.poly[0]!;
     let sx = 0;
     let sy = 0;
@@ -321,10 +365,17 @@ async function main(): Promise<void> {
     let clear = true;
     for (let dx = 0; dx < N && clear; dx++) for (let dy = 0; dy < N; dy++) if (landmark[idx(x + dx, y - dy)] !== LANDMARK.none) clear = false;
     if (!clear) continue;
-    for (let dx = 0; dx < N; dx++) for (let dy = 0; dy < N; dy++) { const j = idx(x + dx, y - dy); landmark[j] = lm; zone[j] = ZONE.park; }
-    heroes++;
+    if (isTileCivic) {
+      // a single tile-sized civic building on normal street fabric — NO apron,
+      // NO park clear, so it reads as part of the city, not a marble plaza
+      landmark[idx(x, y)] = lm;
+      civics++;
+    } else {
+      for (let dx = 0; dx < N; dx++) for (let dy = 0; dy < N; dy++) { const j = idx(x + dx, y - dy); landmark[j] = lm; zone[j] = ZONE.park; }
+      heroes++;
+    }
   }
-  console.log(`  placed ${heroes} hero buildings`);
+  console.log(`  placed ${heroes} hero buildings + ${civics} tile-civic buildings`);
 
   // each city wears its own building stock; the id selects the colourway
   // (override with --fabric=<city>). Unknown ids fall back to London brick.

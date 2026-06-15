@@ -31,6 +31,7 @@ import {
   bttowerTile,
   carparkTile,
   churchTile,
+  civicTile,
   datacentreTile,
   domeTile,
   eiffelTile,
@@ -306,6 +307,10 @@ function buildSpriteCells(): Map<string, Cell> {
   set('lm_station', stationTile(281));
   set('lm_school', schoolTile(282));
   set('lm_townhall', townhallTile(283));
+  // ordinary civic: a tile-sized municipal building in the city palette (no
+  // marble grand block, no apron). Four palette variants so a run of civic
+  // buildings reads as a varied street, not one sprite tiled.
+  for (let i = 0; i < 4; i++) set(`lm_civic${i}`, civicTile(364 + i, i));
   set('lm_watertower', watertowerTile(284));
   set('lm_sewage', sewageTile(285));
   set('lm_carpark', carparkTile(286));

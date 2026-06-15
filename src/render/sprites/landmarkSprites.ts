@@ -5,7 +5,7 @@
 
 import { Rng } from '../../sim/rng';
 import { CELL_W, INK, INK_W, Iso, lit, P, RES, shaded, top } from './iso';
-import { COLORS } from './palette';
+import { COLORS, roofColor, wallColor } from './palette';
 import { alpha, darken, hex, lighten, mix, type Pt, type RGBA } from './raster';
 
 const STONE = hex('#d9cdb4');
@@ -2008,6 +2008,58 @@ export function townhallTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   iso.windowsRight(0.82, 0.26, 0.56, 12, 24, 3, COLORS.glassDark, COLORS.white);
   const fl = P(0.5, 0.41, 40);
   iso.r.line(fl, [fl[0], fl[1] - 8 * RES], 0.9 * RES, INK);
+  iso.r.poly([[fl[0], fl[1] - 8 * RES], [fl[0] + 5 * RES, fl[1] - 6.8 * RES], [fl[0], fl[1] - 5.6 * RES]], COLORS.orange);
+  return iso.build();
+}
+
+/**
+ * GENERIC CIVIC BUILDING — the ORDINARY-civic tile (owner, 2026-06-15: civic
+ * differs per city — most are not grand; make the ordinary ones a STANDARD
+ * TILE-SIZED building, NO apron, styled by the city palette). This is the 1×1
+ * fabric building the pipeline routes generic council offices / clinics /
+ * libraries / depots / small named civic to — NOT the 3×3 grand block. Reads
+ * as a modest municipal block: a proud-but-low body in the city's WALL palette
+ * (so Paris cream, NYC brownstone-grey, Cairo sand…), a slightly projecting
+ * entrance bay, ranked windows, a low cornice + flat parapet roof in the city
+ * ROOF palette, and a small flag. Picks up the live fabric via wallColor()/
+ * roofColor() — the same per-city tokens the towers use — so it never reads as
+ * a London marble square. Sits inside its tile (slim margins): no parvis apron.
+ */
+export function civicTile(seed: number, variant = 0): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 33203 + variant * 137 + 7);
+  // a slightly cooler/firmer wall than the domestic stock, drawn from the SAME
+  // per-city palette as the towers (wallColor honours setWallRoofPalette)
+  const wall = wallColor(variant + 1);
+  const roof = roofColor(variant + 2);
+  const u0 = 0.16;
+  const u1 = 0.84;
+  const v0 = 0.2;
+  const v1 = 0.66;
+  const H = 22 + (variant % 3) * 3; // 22..28 — taller than a house, far below a hero
+  iso.shadow(u0, v0, u1, v1, 0.16, 0.2);
+  // the civic body
+  iso.box(u0, v0, u1, v1, 0, H, wall);
+  // a string course at first-floor level (the firm public-building horizontal)
+  iso.r.line(P(u0, v1, H * 0.42), P(u1, v1, H * 0.42), INK_W * 0.5, alpha(shaded(wall, 0.18), 0.7));
+  // two storeys of regular ranked windows on the two visible faces
+  for (const [zb, zt] of [[4, H * 0.4 - 1], [H * 0.42 + 1, H - 3]] as const) {
+    const lit2 = rng.chance(0.4) ? COLORS.glassLit : alpha(COLORS.glassDark, 0.85);
+    iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, zb, zt, 4, lit2, lighten(wall, 0.12));
+    iso.windowsRight(u1, v0 + 0.06, v1 - 0.06, zb, zt, 3, alpha(COLORS.glassDark, 0.85), lighten(wall, 0.12));
+  }
+  // a slightly projecting entrance bay on the street (left) face, with a door
+  const eu0 = 0.36;
+  const eu1 = 0.6;
+  iso.box(eu0, v1, eu1, v1 + 0.06, 0, H * 0.6, lighten(wall, 0.05));
+  iso.r.poly([P(eu0 + 0.04, v1 + 0.06, H * 0.34), P(eu1 - 0.04, v1 + 0.06, H * 0.34), P(eu1 - 0.04, v1 + 0.06, 0), P(eu0 + 0.04, v1 + 0.06, 0)], darken(wall, 0.4));
+  // a low entrance canopy
+  iso.r.poly([P(eu0 - 0.02, v1 + 0.06, H * 0.38), P(eu1 + 0.02, v1 + 0.06, H * 0.38), P(eu1 + 0.02, v1 + 0.14, H * 0.34), P(eu0 - 0.02, v1 + 0.14, H * 0.34)], lighten(wall, 0.12));
+  // a firm cornice + a flat parapet roof in the city roof tone (no pitched marble)
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, H, H + 2.6, lighten(wall, 0.06), { topC: top(roof, 0.12) });
+  // a small flag on the parapet so it reads as 'civic' even at distance
+  const fl = P((u0 + u1) / 2, v0 + 0.12, H + 2.6);
+  iso.r.line(fl, [fl[0], fl[1] - 8 * RES], 0.8 * RES, INK);
   iso.r.poly([[fl[0], fl[1] - 8 * RES], [fl[0] + 5 * RES, fl[1] - 6.8 * RES], [fl[0], fl[1] - 5.6 * RES]], COLORS.orange);
   return iso.build();
 }

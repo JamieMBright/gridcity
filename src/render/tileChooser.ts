@@ -177,6 +177,10 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
   // (the tower bridge carries the road between its towers)
   const lm = (map.landmark?.[i] ?? LANDMARK.none) as Landmark;
   if (lm !== LANDMARK.none) {
+    // ORDINARY civic: a 1×1 tile-sized municipal building in the city palette
+    // (no apron, no grand marble block). Variant by per-tile hash so a run of
+    // civic buildings reads as a varied street.
+    if (lm === LANDMARK.civic) return `lm_civic${tileHash(x, y) % 4}`;
     // the grand-civic generator: a 2×2 block whose VARIANT is chosen by the
     // anchor-tile hash, so the ~100 notable buildings read as many distinct
     // hero buildings from one family.

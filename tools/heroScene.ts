@@ -27,6 +27,7 @@ const NAMES: Record<string, Landmark> = {
   dome: LANDMARK.dome,
   church: LANDMARK.church,
   townhall: LANDMARK.townhall,
+  civic: LANDMARK.civic,
 };
 
 function main(): void {

@@ -50,6 +50,36 @@ TOWER, proportionally, each one bespoke."
       reads as flat marble blocks with an unnecessary parvis APRON. Drop the
       apron UNLESS the real hero genuinely has open space around it (Eiffel yes);
       otherwise make the building actually wider + taller WITHIN its footprint.
+  - **CIVIC SPLIT (owner decision, 2026-06-15) — DONE:** "Civic differs per city
+    — some awful, some grand. Make ORDINARY civic a STANDARD TILE-SIZED building,
+    NO apron, styled by the city palette. UNLESS it's a hero (grand town halls
+    etc). FORCE town halls to be heroes." Implemented this session:
+    - [x] New generic `civicTile(seed,variant)` (1×1) keyed on `wallColor()`/
+      `roofColor()` (honours `setWallRoofPalette`, so it picks up each city's
+      palette) → atlas `lm_civic0..3`; chooser maps `LANDMARK.civic` (=40,
+      append-only) → `lm_civic{tileHash%4}`.
+    - [x] `tools/seededCity.ts`: route ORDINARY civic (clinic/library/public
+      office/depot + small named civic) to `LANDMARK.civic` 1×1, NO park apron
+      (stamps landmark only, sits on street fabric). Stopped assigning `grand`+
+      block-park to ordinary civic. Paris log: 100 heroes + 220 tile-civic.
+    - [x] FORCE grand-civic TYPES to heroes regardless of notability score:
+      town hall / government seat / parliament → `grand`; opera/concert hall →
+      `grand`; major (named, tourism-tagged) museum → `grand`; cathedral/
+      basilica/minster/mosque/temple → `dome`; stadium/airport keep bespoke.
+      Town halls ALWAYS heroes. school/parish-church stay tile-sized specials.
+    - [x] `grandTile` kept ONLY as the fallback for a grand civic with no
+      bespoke sprite (town hall/museum/opera/govt) — never ordinary civic.
+    - [x] `tools/osm/buildCityFromOsm.ts` `placeHeroes`: consistent — tile-civic
+      (`civic`/`church`/`school`/`station`) placed 1×1 with NO parvis apron;
+      town hall/govt + museum/opera → `grand` hero. (paris.ts NOT regenerated —
+      additive code only; cityData.test still green.)
+    - [x] GUARDRAIL VERIFIED: London preview md5 = `68918a994f3e543bc2589c88e0
+      55c66c` (byte-identical — London never uses `grand`/`civic`). Atlas
+      3839×3757 ≤4096. tsc/eslint clean; full vitest 682/682 green; build OK.
+      Design-gate: preview/civic-{paris,cairo,newyork}-{far,mid,close}.png +
+      preview/civictile-{paris,newyork,cairo,london}.png (isolated) + hero-
+      {grand,townhall}-*.png. Marble-square aprons GONE; ordinary civic reads
+      as tile-sized city-styled blocks; town-hall-class buildings = grand heroes.
 - [ ] **Every hero RESEARCHED + bespoke, never reused (21:19 / 23:47):** research
       each building (Wikimedia images + accurate descriptions), write a tailored
       recreate-it prompt/spec, and STORE the research (docs/landmarks/*) so future
