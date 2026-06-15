@@ -122,6 +122,20 @@ TOWER, proportionally, each one bespoke."
       `docs/cities/*.md`. So the gap is: run the pipeline ×8, apply per-city
       palette, build bespoke towering heroes (now possible via the z-cap) from the
       stored research, register as scenarios, design-gate each. Large/multi-session.
+- [ ] **MORE cities (owner, 2026-06-15 15:03):**
+  - [ ] **PUNE, India** — research palette + heroes (Shaniwar Wada fort/palace,
+        Aga Khan Palace, Dagdusheth Halwai Ganpati temple, Sinhagad Fort,
+        Shreemant Dagdusheth, the IT/Hinjawadi towers, Pune Junction) → docs/
+        cities/pune.md + docs/heroes/pune/ + a warm Deccan-stone/colourful-render
+        fabric; then map + integrate like the rest.
+  - [ ] **NORTH EAST ENGLAND** (a REGION, not one city): Newcastle + Gateshead +
+        Sunderland + Durham, the NORTH SEA coast, north up to ALNWICK CASTLE
+        (Northumberland). Heroes: Tyne bridges (esp. the Tyne Bridge + Gateshead
+        Millennium Bridge), the ANGEL OF THE NORTH, Durham Cathedral + Castle,
+        Alnwick Castle, St James' Park, Stadium of Light, Penshaw Monument, the
+        Sage/Glasshouse, BALTIC, the quaysides + coast. NE palette: buff/honey
+        sandstone + red brick + industrial/coal heritage + grey North Sea.
+        docs/cities/north-east-england.md + docs/heroes/* + map + integrate.
 - [ ] **PYRAMIDS OF GIZA must feature + the Sound-&-Light floodlighting needs
       ENERGISING (owner, 2026-06-15 13:27).** They're researched (docs/cities/
       cairo.md: Great Pyramid 138.5 m near-solid honey-limestone, weathered
