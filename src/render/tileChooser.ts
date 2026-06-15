@@ -156,8 +156,10 @@ export function groundSpriteFor(map: CityMap, x: number, y: number): string {
       return `ground_field_${v % 2}`;
     default: {
       if (zone === ZONE.none || zone === ZONE.rural) {
-        // estuary flats: marsh where the land runs low beside the wide river
-        if (x > 180 && Math.abs(y - riverCenterY(x)) < 9) {
+        // estuary flats: marsh where the land runs low beside the wide river.
+        // London-only — riverCenterY is the Thames profile, meaningless on
+        // another city's map (it would paint phantom marsh down the east edge).
+        if ((map.fabric ?? 'london') === 'london' && x > 180 && Math.abs(y - riverCenterY(x)) < 9) {
           return `ground_marsh_${v % 2}`;
         }
         // enclosed countryside: each ORGANIC field (the variant carries the
@@ -343,7 +345,10 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
       if (zone !== ZONE.none) return undefined; // nuclearSite reserve, wind sites
       // open countryside furniture: hedgerows trace the parcel bounds,
       // the odd parcel is an orchard, the odd corner grows a copse
-      if (x > 180 && Math.abs(y - riverCenterY(x)) < 9) return undefined; // marsh stays open
+      // (London-only marsh guard — see groundSpriteFor)
+      if ((map.fabric ?? 'london') === 'london' && x > 180 && Math.abs(y - riverCenterY(x)) < 9) {
+        return undefined; // marsh stays open
+      }
       const p = parcelOf(x, y);
       if (p % 11 === 6 && (x & 3) !== 0 && (y & 3) !== 0) return 'orchard_0';
       const xe = (x & 3) === 3;

@@ -12,6 +12,60 @@
 
 ## Open
 
+### 🌍 CITY PICKER — PLAYABLE MULTI-CITY (owner, 2026-06-15) — DONE (pending parent design-gate + push)
+"When you press New Game, offer the cities to play. Selecting a map can be
+open to all for now so I can test. Consider how saved game state will handle
+it." Made cities PLAYABLE; proven end-to-end on Paris; framework ready for the
+rest. London byte-identical.
+- [x] **CITY PICKER on New Game (src/ui/CityPicker.tsx):** New Game opens a
+      picker. London + Paris PLAYABLE (orange PLAY cards); the 10-city roster
+      (Sydney/NY/Berlin/Shanghai/HK/Cape Town/Cairo/Athens/Pune/North-East
+      England) listed as disabled "SOON" cards w/ difficulty pips + blurbs. Open
+      to all (no rank gating). Lofi dusk styling; responsive grid (desktop +
+      phone-landscape, scrolls). Playable set is DATA-DRIVEN (london + whatever
+      has a committed artifact, CITY_DATA_IDS) so adding a city flips it live.
+- [x] **SCENARIO REGISTRATION + LAZY LOAD:** Paris registered in CITY_SCENARIOS
+      (build() = buildCityFromData(cityDataFor('paris'))). New module
+      src/data/scenarioData.ts: a registry + `loadScenarioData(id)` that dynamic-
+      imports ./cities/<id>.ts and registers its CityData; cityDataFor reads it
+      synchronously. MapView's effect + the worker's newGame/start handlers AWAIT
+      the preload before any sync build(); worker messages are now chained so a
+      'command' can't overtake the newGame that builds its map. PROVEN split:
+      `dist/assets/paris-*.js` = 421 KB OWN chunk (gzip 52 KB), off the main +
+      worker bundles + off the London path.
+- [x] **SAVE STATE by scenarioId:** unchanged save shape — scenarioId already
+      serialized off 'london'; map never serialized, rebuilt from scenarioId via
+      newContext. **SAVE_VERSION NOT bumped (stays 13): additive-only, no map
+      geometry change.** worker.start awaits the save's scenario artifact before
+      deserialize→newContext. e2e PROVES: Paris save reload → restores Paris;
+      London save → London. Unit: tests/cityPicker.test.ts (Paris↔Paris round-
+      trip, London no-scenarioId, map fields never serialized).
+- [x] **RENDERER GENERALISATION:** scenery now rides ON the CityMap
+      (named/towns/airports/fabric — types in sim/map/types.ts; London fills its
+      NAMED_PLACES/TOWNS/AIRPORTS, Paris via buildCityFromData + CDG/Orly
+      fallback). MapRenderer reads labels/airports/river from the map (dropped
+      the londonMap imports for those); a primary city label (LONDON/PARIS) is
+      centroid-placed; the barge river lane follows the map's actual water for
+      non-London; atlas now bakes per map.fabric (applyCityFabric before getAtlas)
+      and the fingerprint + IndexedDB slot are fabric-keyed so London & Paris
+      cache distinctly; the London-only estuary-marsh tileChooser guard is gated
+      to the london fabric. setZoom now guards on the renderer being inited (it
+      raced a scenario switch). seedScenario gated to london (Paris opens blank —
+      blank-grid doctrine; FR seeding lands with FR mechanics later).
+- [x] **GUARDRAILS — all green:** London preview md5 == 68918a994f3e543bc2589c
+      88e055c66c (byte-identical). tsc/eslint(src tests e2e tools)/build green;
+      full vitest 692/692 (1 timeout-flake on landmarks atlas test, passes in
+      isolation + on re-run, unrelated to this change). London e2e app/build/
+      campaign (14 tests) PASS on a fresh server. e2e/citypicker.helper.spec.ts
+      drives the real flow + screenshots: preview/citypicker.png, paris-ingame-
+      {far,mid,close}.png, paris-reloaded.png, london-after-paris.png — all
+      inspected (picker dusk-styled; Paris renders Seine+Haussmann; reload keeps
+      Paris; London plays w/ town labels intact).
+  KNOWN LIMITATIONS (noted, not blocking): SearchBox + InfoPanel hover-name use
+  London's NAMED_PLACES, so Paris has no place-search / monument hover label yet
+  (SearchBox already hidden for non-london). Paris resolves to LONDON_PROFILE
+  (no FR power/economy/regulator seams yet) — playable but GB under the hood.
+
 ### 🏙 HERO FLURRY (owner, 2026-06-14 21:10 → 06-15 05:54) — IN PROGRESS
 The owner's reaction to the hero work (commits ad08b36 / b550a16 / 8d8a1cc /
 7d6c3d6). Later prompts supersede earlier; the through-line is "heroes must

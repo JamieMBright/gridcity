@@ -23,6 +23,11 @@ export async function boot(page: Page): Promise<void> {
       await cont.dispatchEvent('click');
     } else {
       await page.getByRole('button', { name: 'new game' }).dispatchEvent('click');
+      // New Game now opens the city picker (choose a city) — pick London, the
+      // default sandbox these specs expect. The card carries title="power London".
+      const london = page.getByTitle('power London', { exact: true });
+      await expect.poll(async () => london.count(), { timeout: 15_000 }).toBeGreaterThan(0);
+      await london.first().dispatchEvent('click');
     }
     await expect
       .poll(async () => page.evaluate(() => window.__ec?.getState().menuOpen))

@@ -29,10 +29,9 @@ import { farmClaimTiles, isFarmGen } from '../sim/farms';
 import { GENS, SUBS } from '../sim/catalog';
 import type { VoltageLevel } from '../sim/grid/types';
 import { sampleRoute } from '../sim/map/routes';
-import { CUSTOMERS_PER_TILE, LANDMARK, type CityMap, type Landmark, type RouteClass, type Zone } from '../sim/map/types';
+import { CUSTOMERS_PER_TILE, LANDMARK, type CityMap, type Landmark, type MapAirport, type RouteClass, type Zone } from '../sim/map/types';
 import { COV, type BranchView } from '../sim/tick';
 import { getAtlas } from './atlasCache';
-import { AIRPORTS, NAMED_PLACES, TOWNS } from '../data/londonMap';
 import { AIR_MAX_BAND, emitFlightArcs, emitPlanes } from './airLayer';
 import {
   deckLiftWorldPx,
@@ -63,6 +62,7 @@ import {
 import { CELL_H, CELL_W, FLOOR_H, RES } from './sprites/iso';
 import { levelPalette, type CbMode } from '../ui/cbPalette';
 import { WIND_HUBS, windHubOffset } from './sprites/networkSprites';
+import { applyCityFabric } from './sprites/buildingSprites';
 import { groundSpriteFor, structureSpriteFor } from './tileChooser';
 import { constructionSpriteFor, constructionStage } from './construction';
 
@@ -622,11 +622,17 @@ export class MapRenderer {
       this.labelLayer.addChild(t);
       this.labels.push({ t, targetPx, priority, village, landmark, cx: c.x, cy: c.y });
     };
-    // UI screen-px floors (legible on a phone held landscape): LONDON 30,
+    // UI screen-px floors (legible on a phone held landscape): primary city 30,
     // towns 20, villages 14, named places 13. Priority drives the collision
-    // declutter (LONDON highest, then towns by size, villages, named).
-    add(128, 78, 'LONDON', 30, 0xf4f1ea, 100, false);
-    for (const town of TOWNS) {
+    // declutter (the city name highest, then towns by size, villages, named).
+    // All scenery now rides ON the map (map.named / map.towns), so a non-London
+    // city labels ITSELF — no London import. The far-out PRIMARY label (LONDON,
+    // PARIS…) names the city at the centroid of its densest core.
+    const map = this.map;
+    if (!map) return;
+    const primary = this.primaryCityLabel();
+    if (primary) add(primary.x, primary.y, primary.name, 30, 0xf4f1ea, 100, false);
+    for (const town of map.towns ?? []) {
       const isTown = town.kind === 'town';
       add(
         town.x,
@@ -638,12 +644,40 @@ export class MapRenderer {
         !isTown,
       );
     }
-    for (const pl of NAMED_PLACES) {
+    for (const pl of map.named ?? []) {
       // gold codes "transport/place" distinct from town names (also smaller,
-      // so it's not colour-alone). Landmark-class: gated to mid/close zoom so
-      // it stays OFF the far overview (only towns label there).
-      add(pl.x, pl.y, pl.name, 13, 0xffd277, 10, false, true);
+      // so it's not colour-alone). Landmark-class names are gated to mid/close
+      // zoom so they stay OFF the far overview (only towns label there).
+      add(pl.x, pl.y, pl.name, 13, 0xffd277, 10, false, pl.landmark ?? false);
     }
+  }
+
+  /** The big far-out city name (LONDON / PARIS …) and where to anchor it.
+   *  London keeps its exact historical position (128,78) so its label layer
+   *  is byte-identical; any other city is named from its fabric + centred on
+   *  the centroid of its urbanCore/CBD tiles (the visual middle of the city).*/
+  private primaryCityLabel(): { x: number; y: number; name: string } | undefined {
+    const map = this.map;
+    if (!map) return undefined;
+    if ((map.fabric ?? 'london') === 'london') return { x: 128, y: 78, name: 'LONDON' };
+    const name = (map.fabric ?? '').toUpperCase();
+    if (!name) return undefined;
+    // centroid of the densest built tiles (urbanCore, falling back to CBD)
+    let sx = 0;
+    let sy = 0;
+    let n = 0;
+    for (let y = 0; y < map.height; y++) {
+      for (let x = 0; x < map.width; x++) {
+        const z = map.zone[y * map.width + x];
+        if (z === 1 /* urbanCore */ || z === 12 /* cbd */) {
+          sx += x;
+          sy += y;
+          n++;
+        }
+      }
+    }
+    if (n === 0) return { x: Math.floor(map.width / 2), y: Math.floor(map.height / 2), name };
+    return { x: Math.round(sx / n), y: Math.round(sy / n), name };
   }
 
   /** Headroom heatmap: corridors gradient green→amber→red by loading.
@@ -1340,6 +1374,9 @@ export class MapRenderer {
   }
 
   setZoom(scale: number): void {
+    // app.screen throws if the renderer is gone / not yet inited — guard like
+    // panTo so a zoom racing a scenario switch's teardown/re-init is a no-op.
+    if (this.destroyed || !this.app.renderer) return;
     const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, scale));
     const cx = this.app.screen.width / 2;
     const cy = this.app.screen.height / 2;
@@ -1594,13 +1631,13 @@ export class MapRenderer {
       const p = make(route.kind, sampleRoute(route, 0.35));
       if (p) this.routePaths.push(p);
     }
-    // the river itself is a route for the barges
+    // the river itself is a route for the barges. London uses its hand-authored
+    // Thames profile (byte-identical barge lane); any other city derives the
+    // lane from its OWN water (the centre of the widest contiguous water band
+    // per column) so boats sail the real river — the Seine, etc — not London's.
     {
-      const samples: Array<[number, number]> = [];
-      for (let x = 6; x < map.width - 4; x += 3) {
-        samples.push([x, riverCenterY(x) + (riverHalfWidth(x) > 4 ? 2 : 0)]);
-      }
-      const p = make('lane', samples);
+      const samples = riverLaneSamples(map);
+      const p = samples.length >= 2 ? make('lane', samples) : undefined;
       if (p) {
         p.kind = 'lane';
         (p as RoutePath & { isRiver?: boolean }).isRiver = true;
@@ -1672,12 +1709,13 @@ export class MapRenderer {
     this.boatLayer.visible = show;
   }
 
-  /** Airports that exist on the active map (tutorial mini-maps have none,
-   *  so their skies stay empty). */
-  private airports(): typeof AIRPORTS {
+  /** Airports that exist on the active map (read off the map, so each city
+   *  flies its OWN airports; tutorial mini-maps carry none, so their skies
+   *  stay empty). */
+  private airports(): MapAirport[] {
     const map = this.map;
     if (!map) return [];
-    return AIRPORTS.filter((a) => a.x < map.width && a.y < map.height);
+    return (map.airports ?? []).filter((a) => a.x < map.width && a.y < map.height);
   }
 
   /** Planes declutter IN from the mid band outward; the static flight-arc
@@ -2755,6 +2793,11 @@ export class MapRenderer {
   }
 
   private async buildTextures(): Promise<void> {
+    // bake the atlas in this city's building/terrain colourway. applyCityFabric
+    // mutates the global sprite palette BEFORE getAtlas bakes; London ('london'
+    // / undefined) restores the exact defaults, so its atlas stays
+    // byte-identical. getAtlas folds the active fabric into its cache key.
+    applyCityFabric(this.map?.fabric ?? 'london');
     const atlas = await getAtlas();
     const canvas = document.createElement('canvas');
     canvas.width = atlas.width;
@@ -2894,6 +2937,44 @@ export class MapRenderer {
 /** 0xRRGGBB → component object (for the heatmap lerp). */
 function rgbOf(n: number): { r: number; g: number; b: number } {
   return { r: (n >> 16) & 0xff, g: (n >> 8) & 0xff, b: n & 0xff };
+}
+
+/** Sample points down the river the barges sail. London keeps its authored
+ *  Thames profile (riverCenterY/HalfWidth) so the lane is byte-identical; any
+ *  other city derives the lane from its OWN water — for each sampled column,
+ *  the centre of the WIDEST contiguous water band — so boats follow the real
+ *  river (the Seine, …). Columns with no usable water are skipped; a too-short
+ *  result yields no barge route (drawRoutePaths guards on length ≥ 2). */
+function riverLaneSamples(map: CityMap): Array<[number, number]> {
+  if ((map.fabric ?? 'london') === 'london') {
+    const out: Array<[number, number]> = [];
+    for (let x = 6; x < map.width - 4; x += 3) {
+      out.push([x, riverCenterY(x) + (riverHalfWidth(x) > 4 ? 2 : 0)]);
+    }
+    return out;
+  }
+  const out: Array<[number, number]> = [];
+  for (let x = 4; x < map.width - 4; x += 3) {
+    // widest run of TERRAIN.water (0) in this column
+    let bestLen = 0;
+    let bestMid = -1;
+    let run = 0;
+    for (let y = 0; y < map.height; y++) {
+      const water = map.terrain[y * map.width + x] === 0;
+      if (water) {
+        run++;
+        if (run > bestLen) {
+          bestLen = run;
+          bestMid = y - (run - 1) / 2;
+        }
+      } else {
+        run = 0;
+      }
+    }
+    // need a navigable channel (≥ 2 tiles) to avoid threading coastal specks
+    if (bestLen >= 2 && bestMid >= 0) out.push([x, bestMid]);
+  }
+  return out;
 }
 
 /** Accumulate consecutive same-style ribbon polys into one Graphics fill

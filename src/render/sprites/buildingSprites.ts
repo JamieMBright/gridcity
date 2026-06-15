@@ -297,7 +297,17 @@ const FABRICS: Record<CityFabric, FabricSpec> = {
   },
 };
 
+/** The fabric currently applied to the global palette. The atlas cache folds
+ *  this into its fingerprint so London and Paris bake (and cache) as distinct
+ *  sheets — the env/brick tokens a city sets are NOT all in COLORS, so the
+ *  fingerprint can't otherwise tell two fabrics apart. */
+let ACTIVE_FABRIC: CityFabric = 'london';
+export function activeFabric(): CityFabric {
+  return ACTIVE_FABRIC;
+}
+
 export function applyCityFabric(city: CityFabric): void {
+  ACTIVE_FABRIC = FABRICS[city] ? city : 'london';
   const f = FABRICS[city] ?? FABRICS.london;
   BRICK_RED = f.brickRed;
   BRICK_BROWN = f.brickBrown;

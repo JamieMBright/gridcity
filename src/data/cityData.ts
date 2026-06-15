@@ -16,6 +16,9 @@ import {
   ZONE,
   type CityMap,
   type CouncilProfile,
+  type MapAirport,
+  type MapPlace,
+  type MapTown,
   type TransportRoute,
   type Zone,
 } from '../sim/map/types';
@@ -44,11 +47,28 @@ export interface CityData {
   routes: TransportRoute[];
   councils: CouncilProfile[];
   named: CityNamedPlace[];
+  /** Town/village labels (render scenery). Optional: a generated city without
+   *  a town layer just labels its named places. */
+  towns?: MapTown[];
+  /** Airports the render-side air layer flies from. Optional: omitted = empty
+   *  skies (and a per-fabric fallback may apply — see buildCityFromData). */
+  airports?: MapAirport[];
   /** Per-city building colourway (render hint; default London). */
-  fabric?: 'london' | 'paris';
+  fabric?: CityMap['fabric'];
   /** Required ODbL attribution string. */
   attribution: string;
 }
+
+/** Per-fabric airport fallback for committed artifacts that predate the
+ *  `airports` field (e.g. the first Paris build). Real terminal positions,
+ *  approximate on the 256×160 grid; the air layer only needs a tile to fly
+ *  arcs from. London ships its airports on the code-drawn map, not here. */
+const FABRIC_AIRPORTS: Partial<Record<NonNullable<CityMap['fabric']>, MapAirport[]>> = {
+  paris: [
+    { name: 'Charles de Gaulle', x: 178, y: 34, hdg: 'EW' },
+    { name: 'Orly', x: 116, y: 138, hdg: 'EW' },
+  ],
+};
 
 // --- universal base64 for typed arrays (works in Node 18+ and the browser) --
 
@@ -117,6 +137,13 @@ export function fillDerivedLayers(map: CityMap): void {
 /** Reconstruct a full CityMap from a serialized CityData record. */
 export function buildCityFromData(d: CityData): CityMap {
   const n = d.width * d.height;
+  const named: MapPlace[] = d.named.map((p) => ({
+    x: p.x,
+    y: p.y,
+    name: p.name,
+    ...(p.landmark ? { landmark: true } : {}),
+  }));
+  const airports = d.airports ?? (d.fabric ? FABRIC_AIRPORTS[d.fabric] : undefined) ?? [];
   const map: CityMap = {
     width: d.width,
     height: d.height,
@@ -132,6 +159,11 @@ export function buildCityFromData(d: CityData): CityMap {
     variant: new Uint8Array(n),
     councils: d.councils,
     ...(d.fabric ? { fabric: d.fabric } : {}),
+    // render scenery off the map (the renderer reads these instead of a
+    // London-specific import)
+    named,
+    ...(d.towns ? { towns: d.towns } : {}),
+    airports,
   };
   fillDerivedLayers(map);
   return map;

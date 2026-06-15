@@ -17,6 +17,10 @@ test.describe('start menu, tutorial, KPI dashboard', () => {
     await waitReady(page);
     await expect(page.getByText('power a stylized London')).toBeVisible();
     await clickButton(page, 'new game');
+    // New Game now opens the city picker — choose London (the default sandbox)
+    const london = page.getByTitle('power London', { exact: true });
+    await expect.poll(async () => london.count(), { timeout: 15_000 }).toBeGreaterThan(0);
+    await london.first().dispatchEvent('click');
     await expect.poll(() => store<boolean>(page, '(s) => s.menuOpen')).toBe(false);
     // a fresh game keeps the iDNO estate substations (customer demand
     // awaiting connection) but NO generation — the grid vanished, so the
@@ -68,6 +72,10 @@ test.describe('start menu, tutorial, KPI dashboard', () => {
   test('sandbox new game starts clean — no auto tutorial strip', async ({ page }) => {
     await waitReady(page);
     await clickButton(page, 'new game');
+    // New Game now opens the city picker — choose London (the default sandbox)
+    const london = page.getByTitle('power London', { exact: true });
+    await expect.poll(async () => london.count(), { timeout: 15_000 }).toBeGreaterThan(0);
+    await london.first().dispatchEvent('click');
     await expect.poll(() => store<boolean>(page, '(s) => s.menuOpen')).toBe(false);
     // dismiss the story letterbox if present
     const skip = page.getByRole('button', { name: 'skip', exact: true });
@@ -122,6 +130,10 @@ test.describe('start menu, tutorial, KPI dashboard', () => {
   test('continue resumes an autosaved campaign', async ({ page }) => {
     await waitReady(page);
     await clickButton(page, 'new game');
+    // New Game now opens the city picker — choose London to start the sandbox
+    const londonCard = page.getByTitle('power London', { exact: true });
+    await expect.poll(async () => londonCard.count(), { timeout: 15_000 }).toBeGreaterThan(0);
+    await londonCard.first().dispatchEvent('click');
     // run a moment so the autosave lands, then reload
     await expect
       .poll(() => page.evaluate(() => localStorage.getItem('electricity.save.v1') !== null))

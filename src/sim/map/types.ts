@@ -40,6 +40,39 @@ export interface TransportRoute {
   pts: Array<[number, number]>;
 }
 
+/** Renderer scenery, carried ON the map so the renderer/UI need not import a
+ *  per-city module (London/Paris/… all just read map.named|towns|airports).
+ *  Pure presentation data: NOT serialized into saves (the map is rebuilt from
+ *  scenarioId), so adding these is free of any SAVE_VERSION implication. */
+
+/** A labelled place (transport terminus, monument…). `landmark` gates it to
+ *  the mid/close zoom bands so it never clutters the far whole-region view. */
+export interface MapPlace {
+  x: number;
+  y: number;
+  name: string;
+  landmark?: boolean | undefined;
+}
+
+/** A town/village label. `r` is the urban-core radius (drives label size +
+ *  declutter priority); villages fade one zoom band before towns. */
+export interface MapTown {
+  x: number;
+  y: number;
+  r: number;
+  kind: 'town' | 'village';
+  name: string;
+}
+
+/** An airport the render-side air layer flies arcs/planes from. `hdg` is the
+ *  runway heading ('EW' = east-west / westerly operation). */
+export interface MapAirport {
+  name: string;
+  x: number;
+  y: number;
+  hdg: 'EW';
+}
+
 /** Road-class raster codes (per tile, max of everything crossing it). */
 export const RC = {
   none: 0,
@@ -212,6 +245,14 @@ export interface CityMap {
     | 'london' | 'paris' | 'newyork' | 'sydney' | 'berlin'
     | 'shanghai' | 'hongkong' | 'capetown' | 'cairo' | 'athens'
     | undefined;
+  /** Renderer/UI scenery (NOT serialized — rebuilt with the map from
+   *  scenarioId). The renderer reads its labels, towns and air fleet from
+   *  here, so a non-London map is recognisable without a London import. All
+   *  optional: an omitted list just means no labels / no towns / empty skies
+   *  (campaign mini-maps carry none). */
+  named?: MapPlace[] | undefined;
+  towns?: MapTown[] | undefined;
+  airports?: MapAirport[] | undefined;
 }
 
 export const NO_COUNCIL = 255;

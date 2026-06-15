@@ -1364,6 +1364,13 @@ export function buildLondonMap(): CityMap {
     landmark,
     flags,
     councils: COUNCIL_SEEDS.map(({ x: _x, y: _y, ...profile }) => profile),
+    // scenery the renderer/UI read off the map (so they need no London import).
+    // London's NAMED_PLACES are all landmark-class (gated to mid/close zoom);
+    // TOWNS + AIRPORTS already match the MapTown/MapAirport shapes.
+    fabric: 'london',
+    named: NAMED_PLACES.map((p) => ({ ...p, landmark: true })),
+    towns: TOWNS.map((t) => ({ x: t.x, y: t.y, r: t.r, kind: t.kind, name: t.name })),
+    airports: AIRPORTS.map((a) => ({ name: a.name, x: a.x, y: a.y, hdg: a.hdg })),
   };
 }
 

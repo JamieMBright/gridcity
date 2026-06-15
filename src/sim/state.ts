@@ -333,8 +333,16 @@ export function newContext(scenarioId = 'london'): SimContext {
 /** Set up the opening scenario on a fresh game: the iDNO's estate
  *  substations and a few starter connection applications so the inbox
  *  has decisions from minute one. Called by the worker on 'newGame'
- *  only — unit fixtures stay clean. */
+ *  only — unit fixtures stay clean.
+ *
+ *  This seeding is LONDON-SPECIFIC: NEW_ESTATES sit at London tile coords, the
+ *  starter applications look for London's solar/wind site zones, and the
+ *  bespoke Heathrow scheme is a London landmark. A non-London data city (Paris…)
+ *  therefore opens on a TRULY BLANK grid — the player builds everything from
+ *  scratch, which is fully playable and matches the blank-grid doctrine; its
+ *  own bespoke seeding lands with its FR/etc mechanics in a later wave. */
 export function seedScenario(state: GameState, ctx: SimContext): void {
+  if (state.scenarioId !== 'london') return;
   const { map } = ctx;
 
   // (a) new-build estates arrive with the iDNO's transformer already in.

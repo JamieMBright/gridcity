@@ -15,6 +15,8 @@ import {
   type WeatherProfile,
 } from '../sim/powerProfile';
 import { buildLondonMap, setClientMap } from './londonMap';
+import { buildCityFromData } from './cityData';
+import { cityDataFor } from './scenarioData';
 import {
   buildBillMap,
   buildFirstLightMap,
@@ -83,6 +85,22 @@ export const CITY_SCENARIOS: CityScenario[] = [
     build: buildLondonMap,
   },
   {
+    // Paris — the first DATA-backed playable city. Its map is a committed
+    // OSM artifact (src/data/cities/paris.ts), lazily imported: build() reads
+    // the preloaded CityData (every entry point awaits loadScenarioData first)
+    // and reconstructs the CityMap. The power/economy/regulator profile blocks
+    // are omitted, so Paris resolves to LONDON_PROFILE for now — fully
+    // PLAYABLE; the FR-specific seams (nuclear baseload, CRE/TURPE) land later
+    // per docs/multi-city-and-rank.md. (owner: "open to all for now so I can
+    // test".)
+    id: 'paris',
+    name: 'Paris & the Seine',
+    tagline: 'Haussmann limestone, a calm grey river, and a grid to electrify.',
+    build: () => buildCityFromData(cityDataFor('paris')),
+    difficulty: 4,
+    unlockAtRank: 4,
+  },
+  {
     id: 'm1-first-light',
     name: 'First Light',
     tagline: 'One village, one wind tender, one wire.',
@@ -124,6 +142,10 @@ export function getScenario(id: string): CityScenario {
   if (!s) throw new Error(`unknown scenario: ${id}`);
   return s;
 }
+
+// Re-export the lazy-loader so callers go through the registry (which knows
+// which scenarios need a preload). A no-op for code-drawn ids (London/missions).
+export { loadScenarioData } from './scenarioData';
 
 // --- the client's active map -------------------------------------------------
 // The MAIN THREAD shares one map copy between the renderer, ghost

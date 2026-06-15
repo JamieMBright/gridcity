@@ -9,6 +9,7 @@ import { Iso } from './sprites/iso';
 import { Raster } from './sprites/raster';
 import * as world from './sprites/worldSprites';
 import * as buildings from './sprites/buildingSprites';
+import { activeFabric } from './sprites/buildingSprites';
 import * as landmarks from './sprites/landmarkSprites';
 import * as network from './sprites/networkSprites';
 import { buildAtlas, type AtlasFrame, type SpriteAtlas } from './sprites/atlas';
@@ -17,7 +18,11 @@ const DB = 'electricity-atlas';
 const STORE = 'sheets';
 
 function fingerprint(): string {
-  const sources: string[] = [JSON.stringify(COLORS)];
+  // the active fabric joins the key: a city's brick/roof tokens (and FLAT_ROOF)
+  // live in module `let`s, not COLORS, so two fabrics could otherwise share a
+  // fingerprint and serve each other's sheet. London ('london') keeps its
+  // historical key so its cached atlas is reused, not rebaked.
+  const sources: string[] = [`fabric:${activeFabric()}`, JSON.stringify(COLORS)];
   for (const mod of [world, buildings, landmarks, network]) {
     for (const v of Object.values(mod)) {
       if (typeof v === 'function') sources.push(String(v));
@@ -57,10 +62,10 @@ function openDb(): Promise<IDBDatabase | undefined> {
   });
 }
 
-async function readCache(db: IDBDatabase, key: string): Promise<SpriteAtlas | undefined> {
+async function readCache(db: IDBDatabase, key: string, slot: string): Promise<SpriteAtlas | undefined> {
   return new Promise((resolve) => {
     try {
-      const req = db.transaction(STORE, 'readonly').objectStore(STORE).get('atlas');
+      const req = db.transaction(STORE, 'readonly').objectStore(STORE).get(slot);
       req.onsuccess = () => {
         const v = req.result as StoredAtlas | undefined;
         if (!v || v.key !== key) {
@@ -81,7 +86,7 @@ async function readCache(db: IDBDatabase, key: string): Promise<SpriteAtlas | un
   });
 }
 
-function writeCache(db: IDBDatabase, key: string, atlas: SpriteAtlas): void {
+function writeCache(db: IDBDatabase, key: string, slot: string, atlas: SpriteAtlas): void {
   try {
     const stored: StoredAtlas = {
       key,
@@ -91,24 +96,34 @@ function writeCache(db: IDBDatabase, key: string, atlas: SpriteAtlas): void {
       // copy into a tightly-sized buffer for structured clone
       pixels: atlas.pixels.slice().buffer,
     };
-    db.transaction(STORE, 'readwrite').objectStore(STORE).put(stored, 'atlas');
+    db.transaction(STORE, 'readwrite').objectStore(STORE).put(stored, slot);
   } catch {
     // cache is best-effort
   }
 }
 
-/** The sprite atlas, from cache when the art code hasn't changed. */
+/** Per-fabric IndexedDB slot so London and another city can BOTH stay cached
+ *  (the old single 'atlas' slot thrashed on every city switch). London keeps
+ *  the historical 'atlas' slot so its already-cached sheet is reused. */
+function slotFor(): string {
+  const f = activeFabric();
+  return f === 'london' ? 'atlas' : `atlas:${f}`;
+}
+
+/** The sprite atlas, from cache when the art code hasn't changed. Baked in the
+ *  CURRENTLY-APPLIED fabric (the caller runs applyCityFabric first). */
 export async function getAtlas(): Promise<SpriteAtlas> {
   const db = await openDb();
   if (!db) return buildAtlas();
   const key = fingerprint();
-  const cached = await readCache(db, key);
+  const slot = slotFor();
+  const cached = await readCache(db, key, slot);
   if (cached) {
     db.close();
     return cached;
   }
   const atlas = buildAtlas();
-  writeCache(db, key, atlas);
+  writeCache(db, key, slot, atlas);
   db.close();
   return atlas;
 }
