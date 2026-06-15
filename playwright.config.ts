@@ -12,7 +12,11 @@ export default defineConfig({
   // two parallel browsers on 4 cores roughly halves the wall clock;
   // the software-WebGL canvas is CPU-bound but tests share one dev server
   workers: 2,
-  timeout: 60_000,
+  // 90s per test: under 2-worker load the software-WebGL canvas + a boot()
+  // through the city picker pushes the heavier sim tests (build/undo/time-skip)
+  // close to a 60s edge — they passed only on retry. 90s gives headroom so the
+  // gate is reliable (a genuinely hung test still fails, just 30s later).
+  timeout: 90_000,
   expect: { timeout: 15_000 },
   retries: 1,
   use: {
