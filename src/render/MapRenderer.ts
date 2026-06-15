@@ -345,7 +345,7 @@ export class MapRenderer {
   private frameSize = new Map<string, { w: number; h: number }>();
   /** Per-sprite trim offset (transparent left/top margin dropped from the
    *  atlas): added to every placement so the trim never shifts a pixel. */
-  private frameOffset = new Map<string, { ox: number; oy: number }>();
+  private frameOffset = new Map<string, { ox: number; oy: number; headroom: number }>();
   private structureSprites = new Map<number, Sprite>();
   private groundSprites = new Map<number, Sprite>();
   private destroyed = false;
@@ -1534,7 +1534,8 @@ export class MapRenderer {
     if (struct && structName) {
       const s = new Sprite(struct);
       const o = this.frameOffset.get(structName);
-      s.position.set(baseX + (o?.ox ?? 0), baseY + (o?.oy ?? 0));
+      // lift a headroom hero by its reserved sky so its floor stays pinned
+      s.position.set(baseX + (o?.ox ?? 0), baseY + (o?.oy ?? 0) - (o?.headroom ?? 0));
       // hero landmarks take the warm colour-pop tint (focal-5% contrast);
       // everything else takes its seasonal tint (or none)
       s.tint = MapRenderer.HERO_SPRITES.has(structName)
@@ -2750,7 +2751,7 @@ export class MapRenderer {
    *  4-side-trimmed frame lands exactly where the untrimmed canvas would. */
   private applyTrim(s: Sprite, name: string): void {
     const o = this.frameOffset.get(name);
-    if (o) s.position.set(s.position.x + o.ox, s.position.y + o.oy);
+    if (o) s.position.set(s.position.x + o.ox, s.position.y + o.oy - o.headroom);
   }
 
   private async buildTextures(): Promise<void> {
@@ -2769,7 +2770,7 @@ export class MapRenderer {
         new Texture({ source: base.source, frame: new Rectangle(f.x, f.y, f.w, f.h) }),
       );
       this.frameSize.set(name, { w: f.w, h: f.h });
-      this.frameOffset.set(name, { ox: f.ox, oy: f.oy });
+      this.frameOffset.set(name, { ox: f.ox, oy: f.oy, headroom: f.headroom });
     }
   }
 

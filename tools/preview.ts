@@ -28,6 +28,11 @@ const SEASON = ((): Season | undefined => {
   return s === 'winter' || s === 'spring' || s === 'summer' || s === 'autumn' ? s : undefined;
 })();
 
+/** SKY=<px> reserves extra canvas above the crop so a headroom hero sitting
+ *  near the top edge isn't clipped in a close-up. Default 0 ⇒ crops stay
+ *  byte-identical to the pre-headroom tool. */
+const SKY = Math.max(0, Number(process.env.SKY) || 0);
+
 function crc32(buf: Uint8Array): number {
   let c = ~0;
   for (let i = 0; i < buf.length; i++) {
@@ -245,7 +250,7 @@ export function renderCityCrop(
   const cols = x1 - x0 + 1;
   const rows = y1 - y0 + 1;
   const W = (cols + rows) * HW;
-  const H = (cols + rows) * HH + (CELL_H - FLOOR_H);
+  const H = (cols + rows) * HH + (CELL_H - FLOOR_H) + SKY;
   const img = new Uint8ClampedArray(W * H * 4);
   // night-sky backdrop
   for (let i = 0; i < W * H; i++) {
@@ -265,7 +270,11 @@ export function renderCityCrop(
             : structureSpriteFor(map, x0 + cx, y0 + cy);
         if (!name) continue;
         const px = originX + (cx - cy) * HW - HW;
-        const py = (cx + cy) * HH;
+        // lift a headroom hero by its reserved sky so its floor stays pinned,
+        // mirroring the game renderer; SKY shifts the whole crop down so a
+        // tall hero near the top edge isn't clipped.
+        const hr = pass === 'structure' ? (atlas.frames.get(name)?.headroom ?? 0) : 0;
+        const py = (cx + cy) * HH + SKY - hr;
         blit(atlas, name, img, W, H, px, py, SEASON ? seasonTintFor(name, SEASON) : undefined);
       }
     }
@@ -277,7 +286,7 @@ export function renderCityCrop(
   const sEff = 1 / scale;
   const key = zoomKeyFor(sEff);
   const offX = originX - (x0 - y0) * HW;
-  const offY = CELL_H - HH - (x0 + y0) * HH;
+  const offY = CELL_H - HH - (x0 + y0) * HH + SKY;
   const shift = (pts: number[]): number[] => {
     const out = new Array<number>(pts.length);
     for (let i = 0; i < pts.length; i += 2) {

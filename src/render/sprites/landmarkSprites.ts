@@ -354,11 +354,15 @@ export function parliamentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
  *  spokes nearly three houses' height across, capsules dotted around the
  *  outside, A-frame legs and a back-stay. Fills the cell's full headroom. */
 export function eyeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso();
+  // The London Eye: 135 m observation wheel on the South Bank — a big, proud
+  // wheel riding high over the river. Headroom lets it sit taller than the
+  // 1×1 cap without clipping the rim.
+  const iso = new Iso(1, 1, { headroom: 220 });
+  const P = iso.P.bind(iso);
   void seed;
   const [cx, cyB] = P(0.55, 0.58, 0);
-  const R = 57 * RES; // great wheel radius — the whole cell width
-  const cy = cyB - 72 * RES; // hub height
+  const R = 66 * RES; // great wheel radius — a prominent South-Bank landmark
+  const cy = cyB - 88 * RES; // hub raised so the wheel rides high over the river
   iso.shadow(0.28, 0.5, 0.78, 0.72, 0.22, 0.16);
   // support: A-frame legs to the hub + a slim back-stay
   iso.r.line([cx + 30 * RES, cyB + 2 * RES], [cx, cy], 1.6 * RES, shaded(COLORS.white, 0.2));
@@ -509,12 +513,19 @@ export function domeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
  *  pale sky-reflecting glass, facet seams up its faces and the
  *  characteristic open splintered tip where the facets stop short. */
 export function spireTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso();
+  // The Shard: London's tallest, ~310 m — it must TOWER over the City fabric
+  // (CBD towers top out ~z170), so it rises to z300 on a 1×1 footprint. The
+  // headroom lets a 1×1 sprite exceed the old z≈160 canvas cap; placement is
+  // invariant to the exact headroom (the atlas trims the spare sky), so it's
+  // set comfortably above the splinter-crown tip. Slim footprint ⇒ it spikes
+  // skyward without hiding its neighbours.
+  const iso = new Iso(1, 1, { headroom: 420 });
+  const P = iso.P.bind(iso);
   void seed;
   const u = 0.5;
   const v = 0.52;
   const b = 0.3;
-  const H = 176;
+  const H = 300;
   iso.shadow(u - b, v - b * 0.4, u + b, v + b, 0.45, 0.28);
   const apex = P(u + 0.02, v - 0.02, H);
   const L = P(u - b, v + b * 0.85, 0);
@@ -537,8 +548,8 @@ export function spireTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   blade(F, 0.86, 0.97, 2 * RES, hex('#d3e3ee'));
   blade(Rr, 0.955, 1.06, 1.7 * RES, hex('#e4eef6'));
   blade(Bk, 0.89, 1.0, 1.3 * RES, hex('#a9bcd6'));
-  // faint floor lines across the two big faces
-  for (let z = 12; z < 150; z += 11) {
+  // faint floor lines across the two big faces (span the full height)
+  for (let z = 12; z < H - 24; z += 11) {
     const t = z / H;
     iso.r.line(along(L, t), along(F, t), 0.45 * RES, alpha(COLORS.white, 0.28));
     iso.r.line(along(F, t), along(Rr, t), 0.45 * RES, alpha(COLORS.white, 0.22));
@@ -640,7 +651,9 @@ export function fortressTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
  * places it like any hero (with its cleared parvis apron around it).
  */
 export function notredameTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso(2, 2, { swAnchor: true });
+  // Headroom lets the flèche + west towers climb well past the 2×2 cap so the
+  // cathedral genuinely towers over the ~z55 Haussmann fabric of central Paris.
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 260 });
   void seed;
   const GST = hex('#cdc6b4'); // cool gothic limestone
   const GST_D = hex('#aaa48f');
@@ -657,7 +670,7 @@ export function notredameTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const nu1 = 1.34;
   const nv0 = 0.52; // apse (back)
   const nv1 = 1.7; // crossing toward the front
-  const navH = 60;
+  const navH = 76;
 
   // side aisles (lower) flanking the nave, with lean-to lead roofs — pushed
   // wider (0.28..1.72) so the mass fills the square
@@ -693,34 +706,34 @@ export function notredameTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const sv = nv0 + (nv1 - nv0) * 0.42;
   iso.box(su - 0.05, sv - 0.05, su + 0.05, sv + 0.05, navH + 30, navH + 44, GST_D, { ink: false });
   const base = P2(su, sv, navH + 44);
-  const tip = P2(su, sv, navH + 118);
+  const tip = P2(su, sv, navH + 152);
   iso.r.poly([[base[0] - 7 * RES, base[1]], tip, [base[0], base[1] - 2 * RES]], shaded(ROOF, 0.12));
   iso.r.poly([[base[0], base[1] - 2 * RES], tip, [base[0] + 7 * RES, base[1]]], lit(ROOF, 0.1));
   iso.r.polyline([[base[0] - 7 * RES, base[1]], tip, [base[0] + 7 * RES, base[1]]], INK_W * 0.8, INK);
   iso.r.line(tip, [tip[0], tip[1] - 9 * RES], 1.6 * RES, COLORS.glassLit);
 
   // twin FLAT-TOPPED west towers at the front (high v) — the dominant masses,
-  // drawn TALL (z≈120, well above the ordinary tower fabric) and wide-set
+  // drawn TALL (z≈152, well above the ordinary fabric) and wide-set
   for (const tu of [0.52, 1.48] as const) {
-    iso.box(tu - 0.26, 1.6, tu + 0.26, 1.9, 0, 120, GST);
+    iso.box(tu - 0.26, 1.6, tu + 0.26, 1.9, 0, 152, GST);
     // two stacked pointed belfry openings on the front face
-    for (const [zb, zt, zp] of [[58, 84, 90], [94, 112, 118]] as const) {
+    for (const [zb, zt, zp] of [[74, 106, 114], [120, 144, 152]] as const) {
       iso.r.poly(
         [P2(tu - 0.13, 1.9, zb), P2(tu + 0.13, 1.9, zb), P2(tu + 0.13, 1.9, zt), P2(tu, 1.9, zp), P2(tu - 0.13, 1.9, zt)],
         GLASS,
       );
     }
     // the gallery parapet + four corner pinnacles (flat top, no spire)
-    iso.box(tu - 0.28, 1.58, tu + 0.28, 1.92, 120, 126, lighten(GST, 0.08), { ink: false });
+    iso.box(tu - 0.28, 1.58, tu + 0.28, 1.92, 152, 158, lighten(GST, 0.08), { ink: false });
     for (const [pu, pv] of [[tu - 0.26, 1.6], [tu + 0.26, 1.6], [tu - 0.26, 1.9], [tu + 0.26, 1.9]] as const) {
-      iso.box(pu - 0.03, pv - 0.03, pu + 0.03, pv + 0.03, 126, 140, GST_D, { ink: false });
+      iso.box(pu - 0.03, pv - 0.03, pu + 0.03, pv + 0.03, 158, 176, GST_D, { ink: false });
     }
   }
 
   // west-front gable wall + the great ROSE WINDOW + three portals, between the
   // towers and rising with them
-  iso.box(0.74, 1.78, 1.26, 1.9, 0, 88, GST);
-  const [rx, ry] = P2(1.0, 1.9, 64);
+  iso.box(0.74, 1.78, 1.26, 1.9, 0, 110, GST);
+  const [rx, ry] = P2(1.0, 1.9, 80);
   const RR = 14 * RES;
   const rose: Pt[] = [];
   for (let i = 0; i <= 18; i++) {
@@ -966,7 +979,7 @@ export function grandTile(seed: number, variant: number): Uint8ClampedArray<Arra
  * tapered antenna tower · flat glass beacon crown.
  */
 export function skyscraperHeroTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso(3, 3, { swAnchor: true });
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 320 });
   const rng = new Rng(seed * 9173 + variant * 313 + 7);
   const S = RES;
   const iP = (u: number, v: number, z: number): Pt => iso.P(u, v, z);
@@ -975,20 +988,20 @@ export function skyscraperHeroTile(seed: number, variant: number): Uint8ClampedA
   const skin = glassy ? mix(wall, COLORS.glassSky, 0.5) : wall;
   const reflect = rng.chance(0.5) ? COLORS.glassSky : COLORS.glassSunset;
 
-  // The tower fills most of the 3×3 and rises to ~z160 + a crown/spire to ~z195
-  // — the tallest the sprite canvas allows (a 3×3 swAnchor frame is 576px; the
-  // ordinary CBD fabric tops out ~z120 and even the Shard ~z170), so this
-  // genuinely TOWERS, "a skyscraper among skyscrapers". A slim plaza edge is
-  // left around it (real towers sit on plazas).
-  const u0 = 0.55, u1 = 2.45, v0 = 0.7, v1 = 2.3;
+  // A SLIM, tall prism — a Canary-Wharf / Citibank-class hero ("a skyscraper
+  // among skyscrapers"). Headroom lifts it to ~z258 + a crown to ~z285, well
+  // past the ordinary CBD fabric (~z120-170): clearly towering, but second to
+  // the Shard (z300). A NARROW footprint inside the 3×3 (a clean slab, not a
+  // wedding-cake ziggurat) keeps it slender and leaves a generous plaza so it
+  // doesn't hide its neighbours.
+  const u0 = 0.82, u1 = 2.18, v0 = 1.0, v1 = 2.0;
   iso.shadow(u0, v0, u1 + 0.4, v1 + 0.4, 0.34, 0.2);
-  iso.box(u0 - 0.16, v0 - 0.16, u1 + 0.16, v1 + 0.16, 0, 14, shaded(skin, 0.14), { ink: false }); // podium
+  iso.box(u0 - 0.16, v0 - 0.16, u1 + 0.16, v1 + 0.16, 0, 16, shaded(skin, 0.14), { ink: false }); // podium
 
-  // stacked setback sections (each narrower as it rises) — the classic mass
+  // a clean shaft with a single GENTLE setback high up (not a stepped ziggurat)
   const secs = [
-    { du: 0.0, z0: 0, z1: 96 },
-    { du: 0.26, z0: 96, z1: 138 },
-    { du: 0.5, z0: 138, z1: 162 },
+    { du: 0.0, z0: 0, z1: 150 },
+    { du: 0.1, z0: 150, z1: 258 },
   ];
   for (let s = 0; s < secs.length; s++) {
     const { du, z0, z1 } = secs[s]!;
@@ -1011,27 +1024,27 @@ export function skyscraperHeroTile(seed: number, variant: number): Uint8ClampedA
     }
   }
 
-  const topZ = 162;
+  const topZ = 258;
   const cx = (u0 + u1) / 2, cy = (v0 + v1) / 2;
   if (variant === 1) {
     // Art-Deco stepped crown + slim spire (Empire State / Chrysler family)
-    let cz = topZ, cw = 0.5;
+    let cz = topZ, cw = 0.4;
     for (let k = 0; k < 3; k++) {
-      iso.box(cx - cw, cy - cw, cx + cw, cy + cw, cz, cz + 8, lighten(skin, 0.05 + 0.03 * k));
-      cz += 8; cw -= 0.12;
+      iso.box(cx - cw, cy - cw, cx + cw, cy + cw, cz, cz + 9, lighten(skin, 0.05 + 0.03 * k));
+      cz += 9; cw -= 0.1;
     }
     const [sx, syB] = iso.P(cx, cy, cz);
     iso.r.line([sx, syB], [sx, syB - 18 * S], 1.8 * S, COLORS.steel);
     iso.r.line([sx, syB - 12 * S], [sx, syB - 22 * S], 2.6 * S, COLORS.glassLit);
   } else if (variant === 2) {
     // tapered top + antenna mast with an aircraft beacon
-    iso.box(cx - 0.44, cy - 0.44, cx + 0.44, cy + 0.44, topZ, topZ + 14, lighten(skin, 0.05));
+    iso.box(cx - 0.4, cy - 0.4, cx + 0.4, cy + 0.4, topZ, topZ + 16, lighten(skin, 0.05));
     const [sx, syB] = iso.P(cx, cy, topZ + 14);
     iso.r.line([sx, syB], [sx, syB - 30 * S], 1.6 * S, COLORS.steel);
     iso.r.line([sx, syB - 26 * S], [sx, syB - 32 * S], 3.0 * S, COLORS.glassHot);
   } else {
     // flat glass crown + lit parapet + corner beacon (modern CBD tower)
-    iso.box(cx - 0.62, cy - 0.62, cx + 0.62, cy + 0.62, topZ, topZ + 12, mix(skin, COLORS.glassSky, 0.4), { topC: top(reflect, 0.2) });
+    iso.box(cx - 0.48, cy - 0.48, cx + 0.48, cy + 0.48, topZ, topZ + 13, mix(skin, COLORS.glassSky, 0.4), { topC: top(reflect, 0.2) });
     const [sx, syB] = iso.P(cx, cy, topZ + 12);
     iso.r.line([sx, syB], [sx, syB - 22 * S], 1.5 * S, COLORS.steel);
     iso.r.line([sx, syB - 18 * S], [sx, syB - 24 * S], 2.6 * S, COLORS.glassHot);
@@ -1819,10 +1832,14 @@ export function kewhouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
  *  West End — banded glazing up the shaft, the lattice aerial galleries
  *  near the top and a thin antenna mast. 1×1, reads from far zoom. */
 export function bttowerTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso();
+  // 177 m slim West-End spike — it towered over 1960s London and should still
+  // read as a landmark spire well above the surrounding fabric. Headroom lets
+  // the 1×1 shaft + aerial galleries + antenna rise past the old z-cap.
+  const iso = new Iso(1, 1, { headroom: 340 });
+  const P = iso.P.bind(iso);
   void seed;
   const [cx, cyB] = P(0.5, 0.52, 0);
-  const H = 168;
+  const H = 232;
   const Rb = 13 * RES;
   iso.shadow(0.4, 0.4, 0.62, 0.62, 0.34, 0.26);
   // cylindrical shaft: a tall lit/dusk-split column

@@ -11,7 +11,7 @@ import * as world from './sprites/worldSprites';
 import * as buildings from './sprites/buildingSprites';
 import * as landmarks from './sprites/landmarkSprites';
 import * as network from './sprites/networkSprites';
-import { buildAtlas, type SpriteAtlas } from './sprites/atlas';
+import { buildAtlas, type AtlasFrame, type SpriteAtlas } from './sprites/atlas';
 
 const DB = 'electricity-atlas';
 const STORE = 'sheets';
@@ -40,7 +40,7 @@ interface StoredAtlas {
   key: string;
   width: number;
   height: number;
-  frames: Array<[string, { x: number; y: number; w: number; h: number; ox: number; oy: number }]>;
+  frames: Array<[string, AtlasFrame]>;
   pixels: ArrayBuffer;
 }
 

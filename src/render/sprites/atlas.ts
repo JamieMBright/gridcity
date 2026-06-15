@@ -128,6 +128,10 @@ export interface AtlasFrame {
   h: number;
   ox: number;
   oy: number;
+  /** Extra sky rows the sprite reserved ABOVE its footprint (Iso headroom).
+   *  Both renderers LIFT the placement by this so a taller-than-footprint
+   *  hero keeps its floor pinned. 0 for every ordinary sprite. */
+  headroom: number;
 }
 
 export interface SpriteAtlas {
@@ -149,6 +153,8 @@ interface Cell {
   oy: number;
   /** Row stride of `pixels` (the sprite's full canvas width). */
   stride: number;
+  /** Iso headroom baked into this sprite (extra sky above the footprint). */
+  headroom: number;
 }
 
 /** Sprites are placed by their top-left corner in both renderers, so the
@@ -198,9 +204,17 @@ function buildSpriteCells(): Map<string, Cell> {
     hTiles = 1,
     sw = false,
   ): void => {
-    // dims mirror the Iso constructor (sw = SW-anchored landmark blocks)
+    // dims mirror the Iso constructor (sw = SW-anchored landmark blocks). A
+    // hero's Iso may have added HEADROOM — extra sky rows above the footprint
+    // so it can exceed the footprint-derived height cap. Infer it from the
+    // ACTUAL buffer height vs the footprint height (dims.w is the true row
+    // stride, unaffected by headroom): the scan must cover the full canvas or
+    // the floor at the new bottom is missed, and the renderer lifts placement
+    // by this same headroom. 0 for every ordinary sprite ⇒ byte-identical.
     const dims = sw ? swAnchorDims(wTiles, hTiles) : isoDims(wTiles, hTiles);
-    m.set(name, { pixels, ...trimmedExtent(pixels, dims.w, dims.h), stride: dims.w });
+    const totalH = pixels.length / 4 / dims.w;
+    const headroom = Math.max(0, Math.round(totalH - dims.h));
+    m.set(name, { pixels, ...trimmedExtent(pixels, dims.w, totalH), stride: dims.w, headroom });
   };
   // ground pass (flat tiles, no structures)
   for (let i = 0; i < 4; i++) set(`ground_grass_${i}`, groundGrassTile(i + 1));
@@ -416,7 +430,7 @@ function packMaxRects(
   for (const [name, cell] of order) {
     const pos = place(cell.w, cell.h);
     if (!pos) return undefined; // doesn't fit this bin
-    frames.set(name, { x: pos.x, y: pos.y, w: cell.w, h: cell.h, ox: cell.ox, oy: cell.oy });
+    frames.set(name, { x: pos.x, y: pos.y, w: cell.w, h: cell.h, ox: cell.ox, oy: cell.oy, headroom: cell.headroom });
     splitFree({ x: pos.x, y: pos.y, w: cell.w, h: cell.h });
     if (pos.x + cell.w > usedW) usedW = pos.x + cell.w;
     if (pos.y + cell.h > usedH) usedH = pos.y + cell.h;

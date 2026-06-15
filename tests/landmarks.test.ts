@@ -117,7 +117,7 @@ describe('wave-9 landmarks', () => {
       expect(f, `atlas should contain ${name}`).toBeDefined();
       expect((f?.w ?? 0) > 0 && (f?.h ?? 0) > 0).toBe(true);
     }
-  });
+  }, 30000); // buildAtlas bakes 150+ vector sprites incl. tall headroom heroes
 
   it('the atlas frames never overlap on the sheet (trim offsets are sound)', () => {
     const atlas = buildAtlas();
@@ -131,7 +131,7 @@ describe('wave-9 landmarks', () => {
         expect(overlap, 'no two atlas frames may overlap').toBe(false);
       }
     }
-  });
+  }, 30000);
 
   it('is deterministic (same landmark raster every build)', () => {
     const again = buildLondonMap();

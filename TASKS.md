@@ -12,6 +12,57 @@
 
 ## Open
 
+### 🏙 HERO FLURRY (owner, 2026-06-14 21:10 → 06-15 05:54) — IN PROGRESS
+The owner's reaction to the hero work (commits ad08b36 / b550a16 / 8d8a1cc /
+7d6c3d6). Later prompts supersede earlier; the through-line is "heroes must
+TOWER, proportionally, each one bespoke."
+- [x] **UNLOCK THE Z-CAP FOR HEROES — DONE (said 3×, most recent 05:32;
+      AskUserQuestion answer: "Definitely lift the ceiling height. I want
+      proportional heroes to the surrounds. The Shard towers over London so it
+      should in the game. Same for London Eye / BT Tower etc. Just careful not to
+      hide buildings 100% by the heroes.").** ROOT CAUSE: the sprite engine
+      capped EVERY building's z by its footprint — a 1×1 canvas is CELL_H tall so
+      anything above z≈160 clipped at the top (the Shard was authored at H=176,
+      already clipped). Bigger footprints (swAnchorDims) bought height → the
+      2×2/3×3 coupling the owner rejects. FIX: added `headroom` to Iso (taller
+      canvas + all drawing shifted down so the floor stays pinned); the atlas
+      AUTO-DETECTS it from the baked buffer height (no constants to thread, no
+      `set()` call sites touched) and stores it on the frame; the renderer
+      (paintTile + applyTrim) and the preview tool LIFT placement by it. headroom
+      defaults to 0 ⇒ every existing sprite byte-identical (PROVEN: atlas + city
+      crop md5 unchanged at the no-op stage). Retuned marquee heroes to tower:
+      Shard z176→300, BT Tower z168→232, London Eye bigger high-riding wheel,
+      the generic skyscraper heroes reworked from squat wedding-cakes into SLIM
+      tall prisms (~z258), Notre-Dame flèche/towers raised (~z226). Slim
+      footprints keep neighbours visible. Unit test `tests/spriteHeadroom.test.ts`
+      (floor-pinning invariant + cap-exceed + atlas auto-detect); atlas stays
+      3840×3829 < 4096. Design-gated: far/mid/close London crops + per-hero
+      dumps. STILL TBD below: per-hero bespoke sizing, civic "marble squares",
+      researched heroes, per-city palettes, the 8 new cities.
+- [ ] **Per-hero SIZE is bespoke, not a blanket footprint (21:10 / 21:15):**
+      "height AND width WITHIN the square — it towers over neighbours and is tall
+      and wide within whatever square it stands in. 3×3 as a blanket rule won't
+      always work." Each hero gets its own size considerations: Heathrow is a
+      MONSTER; the Eiffel has lots of open space around it; Citibank is a
+      skyscraper among skyscrapers (slim+very tall). A bridge / train station /
+      airport can each be a hero.
+- [ ] **Civic "marble squares" are BAD (21:15):** the grand-civic generator
+      reads as flat marble blocks with an unnecessary parvis APRON. Drop the
+      apron UNLESS the real hero genuinely has open space around it (Eiffel yes);
+      otherwise make the building actually wider + taller WITHIN its footprint.
+- [ ] **Every hero RESEARCHED + bespoke, never reused (21:19 / 23:47):** research
+      each building (Wikimedia images + accurate descriptions), write a tailored
+      recreate-it prompt/spec, and STORE the research (docs/landmarks/*) so future
+      re-renders (better drawing skills) can reuse it. Don't share one sprite
+      across heroes. London AND Paris each get up to 100 heroes; reduce the count
+      for smaller cities if 100 stops making sense.
+- [ ] **Per-city PALETTE + STYLE (23:47):** "you said everywhere had the same red
+      brick as London — each city should have its own palette and style." (Partly
+      started: commit 8d8a1cc per-city fabric — needs to actually bite per city.)
+- [ ] **RENDER MAPS for a batch of cities (21:22):** New York, Sydney, Berlin,
+      Shanghai, Hong Kong, Cape Town, Cairo, Athens (+ existing London, Paris).
+      Geographic accuracy + per-city palette + researched heroes.
+
 ### 🛠 OSM PIPELINE BUILD (fresh env w/ egress, 2026-06-14 ~14:50) — IN PROGRESS
 The fresh env HAS the OSM/Wikidata egress. Built the pipeline PROPER
 (`docs/osm-pipeline.md` stages 1–5): `tools/osm/` (project · geometry ·
