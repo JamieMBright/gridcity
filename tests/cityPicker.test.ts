@@ -11,17 +11,34 @@ import { CITY_DATA_IDS, cityDataFor } from '../src/data/scenarioData';
 import { deserialize, newGame, serialize } from '../src/sim/state';
 
 describe('city registry + picker roster', () => {
-  it('registers London + Paris + New York as playable scenarios', () => {
+  it('registers London + Paris + New York + the OSM cities as playable scenarios', () => {
     const ids = CITY_SCENARIOS.map((s) => s.id);
     expect(ids).toContain('london');
     expect(ids).toContain('paris');
     expect(ids).toContain('newyork');
+    expect(ids).toContain('sydney');
+    expect(ids).toContain('hongkong');
+    expect(ids).toContain('berlin');
+    expect(ids).toContain('shanghai');
+    expect(ids).toContain('capetown');
+    expect(ids).toContain('cairo');
+    expect(ids).toContain('athens');
   });
 
-  it('Paris + New York are the data-backed (lazy) cities; London is code-drawn', async () => {
+  it('the data-backed (lazy) cities are the OSM artifacts; London is code-drawn', async () => {
     // CITY_DATA_IDS is the set the picker treats as playable-besides-London,
     // and the set the worker/MapView preload before a sync build().
-    expect(CITY_DATA_IDS).toEqual(['paris', 'newyork']);
+    expect(CITY_DATA_IDS).toEqual([
+      'paris',
+      'newyork',
+      'sydney',
+      'hongkong',
+      'berlin',
+      'shanghai',
+      'capetown',
+      'cairo',
+      'athens',
+    ]);
     // London needs no preload (no artifact), Paris/NY do.
     await expect(loadScenarioData('london')).resolves.toBeUndefined();
   });

@@ -114,6 +114,85 @@ export const CITY_SCENARIOS: CityScenario[] = [
     unlockAtRank: 6,
   },
   {
+    // Sydney — OSM artifact (src/data/cities/sydney.ts): the harbour and its
+    // inlets, the Opera House, the eastern-suburbs peninsula, the open Tasman
+    // to the south-east. Resolves to LONDON_PROFILE for now (the AU 50 Hz /
+    // NEM seams land later); fully PLAYABLE — open to all for testing.
+    id: 'sydney',
+    name: 'Sydney & the Harbour',
+    tagline: 'The harbour, the bridge, the Opera House, and a coast to power.',
+    build: () => buildCityFromData(cityDataFor('sydney')),
+    difficulty: 5,
+    unlockAtRank: 7,
+  },
+  {
+    // Hong Kong — OSM artifact (src/data/cities/hongkong.ts): Victoria Harbour
+    // dividing Kowloon from the Island, the green Peak, the outlying islands.
+    // Resolves to LONDON_PROFILE for now; fully PLAYABLE — open to all.
+    id: 'hongkong',
+    name: 'Hong Kong & Victoria Harbour',
+    tagline: 'A harbour city of peaks and towers, packed against the sea.',
+    build: () => buildCityFromData(cityDataFor('hongkong')),
+    difficulty: 7,
+    unlockAtRank: 8,
+  },
+  {
+    // Berlin — OSM artifact (src/data/cities/berlin.ts): the Spree threading a
+    // landlocked metropolis, Mitte's core, lakes and forests at the edge.
+    // Resolves to LONDON_PROFILE for now (the DE 50 Hz seams land later);
+    // fully PLAYABLE — open to all for testing.
+    id: 'berlin',
+    name: 'Berlin & the Spree',
+    tagline: 'A flat city on a slow river, ringed by lakes and woods.',
+    build: () => buildCityFromData(cityDataFor('berlin')),
+    difficulty: 4,
+    unlockAtRank: 8,
+  },
+  {
+    // Shanghai — OSM artifact (src/data/cities/shanghai.ts): the Huangpu
+    // winding past Pudong's towers, a dense megacity grid. Resolves to
+    // LONDON_PROFILE for now; fully PLAYABLE — open to all for testing.
+    id: 'shanghai',
+    name: 'Shanghai & the Huangpu',
+    tagline: 'A megacity on a winding river, towers crowding the Bund.',
+    build: () => buildCityFromData(cityDataFor('shanghai')),
+    difficulty: 8,
+    unlockAtRank: 9,
+  },
+  {
+    // Cape Town — OSM artifact (src/data/cities/capetown.ts): Table Bay and the
+    // Atlantic, the City Bowl below the mountain, the Cape Flats sprawl.
+    // Resolves to LONDON_PROFILE for now; fully PLAYABLE — open to all.
+    id: 'capetown',
+    name: 'Cape Town & Table Bay',
+    tagline: 'A city bowl under the mountain, between two oceans.',
+    build: () => buildCityFromData(cityDataFor('capetown')),
+    difficulty: 6,
+    unlockAtRank: 9,
+  },
+  {
+    // Cairo — OSM artifact (src/data/cities/cairo.ts): the Nile threading a vast
+    // dense city, the Pyramids on the desert edge. Resolves to LONDON_PROFILE
+    // for now; fully PLAYABLE — open to all for testing.
+    id: 'cairo',
+    name: 'Cairo & the Nile',
+    tagline: 'A vast dense city on the great river, desert at its back.',
+    build: () => buildCityFromData(cityDataFor('cairo')),
+    difficulty: 8,
+    unlockAtRank: 10,
+  },
+  {
+    // Athens — OSM artifact (src/data/cities/athens.ts): the Attic basin, the
+    // Saronic coast at Piraeus, the Acropolis, mountains framing the sprawl.
+    // Resolves to LONDON_PROFILE for now; fully PLAYABLE — open to all.
+    id: 'athens',
+    name: 'Athens & the Saronic Gulf',
+    tagline: 'An ancient basin between the mountains and the sea.',
+    build: () => buildCityFromData(cityDataFor('athens')),
+    difficulty: 5,
+    unlockAtRank: 10,
+  },
+  {
     id: 'm1-first-light',
     name: 'First Light',
     tagline: 'One village, one wind tender, one wire.',

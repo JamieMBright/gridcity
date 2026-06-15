@@ -74,7 +74,11 @@ function serialize(d: CityData): string {
     `  road: ${JSON.stringify(d.road)},`,
     `  landmark: ${JSON.stringify(d.landmark)},`,
     `  flags: ${JSON.stringify(d.flags)},`,
-    `  routes: ${JSON.stringify(d.routes)},`,
+    // routes can be a very large literal (1000+ polylines for a dense city);
+    // emitting it as a parsed JSON STRING keeps TypeScript from inferring a
+    // monster tuple/union literal type for it (TS2590 "union too complex"),
+    // while decoding to the identical TransportRoute[] at import time.
+    `  routes: JSON.parse(${JSON.stringify(JSON.stringify(d.routes))}) as CityData['routes'],`,
     `  councils: ${JSON.stringify(d.councils)},`,
     `  named: ${JSON.stringify(d.named)},`,
     ...(d.fabric ? [`  fabric: ${JSON.stringify(d.fabric)},`] : []),
