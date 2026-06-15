@@ -31,43 +31,172 @@ let SLATE_DARK = hex('#575d78');
 let TILE_RED = hex('#8f4438');
 let POT_CLAY = hex('#9c5a3a');
 let BUFF_BRICK = hex('#c8a878');
+/** Roof FORM, not just colour: London/Paris/Sydney/Berlin pitch their domestic
+ *  roofs; New York/Cairo/Athens/Shanghai/Hong Kong are flat-roofed (parapets,
+ *  water tanks). This is what stops every city reading as "London in a recolour
+ *  — a flat skyline vs a pitched one is the strongest style tell. */
+let FLAT_ROOF = false;
 
-/** Built-in city colourways. London = the default Victorian fabric; Paris =
- *  Haussmann cream limestone walls + grey zinc mansard roofs (uniform, pale,
- *  grid-like). Walls/roofs feed the tower/office rotations via the palette. */
-export type CityFabric = 'london' | 'paris';
+/** Built-in city colourways. Each city wears its own building stock so a
+ *  generated map never reads as "London in a different shape": London's
+ *  Victorian brick, Paris's Haussmann limestone+zinc, New York brownstone+
+ *  glass, Sydney sandstone+terracotta, Berlin grey render+ochre, Shanghai/
+ *  Hong Kong concrete+glass, Cape Town's Bo-Kaap pastels, Cairo's sand+red
+ *  brick, Athens's whitewash+terracotta. `walls`/`roofs` feed the tower/office
+ *  rotations; the rest recolour the low domestic fabric. London is the default
+ *  so the live game's atlas is unchanged unless a city opts in. */
+export type CityFabric =
+  | 'london' | 'paris' | 'newyork' | 'sydney' | 'berlin'
+  | 'shanghai' | 'hongkong' | 'capetown' | 'cairo' | 'athens';
 
-const PARIS_WALLS: RGBA[] = [
-  hex('#e7dec9'), hex('#ded3ba'), hex('#ebe3d2'), hex('#d6caac'),
-  hex('#e2d8c1'), hex('#cfc3a4'), hex('#e9e1cd'), hex('#d9ceb2'),
-];
-const PARIS_ROOFS: RGBA[] = [hex('#6b7079'), hex('#585e68'), hex('#777d86'), hex('#4f545d')];
+interface FabricSpec {
+  brickRed: RGBA; brickBrown: RGBA; brickOrange: RGBA;
+  renderCream: RGBA; pebbledash: RGBA;
+  slate: RGBA; slateDark: RGBA;
+  tileRed: RGBA; potClay: RGBA; buffBrick: RGBA;
+  walls: RGBA[]; roofs: RGBA[];
+  /** flat parapet roofs instead of pitched gables (default false = pitched) */
+  flatRoof?: boolean;
+}
+
+const H = hex;
+const FABRICS: Record<CityFabric, FabricSpec> = {
+  // London — Victorian brick, render, slate (the default)
+  london: {
+    brickRed: H('#a64b37'), brickBrown: H('#8a5240'), brickOrange: H('#b5664a'),
+    renderCream: H('#ddd2bc'), pebbledash: H('#c2b89f'),
+    slate: H('#6e6884'), slateDark: H('#575d78'), tileRed: H('#8f4438'),
+    potClay: H('#9c5a3a'), buffBrick: H('#c8a878'),
+    walls: COLORS.walls, roofs: COLORS.roofs,
+  },
+  // Paris — Haussmann cream limestone + grey zinc mansard (pale, uniform)
+  paris: {
+    brickRed: H('#ded3ba'), brickBrown: H('#cfc3a4'), brickOrange: H('#e7dec9'),
+    renderCream: H('#ebe3d2'), pebbledash: H('#d6caac'),
+    slate: H('#6b7079'), slateDark: H('#585e68'), tileRed: H('#6b7079'),
+    potClay: H('#8a8f99'), buffBrick: H('#e2d8c1'),
+    walls: [H('#e7dec9'), H('#ded3ba'), H('#ebe3d2'), H('#d6caac'), H('#e2d8c1'), H('#cfc3a4'), H('#e9e1cd'), H('#d9ceb2')],
+    roofs: [H('#6b7079'), H('#585e68'), H('#777d86'), H('#4f545d')],
+  },
+  // New York — brownstone + limestone + grey concrete + blue-grey glass, flat
+  // tar roofs (dark). Brick tones pulled brown/grey so it doesn't read London.
+  newyork: {
+    brickRed: H('#8a5a44'), brickBrown: H('#6e4d3c'), brickOrange: H('#9a6a4e'),
+    renderCream: H('#cfc4ad'), pebbledash: H('#b6b1a6'),
+    slate: H('#45454d'), slateDark: H('#36363d'), tileRed: H('#52525a'),
+    potClay: H('#7a7a7e'), buffBrick: H('#c9b49a'),
+    walls: [H('#7a5a48'), H('#9c5440'), H('#c9b49a'), H('#8a8a8e'), H('#6e4d3c'), H('#b6b1a6'), H('#5c6b78'), H('#aeb6bd')],
+    roofs: [H('#44444c'), H('#3a3a42'), H('#52525a'), H('#3e3e46')],
+    flatRoof: true,
+  },
+  // Sydney — honey sandstone + cream + terracotta-tile suburbs
+  sydney: {
+    brickRed: H('#b5673f'), brickBrown: H('#9c6a45'), brickOrange: H('#c47a4a'),
+    renderCream: H('#e6dcc4'), pebbledash: H('#d8c9a8'),
+    slate: H('#7a7d80'), slateDark: H('#62656a'), tileRed: H('#b5673f'),
+    potClay: H('#a85e38'), buffBrick: H('#d8b889'),
+    walls: [H('#d8b889'), H('#e6dcc4'), H('#c9a878'), H('#efe8d6'), H('#c8b59a'), H('#b89a72'), H('#d2c4a4'), H('#e0d2b4')],
+    roofs: [H('#b5673f'), H('#a85a38'), H('#7a7d80'), H('#8a5a44')],
+  },
+  // Berlin — grey-beige render + ochre Altbau + grey zinc/copper roofs
+  berlin: {
+    brickRed: H('#9a4d3a'), brickBrown: H('#7c5340'), brickOrange: H('#b08a5a'),
+    renderCream: H('#d2cdbf'), pebbledash: H('#c0bbac'),
+    slate: H('#6a6e72'), slateDark: H('#565a5e'), tileRed: H('#8a4a38'),
+    potClay: H('#7a7570'), buffBrick: H('#c8b48c'),
+    walls: [H('#d2cdbf'), H('#c2b58e'), H('#b9a578'), H('#d8d3c5'), H('#aeb0a6'), H('#c8bfa8'), H('#9a4d3a'), H('#cfc9bb')],
+    roofs: [H('#6a6e72'), H('#565a5e'), H('#6e7a70'), H('#4f5358')],
+  },
+  // Shanghai — grey concrete + shikumen + blue/teal glass towers, jade accents
+  shanghai: {
+    brickRed: H('#9a8678'), brickBrown: H('#7e6e60'), brickOrange: H('#a89684'),
+    renderCream: H('#cfcabb'), pebbledash: H('#b4b0a6'),
+    slate: H('#5a5e62'), slateDark: H('#46494d'), tileRed: H('#4a6a55'),
+    potClay: H('#6a6e6a'), buffBrick: H('#c2b8a2'),
+    walls: [H('#b4b0a6'), H('#c8c2b4'), H('#9a9690'), H('#5c6e74'), H('#cfcabb'), H('#a6a299'), H('#8a8682'), H('#6d8088')],
+    roofs: [H('#5a5e62'), H('#46494d'), H('#4a6a55'), H('#565a5a')],
+    flatRoof: true,
+  },
+  // Hong Kong — dense weathered pastel + grey concrete towers + teal glass
+  hongkong: {
+    brickRed: H('#b08a76'), brickBrown: H('#8a7464'), brickOrange: H('#c0a088'),
+    renderCream: H('#d4cdba'), pebbledash: H('#b0aaa0'),
+    slate: H('#565a5e'), slateDark: H('#44474b'), tileRed: H('#5e6266'),
+    potClay: H('#6e7072'), buffBrick: H('#c6bca6'),
+    walls: [H('#c8b8a0'), H('#a8b4a0'), H('#c4a8a8'), H('#cfcab8'), H('#9aa4ac'), H('#b8b0a4'), H('#6d8890'), H('#b0aaa0')],
+    roofs: [H('#565a5e'), H('#44474b'), H('#5e6266'), H('#4a4d51')],
+    flatRoof: true,
+  },
+  // Cape Town — Bo-Kaap bright pastels + Cape Dutch white + sandstone
+  capetown: {
+    brickRed: H('#c25a4a'), brickBrown: H('#a86a4a'), brickOrange: H('#d07a4a'),
+    renderCream: H('#e8e0cf'), pebbledash: H('#d2c4a4'),
+    slate: H('#6e7276'), slateDark: H('#585c60'), tileRed: H('#b5563c'),
+    potClay: H('#b5563c'), buffBrick: H('#d8b889'),
+    walls: [H('#e8e0cf'), H('#5fa3a0'), H('#d98a4a'), H('#c75d6e'), H('#6f9a5a'), H('#e0d2b4'), H('#5a8fb0'), H('#d8c060')],
+    roofs: [H('#6e7276'), H('#585c60'), H('#b5563c'), H('#62666a')],
+  },
+  // Cairo — sand + ochre dust; the famous red-brick is muted to warm brown so
+  // the city reads SANDY, not London-red. Flat dusty roofs.
+  cairo: {
+    brickRed: H('#b08458'), brickBrown: H('#956c44'), brickOrange: H('#c29a64'),
+    renderCream: H('#d8c49a'), pebbledash: H('#c9b485'),
+    slate: H('#9c8862'), slateDark: H('#7a6a4e'), tileRed: H('#a8895c'),
+    potClay: H('#8a6a48'), buffBrick: H('#cdb485'),
+    walls: [H('#cdb485'), H('#c2a06a'), H('#b07a4a'), H('#d8c49a'), H('#b89868'), H('#9c7a4e'), H('#caa878'), H('#a06a44')],
+    roofs: [H('#9c8862'), H('#7a6a4e'), H('#b09a72'), H('#8a7a5e')],
+    flatRoof: true,
+  },
+  // Athens — whitewashed + cream polykatoikia; brick tones are pale so the
+  // fabric reads WHITE, with only a terracotta roof/cornice accent. Flat roofs.
+  athens: {
+    brickRed: H('#ddd0b2'), brickBrown: H('#cfc3a4'), brickOrange: H('#e4dcc8'),
+    renderCream: H('#ece6d6'), pebbledash: H('#ddd3bd'),
+    slate: H('#9a948a'), slateDark: H('#7e786c'), tileRed: H('#c06848'),
+    potClay: H('#b56848'), buffBrick: H('#e0d6c0'),
+    walls: [H('#ece6d6'), H('#e4dcc8'), H('#d8cdb4'), H('#efe9da'), H('#d0c3a4'), H('#e8dcc0'), H('#c9b890'), H('#ddd0b2')],
+    roofs: [H('#9a948a'), H('#7e786c'), H('#c06848'), H('#948a7a')],
+    flatRoof: true,
+  },
+};
 
 export function applyCityFabric(city: CityFabric): void {
-  if (city === 'paris') {
-    BRICK_RED = hex('#ded3ba'); // limestone, not brick
-    BRICK_BROWN = hex('#cfc3a4');
-    BRICK_ORANGE = hex('#e7dec9');
-    RENDER_CREAM = hex('#ebe3d2');
-    PEBBLEDASH = hex('#d6caac');
-    SLATE = hex('#6b7079'); // grey zinc
-    SLATE_DARK = hex('#585e68');
-    TILE_RED = hex('#6b7079'); // roofs are zinc, never red tile
-    POT_CLAY = hex('#8a8f99'); // grey chimney pots
-    BUFF_BRICK = hex('#e2d8c1');
-    setWallRoofPalette(PARIS_WALLS, PARIS_ROOFS);
-  } else {
-    BRICK_RED = hex('#a64b37');
-    BRICK_BROWN = hex('#8a5240');
-    BRICK_ORANGE = hex('#b5664a');
-    RENDER_CREAM = hex('#ddd2bc');
-    PEBBLEDASH = hex('#c2b89f');
-    SLATE = hex('#6e6884');
-    SLATE_DARK = hex('#575d78');
-    TILE_RED = hex('#8f4438');
-    POT_CLAY = hex('#9c5a3a');
-    BUFF_BRICK = hex('#c8a878');
-    setWallRoofPalette(COLORS.walls, COLORS.roofs);
+  const f = FABRICS[city] ?? FABRICS.london;
+  BRICK_RED = f.brickRed;
+  BRICK_BROWN = f.brickBrown;
+  BRICK_ORANGE = f.brickOrange;
+  RENDER_CREAM = f.renderCream;
+  PEBBLEDASH = f.pebbledash;
+  SLATE = f.slate;
+  SLATE_DARK = f.slateDark;
+  TILE_RED = f.tileRed;
+  POT_CLAY = f.potClay;
+  BUFF_BRICK = f.buffBrick;
+  FLAT_ROOF = f.flatRoof ?? false;
+  setWallRoofPalette(f.walls, f.roofs);
+}
+
+/** Domestic roof: a pitched gable (London/Paris/Sydney/Berlin/Cape Town) OR,
+ *  for flat-roof cities (NYC/Cairo/Athens/Shanghai/HK), a flat deck with a low
+ *  parapet and an occasional rooftop water tank / stair bulkhead. The roof FORM
+ *  is the strongest per-city tell, so the dense domestic sprites route through
+ *  here instead of calling iso.gable() directly. */
+function domesticRoof(
+  iso: Iso, u0: number, v0: number, u1: number, v1: number,
+  H: number, rise: number, axis: 'u' | 'v', roofC: RGBA, wallC: RGBA, rng?: Rng,
+): void {
+  if (!FLAT_ROOF) {
+    iso.gable(u0, v0, u1, v1, H, rise, axis, roofC, wallC);
+    return;
+  }
+  // flat deck + parapet rim (a short slab, flat top in the roof tone)
+  iso.box(u0, v0, u1, v1, H, H + 2.6, lighten(wallC, 0.04), { topC: top(roofC, 0.12) });
+  // rooftop clutter toward the back: a water tank or stair bulkhead
+  if (!rng || rng.chance(0.7)) {
+    const cu = u0 + (u1 - u0) * (rng ? rng.range(0.3, 0.7) : 0.42);
+    const cv = v0 + (v1 - v0) * 0.34;
+    const s = (u1 - u0) * 0.16;
+    iso.box(cu - s, cv - s, cu + s, cv + s, H + 2.6, H + 2.6 + rise * 0.5, shaded(wallC, 0.08), { ink: false });
   }
 }
 
@@ -112,8 +241,8 @@ export function terraceTile(seed: number, shops: boolean): Uint8ClampedArray<Arr
   iso.windowsRight(1, v0 + 0.08, v1 - 0.08, 22, 34, 2, glass(rng, 0.3), COLORS.white);
   // continuous roof with chimneys
   const roof = roofColor(seed);
-  iso.gable(0, v0, 1, v1, H, 16, 'u', roof, wallColor(seed + 2));
-  for (const cu of [0.18, 0.5, 0.82]) {
+  domesticRoof(iso, 0, v0, 1, v1, H, 16, 'u', roof, wallColor(seed + 2), rng);
+  if (!FLAT_ROOF) for (const cu of [0.18, 0.5, 0.82]) {
     iso.box(cu, (v0 + v1) / 2 - 0.05, cu + 0.05, (v0 + v1) / 2 + 0.05, H + 12, H + 24, COLORS.concrete);
   }
   return iso.build();
@@ -169,7 +298,7 @@ export function victerraceTile(seed: number, variant: number): Uint8ClampedArray
   // gable-end windows on the right wall
   iso.windowsRight(1, v0 + 0.1, v1 - 0.1, 23, 33, 2, glass(rng, 0.3), frame);
   // slate roof + party-wall chimney stacks with clay pot rows
-  iso.gable(0, v0, 1, v1, H, rise, 'u', roof, walls[2] ?? BRICK_RED);
+  domesticRoof(iso, 0, v0, 1, v1, H, rise, 'u', roof, walls[2] ?? BRICK_RED, rng);
   for (const cu of [0.05, 0.345, 0.655, 0.95]) {
     iso.box(cu - 0.028, vm - 0.05, cu + 0.028, vm + 0.05, H + 11, H + 22, darken(walls[0] ?? BRICK_RED, 0.08));
     for (const dv of [-0.028, 0.022]) {
@@ -340,7 +469,7 @@ export function newbuildTile(seed: number, variant: number): Uint8ClampedArray<A
   iso.shadow(u0, v0, u1 + 0.22, v1, 0.16, 0.2);
   // house body + concrete-tile gable roof
   iso.box(u0, v0, u1, v1, 0, H, wall);
-  iso.gable(u0 - 0.012, v0 - 0.012, u1 + 0.012, v1 + 0.012, H, 11, 'u', roof, wall);
+  domesticRoof(iso, u0 - 0.012, v0 - 0.012, u1 + 0.012, v1 + 0.012, H, 11, 'u', roof, wall, rng);
   // small uPVC windows
   iso.windowsLeft(v1, u0 + 0.04, u1 - 0.05, 15, 21, 2, glass(rng, 0.45), COLORS.white);
   iso.windowsLeft(v1, u0 + 0.04, u0 + 0.16, 5, 11, 1, glass(rng, 0.4), COLORS.white);
@@ -399,7 +528,7 @@ export function semiTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
     const H = 26;
     iso.shadow(u0, v0, u1, v1, 0.16, 0.2);
     iso.box(u0, v0, u1, v1, 0, H, wall);
-    iso.gable(u0 - 0.015, v0 - 0.015, u1 + 0.015, v1 + 0.015, H, 13, 'u', roof, wall);
+    domesticRoof(iso, u0 - 0.015, v0 - 0.015, u1 + 0.015, v1 + 0.015, H, 13, 'u', roof, wall, rng);
     iso.windowsLeft(v1, u0 + 0.04, u1 - 0.12, 15, 23, 2, glass(rng, 0.4), COLORS.white);
     // bay window + door
     iso.box(u0 + 0.04, v1, u0 + 0.16, v1 + 0.05, 0, 12, COLORS.white);

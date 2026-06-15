@@ -195,8 +195,13 @@ export interface CityMap {
   councils: CouncilProfile[];
   /** Per-city architectural style (render hint; default London brick). A
    *  generated city wears its own building stock — e.g. 'paris' renders
-   *  Haussmann blocks for the urban fabric. */
-  fabric?: 'london' | 'paris' | undefined;
+   *  Haussmann blocks, 'cairo' sand+red brick, 'athens' whitewash. Mirrors
+   *  CityFabric in render/sprites/buildingSprites (kept inline to avoid a
+   *  sim→render dependency). */
+  fabric?:
+    | 'london' | 'paris' | 'newyork' | 'sydney' | 'berlin'
+    | 'shanghai' | 'hongkong' | 'capetown' | 'cairo' | 'athens'
+    | undefined;
 }
 
 export const NO_COUNCIL = 255;

@@ -10,7 +10,7 @@
 // Map data © OpenStreetMap contributors (ODbL).
 
 import { mkdirSync } from 'node:fs';
-import { applyCityFabric } from '../src/render/sprites/buildingSprites';
+import { applyCityFabric, type CityFabric } from '../src/render/sprites/buildingSprites';
 import { buildAtlas } from '../src/render/sprites/atlas';
 import { fillDerivedLayers } from '../src/data/cityData';
 import {
@@ -320,7 +320,19 @@ async function main(): Promise<void> {
   }
   console.log(`  placed ${heroes} hero buildings`);
 
-  const fabric = process.argv.includes('--fabric=paris') ? 'paris' : 'london';
+  // each city wears its own building stock; the id selects the colourway
+  // (override with --fabric=<city>). Unknown ids fall back to London brick.
+  const FABRIC_BY_ID: Record<string, CityFabric> = {
+    london: 'london', paris: 'paris', newyork: 'newyork', sydney: 'sydney',
+    berlin: 'berlin', shanghai: 'shanghai', hongkong: 'hongkong',
+    capetown: 'capetown', cairo: 'cairo', athens: 'athens',
+  };
+  const fabricArg = process.argv.find((s) => s.startsWith('--fabric='))?.slice(9);
+  // tolerate id suffixes like "cairo-crop" → base "cairo"
+  const baseId = id.split('-')[0] ?? id;
+  const fabric: CityFabric =
+    (fabricArg as CityFabric) ?? FABRIC_BY_ID[id] ?? FABRIC_BY_ID[baseId] ?? 'london';
+  console.log(`  fabric: ${fabric}`);
   const map: CityMap = {
     width: W, height: H, terrain, zone,
     council: new Uint8Array(n).fill(NO_COUNCIL), road, routes,
