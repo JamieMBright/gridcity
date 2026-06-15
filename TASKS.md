@@ -168,15 +168,20 @@ TOWER, proportionally, each one bespoke."
       (md5 68918a…), atlas ≤4096, vitest 682. Polish TODO: Cairo's wide-water
       reads a touch bright at mid-zoom (env water `#5e8ba0`) — could mudden the
       Nile; verify the seededCity wide-water uses the env water token.
-- [ ] **RENDER MAPS for a batch of cities (21:22):** NY, Sydney, Berlin, Shanghai,
-      HK, Cape Town, Cairo, Athens. AUDIT: only `src/data/cities/paris.ts` has
-      render DATA today — the OSM pipeline (PR #63) must be RUN per city (geocode
-      → overpass → tune span) to emit each `*.ts`. ~1000 per-building research
-      docs already exist in `docs/heroes/<city>/` (prior session) + the new
-      `docs/cities/*.md`. So the gap is: run the pipeline ×8, apply per-city
-      palette, build bespoke towering heroes (now possible via the z-cap) from the
-      stored research, register as scenarios, design-gate each. Large/multi-session.
-- [ ] **MORE cities (owner, 2026-06-15 15:03):**
+- [x] **RENDER MAPS for a batch of cities — DONE (2026-06-15).** ALL 12 are now
+      PLAYABLE from the New Game picker (London + Paris + New York + Sydney +
+      Hong Kong + Berlin + Shanghai + Cape Town + Cairo + Athens + Pune + North-
+      East England). Each: a committed OSM CityData artifact (lazy chunk) + a
+      per-city FABRICS palette + the hero type→sprite resolver + the
+      electrification light-show, registered as a selectable scenario, save-state
+      keyed by scenarioId. London byte-identical throughout; e2e green each batch.
+      REMAINING per-city polish (non-blocking): thin-river water glint (Cairo/
+      Pune/NE — wide water reads right); NE England framing omits Alnwick (chose
+      the tighter Tyne+coast window — a wider re-tune is a later option); bespoke
+      hero long-tail (most non-marquee heroes still resolve to archetypes); FR/US/
+      etc. per-country operating-model seams (all resolve to LONDON_PROFILE now).
+- [x] **MORE cities (owner, 2026-06-15 15:03) — DONE:** Pune + North-East England
+      built, palettes authored, registered + playable (see above).
   - [ ] **PUNE, India** — research palette + heroes (Shaniwar Wada fort/palace,
         Aga Khan Palace, Dagdusheth Halwai Ganpati temple, Sinhagad Fort,
         Shreemant Dagdusheth, the IT/Hinjawadi towers, Pune Junction) → docs/
