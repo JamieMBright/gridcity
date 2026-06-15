@@ -88,6 +88,17 @@ TOWER, proportionally, each one bespoke."
       heights, this session). The marquee London/Paris heroes are bespoke + now
       TOWER (z-cap). OPEN: build bespoke sprites FROM the stored research for the
       long tail (most non-marquee heroes still use archetypes), one city at a time.
+- [ ] **AUTOMATE hero discovery → render — the owner should NOT name specific
+      buildings (owner, 2026-06-15 13:30: "I shouldn't have to ask for specific
+      hero buildings; you're supposed to automate that process").** Discovery is
+      already automated (research docs). CLOSE THE LOOP: the pipeline must
+      AUTO-SELECT + place a sprite for EVERY discovered hero from its TYPE +
+      research (height/materials/colour) — bespoke sprites for the unique iconic
+      forms (pyramid, Eiffel, Opera House…), parameterised archetypes for the long
+      tail — with NO per-building hand-curation. e.g. a `pyramid` ARCHETYPE + a
+      `pyramid`→sprite type-mapping makes EVERY discovered pyramid in ANY city
+      render itself (Giza just exercises it first). Build the type→sprite resolver
+      as the spine of hero rendering.
 - [x] **Per-city PALETTE + STYLE — DONE (23:47 + 06-15 12:10): "bespoke per city…
       super rich blues of Sydney, grey drab of NYC, dusty Cairo… TERRAIN is more
       important for tile colours."** Implemented bespoke per-city palettes that
@@ -111,6 +122,158 @@ TOWER, proportionally, each one bespoke."
       `docs/cities/*.md`. So the gap is: run the pipeline ×8, apply per-city
       palette, build bespoke towering heroes (now possible via the z-cap) from the
       stored research, register as scenarios, design-gate each. Large/multi-session.
+- [ ] **PYRAMIDS OF GIZA must feature + the Sound-&-Light floodlighting needs
+      ENERGISING (owner, 2026-06-15 13:27).** They're researched (docs/cities/
+      cairo.md: Great Pyramid 138.5 m near-solid honey-limestone, weathered
+      stepped texture, missing casing except faint apex remnants, ~1.57:1
+      base:height; Khafre + Menkaure beside, Khafre keeps a casing cap; Sphinx
+      20 m × 73 m couchant facing east in front) but there is NO pyramid sprite
+      and Cairo has no map data, so today they don't feature. BUILD:
+  - [ ] Bespoke `pyramidTile`/Giza hero sprite: the three pyramids (Great +
+        Khafre-with-cap + Menkaure) + the Sphinx on tawny sand, honey limestone,
+        weathered stepped faces. Multi-tile, massive + low (broad-based, not a
+        tall tower) — its own bespoke size, NOT a blanket footprint. LANDMARK +
+        atlas + tileChooser; map "pyramid/Great Pyramid/Giza" hero → it in the
+        Cairo pipeline. Add floodlight FIXTURES + warm uplighting on the faces.
+  - [ ] GAMEPLAY: the nightly Sound-&-Light show is an energisable LOAD — model
+        Giza as a notable DEMAND point the operator must connect; when energised
+        the floodlights glow (reuse the powered-area glow). Lands with the Cairo
+        map + demand model (Cairo data must be built first).
+- [ ] **PER-HERO ELECTRIFICATION LIGHT-SHOW ANIMATIONS (owner, 2026-06-15 13:28):
+      "some form of electrification animation for each of the heroes — like a
+      night-time light show on the Eiffel Tower etc."** Every hero gets a BESPOKE,
+      signature night light-show that activates WHEN ENERGISED (ties the heroes
+      to the game's core loop — powering literally lights them up): Eiffel golden
+      sparkle/twinkle (the 20:00 flashbulb shimmer); Empire State colour-changing
+      crown; Sydney Opera House sail projections; the Shard's spire glow; Big Ben/
+      Parliament floodlighting; London Eye colour-cycling rim; Giza sound-&-light
+      floodlights. NOTE: this is the CHARACTERFUL, per-hero version — NOT the cheap
+      generic additive bloom that was removed (owner 06-13: "looks like
+      electricity"). Likely a per-frame render layer (like the wind rotors)
+      keyed to the asset's energised state, lazy/cheap, distinct animation per
+      hero. Design-gated. Sizable render feature — sequence after the cities have
+      heroes to light.
+
+### 🔁 PLAYTEST RE-RAISE + NEW FEEDBACK (owner, 2026-06-15 13:30) — "previous feedback that doesn't feel well implemented; some slipped or wasn't verified" → ACTUALLY implement AND VERIFY each (re-opens the 2026-06-13 TUTORIAL OVERHAUL + GAME/UX BUGS sections below; this is the authoritative restatement).
+**AUTH / SETTINGS / MENU**
+- [ ] Password field: ENTER triggers the sign-in button.
+- [ ] Sign-in / Create-account TAB filters currently highlight the SAME as the
+      action "sign in" button → confusing. Make the tab filters a solid pale
+      infill, visually distinct from the action button.
+- [ ] Settings menu: sign-out is off-centre; add CHANGE PASSWORD (old / new /
+      confirm-new / submit). Consider making Settings its own popup (cleaner?).
+- [ ] Remove the SQUARE icon from the main menu (owner dislikes the square home
+      icon). Use the lightning BOLT from between the ELECTRI⚡CITY wordmark on a
+      blue background — super simple.
+- [ ] LOGIN didn't really work (re-raise — end-to-end auth, ties to Supabase
+      Site-URL + styled callback).
+**TUTORIAL 1 — onshore wind**
+- [ ] Highlight on the onshore-wind button must VANISH the moment it's clicked
+      (same bug on the dist-sub/33kV-line highlight — disappear on click).
+- [ ] Guided play: darken everything except the target + highlight it; AFTER the
+      click, highlight the suitable LAND to click next. Make guided-play a
+      standing feature (e.g. award/bid bubbles pop to draw attention).
+- [ ] Highlight design: add an ARROW pointing at the target with a BOUNCING anim.
+- [ ] Allow only ONE onshore-wind facility (simplicity).
+- [ ] Make them actually click ▶▶▶; when a bid lands, show it, then tell them to
+      click ▶▶7d to gather all bids.
+- [ ] Teach a BID: all offer the same 100 MW unit but differ on £ — the white
+      £/MWh goes on customers' ENERGY bill; the curtail £ is compensation you pay
+      if you cut them, landing on the STANDING-CHARGE part. Lower is better on both.
+- [ ] TURBINE FOOTPRINT BUG: defaults to 15 MW + says "3 tiles" but renders/builds
+      a 10×4 diagonal — advertised size ≠ what lands. Should be ~5 MW per square;
+      the reserved footprint must equal the advertised footprint.
+- [ ] CAPACITY PICKER: scroll up/down AND +/- keys change installed cap in 5 MW
+      increments; HOLDING scales to a sensible max (500 MW for 132/400 kV) down to
+      1 MW (11 kV connection). Tutorial asks ~15 MW (not 100). Explain sizing
+      (bigger install needs more network — find the sweet spot) + show a rough
+      "powers ~N homes" estimate beside the capacity + introduce standing-charge aims.
+- [ ] WIND-FARM ICON wrong: should be WHITE with a tapering mast; blades
+      wing-shaped (narrow at hub → widening → tapering to a point), and LARGE —
+      ≥60% of the hub height.
+- [ ] Step 5/6 wording: replace "arm the 33 kV line" with plain language — "this
+      onshore wind farm has a 33 kV connection, so run 33 kV circuits from the
+      turbines to the distribution substation so power can flow." Teach: after a
+      line the 33 kV tool STAYS armed for the next click; end it via Esc / pick
+      another tool / click the same connection point twice (VERIFY that works).
+- [ ] After placing, click the turbine to INSPECT its connection voltage.
+- [ ] Teach demolish line + dist-sub, turn AUTO-CONNECT on (needs a HOTKEY),
+      re-place the dist sub to auto-connect.
+- [ ] MULTI-TILE installs must be selectable on ANY of their tiles — run the line
+      from any tile the farm occupies, not only the originally-clicked tile (the
+      farm bleeds beyond its auctioned tile).
+- [ ] Don't end on connect — let them watch power FLOW to homes; put a "finish
+      tutorial" button on the 6/6 step tile.
+- [ ] Prevent unrelated APPLICATIONS spawning during tutorials (confusing).
+- [ ] HIDE unnecessary overlay info during tutorials (introduce it over lessons).
+- [ ] Remove the "skip tutorial" option from the steps (tutorial is the only play).
+- [ ] Confusion: the dist sub is 33 kV/LV immediately → add a PRIOR lesson
+      teaching BSP / grid site / distribution site + the voltage levels.
+**TUTORIAL 1/3/5 — step gating + completion (applies broadly)**
+- [ ] Don't allow "next" until the step's GOAL is achieved.
+- [ ] Mission-complete popup must appear ONLY on clicking "finish tutorial" in the
+      steps area — not instantly the moment the objective is met.
+**TUTORIAL 2 — offshore**
+- [ ] 2nd-pane wording weird ("Try a 33 kV line…") → have them INSPECT the offshore
+      unit to learn its kV instead.
+- [ ] The "BUILDING Offshore Wind" top label blocks the tutorial notes → let the
+      notes DOMINATE more of the screen + hide as steps execute (recallable).
+- [ ] Teach UNDERGROUND cables (happier locals, less coastline interference).
+**TUTORIAL 3 — storm (largely NOT delivered — re-raise: no storm report popup,
+no system-prepare, no slow-down, no weather overlay, no prep suggestions; saw a
+fault icon but NO van)**
+- [ ] Step 1/5 text hard; drop "already wired"; clearer for beginners.
+- [ ] HIGHLIGHT the incoming alert; clearer alerts for major storms.
+- [ ] PAUSE the clock on major alerts until dismissed (idled through a storm that
+      restored unseen — need prep time).
+- [ ] Storm mode: subtle rain/wind/heat-mirage SCREEN effects, clearly DISTINCT
+      from regular weather; severe weather = a fun slowed-down "emergency system
+      prepare" phase for that day (~2-min experience; player can speed up; levers
+      to improve outcomes e.g. extra vans on temporary standby).
+- [ ] After the field depot, have the player raise vans 0→1 and SEE the van leave
+      the depot and attend the fault.
+- [ ] End the lesson at the end of a system-prepare stage.
+- [ ] Introduce CI & CML here.
+**TUTORIAL 4 — inbox / firm-flex**
+- [ ] Side-by-side VISUAL comparison of firm vs flexible.
+- [ ] Explain what the study message means.
+- [ ] Don't end until the site is BUILT.
+- [ ] Introduce CUSTOMER SATISFACTION; an on-time new connection = 100% satisfaction.
+**TUTORIAL 5 — bill**
+- [ ] Reword "capital is unlimited" → "The network operator can elect any solution
+      they see fit within the allowances set by The Regulator — but every pound
+      lands on customer bills."
+- [ ] Headroom toggle did NOTHING (re-raise — render fix was diagnosed earlier;
+      VERIFY it actually recolours the corridors now).
+- [ ] Allow skipping a mission step forward/backward.
+- [ ] Teach scroll-to-size a dist sub to cover the whole town in one hit.
+- [ ] Teach REINFORCING an existing sub (inspect → increase, cheaper than new).
+- [ ] Place a new application just outside range; connect it by reinforcing the
+      sub's catchment.
+- [ ] Opening bill was sky-high; mission "completed" at £333/yr — sense-check targets.
+**TUTORIALS STRUCTURE**
+- [ ] Tutorials REPLACE campaign; campaign's expanded steps are better → rename
+      campaign→tutorial, delete the old tutorial. Clicking "tutorial" opens a
+      lessons page: every lesson, what it teaches, 0/1/2/3-star rating.
+- [ ] MANY more tutorials covering all the game's mechanisms.
+**GAME FUNCTIONALITY / GRAPHICS / HUD (re-raise — verify each actually works)**
+- [ ] Tile footprint pre-determined so side-by-side bids can't EXPLODE OUT on
+      award (was marked done — re-verify against the turbine-footprint bug above).
+- [ ] Wind turbine NOT centred on the hub mast (was marked done — re-verify).
+- [ ] Esc (when not cancelling a line) opens a menu → Save / Quit to main menu;
+      clicking ELECTRICITY top-right opens the same pane (was done — verify).
+- [ ] Snooze 1h pointless → snooze 2 days (was done — verify).
+- [ ] Severe-weather alerts for the really damaging ones POP to the middle of the
+      screen to dismiss, with a weather MAP showing a hurricane bearing on London.
+- [ ] SEE orange/white VANS attending fault sites (count = player's vans); vans
+      return to a depot between repairs; follow ROADS where possible, else move
+      orthogonally through building-free tiles.
+- [ ] Applications out of reach of any kit give the network MONEY to build out the
+      cables (per the study) — do NOT penalise the operator for new connections.
+- [ ] Map overlay interrupts the finance/bill panel (was done — verify).
+- [ ] HUD panes overlap — can't upgrade the substation, messages in the way (was
+      done — verify).
+- [ ] Substation MVA size scrollable / +- when BUILDING (not just when reinforcing).
 
 ### 🛠 OSM PIPELINE BUILD (fresh env w/ egress, 2026-06-14 ~14:50) — IN PROGRESS
 The fresh env HAS the OSM/Wikidata egress. Built the pipeline PROPER
