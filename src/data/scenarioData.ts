@@ -22,6 +22,7 @@ import type { CityData } from './cityData';
  *  until something actually loads it. */
 const CITY_ARTIFACTS: Record<string, () => Promise<{ default?: unknown } & Record<string, unknown>>> = {
   paris: () => import('./cities/paris'),
+  newyork: () => import('./cities/newyork'),
 };
 
 /** Scenario ids whose map is a committed (lazy-loaded) artifact, not a

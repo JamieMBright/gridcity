@@ -123,6 +123,11 @@ export function buildCityFromOsm(
       terrain[idx(x, y)] = TERRAIN.water;
     });
   }
+  // The open SEA is bounded by natural=coastline open ways (NOT a closed water
+  // polygon), so it's flooded separately once the built/vegetated fabric exists
+  // as a wall — see floodOpenSea below. Without it every coastal city (New York
+  // harbour, Sydney, Hong Kong, Cape Town) renders its defining ocean as land.
+  const coastTiles = features.coastline.map((ln) => projectLine(proj, ln));
 
   // --- 2) woods → trees terrain; record park/open polys for later ----------
   const parkPolys: Pt[][][] = [];
@@ -182,6 +187,53 @@ export function buildCityFromOsm(
         if (brown) flags[i] |= FLAG_BROWNFIELD;
       });
     }
+  }
+
+  // --- 5b) open sea from coastlines (bounded by the built + green fabric) ----
+  // The coastline ways aren't closed, so a simple polygon fill can't tell sea
+  // from land. Instead: stamp the coast as a 1-tile barrier, seed the WATER
+  // side of each segment (handedness from the y-down projection), then flood
+  // across open tiles. The dense building/landuse/tree fabric is a second wall,
+  // so a gap where the coastline leaves the bbox can't leak the ocean inland.
+  if (coastTiles.length) {
+    // The wall that stops the ocean leaking inland through gaps where a
+    // coastline leaves the bbox: the real built + vegetated fabric. A bare
+    // building/landuse mask has street-width gaps the flood seeps through
+    // (NYC's outer boroughs sprout spurious water veins), so DILATE it by 2
+    // tiles first — closing those gaps — exactly like seededCity's `urban`
+    // mask. Parks/woods/green are walls too (Central Park must not flood).
+    const raw = new Uint8Array(n);
+    for (let i = 0; i < n; i++) {
+      if ((bdens[i] ?? 0) > 0 || (lucls[i] ?? -1) >= 0 || terrain[i] === TERRAIN.trees) raw[i] = 1;
+    }
+    for (const tp of parkPolys) fillPolygonTiles(tp, w, h, (x, y) => { raw[idx(x, y)] = 1; });
+    // Roads are the densest, most continuous land signal — a tile carrying a
+    // street is never open sea. Stamping them into the wall seals the borough
+    // street-gaps the ocean leaked through (where landuse coverage is patchy),
+    // while leaving genuine open water (no roads) free to flood.
+    for (const r of features.roads) {
+      strokePolylineTiles(projectLine(proj, r.pts), 0.4, w, h, (x, y) => {
+        if (terrain[idx(x, y)] !== TERRAIN.water) raw[idx(x, y)] = 1;
+      });
+    }
+    // Dilate by ONE tile only: closes the street-width gaps the flood seeps
+    // through WITHOUT sealing a genuine open bay (a 2-tile dilation swallowed
+    // New York's Upper Bay). The continuous landuse mosaic is the real wall;
+    // the dilation just patches its seams.
+    const seaBlock = new Uint8Array(n);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (!raw[idx(x, y)]) continue;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx >= 0 && nx < w && ny >= 0 && ny < h) seaBlock[idx(nx, ny)] = 1;
+          }
+        }
+      }
+    }
+    floodOpenSea(coastTiles, w, h, terrain, seaBlock);
   }
 
   // --- 6) roads + rail: raster (gameplay rules) + simplified vector ribbons -
@@ -351,6 +403,82 @@ export function buildCityFromOsm(
 // --- helpers ---------------------------------------------------------------
 
 const toPair = (p: Pt): [number, number] => [p[0], p[1]];
+
+/**
+ * Flood the open SEA from OSM coastline ways. OSM coastlines are open ways drawn
+ * with land on the LEFT (water on the right) in geographic, y-UP orientation;
+ * projecting to our y-DOWN tile grid flips the handedness, so the water sits on
+ * the (-dy, dx) side of each segment's travel direction. Stamp the coast as a
+ * 1-tile barrier, seed the water side, then 4-connect flood across open
+ * (un-built, un-vegetated) tiles bounded by `block`. Mirrors floodSea() in
+ * tools/seededCity.ts — the proven coastal-city sea fill.
+ */
+function floodOpenSea(lines: Pt[][], w: number, h: number, terrain: Uint8Array, block: Uint8Array): number {
+  if (!lines.length) return 0;
+  const n = w * h;
+  const idx = (x: number, y: number): number => y * w + x;
+  const coast = new Uint8Array(n);
+  for (const ln of lines) strokePolylineTiles(ln, 0.7, w, h, (x, y) => { coast[idx(x, y)] = 1; });
+  const seen = new Uint8Array(n);
+  const queue: number[] = [];
+  const seed = (fx: number, fy: number): void => {
+    const x = Math.round(fx);
+    const y = Math.round(fy);
+    if (x < 0 || x >= w || y < 0 || y >= h) return;
+    const i = idx(x, y);
+    if (seen[i] || coast[i] || block[i]) return;
+    seen[i] = 1;
+    queue.push(i);
+  };
+  for (const ln of lines) {
+    for (let k = 0; k + 1 < ln.length; k++) {
+      const [ax, ay] = ln[k]!;
+      const [bx, by] = ln[k + 1]!;
+      const dx = bx - ax;
+      const dy = by - ay;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len; // water-side normal (tile space, y-down)
+      const ny = dx / len;
+      const steps = Math.max(1, Math.ceil(len));
+      for (let s = 0; s <= steps; s++) {
+        const px = ax + (dx * s) / steps;
+        const py = ay + (dy * s) / steps;
+        // seed at several depths off the coast: the shallow seeds catch narrow
+        // channels; the deeper ones clear a waterfront-road strip (which is in
+        // the wall) to reach an open bay behind it (New York's Upper Bay).
+        seed(px + nx * 1.6, py + ny * 1.6);
+        seed(px + nx * 2.8, py + ny * 2.8);
+        seed(px + nx * 4.2, py + ny * 4.2);
+        seed(px + nx * 6.0, py + ny * 6.0);
+      }
+    }
+  }
+  // Also seed every OPEN border tile: a big open bay/harbour reaches the bbox
+  // edge, and the per-segment normal seeds can all land on waterfront roads
+  // (New York's Upper Bay was sealed that way). An interior street-gap never
+  // reaches the edge, so edge-seeding fills the genuine open sea without
+  // re-opening the inland leaks the wall blocks.
+  for (let x = 0; x < w; x++) { seed(x, 0); seed(x, h - 1); }
+  for (let y = 0; y < h; y++) { seed(0, y); seed(w - 1, y); }
+  let filled = 0;
+  while (queue.length) {
+    const i = queue.pop()!;
+    terrain[i] = TERRAIN.water;
+    filled++;
+    const x = i % w;
+    const y = (i / w) | 0;
+    const nb: Array<[number, number]> = [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]];
+    for (const [ax, ay] of nb) {
+      if (ax < 0 || ax >= w || ay < 0 || ay >= h) continue;
+      const j = idx(ax, ay);
+      if (seen[j] || coast[j] || block[j]) continue;
+      seen[j] = 1;
+      queue.push(j);
+    }
+  }
+  return filled;
+}
+
 function pathLen(pts: Pt[]): number {
   let L = 0;
   for (let i = 0; i + 1 < pts.length; i++) L += Math.hypot(pts[i + 1]![0] - pts[i]![0], pts[i + 1]![1] - pts[i]![1]);

@@ -101,6 +101,19 @@ export const CITY_SCENARIOS: CityScenario[] = [
     unlockAtRank: 4,
   },
   {
+    // New York — second DATA-backed playable city (OSM artifact
+    // src/data/cities/newyork.ts): Manhattan between the Hudson and East River,
+    // Central Park, the boroughs across the water. Like Paris it resolves to
+    // LONDON_PROFILE for now (the US 60 Hz / NEM-style seams land later);
+    // fully PLAYABLE — open to all for testing.
+    id: 'newyork',
+    name: 'New York & the Harbor',
+    tagline: 'The grid, the boroughs, two rivers, and a skyline to power.',
+    build: () => buildCityFromData(cityDataFor('newyork')),
+    difficulty: 6,
+    unlockAtRank: 6,
+  },
+  {
     id: 'm1-first-light',
     name: 'First Light',
     tagline: 'One village, one wind tender, one wire.',

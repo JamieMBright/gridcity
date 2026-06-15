@@ -15,9 +15,16 @@
 import { buildCityFromOsm } from './osm/buildCityFromOsm';
 import { toCityData, writeCityModule } from './osm/emitCityData';
 import { geocode } from './osm/nominatim';
-import { fetchOsmFeatures } from './osm/overpass';
+import { fetchCoastline, fetchOsmFeatures } from './osm/overpass';
 import { projectorFromCentre } from './osm/project';
 import { TERRAIN, ZONE } from '../src/sim/map/types';
+import type { CityData } from '../src/data/cityData';
+
+/** Valid per-city building colourways (mirrors CityFabric in buildingSprites). */
+const FABRICS: ReadonlyArray<NonNullable<CityData['fabric']>> = [
+  'london', 'paris', 'newyork', 'sydney', 'berlin',
+  'shanghai', 'hongkong', 'capetown', 'cairo', 'athens',
+];
 
 function arg(flag: string): string | undefined {
   const a = process.argv.find((s) => s.startsWith(`--${flag}=`));
@@ -60,10 +67,14 @@ async function main(): Promise<void> {
   );
   console.log('Fetching OSM (Overpass)… (cached after first run)');
   const features = await fetchOsmFeatures(bbox);
+  // Coastline as its OWN query (the combined query drops it first on a timeout).
+  // Merge in any ways the combined query missed so the open sea always floods.
+  const coast = await fetchCoastline(bbox);
+  if (coast.length > features.coastline.length) features.coastline = coast;
   console.log(
-    `  water=${features.water.length} rivers=${features.rivers.length} roads=${features.roads.length} ` +
-      `rail=${features.rail.length} landuse=${features.landuse.length} green=${features.green.length} ` +
-      `buildings=${features.buildings.length} councils=${features.councils.length} pois=${features.pois.length}`,
+    `  water=${features.water.length} rivers=${features.rivers.length} coastline=${features.coastline.length} ` +
+      `roads=${features.roads.length} rail=${features.rail.length} landuse=${features.landuse.length} ` +
+      `green=${features.green.length} buildings=${features.buildings.length} councils=${features.councils.length} pois=${features.pois.length}`,
   );
 
   const seed = hashSeed(id);
@@ -74,7 +85,11 @@ async function main(): Promise<void> {
   report(built);
 
   if (has('write')) {
-    const fabricArg = arg('fabric') === 'paris' ? 'paris' : 'london';
+    // pick the fabric: explicit --fabric wins; else the slug itself if it names
+    // a known fabric (so `newyork`/`sydney`/… auto-wear their own palette); else
+    // London. Per-city palettes live in buildingSprites.ts (FABRICS).
+    const wanted = (arg('fabric') ?? id) as NonNullable<CityData['fabric']>;
+    const fabricArg: NonNullable<CityData['fabric']> = FABRICS.includes(wanted) ? wanted : 'london';
     const data = toCityData(built, {
       id,
       name: nameArg ?? displayName.split(',')[0] ?? id,

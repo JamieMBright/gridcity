@@ -22,7 +22,7 @@ function roundCouncils(councils: CouncilProfile[]): CouncilProfile[] {
 
 export function toCityData(
   built: BuiltCity,
-  meta: { id: string; name: string; tagline: string; fabric?: 'london' | 'paris' },
+  meta: { id: string; name: string; tagline: string; fabric?: CityData['fabric'] },
 ): CityData {
   const m = built.map;
   return {
