@@ -139,6 +139,14 @@ TOWER, proportionally, each one bespoke."
         Giza as a notable DEMAND point the operator must connect; when energised
         the floodlights glow (reuse the powered-area glow). Lands with the Cairo
         map + demand model (Cairo data must be built first).
+  - [x] v1 SHIPPED (016bd9d): a single `pyramidTile` (5×4) holds the whole Giza
+        group + the type→sprite resolver auto-maps any discovered pyramid to it.
+  - [ ] REFINE (owner, 2026-06-15 13:57 + high-level Giza photo): the real plateau
+        SPREADS the structures out — split into SEPARATE heroes: three distinct
+        pyramid heroes (Khufu largest, Khafre with the casing CAP, Menkaure
+        smaller) + the SPHINX as its OWN hero, each with its own footprint so they
+        stand FREE on open desert (no occluding cluster). Resolver maps each
+        type/name → its sprite; placement spreads them with cleared sand aprons.
 - [ ] **PER-HERO ELECTRIFICATION LIGHT-SHOW ANIMATIONS (owner, 2026-06-15 13:28):
       "some form of electrification animation for each of the heroes — like a
       night-time light show on the Eiffel Tower etc."** Every hero gets a BESPOKE,
@@ -272,7 +280,15 @@ fault icon but NO van)**
       cables (per the study) — do NOT penalise the operator for new connections.
 - [ ] Map overlay interrupts the finance/bill panel (was done — verify).
 - [ ] HUD panes overlap — can't upgrade the substation, messages in the way (was
-      done — verify).
+      "done" but owner 2026-06-15 14:xx still sees overlap, with a screenshot).
+- [ ] **UNIFIED PERIMETER HUD (owner, 2026-06-15, screenshot — the floating
+      windows still overlap each other + the bill panel).** Stop using separate
+      floating windows. Design ONE wraparound chrome that frames the screen
+      PERIMETER with DEDICATED, non-overlapping zones for each region — build
+      palette, inbox, bill/finance, status/time bar, minimap — so nothing ever
+      covers the map or another panel. Use the game-ui-design / frontend-design
+      skills; design-gate on desktop AND phone-landscape. This supersedes the
+      piecemeal z-order fixes.
 - [ ] Substation MVA size scrollable / +- when BUILDING (not just when reinforcing).
 
 ### 🛠 OSM PIPELINE BUILD (fresh env w/ egress, 2026-06-14 ~14:50) — IN PROGRESS
