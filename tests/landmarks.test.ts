@@ -207,5 +207,5 @@ describe('Queen Elizabeth Olympic Park (Stratford)', () => {
       expect(f, `atlas should contain ${name}`).toBeDefined();
       expect((f?.w ?? 0) > 0 && (f?.h ?? 0) > 0).toBe(true);
     }
-  });
+  }, 30000); // buildAtlas bakes 180+ sprites — generous timeout for slow CI
 });
