@@ -7,7 +7,7 @@
 
 import { Rng } from '../../sim/rng';
 import { INK, INK_W, Iso, lit, P, shaded, top } from './iso';
-import { COLORS, roofColor, setWallRoofPalette, wallColor } from './palette';
+import { COLORS, type EnvPalette, roofColor, setEnvPalette, setWallRoofPalette, wallColor } from './palette';
 import { alpha, darken, hex, lighten, type RGBA } from './raster';
 
 function glass(rng: Rng, litP: number): RGBA {
@@ -57,6 +57,11 @@ interface FabricSpec {
   walls: RGBA[]; roofs: RGBA[];
   /** flat parapet roofs instead of pitched gables (default false = pitched) */
   flatRoof?: boolean;
+  /** the city's TERRAIN + SKYLINE gamut (water/ground/veg/glass). Omitted for
+   *  London so the live game's atlas stays byte-identical. This is the biggest
+   *  lever on a city's feel — Sydney's rich harbour-blue, NYC's drab grey,
+   *  Cairo's dusty ochre — so each non-London city sets it. */
+  env?: EnvPalette;
 }
 
 const H = hex;
@@ -77,6 +82,15 @@ const FABRICS: Record<CityFabric, FabricSpec> = {
     potClay: H('#8a8f99'), buffBrick: H('#e2d8c1'),
     walls: [H('#e7dec9'), H('#ded3ba'), H('#ebe3d2'), H('#d6caac'), H('#e2d8c1'), H('#cfc3a4'), H('#e9e1cd'), H('#d9ceb2')],
     roofs: [H('#6b7079'), H('#585e68'), H('#777d86'), H('#4f545d')],
+    // the Seine's calm grey-green, soft Parisian plane-tree green and a zinc-
+    // grey skyline glass to match the cream-and-zinc Haussmann fabric.
+    env: {
+      water: H('#6a7e7e'), waterDeep: H('#52645f'), waterGlint: H('#cdbf96'),
+      grass: H('#7e9054'), grassDark: H('#687a44'),
+      treeGreen: H('#6e8a4a'), treeDeep: H('#547038'), treeLime: H('#8a9c58'),
+      glassSky: H('#aeb8c0'), glassSunset: H('#a0aab2'), glassDark: H('#343a44'),
+      steel: H('#9aa2a8'), steelDark: H('#6c7278'),
+    },
   },
   // New York — brownstone + limestone + grey concrete + blue-grey glass, flat
   // tar roofs (dark). Brick tones pulled brown/grey so it doesn't read London.
@@ -88,6 +102,21 @@ const FABRICS: Record<CityFabric, FabricSpec> = {
     walls: [H('#7a5a48'), H('#9c5440'), H('#c9b49a'), H('#8a8a8e'), H('#6e4d3c'), H('#b6b1a6'), H('#5c6b78'), H('#aeb6bd')],
     roofs: [H('#44444c'), H('#3a3a42'), H('#52525a'), H('#3e3e46')],
     flatRoof: true,
+    // DRAB: cool grey concrete, sooty ground, cold blue-green curtain glass,
+    // muted/overcast park greens, steel-grey Hudson/East River. Low chroma —
+    // the city reads grey-on-grey, not London's warm green-belt.
+    env: {
+      water: H('#41697a'), waterDeep: H('#2f4f5e'), waterGlint: H('#cdb78a'),
+      grass: H('#5e7a4e'), grassDark: H('#4e6740'), // Central Park, dusty
+      field: H('#8e9a6a'), fieldDark: H('#79855a'),
+      treeGreen: H('#5e7a4e'), treeDeep: H('#46603c'), treeLime: H('#76905a'),
+      moor: H('#6e7866'), brownfield: H('#8a857c'),
+      soil: H('#7c6b57'), marsh: H('#6e7656'), aridSand: H('#9a8d74'), rock: H('#7c7a78'),
+      sand: H('#cdbfa2'), pavement: H('#9a938c'), concrete: H('#a8a6aa'),
+      glassDark: H('#2a2d33'), glassSky: H('#9fb4bd'), glassSunset: H('#9db6bf'),
+      glassLit: H('#e8b66a'), glassHot: H('#d89a4e'),
+      steel: H('#8e969c'), steelDark: H('#60666c'),
+    },
   },
   // Sydney — honey sandstone + cream + terracotta-tile suburbs
   sydney: {
@@ -97,6 +126,21 @@ const FABRICS: Record<CityFabric, FabricSpec> = {
     potClay: H('#a85e38'), buffBrick: H('#d8b889'),
     walls: [H('#d8b889'), H('#e6dcc4'), H('#c9a878'), H('#efe8d6'), H('#c8b59a'), H('#b89a72'), H('#d2c4a4'), H('#e0d2b4')],
     roofs: [H('#b5673f'), H('#a85a38'), H('#7a7d80'), H('#8a5a44')],
+    // RICH harbour blue is the signature: a saturated high-UV Pacific water
+    // with a bright sparkle band. Honey sandstone ground, silvery-but-bright
+    // eucalypt greens, cool harbour-blue tower glass. Hard, sunny contrast.
+    env: {
+      water: H('#1f7fb0'), waterDeep: H('#15608c'), waterGlint: H('#7fd0ec'),
+      grass: H('#7e9469'), grassDark: H('#687d56'),
+      field: H('#c2b07a'), fieldDark: H('#a89866'),
+      treeGreen: H('#7e9469'), treeDeep: H('#5e7550'), treeLime: H('#9cae6a'),
+      moor: H('#8a9470'), brownfield: H('#a89c84'),
+      soil: H('#b5895a'), marsh: H('#8a9460'), aridSand: H('#d6b483'), rock: H('#b09a72'),
+      sand: H('#e7d2a8'), pavement: H('#bfb6a6'),
+      glassSky: H('#9fc4d8'), glassSunset: H('#7fa9c4'), glassDark: H('#243a4a'),
+      glassLit: H('#e7b270'), glassHot: H('#e89a4e'),
+      steel: H('#8a99a2'), steelDark: H('#5e6b72'),
+    },
   },
   // Berlin — grey-beige render + ochre Altbau + grey zinc/copper roofs
   berlin: {
@@ -106,6 +150,21 @@ const FABRICS: Record<CityFabric, FabricSpec> = {
     potClay: H('#7a7570'), buffBrick: H('#c8b48c'),
     walls: [H('#d2cdbf'), H('#c2b58e'), H('#b9a578'), H('#d8d3c5'), H('#aeb0a6'), H('#c8bfa8'), H('#9a4d3a'), H('#cfc9bb')],
     roofs: [H('#6a6e72'), H('#565a5e'), H('#6e7a70'), H('#4f5358')],
+    // COOL + MUTED northern light: flat slate-blue-green Spree, desaturated
+    // linden/plane greens, grey granite-sett pavement. Verdigris-copper lives
+    // in the roofs; glass is cool blue-grey under an overcast sky.
+    env: {
+      water: H('#5e7480'), waterDeep: H('#485a64'), waterGlint: H('#c4b48e'),
+      grass: H('#7e8466'), grassDark: H('#686e52'),
+      field: H('#b6ab7a'), fieldDark: H('#9e9468'),
+      treeGreen: H('#6e7e54'), treeDeep: H('#566742'), treeLime: H('#869268'),
+      moor: H('#7e8466'), brownfield: H('#9a948a'),
+      soil: H('#7a6e52'), marsh: H('#76805a'), aridSand: H('#b0a884'), rock: H('#8e8c84'),
+      sand: H('#ddceac'), pavement: H('#a8a29a'), concrete: H('#aeafb0'),
+      glassSky: H('#9fb8c4'), glassSunset: H('#9bb2bc'), glassDark: H('#2e3340'),
+      glassLit: H('#e9c079'), glassHot: H('#d6a85a'),
+      steel: H('#b0b8bc'), steelDark: H('#7a8084'),
+    },
   },
   // Shanghai — grey concrete + shikumen + blue/teal glass towers, jade accents
   shanghai: {
@@ -116,6 +175,21 @@ const FABRICS: Record<CityFabric, FabricSpec> = {
     walls: [H('#b4b0a6'), H('#c8c2b4'), H('#9a9690'), H('#5c6e74'), H('#cfcabb'), H('#a6a299'), H('#8a8682'), H('#6d8088')],
     roofs: [H('#5a5e62'), H('#46494d'), H('#4a6a55'), H('#565a5a')],
     flatRoof: true,
+    // HUMID two-tone: low-chroma greys/creams under a hazy sky, the Huangpu's
+    // silty BROWN-GREY water (never blue), muted humid plane-tree green — set
+    // against JADE + bronze curtain glass on the supertowers.
+    env: {
+      water: H('#8a7e6e'), waterDeep: H('#6e6356'), waterGlint: H('#cbb98e'),
+      grass: H('#5e7a4e'), grassDark: H('#4e6740'),
+      field: H('#a89c72'), fieldDark: H('#92875e'),
+      treeGreen: H('#5e7a4e'), treeDeep: H('#46603c'), treeLime: H('#7c8e5a'),
+      moor: H('#7c7c64'), brownfield: H('#9c968a'),
+      soil: H('#9c8a64'), marsh: H('#7e8258'), aridSand: H('#c2b49c'), rock: H('#9a948a'),
+      sand: H('#d9cbb2'), pavement: H('#a8a29a'), concrete: H('#aaa8a2'),
+      glassSky: H('#9fc4be'), glassSunset: H('#7fa8a2'), glassDark: H('#283a38'),
+      glassLit: H('#e8c87a'), glassHot: H('#c8a25a'),
+      steel: H('#94a09c'), steelDark: H('#62706c'),
+    },
   },
   // Hong Kong — dense weathered pastel + grey concrete towers + teal glass
   hongkong: {
@@ -126,6 +200,21 @@ const FABRICS: Record<CityFabric, FabricSpec> = {
     walls: [H('#c8b8a0'), H('#a8b4a0'), H('#c4a8a8'), H('#cfcab8'), H('#9aa4ac'), H('#b8b0a4'), H('#6d8890'), H('#b0aaa0')],
     roofs: [H('#565a5e'), H('#44474b'), H('#5e6266'), H('#4a4d51')],
     flatRoof: true,
+    // TEAL mirror-glass rising from dark teal-brown Victoria Harbour, backed by
+    // a LUSH deep-subtropical-green Peak — the strongest tell is wall-of-towers
+    // teal against jungle green. Reclaimed-land grey ground, grey podium paving.
+    env: {
+      water: H('#3e6b72'), waterDeep: H('#2e5258'), waterGlint: H('#bcd2c8'),
+      grass: H('#4e7141'), grassDark: H('#3c5a33'),
+      field: H('#7e9a5a'), fieldDark: H('#6a854a'),
+      treeGreen: H('#4e7141'), treeDeep: H('#345229'), treeLime: H('#6e9050'),
+      moor: H('#5e7250'), brownfield: H('#94948c'),
+      soil: H('#8a7c64'), marsh: H('#6e8050'), aridSand: H('#b4ac98'), rock: H('#8c8a82'),
+      sand: H('#cfc6b2'), pavement: H('#b7b2ab'), concrete: H('#aeaca6'),
+      glassSky: H('#9fc4cf'), glassSunset: H('#7fa9b8'), glassDark: H('#243c40'),
+      glassLit: H('#f2c879'), glassHot: H('#d8aa5a'),
+      steel: H('#92a0a4'), steelDark: H('#607074'),
+    },
   },
   // Cape Town — Bo-Kaap bright pastels + Cape Dutch white + sandstone
   capetown: {
@@ -135,6 +224,21 @@ const FABRICS: Record<CityFabric, FabricSpec> = {
     potClay: H('#b5563c'), buffBrick: H('#d8b889'),
     walls: [H('#e8e0cf'), H('#5fa3a0'), H('#d98a4a'), H('#c75d6e'), H('#6f9a5a'), H('#e0d2b4'), H('#5a8fb0'), H('#d8c060')],
     roofs: [H('#6e7276'), H('#585c60'), H('#b5563c'), H('#62666a')],
+    // BRIGHT high-key coast: deep cold Atlantic/Table Bay blue with turquoise
+    // shallows, dry tawny Cape earth, olive fynbos on grey Table Mountain rock.
+    // Whitewash glows; the candy Bo-Kaap hues live in the walls above.
+    env: {
+      water: H('#1f5c8c'), waterDeep: H('#164566'), waterGlint: H('#5ab0d0'),
+      grass: H('#6e8b3d'), grassDark: H('#577030'),
+      field: H('#bca968'), fieldDark: H('#a49254'),
+      treeGreen: H('#6e8b3d'), treeDeep: H('#3c5a2e'), treeLime: H('#8ca24e'),
+      moor: H('#7e8456'), brownfield: H('#a89c84'),
+      soil: H('#b08c5a'), marsh: H('#7e8a4e'), aridSand: H('#d0ad74'), rock: H('#9a8f82'),
+      sand: H('#e2cfa6'), pavement: H('#bdb4a6'),
+      glassSky: H('#9fbccf'), glassSunset: H('#5e7e92'), glassDark: H('#2a3e4a'),
+      glassLit: H('#e6a765'), glassHot: H('#d68e4e'),
+      steel: H('#8a969e'), steelDark: H('#5c666c'),
+    },
   },
   // Cairo — sand + ochre dust; the famous red-brick is muted to warm brown so
   // the city reads SANDY, not London-red. Flat dusty roofs.
@@ -146,17 +250,50 @@ const FABRICS: Record<CityFabric, FabricSpec> = {
     walls: [H('#cdb485'), H('#c2a06a'), H('#b07a4a'), H('#d8c49a'), H('#b89868'), H('#9c7a4e'), H('#caa878'), H('#a06a44')],
     roofs: [H('#9c8862'), H('#7a6a4e'), H('#b09a72'), H('#8a7a5e')],
     flatRoof: true,
+    // DUSTY desert monochrome: sandy ochre ground EVERYWHERE (grass/field/moor
+    // all dry to sand), one ribbon of muddy blue-green Nile with sparse but
+    // VIVID irrigated palm-green along it. Dusty blue-grey glass, sandy paving.
+    env: {
+      water: H('#5e8ba0'), waterDeep: H('#496e80'), waterGlint: H('#d8c08a'),
+      grass: H('#a89464'), grassDark: H('#8e7c52'), // dry, not green
+      field: H('#cdb079'), fieldDark: H('#b39a64'),
+      treeGreen: H('#5c7a3e'), treeDeep: H('#496630'), treeLime: H('#7e8a52'), // Nile palms — vivid against the sand
+      moor: H('#b09a6e'), brownfield: H('#bca884'),
+      soil: H('#c2a06a'), marsh: H('#8a8a52'), aridSand: H('#d8b777'), rock: H('#cdb586'),
+      sand: H('#e0c992'), pavement: H('#c2b292'), concrete: H('#c0ad84'),
+      glassSky: H('#a6c0c4'), glassSunset: H('#86a2a8'), glassDark: H('#3a4a4e'),
+      glassLit: H('#e3b36a'), glassHot: H('#cf9a4e'),
+      steel: H('#a89e8a'), steelDark: H('#766c58'),
+    },
   },
   // Athens — whitewashed + cream polykatoikia; brick tones are pale so the
   // fabric reads WHITE, with only a terracotta roof/cornice accent. Flat roofs.
   athens: {
     brickRed: H('#ddd0b2'), brickBrown: H('#cfc3a4'), brickOrange: H('#e4dcc8'),
     renderCream: H('#ece6d6'), pebbledash: H('#ddd3bd'),
-    slate: H('#9a948a'), slateDark: H('#7e786c'), tileRed: H('#c06848'),
-    potClay: H('#b56848'), buffBrick: H('#e0d6c0'),
+    // pale grey-white flat-roof concrete is the DOMINANT Athens roofscape; the
+    // terracotta is a softened, low-saturation MINORITY accent (Plaka/older
+    // pitched roofs) so the city reads white-on-blue from above, not red.
+    slate: H('#b4aea4'), slateDark: H('#9c968c'), tileRed: H('#cf9c74'),
+    potClay: H('#c28a5e'), buffBrick: H('#e0d6c0'),
     walls: [H('#ece6d6'), H('#e4dcc8'), H('#d8cdb4'), H('#efe9da'), H('#d0c3a4'), H('#e8dcc0'), H('#c9b890'), H('#ddd0b2')],
-    roofs: [H('#9a948a'), H('#7e786c'), H('#c06848'), H('#948a7a')],
+    roofs: [H('#bcb6ac'), H('#aaa49a'), H('#cf9c74'), H('#c4bdb2')],
     flatRoof: true,
+    // WHITE city against a deep Aegean blue: dry tawny earth, muted grey-green
+    // pine/olive/cypress on the hills, pale marble paving. Saronic-Gulf blue is
+    // saturated like Sydney's but a touch deeper/greener; whitewash glows.
+    env: {
+      water: H('#2e7fa6'), waterDeep: H('#216080'), waterGlint: H('#6ec4e0'),
+      grass: H('#8a936a'), grassDark: H('#727a54'), // dry Attic scrub
+      field: H('#c2b078'), fieldDark: H('#a89863'),
+      treeGreen: H('#6e7e4c'), treeDeep: H('#54663a'), treeLime: H('#8a945e'),
+      moor: H('#9a9a72'), brownfield: H('#b4a888'),
+      soil: H('#b79c6e'), marsh: H('#8a8e56'), aridSand: H('#cdb178'), rock: H('#c2b48e'),
+      sand: H('#e4d8be'), pavement: H('#c8bfa8'),
+      glassSky: H('#a6c0cc'), glassSunset: H('#9bb6c2'), glassDark: H('#33454e'),
+      glassLit: H('#e9c277'), glassHot: H('#d4a85a'),
+      steel: H('#a4aaa0'), steelDark: H('#727870'),
+    },
   },
 };
 
@@ -174,6 +311,9 @@ export function applyCityFabric(city: CityFabric): void {
   BUFF_BRICK = f.buffBrick;
   FLAT_ROOF = f.flatRoof ?? false;
   setWallRoofPalette(f.walls, f.roofs);
+  // terrain + skyline: '{}' restores the clean London baseline (byte-identical
+  // for the live game); a city's env overlays its bespoke land + sky.
+  setEnvPalette(f.env ?? {});
 }
 
 /** Domestic roof: a pitched gable (London/Paris/Sydney/Berlin/Cape Town) OR,

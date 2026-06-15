@@ -349,6 +349,19 @@ async function main(): Promise<void> {
 
   applyCityFabric(fabric);
   const atlas = buildAtlas();
+  // --shots: render far + mid + close from the SAME bake (the design gate),
+  // so a per-city palette can be judged at every zoom in one fetch.
+  if (process.argv.includes('--shots')) {
+    // far: the populated core, downscaled hard so the whole city reads in one
+    // viewable frame (the empty map margins are cropped out).
+    renderCityCrop(atlas, map, 40, 20, 224, 150, 18, `city-${id}-far`);
+    console.log(`  shot: city-${id}-far`);
+    renderCityCrop(atlas, map, 96, 56, 160, 104, 4, `city-${id}-mid`);
+    console.log(`  shot: city-${id}-mid`);
+    renderCityCrop(atlas, map, 116, 66, 140, 90, 7, `city-${id}-close`);
+    console.log(`  shot: city-${id}-close`);
+    return;
+  }
   const x0 = arg('x0', 96);
   const y0 = arg('y0', 56);
   const x1 = arg('x1', 160);

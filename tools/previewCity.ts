@@ -32,7 +32,7 @@ async function main(): Promise<void> {
   const map: CityMap = buildCityFromData(data);
   console.log(`${data.name}: ${map.width}×${map.height}, ${map.councils.length} councils, fabric=${data.fabric ?? 'london'}`);
 
-  applyCityFabric(data.fabric === 'paris' ? 'paris' : 'london');
+  applyCityFabric(data.fabric ?? 'london');
   const atlas = buildAtlas();
   const rest = process.argv.slice(3).map(Number);
   if (rest.length >= 5) {
