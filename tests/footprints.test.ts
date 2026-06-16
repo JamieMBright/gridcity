@@ -229,16 +229,34 @@ describe('award claims the proportional tile set', () => {
   });
 
 
-  it('wind spreads turbine tiles with spacing (anchor-parity checkerboard)', () => {
+  it('wind claims a COMPACT contiguous cluster — footprint == advertised tiles (W7c)', () => {
+    // owner playtest: 5 MW/square, one turbine per claimed tile, NO checkerboard
+    // sprawl — the reserved footprint must equal what the picker advertises.
     const map = makeTestMap(40, 40);
     const tiles = farmClaimTiles(map, 'windOnshore', 20, 20, 100);
-    expect(tiles).toHaveLength(Math.ceil(100 / WIND_PER));
-    for (const i of tiles) {
+    expect(tiles).toHaveLength(Math.ceil(100 / WIND_PER)); // 20 tiles for 100 MW
+    const set = new Set(tiles);
+    // anchor first, and every other claimed tile orthogonally touches another
+    expect(tiles[0]).toBe(20 * map.width + 20);
+    for (const i of tiles.slice(1)) {
       const x = i % map.width;
       const y = Math.floor(i / map.width);
-      expect((x + y) & 1).toBe((20 + 20) & 1); // spaced: no two adjacent
+      const touches =
+        set.has(y * map.width + x - 1) ||
+        set.has(y * map.width + x + 1) ||
+        set.has((y - 1) * map.width + x) ||
+        set.has((y + 1) * map.width + x);
+      expect(touches).toBe(true); // contiguous blob, not a spaced checkerboard
       expect(Math.max(Math.abs(x - 20), Math.abs(y - 20))).toBeLessThanOrEqual(9);
     }
+    // a 3-tile (15 MW) farm stays a tight cluster within a 2-tile span — NOT
+    // the old ~10×4 diagonal: the spread the player sees matches "reserves ~3"
+    const small = farmClaimTiles(map, 'windOnshore', 20, 20, 15);
+    expect(small).toHaveLength(3);
+    const xs = small.map((i) => i % map.width);
+    const ys = small.map((i) => Math.floor(i / map.width));
+    expect(Math.max(...xs) - Math.min(...xs)).toBeLessThanOrEqual(2);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeLessThanOrEqual(2);
   });
 });
 

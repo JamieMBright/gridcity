@@ -2665,7 +2665,8 @@ export class MapRenderer {
       if (!tex) continue;
       // capacity-scaled farms (GenAsset.mw stamped at award): one sprite
       // per derived claimed tile — solar tiles into a field array, wind
-      // spreads a turbine pair per claimed tile, rotors spun live
+      // stands ONE turbine per claimed tile (W7c: ~5 MW/square), rotors
+      // spun live, dead-centred on the tile
       if (!building && a.kind === 'gen' && a.mw !== undefined && isFarmGen(a.gen) && map) {
         for (const i of farmClaimTiles(map, a.gen, a.x, a.y, a.mw)) {
           const tx = i % map.width;

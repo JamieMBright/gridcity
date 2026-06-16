@@ -109,6 +109,7 @@ export function describeCommand(cmd: Command, before: GameState): string {
     case 'setSpeed':
     case 'undo':
     case 'redo':
+    case '__testFault':
       // never snapshotted — present for exhaustiveness
       return 'action';
   }

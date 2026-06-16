@@ -507,6 +507,7 @@ export function solveTick(
       state.jobs,
       state.assets.values(),
       dtMin * fleetSpeedMul(state.org) * scoutSpeedMul(state),
+      ctx.map, // drive on the road network (W7b)
     );
     for (const r of fleet.restored) {
       state.outages.delete(r.branchId);
