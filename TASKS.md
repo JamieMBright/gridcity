@@ -18,19 +18,25 @@ polish+economy) — "work through them in priority order as separate green, desi
 while you're away." PLUS specific design feedback on the night lights:
 > "The night lights don't look great from the images you've sent. Just looks like a red
 > light. Think more fairy lights. The London Eye was a good example."
-- [ ] **NIGHT-LIGHT FAIRY-LIGHTS REDESIGN (FIRST — owner actively unhappy):** the current
-      hero lights read as a flat coloured GLOW BLOB + a dominant RED beacon. Owner wants the
-      **fairy-lights idiom** — many small warm/multicolour TWINKLING POINTS (festoon/string
-      lights), like the London Eye's `rimCycle` (28 discrete cycling points = the GOOD
-      reference). FIX: in src/render/heroLights.ts shift the halo-blob effects (towerCrown/
-      facadeFlood/genericGlow/stadiumFlood/archGlow) to point-light FIELDS; de-emphasise the
-      red aircraft beacon (warm it / shrink it); deepen night sky so points pop. USE THE
-      DESIGN SKILLS (environment-art + color-theory). Design-gate: re-run herolights, inspect,
-      iterate until it genuinely reads as fairy lights; verify the other cities at night too.
-- [ ] **W7 playtest** (auth/menu, vans, turbine, severe-weather v2, tutorials 1-5) — next PR.
-- [ ] **W8 per-country operating models** (FR/AU/HK/BR seams) — then.
+- [~] **NIGHT-LIGHT FAIRY-LIGHTS REDESIGN — bulb redesign SHIPPED (heroLights.ts).** Rebuilt
+      the whole show as the fairy-lights idiom: festoon STRINGS + FIELDS of small TWINKLING
+      BULBS (each a hot-white core in a tight warm bloom), warm-dominant + sparing multicolour
+      (PARTYSTRAND); every halo-blob effect (towerCrown/facadeFlood/genericGlow/stadiumFlood/
+      archGlow) converted to point-fields; the harsh RED aircraft beacon → a small warm ember;
+      brighter+bigger bulbs. Used environment-art + color-theory skills. Design-gated
+      (herolights gate, many iterations). DEFERRED: a per-hero "dusk pocket" (local darken so
+      bulbs POP) was tried in 3 layer placements but never rendered on-screen (glow layer is
+      additive-only; city layer likely cached; a stage-level normal layer didn't show even at
+      magenta α0.9) — needs interactive renderer debugging. ⚠ OWNER DECISION NEEDED: fairy
+      lights pop best on a DARK night, but you earlier (2026-06-13) wanted night kept light/
+      cosy to avoid a "flashing" cycle — deepen the night (smoothly), or keep cosy + gentle?
+- [~] **W7 playtest** — W7e tutorials 1-5 (step-gating + lessons page + lesson 6) DONE+merged
+      (8558ba8). IN FLIGHT (subagents): W7b/c vans+turbine, W7a auth/menu, W7d severe-weather v2.
+- [x] **W8 per-country operating models — RESEARCH done + merged (8e3a33f):** 12 country docs +
+      DESIGN.md in docs/operating-models/. Key: powerProfile.ts already ships tested FR/AU/HK/BR
+      profiles, just unwired → Phase A is data-wiring. IMPLEMENTATION still to schedule.
 - [ ] **W9/W10 polish + economy** (thin-river glint, NE Alnwick; RAV/revenue) — then.
-PRIORITY ORDER (mine, owner can redirect): night-lights → W7 → W8 → W9/W10.
+PRIORITY ORDER (mine, owner can redirect): night-lights(shipped) → W7 → W8 impl → W9/W10.
 
 ### 🏁 OWNER DIRECTIVE (2026-06-16 16:12): "Finish, test, critique all you're doing, then merge when ready." — ✅ DISCHARGED (18:49)
 **✅ DONE + LIVE IN PRODUCTION.** PR #63 merged to main (merge commit df320e7); Vercel
