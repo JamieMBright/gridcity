@@ -30,17 +30,20 @@ parallelisable waves; the main session keeps the keep-alive drumbeat + integrate
 - ✅ BATCH 2 LANDED (9b5bb12): London PLACED (41 render, SAVE_VERSION 13→14), Paris 88,
   Sydney 32, Berlin 35.
 - ✅ BATCH 3a LANDED (e533834): Shanghai 40, Cape Town 38, Hong Kong 38, Athens 37.
-  → **425/1200 bespoke heroes across 10 cities** (London 41, Paris 88, Cairo 38, NYC 38,
-  Sydney 32, Berlin 35, Shanghai 40, Cape Town 38, HK 38, Athens 37).
-- 🔄 BATCH 3b IN PROGRESS: Pune R1, NE England R1, Cairo R2, New York R2 (last 2 cities +
-  depth on 2). After this, ALL 12 cities have round-1 heroes.
-- ⏭ NEXT: more rounds toward 100/city + the per-city NAMED-LIST ENRICHMENT pass — the
-  famous unplaced marquees (HK HSBC/IFC/ICC, Shanghai extra Bund, Berlin Fernsehturm,
-  Paris Panthéon/Pompidou/gares, Cairo Tower, Sydney QVB, NYC's, Cape Town Stadium/City
-  Hall) are NOT in the OSM `named` lists, so they're authored+wired but need a DATA pass
-  to add their placements (name+x,y+landmark) in src/data/cities/<city>.ts to render +
-  reach the famous 100. Each city caps at its named-list size until enriched (Paris 88/89).
-  Marathon — runs as long as it takes.
+- ✅ BATCH 3b LANDED (d9f3b43): Pune 31, NE England 67, Cairo R2 90, NYC R2 79.
+  → **616/1200 bespoke heroes across ALL 12 cities** (london 41, paris 88, newyork 79,
+  cairo 90, sydney 32, berlin 35, shanghai 40, hongkong 38, capetown 38, athens 37,
+  pune 31, northeast 67). Every city renders bespoke heroes; all gates green; London byte-identical.
+- 🔄 BATCH 4 IN PROGRESS: Round-2 draws for the 4 lowest cities (Sydney, Athens, Cape Town, Hong Kong).
+- ⏭ NEXT: round-2 draws for London/Berlin/Shanghai; then the NAMED-LIST ENRICHMENT
+  wave — the famous marquees (Tyne Bridge/Angel/Durham, Empire State-class, HSBC/IFC,
+  Fernsehturm, Cairo Tower, Panthéon, QVB…) are AUTHORED + wired but absent from the OSM
+  `named` lists, so a data pass adds their placements (name+x,y+landmark) in
+  src/data/cities/<city>.ts to render them + reach the famous 100. Plus run a full e2e
+  before the next milestone (hero rounds gated on unit+design+md5 so far; e2e periodically).
+  KEEP-ALIVE: server-side cron tools (CronCreate/ScheduleWakeup/send_later) are NOT in
+  this session's allowlist, so the only reclaim-proof heartbeat is the owner running
+  /loop in the UI; in-session I stay active (no idle-waiting) + Monitor backup.
 
 - **W1 — Unified perimeter HUD** (IN PROGRESS, subagent): one wraparound chrome,
   dedicated non-overlapping zones, desktop + phone-landscape. (TASKS §UNIFIED PERIMETER HUD)
