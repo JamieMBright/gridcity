@@ -18,6 +18,17 @@ The whole open backlog, sequenced into waves. Branch is `claude/serene-edison-h6
 design-gated, green commit (≈ a sensible sub-PR). Subagents (Opus) action the
 parallelisable waves; the main session keeps the keep-alive drumbeat + integrates.
 
+**LIVE STATUS (2026-06-16 ~07:00):**
+- ✅ W1 Unified HUD — DONE, e2e-green, pushed (6689f2f).
+- ✅ W2 Hero spine — DONE, pushed (167c54a): heroTable + registry breaks the 255 ceiling.
+- ✅ W2b Off-atlas hero textures — DONE, e2e-green, pushed (eab9bd4): removes the 4096
+  sheet ceiling (heroes ride own cached textures) → 100 bespoke heroes/city now POSSIBLE.
+- ✅ Scaffold — DONE, pushed (aa12730): all 12 hero modules registered (collision-free fan-out).
+- 🔄 Hero fan-out BATCH 1 IN PROGRESS (4 parallel Opus subagents, round 1 ≈30-40 each):
+  London, Paris, Cairo (+Giza Sound-&-Light), New York. Gated + committed per city as
+  they land; then BATCH 2 (Sydney/HK/Berlin/Shanghai/Cape Town/Athens/Pune/NE), then
+  further rounds to reach ~100 bespoke/city. Marathon — runs as long as it takes.
+
 - **W1 — Unified perimeter HUD** (IN PROGRESS, subagent): one wraparound chrome,
   dedicated non-overlapping zones, desktop + phone-landscape. (TASKS §UNIFIED PERIMETER HUD)
 - **W2 — Hero SPINE (enabler, blocks W3+):** break the 255-value landmark-raster
