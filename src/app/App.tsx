@@ -27,6 +27,7 @@ import { StoryIntro } from '../ui/StoryIntro';
 import { TemplatePaste } from '../ui/TemplatePaste';
 import { Tutorial } from '../ui/Tutorial';
 import { UndoHistory } from '../ui/UndoHistory';
+import { CrashCanary } from '../ui/CrashCanary';
 import { panelStyle, theme } from '../ui/theme';
 import { playSfx } from '../audio/audio';
 import { HOTKEYS } from './hotkeys';
@@ -274,6 +275,8 @@ export function App() {
           — renders over everything, including the start menu */}
       <AuthCallback />
       {chrome && <TemplatePaste />}
+      {/* test-only render-crash trigger (dev hook); renders nothing until armed */}
+      <CrashCanary />
     </div>
   );
 }

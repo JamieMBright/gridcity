@@ -14,6 +14,7 @@ import type {
 import { isSaveData } from '../sim/state';
 import { computeStars, recordLessonResult } from '../ui/lessonProgress';
 import { addPeriodResult } from '../ui/rank';
+import { captureError } from './errorLog';
 import { useAppStore } from './store';
 
 let worker: Worker | undefined;
@@ -55,7 +56,29 @@ export function initWorker(): void {
   const store = useAppStore.getState();
 
   worker.onerror = (e) => {
-    store.setWorkerStatus('error', e.message);
+    // a hard worker crash (module load / uncaught top-level): surface it AND
+    // capture the traceback. ErrorEvent.error carries the Error in modern
+    // browsers; fall back to filename:line when it doesn't.
+    const err = (e as ErrorEvent).error as unknown;
+    const message = (err instanceof Error && err.message) || e.message || 'sim worker error';
+    const stack =
+      err instanceof Error
+        ? err.stack
+        : e.filename
+          ? `at ${e.filename}:${e.lineno ?? 0}:${e.colno ?? 0}`
+          : undefined;
+    captureError({ message: String(message), stack, source: 'worker' });
+    store.setWorkerStatus('error', String(message));
+  };
+
+  // a structured-clone failure on a posted message (rare, but otherwise
+  // vanishes): capture it so a bad snapshot payload is debuggable.
+  worker.onmessageerror = (e) => {
+    captureError({
+      message: 'worker message could not be deserialized (structured clone failed)',
+      source: 'worker',
+      extra: { type: (e as MessageEvent).type },
+    });
   };
 
   worker.onmessage = (e: MessageEvent<WorkerToMain>) => {
@@ -166,7 +189,25 @@ export function initWorker(): void {
         s.setBillDetail({ line: msg.line, rows: msg.rows });
         break;
       case 'fatal':
+        // an uncaught sim exception (the worker paused itself): surface to the
+        // HUD AND capture the traceback so we can self-heal.
+        captureError({
+          message: msg.message,
+          stack: msg.stack,
+          source: 'worker',
+          extra: { kind: 'fatal' },
+        });
         s.setWorkerStatus('error', msg.message);
+        break;
+      case 'error':
+        // a non-fatal in-worker error report (top-level handler caught it but
+        // the sim can keep running): capture only, don't flip worker status.
+        captureError({
+          message: msg.message,
+          stack: msg.stack,
+          source: 'worker',
+          extra: { kind: msg.kind ?? 'error' },
+        });
         break;
     }
   };
@@ -176,6 +217,13 @@ export function initWorker(): void {
 
 export function sendCommand(cmd: Command): void {
   send({ type: 'command', seq: ++seq, cmd });
+}
+
+/** DEV/TEST ONLY: ask the worker to throw, exercising the crash-capture path
+ *  (worker → 'fatal' → captureError(source:'worker')). The worker ignores
+ *  this outside a dev build. Exposed via the window.__ec test hook. */
+export function crashWorker(): void {
+  send({ type: '__crashTest' });
 }
 
 export function setSimSpeed(speed: SimSpeed): void {

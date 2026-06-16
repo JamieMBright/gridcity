@@ -276,7 +276,10 @@ export type MainToWorker =
   /** Grab the current SaveData for a NAMED slot (#34): answered with a
    *  saveData message tagged `forSlot`, so the bridge routes it to the
    *  slot writer instead of the autosave. */
-  | { type: 'requestSlotSave' };
+  | { type: 'requestSlotSave' }
+  /** DEV/TEST ONLY: deliberately throw inside the worker to exercise the
+   *  crash-capture path. The worker ignores it outside import.meta.env.DEV. */
+  | { type: '__crashTest' };
 
 export type WorkerToMain =
   | { type: 'pong'; t: number }
@@ -296,4 +299,9 @@ export type WorkerToMain =
   | { type: 'forecast'; rows: CatchmentForecast[] }
   | { type: 'plan'; plan: ReinforcementPlan }
   | { type: 'billDetail'; line: BillDetailLine; rows: BillDetailRow[] }
-  | { type: 'fatal'; message: string };
+  /** An uncaught sim exception (the worker paused itself). `stack` carries
+   *  the traceback for crash-capture / self-heal. */
+  | { type: 'fatal'; message: string; stack?: string | undefined }
+  /** A non-fatal in-worker error report (caught top-level; the sim keeps
+   *  running). Captured for diagnostics without flipping worker status. */
+  | { type: 'error'; message: string; stack?: string | undefined; kind?: string | undefined };
