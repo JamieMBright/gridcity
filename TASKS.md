@@ -12,6 +12,32 @@
 
 ## Open
 
+### 🚐 W7b + W7c (subagent worktree `worktree-agent-ae3b6443a0ea890ba`, 2026-06-16) — IN PROGRESS
+Two GRAPHICAL playtest re-raises, one PR. Branch is an isolated worktree off the
+feature branch; gates = tsc + eslint + vitest + build + a DESIGN GATE (real shots).
+**W7b — VANS DRIVE ON THE MAP**
+- [ ] Vans must be visible DRIVING on the road/street vector layer, not only parked
+      at the depot. Today `stepFleet` (src/sim/fleet/fleet.ts) moves vans in straight
+      `Math.hypot` lines — they fly across fields ignoring roads. FIX: build a road
+      GRAPH from `map.routes` (drivable classes) + path-find (depot→fault→depot) so
+      vans follow streets; renderer glides the van along the path with correct heading.
+- [ ] Believable behaviour: dispatched to faults; readable at mid/close zoom; lofi dusk.
+**W7c — TURBINE FOOTPRINT + WIND-FARM ICON + CAPACITY PICKER**
+- [ ] FOOTPRINT BUG: advertised "~3 tiles" (CapacityPicker, 15 MW ÷ 5) ≠ what lands —
+      the renderer (MapRenderer ~2669) draws TWO turbines per claimed tile across a
+      checkerboard-parity BFS blob (radius up to 9), so a "3-tile" farm sprawls into a
+      "10×4 diagonal". Make the reserved/placed footprint MATCH the advertised tiles:
+      tighten the blob to a compact rect-ish cluster, ~5 MW/square, no diagonal sprawl;
+      verify the mast/rotor sit centred on the tile.
+- [ ] WIND-FARM ICON: proper icon — WHITE, tapering mast, wing-shaped blades (narrow at
+      hub → widening → tapering to a point), blades ≥60% of hub height (src/ui/icons.tsx
+      IconWind/IconWindSea + the in-world turbine sprite).
+- [ ] CAPACITY PICKER for wind farms (choose MW when building, consistent w/ subs MVA
+      picker). A `CapacityPicker` already exists in BuildPalette.tsx — VERIFY it works
+      end-to-end (MW → build command → footprint) and is good; extend if needed.
+DESIGN GATE: vans driving (mid+close), turbine/wind-farm far/mid/close BEFORE vs AFTER
+the footprint fix, wind-farm icon + capacity-picker UI. Save to preview/, critique, iterate.
+
 ### 🏁 OWNER DIRECTIVE (2026-06-16 16:12): "Finish, test, critique all you're doing, then merge when ready."
 THE plan to close out this branch (PR #63) to PRODUCTION:
 1. FINISH heroes: Batch 8 (NYC/Cairo/Shanghai/Athens → 100), then NE 89→100. Every city

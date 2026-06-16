@@ -10,12 +10,14 @@
 // MW (stamped on GenAsset.mw), so old saves hydrate to exactly the tiles
 // the award claimed and the save format carries nothing new. Derivation
 // walks open land breadth-first from the anchor in a fixed N/E/S/W
-// neighbour order — compact blob growth, solar as field arrays — and
-// wind keeps turbine spacing by claiming only tiles on the anchor's
-// checkerboard parity (the gaps between turbines stay open farmland,
-// exactly like a real wind farm). Claims are PREFIX-STABLE: a smaller MW
-// claims a prefix of a bigger MW's tile order, and the award caps MW to
-// the largest prefix free of other assets.
+// neighbour order — a COMPACT contiguous blob (the footprint the player is
+// shown is the footprint that lands): one ~5-MW turbine per claimed square,
+// solar as field arrays. (Owner playtest, W7c: the old anchor-parity
+// checkerboard claimed every-other tile, so a "3-tile" 15 MW farm sprawled
+// into a ~10×4 diagonal that didn't match the advertised size — the
+// reserved footprint now EQUALS the advertised footprint.) Claims are
+// PREFIX-STABLE: a smaller MW claims a prefix of a bigger MW's tile order,
+// and the award caps MW to the largest prefix free of other assets.
 //
 // Town infill can re-zone open land over time; the derivation reads only
 // static-ish map features (terrain, zone, landmark, heavy roads), so a
@@ -51,10 +53,12 @@ function openForFarm(map: CityMap, gen: GenType, x: number, y: number): boolean 
 
 /** Deterministic BFS ordering of the claimable tiles around an anchor:
  *  anchor first (its siting was validated at designation even when its
- *  own zone isn't open countryside), then ring-by-ring blob growth over
- *  open land, N/E/S/W neighbour order, capped at FARM_MAX_RADIUS. Wind
- *  technologies keep only the anchor-parity checkerboard for turbine
- *  spacing.
+ *  own zone isn't open countryside), then ring-by-ring COMPACT blob growth
+ *  over open land, N/E/S/W neighbour order, capped at FARM_MAX_RADIUS. Every
+ *  technology — solar AND wind — claims a contiguous blob, so the footprint
+ *  the player is shown ("reserves ~N tiles") is exactly the footprint that
+ *  lands: ~5 MW per square, one turbine per claimed tile, no checkerboard
+ *  sprawl (owner playtest W7c).
  *
  *  `taken` (tiles already occupied by other assets/pylons OR reserved by
  *  another open tender) are skipped DURING the walk — both as claimable
@@ -71,8 +75,6 @@ export function farmTileOrder(
 ): number[] {
   const anchor = ay * map.width + ax;
   if (!isFarmGen(gen)) return [anchor];
-  const spaced = gen === 'windOnshore' || gen === 'windOffshore';
-  const parity = (ax + ay) & 1;
   const visited = new Set<number>([anchor]);
   const queue: Array<[number, number]> = [[ax, ay]];
   const order: number[] = [anchor];
@@ -93,7 +95,7 @@ export function farmTileOrder(
       if (!openForFarm(map, gen, nx, ny)) continue;
       visited.add(i);
       queue.push([nx, ny]);
-      if (!spaced || ((nx + ny) & 1) === parity) order.push(i);
+      order.push(i);
     }
   }
   return order;

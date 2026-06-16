@@ -6,7 +6,7 @@
 import { Rng } from '../../sim/rng';
 import { CELL_W, INK, INK_W, Iso, lit, P, RES, shaded } from './iso';
 import { COLORS } from './palette';
-import { alpha, darken, hex, lighten, type Pt, type RGBA } from './raster';
+import { alpha, darken, hex, lighten, mix, type Pt, type RGBA } from './raster';
 
 const NAVY = hex('#39426e');
 const NAVY_DEEP = hex('#252c52');
@@ -841,15 +841,14 @@ export interface WindHubSpec {
   /** Blade length in original (RES=1) pixels. */
   bladePx: number;
 }
+// ONE turbine, dead-centre on the tile (owner playtest W7c: "~5 MW per
+// square" — one ~5 MW machine per claimed tile, the mast on the tile's
+// centre axis so a capacity-scaled farm reads as a tidy spread of single
+// turbines, not a doubled-up checkerboard). The renderer centres the live
+// rotor on (u,v), so u=v=0.5 puts the hub over the tile centre.
 export const WIND_HUBS: Record<'onshore' | 'offshore', WindHubSpec[]> = {
-  onshore: [
-    { u: 0.34, v: 0.4, hub: 88, bladePx: 34 },
-    { u: 0.72, v: 0.68, hub: 76, bladePx: 29 },
-  ],
-  offshore: [
-    { u: 0.3, v: 0.42, hub: 96, bladePx: 39 },
-    { u: 0.68, v: 0.7, hub: 88, bladePx: 36 },
-  ],
+  onshore: [{ u: 0.5, v: 0.5, hub: 92, bladePx: 36 }],
+  offshore: [{ u: 0.5, v: 0.5, hub: 100, bladePx: 41 }],
 };
 
 /** Hub centre offset within the cell, device px at sprite resolution. The
@@ -865,23 +864,39 @@ export function windHubOffset(spec: WindHubSpec): Pt {
  *  onshore machines rise straight out of whatever crop the tile grows,
  *  so a capacity-scaled farm's spread turbine tiles read as turbines
  *  amid farmland, not a checkerboard of pasted lawns. The rotors are
- *  not baked — the renderer draws them live so they actually turn. */
+ *  not baked — the renderer draws them live so they actually turn.
+ *
+ *  Owner playtest W7c: turbines must read clearly WHITE. The dusk box
+ *  shader darkens a side wall ~30% (→ a grey-navy mast); real turbines are
+ *  gloss white and catch the light, so the tower keeps BRIGHT explicit
+ *  faces — a touch of warm light on the sun side, a barely-cooled white on
+ *  the shade side — instead of the default heavy dusk shading. */
 export function windTurbineTile(seed: number, offshore: boolean): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   void seed;
+  // gloss-white tower faces: stay light even on the shaded wall. The towers
+  // are slim, so the dark ink-edge verticals would otherwise swallow the
+  // white — draw the masts WITHOUT ink (ink:false) and lean the shade side
+  // only a touch cool so the pole reads as bright gloss white.
+  const towerFaces = {
+    leftC: mix(COLORS.white, hex('#c4ccd8'), 0.4), // shade side: cool but still white
+    rightC: lit(COLORS.white, 0.05), // sun side: warm white
+    topC: lit(COLORS.white, 0.14),
+    ink: false as const,
+  };
 
   const turbine = ({ u, v, hub }: WindHubSpec): void => {
     if (offshore) {
-      iso.box(u - 0.03, v - 0.03, u + 0.03, v + 0.03, -6, 14, hex('#e8c33f'));
+      iso.box(u - 0.034, v - 0.034, u + 0.034, v + 0.034, -6, 14, hex('#e8c33f'));
     } else {
-      iso.shadow(u - 0.05, v, u + 0.05, v + 0.12, 0.3, 0.16);
+      iso.shadow(u - 0.06, v, u + 0.06, v + 0.14, 0.32, 0.15);
     }
-    // tapered tower (two stacked boxes cheat the taper)
-    iso.box(u - 0.022, v - 0.022, u + 0.022, v + 0.022, offshore ? 14 : 0, hub * 0.55, COLORS.white);
-    iso.box(u - 0.015, v - 0.015, u + 0.015, v + 0.015, hub * 0.55, hub, COLORS.white);
+    // tapered tower (two stacked boxes cheat the taper) — gloss white, no ink
+    iso.box(u - 0.028, v - 0.028, u + 0.028, v + 0.028, offshore ? 14 : 0, hub * 0.5, COLORS.white, towerFaces);
+    iso.box(u - 0.019, v - 0.019, u + 0.019, v + 0.019, hub * 0.5, hub, COLORS.white, towerFaces);
     // nacelle — kept SYMMETRIC about the mast axis (u,v) so the rotor hub,
     // which the renderer centres on (u,v), sits dead-centre on the nacelle
-    iso.box(u - 0.032, v - 0.02, u + 0.032, v + 0.02, hub, hub + 6, lit(COLORS.white, 0.02));
+    iso.box(u - 0.036, v - 0.022, u + 0.036, v + 0.022, hub, hub + 7, COLORS.white, towerFaces);
   };
 
   for (const spec of WIND_HUBS[offshore ? 'offshore' : 'onshore']) turbine(spec);
