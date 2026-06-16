@@ -230,9 +230,9 @@ function frac(n: number): number {
  *  reads as a crisp point of light, never a soft wash. The atom of the whole
  *  fairy-light language — every string and field is made of these. */
 function bulb(g: Graphics, x: number, y: number, r: number, color: number, a: number): void {
-  g.circle(x, y, r * 2.1).fill({ color, alpha: a * 0.16 }); // soft outer bloom
-  g.circle(x, y, r * 1.05).fill({ color, alpha: a * 0.6 }); // the coloured bulb
-  g.circle(x, y, Math.max(0.5, r * 0.45)).fill({ color: 0xffffff, alpha: a * 0.95 }); // hot core
+  g.circle(x, y, r * 2.3).fill({ color, alpha: a * 0.22 }); // soft outer bloom
+  g.circle(x, y, r * 1.15).fill({ color, alpha: a * 0.72 }); // the coloured bulb
+  g.circle(x, y, Math.max(0.7, r * 0.52)).fill({ color: 0xffffff, alpha: Math.min(1, a * 1.05) }); // hot core
 }
 
 /** A draped FESTOON of twinkling bulbs from (x0,y0)→(x1,y1), sagging by `sag`
@@ -258,7 +258,7 @@ function festoon(
     const ph = phase + i * 1.73;
     const tw = 0.5 + 0.5 * Math.sin(t * 3.1 + ph);
     const col = pal[i % pal.length] ?? FWHITE;
-    bulb(g, x, y, (0.62 + 0.5 * tw) * RES, col, (0.42 + 0.55 * tw) * k);
+    bulb(g, x, y, (1.0 + 0.7 * tw) * RES, col, (0.55 + 0.5 * tw) * k);
   }
 }
 
@@ -290,7 +290,7 @@ export function drawHeroLights(
   // the show only blooms toward dusk/night; capped so it never neon-spams by
   // day. A tiny floor keeps a lit landmark faintly twinkling even mid-afternoon.
   const lvl = Math.max(0, Math.min(1, glow));
-  const intensity = 0.12 + 0.92 * lvl;
+  const intensity = 0.22 + 0.95 * lvl;
   if (intensity <= 0.02 || heroes.length === 0) return;
   for (const h of heroes) {
     switch (h.kind) {
@@ -347,7 +347,7 @@ function eiffelSparkle(g: Graphics, h: HeroLight, t: number, k: number): void {
     const tw = 0.5 + 0.5 * Math.sin(t * 4.1 + i * 1.7 + h.phase * 6.28);
     // mostly warm-gold, an occasional white sparkle
     const col = frac(i * 8.1 + h.phase) > 0.82 ? FWHITE : FGOLD;
-    bulb(g, x, y, (0.55 + 0.7 * tw) * RES, col, (0.3 + 0.7 * tw * tw) * k);
+    bulb(g, x, y, (0.95 + 0.8 * tw) * RES, col, (0.4 + 0.6 * tw * tw) * k);
   }
   ember(g, h.cx, h.topY, t, k);
 }
@@ -365,7 +365,7 @@ function spireBeacon(g: Graphics, h: HeroLight, t: number, k: number): void {
     const half = h.w * (0.92 - f * 0.85) + 0.5 * RES; // taper to the point
     const x = h.cx + (frac(i * 6.7 + h.phase) - 0.5) * 1.9 * half;
     const sh = 0.5 + 0.5 * Math.sin(t * 2.6 + i * 1.3 + h.phase * 6.28);
-    bulb(g, x, y, (0.5 + 0.55 * sh) * RES, COOL, (0.3 + 0.5 * sh) * k);
+    bulb(g, x, y, (0.85 + 0.6 * sh) * RES, COOL, (0.42 + 0.5 * sh) * k);
   }
   // the tip beacon (a steady, slow-breathing white-blue point)
   const br = 0.6 + 0.4 * Math.sin(t * 1.6 + h.phase);
@@ -393,7 +393,7 @@ function towerCrown(g: Graphics, h: HeroLight, t: number, k: number): void {
       const x = h.cx + sx * halfHere;
       // slow occupancy flicker (windows switch over tens of seconds)
       const on = Math.sin(t * 0.5 + (c * rows + r) * 2.1 + h.phase * 6.28) > -0.35 ? 1 : 0.18;
-      bulb(g, x, y, 0.85 * RES, FGOLD, 0.6 * on * k);
+      bulb(g, x, y, 1.15 * RES, FGOLD, 0.72 * on * k);
     }
   }
 }
@@ -479,7 +479,7 @@ function aerialBeacon(g: Graphics, h: HeroLight, t: number, k: number): void {
     const y = h.cy - 8 * RES - f * span * 0.8;
     const tw = 0.5 + 0.5 * Math.sin(t * 2.2 + i * 1.5 + h.phase * 6.28);
     for (const sx of [-1, 1] as const) {
-      bulb(g, h.cx + sx * h.w * 0.6, y, (0.5 + 0.35 * tw) * RES, COOL, (0.32 + 0.3 * tw) * k);
+      bulb(g, h.cx + sx * h.w * 0.6, y, (0.85 + 0.5 * tw) * RES, COOL, (0.45 + 0.3 * tw) * k);
     }
   }
   // the aerial-gallery ring just below the top (a festoon hoop of warm bulbs)
@@ -505,7 +505,7 @@ function rimCycle(g: Graphics, h: HeroLight, t: number, k: number): void {
     const x = cx + Math.cos(a) * R;
     const y = cy + Math.sin(a) * R * 0.97;
     const tw = 0.7 + 0.3 * Math.sin(t * 3.0 + i * 0.9 + h.phase * 6.28);
-    bulb(g, x, y, (0.85 + 0.4 * tw) * RES, col, 0.9 * k);
+    bulb(g, x, y, (1.4 + 0.5 * tw) * RES, col, 0.95 * k);
   }
 }
 
@@ -523,7 +523,7 @@ function archGlow(g: Graphics, h: HeroLight, t: number, k: number): void {
     const y = m * m * aL.y + 2 * m * f * apex.y + f * f * aR.y;
     // a bright wave travels along the arch
     const wave = 0.5 + 0.5 * Math.sin(t * 2.2 - f * 6.0 + h.phase);
-    bulb(g, x, y, (0.7 + 0.6 * wave) * RES, FWHITE, (0.32 + 0.55 * wave) * k);
+    bulb(g, x, y, (1.05 + 0.8 * wave) * RES, FWHITE, (0.45 + 0.5 * wave) * k);
   }
 }
 
@@ -538,7 +538,7 @@ function stadiumFlood(g: Graphics, h: HeroLight, t: number, k: number): void {
     const x = h.cx + Math.cos(a) * h.w * 1.0;
     const y = rimY + Math.sin(a) * h.w * 0.5;
     const tw = 0.6 + 0.4 * Math.sin(t * 2.4 + i * 1.3 + h.phase * 6.28);
-    bulb(g, x, y, (0.9 + 0.4 * tw) * RES, 0xf3f0e0, (0.55 + 0.35 * tw) * k);
+    bulb(g, x, y, (1.25 + 0.5 * tw) * RES, 0xf3f0e0, (0.6 + 0.35 * tw) * k);
   }
   // the pitch glows faintly from the spilled floodlight (one soft pool)
   halo(g, h.cx, rimY, h.w * 0.55, 0xeae6d2, 0.07 * k);
@@ -556,7 +556,7 @@ function genericGlow(g: Graphics, h: HeroLight, t: number, k: number): void {
     const y = h.cy - span * (0.16 + f * 0.34);
     const x = h.cx + (frac(i * 9.3 + h.phase) - 0.5) * 1.4 * h.w;
     const on = Math.sin(t * 0.6 + i * 2.3 + h.phase * 6.28) > -0.4 ? 1 : 0.22;
-    bulb(g, x, y, 0.7 * RES, FGOLD, 0.5 * on * k);
+    bulb(g, x, y, 1.0 * RES, FGOLD, 0.62 * on * k);
   }
 }
 
