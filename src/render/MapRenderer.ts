@@ -416,6 +416,10 @@ export class MapRenderer {
   /** Additive light layer ABOVE the tinted world — mirrors the camera
    *  transform so energized windows + kit bloom shine through the night. */
   private glowWorld = new Container();
+  /** Normal-blend world-space layer UNDER the glow — lets the per-hero dusk
+   *  pockets actually DARKEN energised heroes (the glow layer is additive-only).
+   *  Mirrors the camera like glowWorld. */
+  private heroDuskWorld = new Container();
   private lightsSprite: Sprite | undefined;
   private bloomG = new Graphics();
   /** Hero-landmark COLOUR-POP (owner playtest, 2026-06-13: the old additive
@@ -530,10 +534,6 @@ export class MapRenderer {
     this.city.addChild(this.roadVehicleLayer);
     this.city.addChild(this.bridgeTopLayer);
     this.city.addChild(this.structureLayer);
-    // dusk pockets darken each ENERGISED hero so its fairy lights pop — in the
-    // WORLD layer (normal blend, over the buildings) because the glow layer
-    // above is additive-only and cannot darken.
-    this.city.addChild(this.heroDuskG);
     // the air fleet flies over the buildings, under the pins/labels
     this.city.addChild(this.airLayer);
     this.world.addChild(this.city);
@@ -569,6 +569,8 @@ export class MapRenderer {
     this.heroLightsG.blendMode = 'add';
     this.heroLightsG.eventMode = 'none';
     this.heroDuskG.eventMode = 'none'; // normal blend (default) ⇒ it darkens
+    this.heroDuskWorld.eventMode = 'none';
+    this.heroDuskWorld.addChild(this.heroDuskG);
     this.glowWorld.addChild(this.bloomG);
     this.glowWorld.addChild(this.gleamG);
     this.glowWorld.addChild(this.heroLightsG);
@@ -586,6 +588,9 @@ export class MapRenderer {
       layer.eventMode = 'none';
     }
     this.app.stage.addChildAt(this.skyG, 0);
+    // dusk pockets: a normal-blend world-space layer UNDER the additive glow so
+    // darkening energised heroes actually reads (the glow layer can't darken).
+    this.app.stage.addChild(this.heroDuskWorld);
     this.app.stage.addChild(this.glowWorld, this.sheenG, this.rainG, this.flashG, this.vignette);
     this.applySeason(seasonOf(this.atmoTime));
 
@@ -1008,6 +1013,8 @@ export class MapRenderer {
     // the glow layer rides the camera
     this.glowWorld.position.copyFrom(this.world.position);
     this.glowWorld.scale.copyFrom(this.world.scale);
+    this.heroDuskWorld.position.copyFrom(this.world.position);
+    this.heroDuskWorld.scale.copyFrom(this.world.scale);
     const glowOn = !this.gridViewOn;
     if (this.lightsSprite) this.lightsSprite.alpha = glowOn ? g.glow * 0.85 : 0;
     this.bloomG.alpha = glowOn ? g.glow * 0.9 : 0;
