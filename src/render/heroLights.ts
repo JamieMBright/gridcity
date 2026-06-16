@@ -38,6 +38,18 @@ export type HeroLightKind =
   | 'stadiumFlood' // floodlit bowl rim (stadiums / arenas / the O2)
   | 'genericGlow'; // warm uplight + window glow — the fallback so all heroes light
 
+/** A per-city BESPOKE hero's electrification light SPEC (registry-supplied,
+ *  parallel to the enum heroes' heroLightKind + HERO_GEOM). `kind` picks the
+ *  signature effect; `topZ`/`halfW` (sprite-px crown height + tile-diamond
+ *  half-width, same units as HERO_GEOM) place the lit mass ON the silhouette.
+ *  Both geometry fields optional — omitted ⇒ the renderer's footprint estimate.
+ *  A hero with no spec at all falls back to the generic warm hero glow. */
+export interface HeroLightSpec {
+  kind: HeroLightKind;
+  topZ?: number | undefined;
+  halfW?: number | undefined;
+}
+
 /** PURE mapping: landmark id → bespoke effect kind. Factored out so it can be
  *  unit-tested in isolation (no Pixi, no renderer). Anything not listed falls
  *  through to the generic warm glow — every hero still lights up. */

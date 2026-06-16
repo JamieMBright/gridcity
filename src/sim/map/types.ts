@@ -46,12 +46,36 @@ export interface TransportRoute {
  *  scenarioId), so adding these is free of any SAVE_VERSION implication. */
 
 /** A labelled place (transport terminus, monument…). `landmark` gates it to
- *  the mid/close zoom bands so it never clutters the far whole-region view. */
+ *  the mid/close zoom bands so it never clutters the far whole-region view.
+ *  `heroKey` (when set) is the per-city BESPOKE-hero registry key this place
+ *  resolved to (for UI/search); the RENDER path reads the map's `heroTable`,
+ *  not this field. */
 export interface MapPlace {
   x: number;
   y: number;
   name: string;
   landmark?: boolean | undefined;
+  heroKey?: string | undefined;
+}
+
+/** Landmark-raster values `>= HERO_BASE` are NOT global LANDMARK enum ids —
+ *  they are indices into the map's per-city `heroTable` (value − HERO_BASE),
+ *  carrying a STRING-keyed bespoke hero sprite. Values `< HERO_BASE` stay the
+ *  existing global LANDMARK enum, UNCHANGED. The enum maxes at 45 today, so
+ *  100 partitions the byte cleanly with generous headroom: this breaks the
+ *  old 255-sprites-total ceiling (a city can now carry up to ~155 bespoke
+ *  heroes in its own table, keyed by string, with zero collisions across
+ *  cities). Purely additive: a city with an empty heroTable never produces a
+ *  `>= HERO_BASE` value, so it renders byte-identically. */
+export const HERO_BASE = 100;
+
+/** One placed bespoke-hero slot, referenced by a landmark-raster value of
+ *  `HERO_BASE + index`. `key` selects the per-city registry sprite
+ *  (`hero_<fabric>_<key>`); `foot` is its footprint in tiles (w, h),
+ *  SW-anchored exactly like the multi-tile enum heroes. */
+export interface HeroSlot {
+  key: string;
+  foot: readonly [number, number];
 }
 
 /** A town/village label. `r` is the urban-core radius (drives label size +
@@ -254,6 +278,12 @@ export interface CityMap {
   named?: MapPlace[] | undefined;
   towns?: MapTown[] | undefined;
   airports?: MapAirport[] | undefined;
+  /** RUNTIME bespoke-hero table: index i is referenced by the landmark-raster
+   *  value `HERO_BASE + i`. Like `named`/`towns`, this is presentation scenery
+   *  rebuilt from the scenarioId at load (in buildCityFromData) and is NEVER
+   *  serialized into a save — so adding it has no SAVE_VERSION implication.
+   *  Omitted/empty ⇒ no bespoke heroes ⇒ the map renders byte-identically. */
+  heroTable?: HeroSlot[] | undefined;
 }
 
 export const NO_COUNCIL = 255;

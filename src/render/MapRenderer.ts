@@ -29,7 +29,7 @@ import { farmClaimTiles, isFarmGen } from '../sim/farms';
 import { GENS, SUBS } from '../sim/catalog';
 import type { VoltageLevel } from '../sim/grid/types';
 import { sampleRoute } from '../sim/map/routes';
-import { CUSTOMERS_PER_TILE, LANDMARK, type CityMap, type Landmark, type MapAirport, type RouteClass, type Zone } from '../sim/map/types';
+import { CUSTOMERS_PER_TILE, HERO_BASE, LANDMARK, type CityMap, type Landmark, type MapAirport, type RouteClass, type Zone } from '../sim/map/types';
 import { COV, type BranchView } from '../sim/tick';
 import { getAtlas } from './atlasCache';
 import { AIR_MAX_BAND, emitFlightArcs, emitPlanes } from './airLayer';
@@ -72,6 +72,7 @@ import {
   HERO_LIGHT_LANDMARKS,
   type HeroLight,
 } from './heroLights';
+import { lightSpecFor } from './sprites/heroes/registry';
 
 const HALF_W = CELL_W / 2;
 const HALF_H = FLOOR_H / 2;
@@ -939,7 +940,7 @@ export class MapRenderer {
         const struct = this.structureSprites.get(i);
         if (struct) {
           const name = structureSpriteFor(map, x, y);
-          struct.tint = name && MapRenderer.HERO_SPRITES.has(name)
+          struct.tint = name && MapRenderer.isHeroSprite(name)
             ? MapRenderer.HERO_POP_TINT
             : (name ? seasonTintFor(name, season) : undefined) ?? 0xffffff;
         }
@@ -1141,6 +1142,13 @@ export class MapRenderer {
     'lm_velodrome', 'lm_westfield',
   ]);
 
+  /** Is this structure-sprite name a focal hero (gets the warm colour-pop)?
+   *  Every per-city BESPOKE hero (`hero_<city>_<key>`) is a focal hero, plus
+   *  the enum HERO_SPRITES above. */
+  private static isHeroSprite(name: string): boolean {
+    return MapRenderer.HERO_SPRITES.has(name) || name.startsWith('hero_');
+  }
+
   /** The hero landmarks that earn the special rim-light + colour pop
    *  (env-art 5% hero rule): the silhouette icons + glass towers, with a
    *  per-id rim radius. The civic kit (station/school/townhall…) is
@@ -1207,30 +1215,46 @@ export class MapRenderer {
     this.heroLitNow = [];
     const map = this.map;
     if (!map || !map.landmark) return;
-    const lmAt = (xx: number, yy: number): Landmark =>
+    const fabric = map.fabric ?? 'london';
+    // raw raster value at (x,y) (0 off-map); `>= HERO_BASE` is a heroTable index
+    const rawAt = (xx: number, yy: number): number =>
       xx >= 0 && yy >= 0 && xx < map.width && yy < map.height
-        ? ((map.landmark?.[yy * map.width + xx] ?? 0) as Landmark)
-        : (0 as Landmark);
+        ? (map.landmark?.[yy * map.width + xx] ?? 0)
+        : 0;
     for (let y = 0; y < map.height; y++) {
       for (let x = 0; x < map.width; x++) {
-        const lm = lmAt(x, y);
-        if (!HERO_LIGHT_LANDMARKS.has(lm)) continue;
-        // anchor = the reservation's top-left tile (no same-id tile N or W)
-        if (lmAt(x - 1, y) === lm || lmAt(x, y - 1) === lm) continue;
-        // collect the contiguous same-id block (rectangular reservation): its
+        const raw = rawAt(x, y);
+        // a bespoke hero (>= HERO_BASE) ALWAYS earns a light-show (its own spec,
+        // or the generic hero glow fallback); enum heroes gate on the set.
+        const isBespoke = raw >= HERO_BASE;
+        const lm = raw as Landmark;
+        if (!isBespoke && !HERO_LIGHT_LANDMARKS.has(lm)) continue;
+        // anchor = the reservation's top-left tile (no same-value tile N or W)
+        if (rawAt(x - 1, y) === raw || rawAt(x, y - 1) === raw) continue;
+        // collect the contiguous same-value block (rectangular reservation): its
         // tile indices feed the energisation test, and its extent feeds the
         // anchor centre + world half-width.
         let x1 = x;
-        while (lmAt(x1 + 1, y) === lm) x1++;
+        while (rawAt(x1 + 1, y) === raw) x1++;
         let y1 = y;
-        while (lmAt(x, y1 + 1) === lm) y1++;
+        while (rawAt(x, y1 + 1) === raw) y1++;
         const tiles: number[] = [];
         for (let ty = y; ty <= y1; ty++) {
           for (let tx = x; tx <= x1; tx++) {
-            if (lmAt(tx, ty) === lm) tiles.push(ty * map.width + tx);
+            if (rawAt(tx, ty) === raw) tiles.push(ty * map.width + tx);
           }
         }
-        const kind = heroLightKind(lm);
+        // bespoke heroes resolve their effect kind + geometry from the per-city
+        // registry spec (falling back to the generic glow / footprint estimate
+        // when a hero declares no light); enum heroes use the enum maps.
+        const slot = isBespoke ? map.heroTable?.[raw - HERO_BASE] : undefined;
+        const spec = slot ? lightSpecFor(fabric, slot.key) : undefined;
+        const kind = isBespoke ? (spec?.kind ?? 'genericGlow') : heroLightKind(lm);
+        const geom = isBespoke
+          ? (spec && spec.topZ !== undefined && spec.halfW !== undefined
+              ? { topZ: spec.topZ, halfW: spec.halfW }
+              : undefined)
+          : HERO_GEOM[lm];
         // footprint centre on the ground, in world px
         const cxTile = (x + x1) / 2;
         const cyTile = (y + y1) / 2;
@@ -1238,7 +1262,6 @@ export class MapRenderer {
         // accurate sprite geometry (matched to the art so the lit crown lands
         // ON the silhouette — the Eye proved generic estimates read as a
         // searchlight). Fall back to a footprint estimate for unlisted heroes.
-        const geom = HERO_GEOM[lm];
         const spanTiles = x1 - x + (y1 - y) + 1;
         const w = geom
           ? Math.max(geom.halfW * HALF_W, HALF_W * 0.6)
@@ -1731,7 +1754,7 @@ export class MapRenderer {
       s.position.set(baseX + (o?.ox ?? 0), baseY + (o?.oy ?? 0) - (o?.headroom ?? 0));
       // hero landmarks take the warm colour-pop tint (focal-5% contrast);
       // everything else takes its seasonal tint (or none)
-      s.tint = MapRenderer.HERO_SPRITES.has(structName)
+      s.tint = MapRenderer.isHeroSprite(structName)
         ? MapRenderer.HERO_POP_TINT
         : (this.seasonNow ? seasonTintFor(structName, this.seasonNow) ?? 0xffffff : 0xffffff);
       s.zIndex = x + y;

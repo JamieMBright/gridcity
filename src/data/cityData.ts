@@ -12,16 +12,19 @@
 
 import {
   CUSTOMERS_PER_TILE,
+  HERO_BASE,
   TERRAIN,
   ZONE,
   type CityMap,
   type CouncilProfile,
+  type HeroSlot,
   type MapAirport,
   type MapPlace,
   type MapTown,
   type TransportRoute,
   type Zone,
 } from '../sim/map/types';
+import { footFor, resolveBespokeKey } from '../render/sprites/heroes/registry';
 
 export interface CityNamedPlace {
   x: number;
@@ -166,5 +169,51 @@ export function buildCityFromData(d: CityData): CityMap {
     airports,
   };
   fillDerivedLayers(map);
+  buildHeroTable(map);
   return map;
+}
+
+/**
+ * Build the RUNTIME bespoke-hero table from the city's `named` places (no
+ * artifact regen — the placement is re-resolved from the committed names at
+ * load). For every landmark place whose name matches a bespoke hero in this
+ * city's registry, allocate a heroTable slot and STAMP `HERO_BASE + index`
+ * across the hero's footprint in the landmark raster (SW-anchored: the named
+ * place's (x, y) is the south-west corner, the block extends E +x and N −y —
+ * exactly the convention tools/osm/buildCityFromOsm.placeHeroes uses), so the
+ * tile chooser draws the bespoke sprite instead of the archetype it had.
+ *
+ * Additive by construction: a place with NO bespoke match keeps its existing
+ * archetype landmark value untouched, and a city with an empty registry
+ * (London for now) builds an empty table and never writes a `>= HERO_BASE`
+ * value — so it renders byte-identically.
+ */
+export function buildHeroTable(map: CityMap): void {
+  const fabric = map.fabric ?? 'london';
+  const named = map.named;
+  const landmark = map.landmark;
+  if (!named || !landmark) return;
+  const table: HeroSlot[] = [];
+  for (const place of named) {
+    if (!place.landmark) continue;
+    const key = resolveBespokeKey(fabric, place.name);
+    if (!key) continue; // no bespoke hero → keep its archetype landmark value
+    const foot = footFor(fabric, key);
+    const index = table.length;
+    table.push({ key, foot });
+    place.heroKey = key;
+    const value = HERO_BASE + index;
+    // stamp the W×H footprint, SW-anchored on (x, y): extend E (+x) and N (−y),
+    // clipped to the map (off-map tiles are simply skipped).
+    const [fw, fh] = foot;
+    for (let dx = 0; dx < fw; dx++) {
+      for (let dy = 0; dy < fh; dy++) {
+        const tx = place.x + dx;
+        const ty = place.y - dy;
+        if (tx < 0 || tx >= map.width || ty < 0 || ty >= map.height) continue;
+        landmark[ty * map.width + tx] = value;
+      }
+    }
+  }
+  if (table.length > 0) map.heroTable = table;
 }

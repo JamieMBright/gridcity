@@ -10,6 +10,7 @@ import { Raster } from './sprites/raster';
 import * as world from './sprites/worldSprites';
 import * as buildings from './sprites/buildingSprites';
 import { activeFabric } from './sprites/buildingSprites';
+import { bespokeHeroesFor } from './sprites/heroes/registry';
 import * as landmarks from './sprites/landmarkSprites';
 import * as network from './sprites/networkSprites';
 import { buildAtlas, type AtlasFrame, type SpriteAtlas } from './sprites/atlas';
@@ -34,6 +35,13 @@ function fingerprint(): string {
       if (typeof fn === 'function') sources.push(String(fn));
     }
   }
+  // the ACTIVE fabric's registered bespoke-hero keys (sorted, stable) bust the
+  // cache when a city's hero set changes. GUARD: an EMPTY registry (London for
+  // now) appends NOTHING, so London keeps its EXACT historical fingerprint and
+  // its cached sheet is reused, not rebaked. (The heroes' draw fns live in
+  // landmarkSprites, already hashed above, so the key list is enough.)
+  const heroKeys = bespokeHeroesFor(activeFabric()).map((h) => h.key).sort();
+  if (heroKeys.length > 0) sources.push(`heroes:${heroKeys.join(',')}`);
   // djb2 over the concatenated sources
   let h = 5381;
   const s = sources.join('\n');

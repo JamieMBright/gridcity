@@ -5,7 +5,8 @@
 // road ribbons between the two.
 
 import { FLAG_RUNWAY, FLAG_SHOPS, riverCenterY } from '../data/londonMap';
-import { LANDMARK, RC, TERRAIN, ZONE, type CityMap, type Landmark } from '../sim/map/types';
+import { HERO_BASE, LANDMARK, RC, TERRAIN, ZONE, type CityMap, type Landmark } from '../sim/map/types';
+import { frameIdFor } from './sprites/heroes/registry';
 
 /** Landmarks drawn as ONE multi-tile sprite covering their whole map
  *  reservation. The sprite is SW-anchored (see Iso swAnchor): emitting it
@@ -191,7 +192,28 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
 
   // landmarks are protected fabric — they render even where routes pass
   // (the tower bridge carries the road between its towers)
-  const lm = (map.landmark?.[i] ?? LANDMARK.none) as Landmark;
+  const lmRaw = map.landmark?.[i] ?? LANDMARK.none;
+  // BESPOKE HERO (raster value >= HERO_BASE): a per-city string-keyed sprite
+  // placed via the runtime heroTable, drawn exactly like the multi-tile enum
+  // heroes (one SW-anchored sprite on the reservation's (min x, max y) tile).
+  if (lmRaw >= HERO_BASE) {
+    const slot = map.heroTable?.[lmRaw - HERO_BASE];
+    if (slot) {
+      // anchor = the reservation's (min x, max y) SW corner — no same-index
+      // tile to the W, S or SW — exactly the enum BLOCK_LANDMARKS rule, so the
+      // standard 1×1 placement pins the whole SW-anchored foot. The footprint
+      // is a clean w×h rectangle of this exact index value (stamped from its
+      // SW corner in buildCityFromData, extending E +x and N −y).
+      const sameH = (xx: number, yy: number): boolean =>
+        xx >= 0 && xx < map.width && yy >= 0 && yy < map.height &&
+        (map.landmark?.[yy * map.width + xx] ?? LANDMARK.none) === lmRaw;
+      const anchor = !sameH(x - 1, y) && !sameH(x, y + 1) && !sameH(x - 1, y + 1);
+      return anchor ? frameIdFor(map.fabric ?? 'london', slot.key) : undefined;
+    }
+    // a dangling index (no slot) just falls through to open ground
+    return undefined;
+  }
+  const lm = lmRaw as Landmark;
   if (lm !== LANDMARK.none) {
     // ORDINARY civic: a 1×1 tile-sized municipal building in the city palette
     // (no apron, no grand marble block). Variant by per-tile hash so a run of

@@ -5,6 +5,8 @@
 // uploads this to a Pixi texture; the preview tool encodes it to PNG.
 
 import { isoDims, swAnchorDims } from './iso';
+import { activeFabric } from './buildingSprites';
+import { bespokeHeroesFor, frameIdFor } from './heroes/registry';
 import {
   cottageTile,
   councilflatTile,
@@ -359,6 +361,14 @@ function buildSpriteCells(): Map<string, Cell> {
   // doesn't know the stage.
   set('construction', constructionTile(244, 3));
   for (let s = 0; s < 4; s++) set(`construction_${s}`, constructionTile(244, s));
+  // per-city BESPOKE heroes (the spine that breaks the 255-value enum ceiling).
+  // Only the ACTIVE fabric's heroes bake, so each fabric's sheet stays lean and
+  // London — whose registry is EMPTY — appends NOTHING and is byte-identical.
+  // Each is an SW-anchored multi-tile hero keyed `hero_<city>_<key>`; headroom
+  // is auto-detected from the buffer like every other hero.
+  for (const hero of bespokeHeroesFor(activeFabric())) {
+    set(frameIdFor(hero.city, hero.key), hero.draw(hero.seed), hero.foot[0], hero.foot[1], true);
+  }
   return m;
 }
 
