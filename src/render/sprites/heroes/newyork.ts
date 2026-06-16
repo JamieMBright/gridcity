@@ -1480,6 +1480,1039 @@ function brooklynHistoryTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 }
 
 // ===========================================================================
+//  ROUND 2 — more of the placed `named` set. These match REAL placed names
+//  (Midtown commercial towers, the harbor's ships & sculptures, the church
+//  spires, the Fifth-Ave mansions, the Central-Park clocks & monuments). Same
+//  drab-grey gamut, slim+tall via headroom; each its own draw fn + bespoke light.
+// ===========================================================================
+
+/** BRYANT PARK HOTEL — the AMERICAN RADIATOR BUILDING (Raymond Hood, 1924):
+ *  the famous BLACK-BRICK-AND-GOLD Gothic tower meant to look like a glowing
+ *  coal — a near-black shaft with gilded terracotta setbacks and crown. Its
+ *  black-on-gold is unmistakable; slim 2×2 on headroom. */
+function bryantParkHotelTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 320 });
+  void seed;
+  const BK = hex('#33302e'); // near-black brick (the "coal")
+  const BK_D = hex('#222020');
+  const GOLD = hex('#c79a47'); // the gilded Gothic ornament + crown
+  iso.shadow(0.32, 0.5, 1.68, 1.64, 0.3, 0.28);
+  // a gilded stone base (the lobby storey glows gold)
+  iso.box(0.3, 0.42, 1.7, 1.7, 0, 22, GOLD, { topC: lighten(GOLD, 0.08) });
+  // the black shaft with strong vertical Gothic piers
+  iso.box(0.5, 0.58, 1.5, 1.52, 22, 230, BK, { leftC: BK_D, rightC: lighten(BK, 0.06) });
+  gridFace(iso, 'r', 1.5, 0.64, 1.46, 30, 222, 6, alpha(hex('#0d0c0b'), 0.9));
+  gridFace(iso, 'l', 1.52, 0.54, 1.44, 30, 222, 6, alpha(hex('#0d0c0b'), 0.92));
+  // continuous gilt-tipped piers between the window bays (the gold edges)
+  for (const v of [0.7, 0.86, 1.02, 1.18, 1.34] as const) iso.r.line(iso.P(1.5, v, 26), iso.P(1.5, v, 226), 0.8 * RES, GOLD);
+  for (const u of [0.66, 0.82, 0.98, 1.14, 1.3] as const) iso.r.line(iso.P(u, 1.52, 26), iso.P(u, 1.52, 226), 0.7 * RES, darken(GOLD, 0.18));
+  // the gilded Gothic crown: stepped black setbacks with gold pinnacle tips
+  for (const [inset, zb, zt] of [[0.62, 230, 250], [0.74, 250, 268]] as const) {
+    iso.box(inset, inset, 2 - inset, 2 - inset, zb, zt, BK, { topC: GOLD });
+    for (const [du, dv] of [[0, 0], [-0.1, 0], [0.1, 0], [0, -0.1], [0, 0.1]] as const) {
+      needle(iso, 1 + du, 1.05 + dv, zt, 16 + (du === 0 && dv === 0 ? 12 : 0), 1.4 * RES, GOLD, GOLD);
+    }
+  }
+  return iso.build();
+}
+
+/** NEW YORK COCOA EXCHANGE BUILDING (1904) — the small grey-brick FLATIRON wedge
+ *  at the fork of Beaver/Pearl/Wall: an acute triangular plan rising to a
+ *  rounded prow, a cornice and a little cupola. The wedge silhouette is the
+ *  whole point. 2×2 SW + headroom. */
+function cocoaExchangeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 200 });
+  void seed;
+  const BK = hex('#aba293'); // grey-buff brick
+  const ST = LIMESTONE;
+  iso.shadow(0.36, 0.5, 1.66, 1.62, 0.26, 0.24);
+  // A flatiron wedge with a BLUNT prow. CRITICAL for iso readability: the
+  // footprint must span the screen-x axis (u−v), not collapse along the depth
+  // axis (u+v) into a knife. So the BACK is a wide face spanning low-u-high-v to
+  // high-u-low-v, and the prow pushes toward the viewer (both u and v larger).
+  // Corners (u,v): back-left (low u, high v) and back-right (high u, low v) give
+  // the wide base; the prow is a short flat face out front.
+  const bL = { u: 0.4, v: 1.5 }; // back-left  (screen far-left)
+  const bR = { u: 1.5, v: 0.4 }; // back-right (screen far-right)
+  const pL = { u: 1.18, v: 1.74 }; // prow-left
+  const pR = { u: 1.74, v: 1.18 }; // prow-right
+  const Z = 150; // taller — a proper little tower
+  // right (sun) street wall: bR → pR
+  iso.r.poly([iso.P(bR.u, bR.v, 0), iso.P(pR.u, pR.v, 0), iso.P(pR.u, pR.v, Z), iso.P(bR.u, bR.v, Z)], lit(BK, 0.05));
+  // left (dusk) street wall: bL → pL
+  iso.r.poly([iso.P(bL.u, bL.v, 0), iso.P(pL.u, pL.v, 0), iso.P(pL.u, pL.v, Z), iso.P(bL.u, bL.v, Z)], shaded(BK, 0.08));
+  // the short blunt PROW face: pL → pR (the rounded nose, drawn flat + lit)
+  iso.r.poly([iso.P(pL.u, pL.v, 0), iso.P(pR.u, pR.v, 0), iso.P(pR.u, pR.v, Z), iso.P(pL.u, pL.v, Z)], lit(BK, 0.1));
+  // back wall: bL → bR
+  iso.r.poly([iso.P(bL.u, bL.v, 0), iso.P(bR.u, bR.v, 0), iso.P(bR.u, bR.v, Z), iso.P(bL.u, bL.v, Z)], shaded(BK, 0.16));
+  // the top
+  iso.r.poly([iso.P(bL.u, bL.v, Z), iso.P(bR.u, bR.v, Z), iso.P(pR.u, pR.v, Z), iso.P(pL.u, pL.v, Z)], top(BK, 0.2));
+  iso.r.polyline([iso.P(bL.u, bL.v, Z), iso.P(bR.u, bR.v, Z), iso.P(pR.u, pR.v, Z), iso.P(pL.u, pL.v, Z), iso.P(bL.u, bL.v, Z)], INK_W * 0.7, INK, true);
+  // the prow vertical edges (the two nose corners) + the back-right vertical
+  iso.edge(iso.P(pL.u, pL.v, 0), iso.P(pL.u, pL.v, Z));
+  iso.edge(iso.P(pR.u, pR.v, 0), iso.P(pR.u, pR.v, Z));
+  iso.edge(iso.P(bR.u, bR.v, 0), iso.P(bR.u, bR.v, Z));
+  // window rows down both street faces + the prow face
+  for (let z = 18; z < Z - 14; z += 15) {
+    iso.r.line(iso.P(bR.u, bR.v, z), iso.P(pR.u, pR.v, z), 0.6 * RES, alpha(GLASS_DK, 0.5));
+    iso.r.line(iso.P(bL.u, bL.v, z), iso.P(pL.u, pL.v, z), 0.6 * RES, alpha(GLASS_DK, 0.45));
+    iso.r.line(iso.P(pL.u, pL.v, z), iso.P(pR.u, pR.v, z), 0.6 * RES, alpha(GLASS_DK, 0.55));
+  }
+  // a strong limestone cornice ring + a low parapet
+  iso.r.poly([iso.P(bL.u, bL.v, Z), iso.P(bR.u, bR.v, Z), iso.P(pR.u, pR.v, Z), iso.P(pL.u, pL.v, Z)], alpha(lighten(ST, 0.1), 0.4));
+  // a small cupola/flagpole over the prow nose
+  const nu = (pL.u + pR.u) / 2;
+  const nv = (pL.v + pR.v) / 2;
+  iso.box(nu - 0.08, nv - 0.08, nu + 0.08, nv + 0.08, Z, Z + 12, ST);
+  iso.hip(nu - 0.09, nv - 0.09, nu + 0.09, nv + 0.09, Z + 12, 10, LEADROOF);
+  const [fx, fy] = iso.P(nu, nv, Z + 22);
+  iso.r.line([fx, fy], [fx, fy - 10 * RES], 0.9 * RES, GOLDLEAF);
+  return iso.build();
+}
+
+/** CANDLER BUILDING (1914, Times Square) — a slim white-glazed-terracotta
+ *  commercial tower with a bright ornamented base, a tall plain shaft and a
+ *  richly modelled crown of arched loggias and a cornice. Pale grey, slim 2×2
+ *  on headroom. */
+function candlerBuildingTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 320 });
+  void seed;
+  const TC = hex('#d5d0c2'); // white-glazed terracotta (greyed)
+  iso.shadow(0.32, 0.5, 1.68, 1.64, 0.3, 0.28);
+  // bright ornamented base
+  iso.box(0.28, 0.4, 1.72, 1.72, 0, 30, lighten(TC, 0.04));
+  gridFace(iso, 'r', 1.72, 0.46, 1.68, 8, 26, 8, alpha(GLASS_DK, 0.85));
+  // the tall plain shaft
+  iso.box(0.5, 0.58, 1.5, 1.52, 30, 238, TC);
+  gridFace(iso, 'r', 1.5, 0.56, 1.46, 38, 226, 7, alpha(GLASS_DK, 0.9));
+  gridFace(iso, 'l', 1.52, 0.54, 1.44, 38, 226, 7, alpha(GLASS_DK, 0.92));
+  for (const v of [0.7, 0.86, 1.02, 1.18, 1.34] as const) iso.r.line(iso.P(1.5, v, 38), iso.P(1.5, v, 228), 0.6 * RES, lighten(TC, 0.12));
+  // the modelled crown: an arcaded loggia stage + a heavy cornice + parapet
+  iso.box(0.48, 0.56, 1.52, 1.54, 238, 258, lighten(TC, 0.05));
+  for (let v = 0.6; v < 1.48; v += 0.18) {
+    iso.r.poly([iso.P(1.52, v, 240), iso.P(1.52, v + 0.1, 240), iso.P(1.52, v + 0.1, 252), iso.P(1.52, v + 0.05, 257), iso.P(1.52, v, 252)], alpha(GLASS_DK, 0.85));
+  }
+  iso.box(0.44, 0.52, 1.56, 1.58, 258, 266, lighten(TC, 0.1), { ink: false });
+  iso.box(0.5, 0.58, 1.5, 1.52, 266, 276, TC, { ink: false });
+  return iso.build();
+}
+
+/** INTERNATIONAL MERCANTILE MARINE CO. BUILDING (1 Broadway, 1884/1921) — the
+ *  great grey-granite shipping-line headquarters at Bowling Green: a broad block
+ *  with a rusticated base, a richly carved entrance, ranks of windows and a
+ *  strong cornice — and the carved ship's-prows over the doors. 3×3 SW. */
+function immBuildingTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 200 });
+  void seed;
+  const ST = hex('#bdb7aa'); // grey granite
+  iso.shadow(0.42, 0.7, 2.58, 2.55, 0.26, 0.24);
+  iso.box(0.36, 0.52, 2.64, 2.6, 0, 24, GRANITE); // rusticated base
+  iso.box(0.42, 0.58, 2.58, 2.54, 24, 150, ST);
+  // dense window grid on the two faces (a commercial palazzo)
+  gridFace(iso, 'r', 2.58, 0.66, 2.5, 34, 140, 12, alpha(GLASS_DK, 0.9));
+  gridFace(iso, 'l', 2.54, 0.58, 2.46, 34, 140, 12, alpha(GLASS_DK, 0.92));
+  for (let v = 0.7; v < 2.5; v += 0.16) iso.r.line(iso.P(2.58, v, 30), iso.P(2.58, v, 144), 0.5 * RES, lighten(ST, 0.1));
+  // the grand arched entrance with the carved ship's-prow over it
+  iso.r.poly([iso.P(2.58, 1.35, 4), iso.P(2.58, 1.7, 4), iso.P(2.58, 1.7, 24), iso.P(2.58, 1.52, 34), iso.P(2.58, 1.35, 24)], darken(GRANITE, 0.2));
+  // heavy cornice + a low attic
+  iso.box(0.34, 0.5, 2.66, 2.62, 150, 158, lighten(ST, 0.07), { ink: false });
+  iso.box(0.5, 0.66, 2.5, 2.46, 158, 168, ST, { ink: false });
+  return iso.build();
+}
+
+/** CHARLES SCRIBNER'S SONS BUILDING (Ernest Flagg, 1913) — the elegant Fifth-Ave
+ *  bookshop: a slim Beaux-Arts façade with a great two-storey arched IRON-AND-
+ *  GLASS storefront below ranks of windows, a delicate cornice. Pale grey,
+ *  slim, 2×2 SW. */
+function scribnersTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 120 });
+  void seed;
+  const ST = hex('#cdc8ba');
+  const IRON = hex('#3f4750');
+  iso.shadow(0.36, 0.58, 1.64, 1.62, 0.22, 0.22);
+  iso.box(0.4, 0.54, 1.6, 1.7, 0, 78, ST);
+  // the great two-storey arched iron-and-glass storefront (the signature)
+  iso.r.poly([iso.P(1.6, 0.62, 4), iso.P(1.6, 1.6, 4), iso.P(1.6, 1.6, 30), iso.P(1.6, 1.1, 44), iso.P(1.6, 0.62, 30)], alpha(hex('#1c2740'), 0.9));
+  // the iron tracery ribs of the arch
+  for (const v of [0.78, 0.94, 1.1, 1.26, 1.42] as const) iso.r.line(iso.P(1.602, v, 6), iso.P(1.602, v, 32), 0.7 * RES, IRON);
+  iso.r.polyline([iso.P(1.6, 0.62, 30), iso.P(1.6, 1.1, 44), iso.P(1.6, 1.6, 30)], INK_W * 0.6, IRON);
+  // upper ranks of windows + a delicate cornice
+  gridFace(iso, 'r', 1.6, 0.6, 1.62, 48, 72, 5, alpha(GLASS_DK, 0.9));
+  iso.box(0.38, 0.52, 1.62, 1.72, 78, 84, lighten(ST, 0.07), { ink: false });
+  return iso.build();
+}
+
+// ===========================================================================
+//  ROUND-2 CHURCHES — each a distinct silhouette (a Byzantine dome, a marble
+//  Gothic spire, a Georgian steeple, twin Baroque towers). Grey stone gamut.
+// ===========================================================================
+
+/** ST. BARTHOLOMEW'S CHURCH (Bertram Goodhue, 1918) — the Park-Ave Byzantine-
+ *  Romanesque church: a broad low body of salmon-grey brick and limestone bands,
+ *  the great triple-arched Stanford-White PORCH, and the wide polychrome TILED
+ *  DOME over the crossing. The dome + porch identify it. 2×2 SW + headroom. */
+function stBartholomewTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 130 });
+  void seed;
+  const ST = hex('#c2b6a4'); // salmon-grey brick + limestone
+  const TILE = hex('#b08a4e'); // the polychrome-tile dome (gold-buff at dusk)
+  iso.shadow(0.34, 0.56, 1.66, 1.64, 0.22, 0.22);
+  // the broad low cruciform body
+  iso.box(0.4, 0.5, 1.6, 1.72, 0, 58, ST);
+  // banded coursing
+  for (const z of [20, 38] as const) iso.r.line(iso.P(1.6, 0.5, z), iso.P(1.6, 1.72, z), 0.8 * RES, lighten(ST, 0.14));
+  // the great triple-arched front PORCH (the Stanford White doors)
+  for (const v of [0.66, 0.96, 1.26] as const) {
+    iso.r.poly([iso.P(1.6, v, 6), iso.P(1.6, v + 0.2, 6), iso.P(1.6, v + 0.2, 30), iso.P(1.6, v + 0.1, 42), iso.P(1.6, v, 30)], alpha(hex('#2a2233'), 0.85));
+    iso.r.polyline([iso.P(1.6, v, 30), iso.P(1.6, v + 0.1, 42), iso.P(1.6, v + 0.2, 30)], INK_W * 0.5, INK);
+  }
+  // the wide tiled crossing dome on a low drum
+  const cu = 0.94;
+  const cv = 1.0;
+  iso.box(cu - 0.26, cv - 0.26, cu + 0.26, cv + 0.26, 58, 72, lighten(ST, 0.04));
+  const [dx, dyB] = iso.P(cu, cv, 72);
+  const DR = 0.5 * (CELL_W / 2);
+  const dome = (s: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 18; i++) {
+      const a = Math.PI * (i / 18);
+      pts.push([dx + Math.cos(a) * DR * s, dyB - Math.sin(a) * DR * 0.72 * s]);
+    }
+    return pts;
+  };
+  iso.r.poly(dome(1), shaded(TILE, 0.06), lit(TILE, 0.06));
+  for (const k of [-0.62, -0.22, 0.22, 0.62]) iso.r.line([dx + k * DR, dyB], [dx + k * DR * 0.1, dyB - DR * 0.7], 0.7 * RES, alpha(darken(TILE, 0.18), 0.8)); // gores
+  iso.r.polyline(dome(1), INK_W * 0.7, INK);
+  iso.r.line([dx, dyB - DR * 0.72], [dx, dyB - DR * 0.72 - 8 * RES], 1.1 * RES, GOLDLEAF);
+  return iso.build();
+}
+
+/** GRACE CHURCH (James Renwick, 1846) — the exquisite white-MARBLE Gothic
+ *  Revival church on Broadway, terminating the bend: a nave under a steep roof
+ *  and a tall lacy octagonal marble spire over the entrance tower. Pale grey-
+ *  white, 1×1 + big headroom (the spire towers). */
+function graceChurchTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 220 });
+  void seed;
+  const ST = hex('#d4cfc2'); // white marble
+  const ST_D = hex('#b4ae9f');
+  const GLASS = alpha(hex('#2b3350'), 0.9);
+  iso.shadow(0.28, 0.4, 0.8, 0.78, 0.2, 0.22);
+  // nave + steep roof
+  iso.box(0.46, 0.32, 0.8, 0.82, 0, 46, ST);
+  iso.gable(0.46, 0.32, 0.8, 0.82, 46, 16, 'v', LEADROOF, ST);
+  for (let i = 0; i < 4; i++) {
+    const u = 0.52 + i * 0.07;
+    iso.r.poly([iso.P(u, 0.82, 8), iso.P(u + 0.035, 0.82, 8), iso.P(u + 0.035, 0.82, 30), iso.P(u + 0.017, 0.82, 38), iso.P(u, 0.82, 30)], GLASS);
+  }
+  // the front tower + the great west window
+  const tu = 0.36;
+  const tv = 0.66;
+  iso.box(tu - 0.14, tv - 0.14, tu + 0.14, tv + 0.14, 0, 88, ST);
+  iso.r.poly([iso.P(tu - 0.08, tv + 0.14, 18), iso.P(tu + 0.08, tv + 0.14, 18), iso.P(tu + 0.08, tv + 0.14, 56), iso.P(tu, tv + 0.14, 66), iso.P(tu - 0.08, tv + 0.14, 56)], GLASS);
+  // corner pinnacles + the tall lacy octagonal marble spire
+  iso.box(tu - 0.15, tv - 0.15, tu + 0.15, tv + 0.15, 88, 94, lighten(ST, 0.04), { ink: false });
+  for (const [du, dv] of [[-0.13, -0.13], [0.13, -0.13], [-0.13, 0.13], [0.13, 0.13]] as const) {
+    needle(iso, tu + du, tv + dv, 94, 26, 1.5 * RES, ST_D, GOLDLEAF);
+  }
+  needle(iso, tu, tv, 94, 104, 3.2 * RES, ST_D, GLASS_LIT);
+  // crockets up the spire
+  const [ax, ay] = iso.P(tu, tv, 94);
+  for (let k = 1; k <= 6; k++) {
+    const yy = ay - (104 * RES * k) / 7;
+    iso.r.line([ax - 2.6 * RES, yy], [ax - 4.6 * RES, yy + 1 * RES], 0.6 * RES, ST_D);
+    iso.r.line([ax + 2.6 * RES, yy], [ax + 4.6 * RES, yy + 1 * RES], 0.6 * RES, ST_D);
+  }
+  return iso.build();
+}
+
+/** SAINT PAUL'S CHAPEL (1766) — Manhattan's oldest church, a Georgian/Classical
+ *  brownstone-and-stucco chapel with a pedimented portico, a square tower and a
+ *  tiered white steeple with a weathervane. Pale grey, 1×1 + headroom. */
+function stPaulsChapelTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 180 });
+  void seed;
+  const ST = hex('#ccc6b6'); // pale stucco
+  const ST_W = hex('#dcd7ca'); // white-painted steeple
+  iso.shadow(0.28, 0.4, 0.8, 0.78, 0.18, 0.22);
+  // the body + a hipped roof
+  iso.box(0.42, 0.34, 0.78, 0.82, 0, 44, ST);
+  gridFace(iso, 'r', 0.78, 0.4, 0.78, 8, 38, 4, alpha(GLASS_DK, 0.85));
+  iso.hip(0.4, 0.32, 0.8, 0.84, 44, 12, LEADROOF);
+  // the pedimented classical portico on the show face
+  for (let v = 0.42; v < 0.76; v += 0.1) iso.r.line(iso.P(0.78, v, 4), iso.P(0.78, v, 36), 1.3 * RES, lighten(ST, 0.16));
+  iso.r.poly([iso.P(0.78, 0.4, 36), iso.P(0.78, 0.78, 36), iso.P(0.78, 0.59, 46)], lighten(ST, 0.1));
+  // the square tower + the tiered white steeple (Georgian) at the back/centre
+  const tu = 0.5;
+  const tv = 0.5;
+  iso.box(tu - 0.1, tv - 0.1, tu + 0.1, tv + 0.1, 44, 74, ST_W);
+  iso.box(tu - 0.085, tv - 0.085, tu + 0.085, tv + 0.085, 74, 96, ST_W);
+  // an octagonal lantern stage (drawn as a narrower box) + spire
+  iso.box(tu - 0.06, tv - 0.06, tu + 0.06, tv + 0.06, 96, 112, lighten(ST_W, 0.04));
+  needle(iso, tu, tv, 112, 44, 2.4 * RES, ST_W, GOLDLEAF);
+  return iso.build();
+}
+
+/** A grand TWIN-TOWER church/cathedral: a long basilica nave, a great rose
+ *  window between two square towers, each capped per the building (pyramidal
+ *  copper, stone pinnacle, or octagonal lantern). Shared by St Paul the
+ *  Apostle, St Ignatius Loyola and St George's — distinguished by seed
+ *  (tower height, cap style, body height). 2×2 SW + headroom. */
+function twinTowerChurchTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 240 });
+  const ST = hex('#bcb3a1'); // grey stone
+  const ST_D = hex('#9c9483');
+  const GLASS = alpha(hex('#2b3350'), 0.9);
+  const towerH = 150 + (seed % 3) * 22; // 150 / 172 / 194
+  const cap = seed % 3; // 0 pyramid, 1 stone pinnacle, 2 octagonal lantern
+  const bodyH = 78 + ((seed >> 1) % 2) * 10;
+  iso.shadow(0.34, 0.52, 1.66, 1.7, 0.26, 0.24);
+  // the long nave + steep roof (ridge front→back)
+  iso.box(0.58, 0.44, 1.18, 1.6, 0, bodyH, ST);
+  iso.gable(0.58, 0.44, 1.18, 1.6, bodyH, 26, 'v', LEADROOF, ST);
+  gridFace(iso, 'l', 1.6, 0.64, 1.14, 16, bodyH - 14, 7, GLASS); // clerestory flank
+  // aisle walls
+  iso.box(0.34, 0.5, 0.58, 1.56, 0, bodyH * 0.6, ST);
+  iso.box(1.18, 0.5, 1.42, 1.56, 0, bodyH * 0.6, ST);
+  // the great rose window on the west front (high v) between the towers
+  iso.box(0.6, 1.56, 1.16, 1.74, 0, bodyH + 14, ST);
+  const [rx, ry] = iso.P(0.88, 1.74, bodyH * 0.7);
+  const RR = 9 * RES;
+  const rose: Pt[] = [];
+  for (let i = 0; i <= 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    rose.push([rx + Math.cos(a) * RR, ry - Math.sin(a) * RR * 0.92]);
+  }
+  iso.r.poly(rose, GLASS);
+  iso.r.polyline(rose, INK_W * 0.6, INK, true);
+  // triple portals
+  for (const pu of [0.72, 0.88, 1.04] as const) {
+    iso.r.poly([iso.P(pu - 0.045, 1.74, 0), iso.P(pu + 0.045, 1.74, 0), iso.P(pu + 0.045, 1.74, 14), iso.P(pu, 1.74, 22), iso.P(pu - 0.045, 1.74, 14)], darken(ST_D, 0.2));
+  }
+  // the twin square towers flanking the west front
+  for (const tu of [0.54, 1.22] as const) {
+    iso.box(tu - 0.15, 1.56, tu + 0.15, 1.78, 0, towerH, ST);
+    gridFace(iso, 'l', 1.78, tu - 0.11, tu + 0.11, 24, towerH - 22, 3, GLASS);
+    // belfry openings near the top
+    for (const z of [towerH - 50, towerH - 26] as const) {
+      iso.r.poly([iso.P(tu - 0.1, 1.78, z), iso.P(tu + 0.1, 1.78, z), iso.P(tu + 0.1, 1.78, z + 12), iso.P(tu, 1.78, z + 18), iso.P(tu - 0.1, 1.78, z + 12)], GLASS);
+    }
+    iso.box(tu - 0.16, 1.55, tu + 0.16, 1.79, towerH, towerH + 6, lighten(ST, 0.04), { ink: false });
+    if (cap === 0) {
+      iso.hip(tu - 0.15, 1.56, tu + 0.15, 1.78, towerH + 6, 30, COPPER); // pyramidal copper
+      needle(iso, tu, 1.67, towerH + 36, 14, 1.2 * RES, COPPER, GOLDLEAF);
+    } else if (cap === 1) {
+      for (const [du, dv] of [[-0.13, -0.1], [0.13, -0.1], [-0.13, 0.1], [0.13, 0.1]] as const) {
+        needle(iso, tu + du, 1.67 + dv, towerH + 6, 18, 1.2 * RES, ST_D, GOLDLEAF);
+      }
+      needle(iso, tu, 1.67, towerH + 6, 46, 2.4 * RES, ST_D, GLASS_LIT); // stone pinnacle
+    } else {
+      iso.box(tu - 0.1, 1.57, tu + 0.1, 1.77, towerH + 6, towerH + 24, lighten(ST, 0.05)); // octagonal lantern
+      iso.hip(tu - 0.11, 1.56, tu + 0.11, 1.78, towerH + 24, 18, LEADROOF);
+      iso.r.line(iso.P(tu, 1.67, towerH + 42), [iso.P(tu, 1.67, towerH + 42)[0], iso.P(tu, 1.67, towerH + 42)[1] - 8 * RES], 1 * RES, GOLDLEAF);
+    }
+  }
+  return iso.build();
+}
+
+/** A single-STEEPLE neighbourhood church: a brownstone Gothic nave under a steep
+ *  roof, the pointed west window, and one tall square tower with an octagonal
+ *  spire at a front corner. Shared by Saint Mark's in-the-Bowery, St Luke's and
+ *  the Church of Saint Mary the Virgin (varied by seed). 1×1 + headroom. */
+function steepleChurchTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 200 });
+  const palette = [hex('#a89a86'), hex('#b0a690'), hex('#9f968a')] as const;
+  const ST = palette[seed % 3]!;
+  const ST_D = darken(ST, 0.16);
+  const GLASS = alpha(hex('#2b3350'), 0.9);
+  const tall = 50 + (seed % 3) * 6;
+  const spireH = 88 + ((seed >> 1) % 3) * 14;
+  const spireLeft = seed % 2 === 1;
+  iso.shadow(0.28, 0.4, 0.8, 0.78, 0.2, 0.22);
+  iso.box(0.42, 0.34, 0.76, 0.82, 0, tall, ST);
+  iso.gable(0.42, 0.34, 0.76, 0.82, tall, 16, 'v', LEADROOF, ST);
+  for (let i = 0; i < 4; i++) {
+    const u = 0.47 + i * 0.07;
+    iso.r.poly([iso.P(u, 0.82, 10), iso.P(u + 0.035, 0.82, 10), iso.P(u + 0.035, 0.82, tall - 12), iso.P(u + 0.017, 0.82, tall - 4), iso.P(u, 0.82, tall - 12)], GLASS);
+  }
+  iso.r.poly([iso.P(0.51, 0.82, 16), iso.P(0.66, 0.82, 16), iso.P(0.66, 0.82, tall - 4), iso.P(0.585, 0.82, tall + 8), iso.P(0.51, 0.82, tall - 4)], GLASS); // west window
+  // the steeple tower at a front corner
+  const tu = spireLeft ? 0.34 : 0.78;
+  const tv = 0.78;
+  iso.box(tu - 0.1, tv - 0.1, tu + 0.1, tv + 0.1, 0, tall + 22, ST);
+  for (const z of [tall * 0.5, tall * 0.82] as const) {
+    iso.r.poly([iso.P(tu - 0.07, tv + 0.1, z), iso.P(tu + 0.07, tv + 0.1, z), iso.P(tu + 0.07, tv + 0.1, z + 9), iso.P(tu, tv + 0.1, z + 14), iso.P(tu - 0.07, tv + 0.1, z + 9)], GLASS);
+  }
+  iso.box(tu - 0.11, tv - 0.11, tu + 0.11, tv + 0.11, tall + 22, tall + 28, lighten(ST, 0.04), { ink: false });
+  for (const [du, dv] of [[-0.09, -0.09], [0.09, -0.09], [-0.09, 0.09], [0.09, 0.09]] as const) {
+    needle(iso, tu + du, tv + dv, tall + 28, 16, 1.2 * RES, ST_D, GOLDLEAF);
+  }
+  needle(iso, tu, tv, tall + 28, spireH, 3 * RES, ST_D, GLASS_LIT);
+  return iso.build();
+}
+
+// ===========================================================================
+//  ROUND-2 MANSIONS, HOTELS & APARTMENTS — the Fifth-Ave palazzi, the Beaux-
+//  Arts hotels, the Queen-Anne tenements, the Governors-Island Federal houses.
+// ===========================================================================
+
+/** OTTO H. KAHN HOUSE (1918, now Convent of the Sacred Heart) — the grandest
+ *  surviving Fifth-Ave mansion: an Italian-Renaissance palazzo modelled on a
+ *  Florentine cortile — a rusticated grey-limestone block with a strong cornice,
+ *  arched ground openings and an interior courtyard. Broad + stately, 2×2 SW. */
+function kahnHouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 90 });
+  void seed;
+  const ST = hex('#cac4b6'); // grey limestone
+  iso.shadow(0.34, 0.56, 1.66, 1.66, 0.2, 0.22);
+  iso.box(0.34, 0.5, 1.66, 1.72, 0, 16, GRANITE); // rusticated base
+  iso.box(0.38, 0.54, 1.62, 1.68, 16, 70, ST);
+  // rusticated coursing on the lower storey
+  for (const z of [24, 32, 40] as const) iso.r.line(iso.P(1.62, 0.54, z), iso.P(1.62, 1.68, z), 0.5 * RES, shaded(ST, 0.16));
+  // arched ground openings + ranks of windows above
+  for (const v of [0.66, 1.0, 1.34] as const) {
+    iso.r.poly([iso.P(1.62, v, 18), iso.P(1.62, v + 0.18, 18), iso.P(1.62, v + 0.18, 36), iso.P(1.62, v + 0.09, 44), iso.P(1.62, v, 36)], alpha(GLASS_DK, 0.85));
+  }
+  gridFace(iso, 'r', 1.62, 0.6, 1.64, 48, 64, 7, alpha(GLASS_DK, 0.9));
+  gridFace(iso, 'l', 1.68, 0.56, 1.6, 48, 64, 6, alpha(GLASS_DK, 0.92));
+  // a heavy projecting Florentine cornice + a low pitched roof set back
+  iso.box(0.32, 0.48, 1.68, 1.74, 70, 78, lighten(ST, 0.08), { ink: false });
+  iso.hip(0.46, 0.62, 1.54, 1.6, 78, 12, LEADROOF);
+  return iso.build();
+}
+
+/** A grand FIFTH-AVE TOWNHOUSE on its lawn — a 5–6-storey grey-limestone or red-
+ *  brick-and-marble mansion with a mansard or hipped roof, dormers, a balustrade
+ *  and a columned/arched entrance. Shared by the George F. Baker Houses, the Lucy
+ *  Drexel Dahlgren House and the Richard Morris Hunt set (varied by seed). 1×1. */
+function fifthAveTownhouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 60 });
+  const brick = seed % 2 === 0;
+  const ST = brick ? hex('#a98f7e') : hex('#cdc7b9'); // greyed red-brick / limestone
+  const TRIM = hex('#d6d0c2');
+  const mansard = seed % 2 === 1;
+  iso.shadow(0.28, 0.4, 0.78, 0.76, 0.16, 0.2);
+  iso.box(0.34, 0.34, 0.76, 0.8, 0, 46, ST);
+  // a marble/stone ground storey
+  iso.box(0.34, 0.34, 0.76, 0.8, 0, 12, TRIM, { ink: false });
+  // ranks of tall windows with stone surrounds
+  gridFace(iso, 'r', 0.76, 0.4, 0.76, 16, 42, 4, alpha(GLASS_DK, 0.9));
+  gridFace(iso, 'l', 0.8, 0.38, 0.72, 16, 42, 3, alpha(GLASS_DK, 0.92));
+  for (let v = 0.42; v < 0.74; v += 0.1) iso.r.line(iso.P(0.76, v, 14), iso.P(0.76, v, 44), 0.5 * RES, lighten(ST, 0.12));
+  // cornice
+  iso.box(0.32, 0.32, 0.78, 0.82, 46, 50, lighten(ST, 0.06), { ink: false });
+  if (mansard) {
+    // a slate mansard with dormers
+    iso.hip(0.34, 0.34, 0.76, 0.8, 50, 16, LEADROOF);
+    for (let u = 0.42; u < 0.72; u += 0.12) {
+      const [dx, dy] = iso.P(u, 0.8, 58);
+      iso.r.poly([[dx - 3 * RES, dy], [dx + 3 * RES, dy], [dx + 3 * RES, dy - 5 * RES], [dx - 3 * RES, dy - 5 * RES]], lighten(ST, 0.04));
+    }
+  } else {
+    // a balustraded flat roof
+    iso.box(0.36, 0.36, 0.74, 0.78, 50, 56, TRIM, { ink: false });
+  }
+  return iso.build();
+}
+
+/** HOTEL WOLCOTT (1904) — a slim Beaux-Arts hotel: a tall pale-limestone block
+ *  with a richly ornamented two-storey base, a plain mid-shaft, an ornate
+ *  bracketed top with a heavy cornice. Slim, 2×2 SW + headroom. */
+function hotelWolcottTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 200 });
+  void seed;
+  const ST = hex('#cec9bb');
+  iso.shadow(0.36, 0.56, 1.64, 1.62, 0.24, 0.24);
+  iso.box(0.4, 0.54, 1.6, 1.7, 0, 30, lighten(ST, 0.04)); // ornate base
+  gridFace(iso, 'r', 1.6, 0.46, 1.66, 6, 26, 6, alpha(GLASS_DK, 0.85));
+  iso.box(0.46, 0.6, 1.54, 1.62, 30, 150, ST); // plain shaft
+  gridFace(iso, 'r', 1.54, 0.66, 1.5, 38, 142, 7, alpha(GLASS_DK, 0.9));
+  gridFace(iso, 'l', 1.62, 0.6, 1.5, 38, 142, 6, alpha(GLASS_DK, 0.92));
+  // ornate bracketed top + heavy cornice
+  iso.box(0.44, 0.58, 1.56, 1.64, 150, 166, lighten(ST, 0.05));
+  gridFace(iso, 'r', 1.56, 0.64, 1.52, 152, 162, 7, alpha(GLASS_DK, 0.85));
+  iso.box(0.4, 0.54, 1.6, 1.68, 166, 174, lighten(ST, 0.1), { ink: false });
+  return iso.build();
+}
+
+/** THE GRAND HOTEL (Broadway, 1868) — a Second-Empire hotel: a buff-grey block
+ *  with arched windows, a strong cornice, and a tall slate MANSARD roof with
+ *  iron cresting and dormers. 2×2 SW + headroom. */
+function grandHotelTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 110 });
+  void seed;
+  const ST2 = hex('#c4bdac'); // buff-grey
+  iso.shadow(0.36, 0.58, 1.64, 1.64, 0.22, 0.22);
+  iso.box(0.36, 0.52, 1.64, 1.7, 0, 70, ST2);
+  // arched windows in ranks
+  for (let z = 14; z < 64; z += 16) {
+    for (let v = 0.6; v < 1.62; v += 0.18) {
+      iso.r.poly([iso.P(1.64, v, z), iso.P(1.64, v + 0.1, z), iso.P(1.64, v + 0.1, z + 9), iso.P(1.64, v + 0.05, z + 13), iso.P(1.64, v, z + 9)], alpha(GLASS_DK, 0.85));
+    }
+  }
+  // strong cornice + the tall mansard with dormers + iron cresting
+  iso.box(0.34, 0.5, 1.66, 1.72, 70, 76, lighten(ST2, 0.07), { ink: false });
+  iso.hip(0.38, 0.54, 1.62, 1.68, 76, 30, LEADROOF);
+  for (let u = 0.5; u < 1.55; u += 0.22) {
+    const [dx, dy] = iso.P(u, 1.7, 88);
+    iso.r.poly([[dx - 3.5 * RES, dy], [dx + 3.5 * RES, dy], [dx + 3.5 * RES, dy - 6 * RES], [dx, dy - 10 * RES], [dx - 3.5 * RES, dy - 6 * RES]], lighten(ST2, 0.04));
+  }
+  // iron cresting ridge
+  const [c0x, c0y] = iso.P(0.5, 1.1, 106);
+  const [c1x] = iso.P(1.5, 1.1, 106);
+  for (let x = c0x; x < c1x; x += 4 * RES) iso.r.line([x, c0y], [x, c0y - 3 * RES], 0.6 * RES, INK);
+  return iso.build();
+}
+
+/** ASTRAL APARTMENTS (Lamb & Rich, 1886, Greenpoint) — the great Queen-Anne
+ *  model-tenement block built for Standard Oil workers: a long buff-brick-and-
+ *  terracotta range with bay windows, banded courses, gabled dormers and a busy
+ *  picturesque roofline. Broad + low, 3×3 SW. */
+function astralApartmentsTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 90 });
+  void seed;
+  const ST = hex('#a99a86'); // greyed buff brick
+  iso.shadow(0.42, 0.7, 2.58, 2.58, 0.2, 0.22);
+  iso.box(0.36, 0.52, 2.64, 2.6, 0, 64, ST);
+  // banded terracotta courses
+  for (const z of [22, 42] as const) iso.r.line(iso.P(2.64, 0.52, z), iso.P(2.64, 2.6, z), 0.8 * RES, lighten(ST, 0.14));
+  // projecting bay windows down the long face (the Queen-Anne rhythm)
+  for (let v = 0.7; v < 2.5; v += 0.4) {
+    iso.box(2.64, v, 2.74, v + 0.22, 6, 58, lighten(ST, 0.02));
+    gridFace(iso, 'r', 2.74, v + 0.03, v + 0.19, 12, 54, 3, alpha(GLASS_DK, 0.9));
+  }
+  // a steep tiled roof + a row of gabled dormers
+  iso.gable(0.36, 0.52, 2.64, 2.6, 64, 22, 'v', hex('#8a5236'), ST);
+  for (let u = 0.6; u < 2.5; u += 0.42) {
+    const [dx, dy] = iso.P(u, 2.6, 76);
+    iso.r.poly([[dx - 4 * RES, dy], [dx + 4 * RES, dy], [dx, dy - 11 * RES]], lighten(ST, 0.04));
+    iso.r.polyline([[dx - 4 * RES, dy], [dx, dy - 11 * RES], [dx + 4 * RES, dy]], INK_W * 0.4, INK);
+  }
+  return iso.build();
+}
+
+/** A FEDERAL-era HOUSE on Governors / Roosevelt Island — a trim grey-painted or
+ *  buff brick two-storey block with a hipped roof, dormers, end chimneys and a
+ *  small classical porch. Shared by Blackwell House and Quarters A (varied by
+ *  seed). 1×1, low. */
+function federalHouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 40 });
+  const ST = seed % 2 === 0 ? hex('#c8c4b6') : hex('#b6a78f');
+  iso.shadow(0.28, 0.38, 0.78, 0.76, 0.16, 0.2);
+  iso.box(0.34, 0.36, 0.76, 0.78, 0, 30, ST);
+  // hipped roof + dormers + end chimneys
+  iso.hip(0.32, 0.34, 0.78, 0.8, 30, 14, LEADROOF);
+  for (let u = 0.42; u < 0.72; u += 0.14) {
+    const [dx, dy] = iso.P(u, 0.78, 38);
+    iso.r.poly([[dx - 2.5 * RES, dy], [dx + 2.5 * RES, dy], [dx + 2.5 * RES, dy - 4 * RES], [dx - 2.5 * RES, dy - 4 * RES]], lighten(ST, 0.05));
+  }
+  for (const [u, v] of [[0.4, 0.42], [0.7, 0.72]] as const) iso.box(u - 0.02, v - 0.02, u + 0.02, v + 0.02, 40, 48, GRANITE, { ink: false });
+  // small classical entrance porch + shuttered windows
+  for (let v = 0.44; v < 0.74; v += 0.12) iso.r.line(iso.P(0.76, v, 2), iso.P(0.76, v, 24), 1.1 * RES, lighten(ST, 0.16));
+  gridFace(iso, 'l', 0.78, 0.42, 0.72, 8, 26, 3, alpha(GLASS_DK, 0.85));
+  return iso.build();
+}
+
+/** HOSTELLING INTERNATIONAL NYC (the former Association Residence / R. Morris
+ *  Hunt almshouse, 1883) — a long grey-stone Victorian-Gothic / Châteauesque
+ *  block with steep roofs, a corner tower, pointed dormers and tall chimneys.
+ *  Broad, 2×2 SW + headroom. */
+function hostellingTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 110 });
+  void seed;
+  const ST = hex('#b3a997'); // grey stone
+  iso.shadow(0.36, 0.58, 1.64, 1.64, 0.22, 0.22);
+  iso.box(0.36, 0.5, 1.64, 1.7, 0, 58, ST);
+  gridFace(iso, 'r', 1.64, 0.56, 1.66, 12, 52, 9, alpha(GLASS_DK, 0.9));
+  gridFace(iso, 'l', 1.7, 0.46, 1.6, 12, 52, 7, alpha(GLASS_DK, 0.92));
+  // steep roof + pointed dormers
+  iso.gable(0.36, 0.5, 1.64, 1.7, 58, 24, 'v', LEADROOF, ST);
+  for (let u = 0.5; u < 1.55; u += 0.28) {
+    const [dx, dy] = iso.P(u, 1.7, 70);
+    iso.r.poly([[dx - 3.5 * RES, dy], [dx + 3.5 * RES, dy], [dx, dy - 10 * RES]], lighten(ST, 0.04));
+    iso.r.polyline([[dx - 3.5 * RES, dy], [dx, dy - 10 * RES], [dx + 3.5 * RES, dy]], INK_W * 0.4, INK);
+  }
+  // a corner tower with a tall conical cap (the Châteauesque accent)
+  const tu = 1.58;
+  const tv = 1.66;
+  iso.box(tu - 0.1, tv - 0.1, tu + 0.1, tv + 0.1, 0, 76, ST);
+  gridFace(iso, 'l', tv + 0.1, tu - 0.08, tu + 0.08, 14, 68, 2, alpha(GLASS_DK, 0.9));
+  needle(iso, tu, tv, 76, 34, 3.4 * RES, LEADROOF, GOLDLEAF);
+  // tall chimneys
+  for (const [u, v] of [[0.5, 0.6], [1.0, 1.0]] as const) iso.box(u - 0.03, v - 0.03, u + 0.03, v + 0.03, 58, 82, hex('#7a5240'), { ink: false });
+  return iso.build();
+}
+
+// ===========================================================================
+//  ROUND-2 HARBOR FLEET — the museum ships moored along the rivers. Drab navy
+//  grey hulls; the carrier is a MONSTER, the tall ship a forest of masts.
+// ===========================================================================
+
+/** USS INTREPID — the WWII Essex-class aircraft carrier, now the Intrepid Sea,
+ *  Air & Space Museum at Pier 86: a vast battleship-grey hull, the long flat
+ *  flight deck with parked aircraft, the starboard ISLAND superstructure with
+ *  its mast and radar, and the angled deck. A monster — it dwarfs the pier.
+ *  5×5 SW + headroom; the unmistakable carrier silhouette. */
+function intrepidTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(5, 5, { swAnchor: true, headroom: 130 });
+  void seed;
+  const HULL = hex('#6b7178'); // battleship grey
+  const HULL_D = hex('#4e545b');
+  const DECK = hex('#4a4f55'); // dark deck
+  iso.shadow(0.5, 1.1, 4.6, 4.5, 0.3, 0.22);
+  // the water the ship sits in (a sliver, so it reads as moored)
+  iso.quad(0.4, 0.5, 4.7, 4.7, 0, shaded(COLORS.water, 0.05));
+  // the great hull — a long grey block, the bow tapering toward high v (front)
+  const u0 = 0.7;
+  const u1 = 4.5;
+  iso.box(u0, 1.0, u1, 3.9, 0, 34, HULL, { leftC: HULL_D, rightC: lit(HULL, 0.04), topC: DECK });
+  // the bow taper (a wedge added at the front, v>3.9)
+  iso.r.poly([iso.P(u0, 3.9, 0), iso.P(u1, 3.9, 0), iso.P((u0 + u1) / 2, 4.4, 0), iso.P((u0 + u1) / 2, 4.4, 30), iso.P(u1, 3.9, 34), iso.P(u0, 3.9, 34)], HULL);
+  iso.r.poly([iso.P(u0, 3.9, 34), iso.P(u1, 3.9, 34), iso.P((u0 + u1) / 2, 4.4, 30)], DECK); // deck point
+  // the flight deck top surface, with the painted centreline + landing stripes
+  iso.quad(u0, 1.0, u1, 3.9, 34, DECK);
+  for (let v = 1.2; v < 3.8; v += 0.4) iso.r.line(iso.P((u0 + u1) / 2 - 0.4, v, 34.5), iso.P((u0 + u1) / 2 + 0.4, v, 34.5), 1.2 * RES, alpha(COLORS.marking, 0.5));
+  // the angled deck stripe (the carrier's signature offset runway)
+  iso.r.line(iso.P(u0 + 0.4, 1.4, 34.6), iso.P(u1 - 0.9, 3.6, 34.6), 1.4 * RES, alpha(hex('#d8d2bf'), 0.6));
+  // hull portholes / catwalk line
+  for (let v = 1.1; v < 3.8; v += 0.3) iso.r.line(iso.P(u1, v, 14), iso.P(u1, v + 0.1, 14), 0.8 * RES, alpha(hex('#2a2e33'), 0.7));
+  // the starboard ISLAND superstructure (toward the viewer, right side)
+  const iu = u1 - 0.5;
+  const iv = 2.4;
+  iso.box(iu - 0.4, iv - 0.5, iu + 0.1, iv + 0.5, 34, 78, HULL, { leftC: HULL_D });
+  gridFace(iso, 'r', iu + 0.1, iv - 0.42, iv + 0.42, 40, 72, 5, alpha(hex('#1c2026'), 0.85));
+  iso.box(iu - 0.3, iv - 0.3, iu - 0.05, iv + 0.3, 78, 90, HULL_D); // the bridge top
+  // the lattice mast + radar dish + antennae rising from the island
+  const [mx, my] = iso.P(iu - 0.18, iv, 90);
+  iso.r.line([mx, my], [mx, my - 30 * RES], 1.4 * RES, hex('#3a3e44'));
+  iso.r.line([mx - 5 * RES, my - 12 * RES], [mx + 5 * RES, my - 12 * RES], 0.8 * RES, hex('#3a3e44')); // yardarm
+  iso.r.poly([[mx - 1 * RES, my - 24 * RES], [mx + 7 * RES, my - 27 * RES], [mx + 7 * RES, my - 21 * RES], [mx - 1 * RES, my - 18 * RES]], hex('#55595f')); // radar
+  // a couple of parked aircraft on the deck (tiny swept silhouettes)
+  const jet = (ju: number, jv: number): void => {
+    iso.box(ju - 0.2, jv - 0.05, ju + 0.2, jv + 0.05, 34, 40, hex('#7f858c'), { topC: hex('#9aa0a7') });
+    const [tx, ty] = iso.P(ju - 0.18, jv, 40);
+    iso.r.poly([[tx, ty], [tx + 4 * RES, ty], [tx + 5 * RES, ty - 8 * RES], [tx + 2 * RES, ty - 8 * RES]], hex('#6b7178')); // tail-fin
+    const [wx, wy] = iso.P(ju, jv + 0.05, 37);
+    iso.r.poly([[wx, wy], [wx - 11 * RES, wy + 5 * RES], [wx - 8 * RES, wy + 6 * RES], [wx + 3 * RES, wy + 1 * RES]], hex('#888e95')); // wing
+  };
+  jet(1.5, 1.7);
+  jet(2.3, 2.5);
+  jet(3.1, 1.9);
+  return iso.build();
+}
+
+/** A moored HISTORIC SHIP — a dark hull at the quay with a deckhouse and tall
+ *  masts + rigging. Shared by WAVERTREE (a great iron square-rigger, three tall
+ *  masts) and AMBROSE (the red lightship, one mast + lantern) — distinguished by
+ *  seed (mast count, hull colour, the lightship lantern). 2×2 SW + headroom. */
+function historicShipTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 220 });
+  const lightship = seed % 2 === 1; // Ambrose = the red lightship
+  const HULL = lightship ? hex('#8c4a3c') : hex('#3c4047'); // red lightship / black iron hull
+  const HULL_D = darken(HULL, 0.18);
+  const DECK = hex('#7a6a4e'); // timber deck
+  const MAST = hex('#5a4632');
+  iso.shadow(0.4, 0.62, 1.62, 1.58, 0.26, 0.22);
+  // the water sliver
+  iso.quad(0.34, 0.46, 1.7, 1.7, 0, shaded(COLORS.water, 0.05));
+  // the long hull, the bow toward high v (front), with a sheer line
+  const u0 = 0.5;
+  const u1 = 1.5;
+  iso.box(u0, 0.7, u1, 1.5, 0, 26, HULL, { leftC: HULL_D, rightC: lit(HULL, 0.05), topC: DECK });
+  // bow wedge
+  iso.r.poly([iso.P(u0, 1.5, 0), iso.P(u1, 1.5, 0), iso.P((u0 + u1) / 2, 1.78, 0), iso.P((u0 + u1) / 2, 1.78, 22), iso.P(u1, 1.5, 26), iso.P(u0, 1.5, 26)], HULL);
+  iso.r.poly([iso.P(u0, 1.5, 26), iso.P(u1, 1.5, 26), iso.P((u0 + u1) / 2, 1.78, 22)], DECK);
+  // a white waterline / boot-stripe
+  iso.r.line(iso.P(u1, 0.72, 6), iso.P(u1, 1.48, 6), 1 * RES, alpha(hex('#d8d2bf'), 0.7));
+  // the deckhouse
+  iso.box(0.74, 0.92, 1.26, 1.28, 26, 42, lightship ? lighten(HULL, 0.1) : hex('#b9b3a4'));
+  gridFace(iso, 'r', 1.26, 0.98, 1.22, 30, 38, 4, alpha(GLASS_LIT, 0.5));
+  if (lightship) {
+    // the single mast with the great lantern cage (the lightship beacon)
+    const [mx, my] = iso.P(1.0, 1.1, 42);
+    iso.r.line([mx, my], [mx, my - 70 * RES], 1.8 * RES, MAST);
+    iso.r.poly([[mx - 4 * RES, my - 40 * RES], [mx + 4 * RES, my - 40 * RES], [mx + 4 * RES, my - 52 * RES], [mx - 4 * RES, my - 52 * RES]], alpha(hex('#ffe6a0'), 0.85)); // lit lantern
+    iso.r.polyline([[mx - 4 * RES, my - 40 * RES], [mx - 4 * RES, my - 52 * RES], [mx + 4 * RES, my - 52 * RES], [mx + 4 * RES, my - 40 * RES]], 0.7 * RES, INK);
+  } else {
+    // three tall masts with yards + furled-sail rigging (the square-rigger)
+    for (const [mu, mh] of [[0.78, 150], [1.02, 168], [1.26, 138]] as const) {
+      const [mx, my] = iso.P(mu, 1.1, 42);
+      iso.r.line([mx, my], [mx, my - mh * RES], 1.6 * RES, MAST);
+      // yardarms (horizontal spars) at three heights
+      for (const f of [0.45, 0.66, 0.85]) {
+        const yy = my - mh * RES * f;
+        iso.r.line([mx - 9 * RES, yy], [mx + 9 * RES, yy], 0.9 * RES, MAST);
+      }
+      iso.r.line([mx, my], [mx, my - mh * RES], 0.5 * RES, alpha(hex('#cdbf9e'), 0.5)); // glint
+    }
+    // forestay/backstay rigging from the bowsprit to the tallest masthead
+    const [bx, by] = iso.P(1.0, 1.78, 26);
+    const [topx, topy] = iso.P(1.02, 1.1, 42);
+    iso.r.line([bx, by], [topx, topy - 168 * RES], 0.5 * RES, alpha(INK, 0.5));
+    const [sternx, sterny] = iso.P(1.0, 0.72, 26);
+    iso.r.line([sternx, sterny], [topx, topy - 168 * RES], 0.5 * RES, alpha(INK, 0.45));
+  }
+  return iso.build();
+}
+
+/** FIREBOAT JOHN J. HARVEY (1931) — the preserved red FDNY fireboat: a low red
+ *  hull with a white deckhouse, a tall funnel and the water-cannon monitors that
+ *  throw great arcs. Moored at Pier 66. 2×2 SW + a little headroom. */
+function fireboatTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 110 });
+  void seed;
+  const HULL = hex('#a23c30'); // FDNY red (greyed a touch)
+  const HULL_D = darken(HULL, 0.18);
+  const WHITE = hex('#d6d0c2');
+  iso.shadow(0.4, 0.62, 1.62, 1.58, 0.22, 0.22);
+  iso.quad(0.34, 0.46, 1.7, 1.7, 0, shaded(COLORS.water, 0.05));
+  // low hull, bow to front
+  const u0 = 0.52;
+  const u1 = 1.48;
+  iso.box(u0, 0.74, u1, 1.46, 0, 20, HULL, { leftC: HULL_D, rightC: lit(HULL, 0.05), topC: hex('#6b6452') });
+  iso.r.poly([iso.P(u0, 1.46, 0), iso.P(u1, 1.46, 0), iso.P((u0 + u1) / 2, 1.74, 0), iso.P((u0 + u1) / 2, 1.74, 16), iso.P(u1, 1.46, 20), iso.P(u0, 1.46, 20)], HULL);
+  // white superstructure (two tiers) + wheelhouse
+  iso.box(0.74, 0.9, 1.26, 1.3, 20, 38, WHITE);
+  gridFace(iso, 'r', 1.26, 0.96, 1.24, 24, 34, 4, alpha(GLASS_DK, 0.85));
+  iso.box(0.84, 1.0, 1.16, 1.2, 38, 50, lighten(WHITE, 0.04));
+  // the tall black funnel
+  iso.box(0.96, 1.04, 1.08, 1.16, 50, 66, hex('#3a3e44'));
+  // water-cannon monitors (little nozzles) up on the deckhouse
+  for (const [u, v] of [[0.8, 0.96], [1.2, 1.24]] as const) {
+    const [nx, ny] = iso.P(u, v, 50);
+    iso.r.line([nx, ny], [nx + 7 * RES, ny - 7 * RES], 1.2 * RES, hex('#888e95'));
+  }
+  return iso.build();
+}
+
+// ===========================================================================
+//  ROUND-2 SCULPTURES, FOUNTAINS, CLOCKS & MONUMENTS — small focal pieces.
+// ===========================================================================
+
+/** THE SPHERE (Fritz Koenig, 1971) — the great bronze GLOBE that stood between
+ *  the Twin Towers, damaged on 9/11 and now a memorial in Liberty Park: a tall
+ *  battered metal sphere of riveted bronze gores on a low granite base, with a
+ *  memorial flame. Its globe is unmistakable. 1×1 + headroom. */
+function sphereTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 90 });
+  void seed;
+  const BRZ = hex('#8a7a52'); // weathered bronze
+  const BRZ_D = hex('#6a5d3e');
+  const cu = 0.5;
+  const cv = 0.52;
+  iso.shadow(cu - 0.16, cv - 0.06, cu + 0.16, cv + 0.14, 0.16, 0.2);
+  // low granite plinth
+  iso.box(cu - 0.16, cv - 0.16, cu + 0.16, cv + 0.16, 0, 10, GRANITE);
+  // the great sphere — a faceted bronze ball (sun side bright, dusk side cool)
+  const [bx, byB] = iso.P(cu, cv, 10);
+  const R = 0.34 * (CELL_W / 2);
+  const ZR = R * 1.02;
+  const cy = byB - ZR - 2 * RES;
+  const ball = (s: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      pts.push([bx + Math.cos(a) * R * s, cy + Math.sin(a) * ZR * s]);
+    }
+    return pts;
+  };
+  iso.r.poly(ball(1), shaded(BRZ, 0.08));
+  iso.r.polyline(ball(1), INK_W * 0.7, INK, true);
+  // lit facet toward upper-right
+  const lit2 = ball(0.6).map(([x, y]): Pt => [x + R * 0.22, y - ZR * 0.24]);
+  iso.r.poly(lit2, lit(BRZ, 0.12));
+  // the riveted gore seams (meridians, bowing out at the equator) + an equator
+  for (const k of [-0.66, -0.33, 0.33, 0.66]) {
+    iso.r.polyline([[bx + k * R, cy - ZR], [bx + k * R * 0.55, cy], [bx + k * R, cy + ZR]], 0.6 * RES, alpha(BRZ_D, 0.7));
+  }
+  iso.r.line([bx - R, cy], [bx + R, cy], 0.6 * RES, alpha(BRZ_D, 0.7)); // equator
+  // a battered gash (the damage) + the small memorial flame at the base
+  iso.r.poly([[bx + R * 0.2, cy - ZR * 0.3], [bx + R * 0.5, cy], [bx + R * 0.3, cy + ZR * 0.2]], darken(BRZ_D, 0.15));
+  const [fx, fy] = iso.P(cu + 0.2, cv + 0.1, 10);
+  iso.r.poly([[fx, fy], [fx - 2 * RES, fy - 6 * RES], [fx, fy - 9 * RES], [fx + 2 * RES, fy - 6 * RES]], alpha(hex('#ffcf6a'), 0.9)); // flame
+  return iso.build();
+}
+
+/** A bronze STATUE / MONUMENT GROUP on a stone pedestal — a figure (or group)
+ *  in dark bronze atop a granite plinth, sometimes with steps. Shared by the
+ *  Women's Rights Pioneers Monument (three figures + a table), the Triumph of
+ *  the Human Spirit (a tall abstract Noguchi-esque granite form), the Verdi
+ *  Monument (a figure on a tall column) — varied by seed. 1×1. */
+function monumentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 90 });
+  const mode = seed % 3; // 0 figure-group, 1 abstract granite form, 2 figure-on-column
+  const BRZ = hex('#5d6b54'); // weathered bronze-green
+  const GR = hex('#9a948a'); // granite pedestal
+  const cu = 0.5;
+  const cv = 0.52;
+  iso.shadow(cu - 0.14, cv - 0.06, cu + 0.14, cv + 0.12, 0.16, 0.2);
+  if (mode === 1) {
+    // Triumph of the Human Spirit — a tall black-granite abstract antelope/canoe
+    // form on a low base, rising in a sweeping curve.
+    iso.box(cu - 0.16, cv - 0.16, cu + 0.16, cv + 0.16, 0, 8, GR);
+    const GRAN = hex('#3f4348');
+    const [bx, byB] = iso.P(cu, cv, 8);
+    iso.r.poly([
+      [bx - 4 * RES, byB], [bx + 4 * RES, byB], [bx + 9 * RES, byB - 40 * RES],
+      [bx + 2 * RES, byB - 64 * RES], [bx - 3 * RES, byB - 58 * RES], [bx + 1 * RES, byB - 36 * RES], [bx - 6 * RES, byB - 16 * RES],
+    ], shaded(GRAN, 0.06), lit(GRAN, 0.06));
+    iso.r.polyline([
+      [bx - 4 * RES, byB], [bx + 9 * RES, byB - 40 * RES], [bx + 2 * RES, byB - 64 * RES], [bx - 3 * RES, byB - 58 * RES],
+    ], INK_W * 0.6, INK);
+    return iso.build();
+  }
+  if (mode === 2) {
+    // Verdi — a bronze figure standing on a tall granite column with a base
+    iso.box(cu - 0.14, cv - 0.14, cu + 0.14, cv + 0.14, 0, 12, GR);
+    iso.box(cu - 0.07, cv - 0.07, cu + 0.07, cv + 0.07, 12, 54, lighten(GR, 0.04));
+    // small figures at the column base (the opera characters)
+    for (const du of [-0.1, 0.1]) {
+      const [px, py] = iso.P(cu + du, cv + 0.1, 12);
+      iso.r.line([px, py], [px, py - 8 * RES], 1.6 * RES, BRZ);
+    }
+    const [sx, sy] = iso.P(cu, cv, 54);
+    iso.r.line([sx, sy], [sx, sy - 14 * RES], 2.2 * RES, BRZ); // the figure
+    iso.r.poly([[sx - 3 * RES, sy - 12 * RES], [sx + 3 * RES, sy - 12 * RES], [sx, sy - 18 * RES]], BRZ);
+    return iso.build();
+  }
+  // mode 0 — a figure GROUP on a broad low pedestal (Women's Rights Pioneers)
+  iso.box(cu - 0.18, cv - 0.14, cu + 0.18, cv + 0.16, 0, 14, GR);
+  iso.box(cu - 0.18, cv - 0.14, cu + 0.18, cv + 0.16, 0, 4, lighten(GR, 0.06), { ink: false });
+  for (const du of [-0.12, 0, 0.12]) {
+    const [px, py] = iso.P(cu + du, cv, 14);
+    iso.r.line([px, py], [px, py - 13 * RES], 2 * RES, BRZ);
+    iso.r.poly([[px - 2.4 * RES, py - 11 * RES], [px + 2.4 * RES, py - 11 * RES], [px, py - 16 * RES]], BRZ);
+  }
+  return iso.build();
+}
+
+/** A granite MEMORIAL OBELISK / shaft on a stepped base — a slim tapering grey
+ *  granite needle with a small cap, the kind that marks a square. Shared by the
+ *  General Worth Monument (a true obelisk over a tomb) and similar shafts. 1×1
+ *  + headroom; an aerial beacon tips it. */
+function memorialObeliskTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 150 });
+  void seed;
+  const GR = hex('#9d958a');
+  const cu = 0.5;
+  const cv = 0.52;
+  iso.shadow(cu - 0.12, cv - 0.06, cu + 0.12, cv + 0.12, 0.16, 0.2);
+  // a railed stepped base
+  iso.box(cu - 0.16, cv - 0.16, cu + 0.16, cv + 0.16, 0, 10, GRANITE);
+  iso.box(cu - 0.1, cv - 0.1, cu + 0.1, cv + 0.1, 10, 22, lighten(GRANITE, 0.04));
+  // the tapering shaft
+  const w0 = 0.055;
+  const w1 = 0.03;
+  const Z0 = 22;
+  const Z1 = 118;
+  iso.r.poly([iso.P(cu - w0, cv + w0, Z0), iso.P(cu + w0, cv + w0, Z0), iso.P(cu + w1, cv + w1, Z1), iso.P(cu - w1, cv + w1, Z1)], shaded(GR, 0.08));
+  iso.r.poly([iso.P(cu + w0, cv - w0, Z0), iso.P(cu + w0, cv + w0, Z0), iso.P(cu + w1, cv + w1, Z1), iso.P(cu + w1, cv - w1, Z1)], lit(GR, 0.08));
+  iso.r.poly([iso.P(cu - w1, cv - w1, Z1), iso.P(cu + w1, cv - w1, Z1), iso.P(cu + w1, cv + w1, Z1), iso.P(cu - w1, cv + w1, Z1)], top(GR, 0.18));
+  iso.edge(iso.P(cu - w0, cv + w0, Z0), iso.P(cu - w1, cv + w1, Z1));
+  iso.edge(iso.P(cu + w0, cv + w0, Z0), iso.P(cu + w1, cv + w1, Z1));
+  iso.edge(iso.P(cu + w0, cv - w0, Z0), iso.P(cu + w1, cv - w1, Z1));
+  // a small pyramidion cap
+  const apex = iso.P(cu, cv, Z1 + 12);
+  iso.r.poly([iso.P(cu - w1, cv + w1, Z1), iso.P(cu + w1, cv + w1, Z1), apex], shaded(GR, 0.06));
+  iso.r.poly([iso.P(cu + w1, cv - w1, Z1), iso.P(cu + w1, cv + w1, Z1), apex], lit(GR, 0.08));
+  iso.r.polyline([iso.P(cu - w1, cv + w1, Z1), apex, iso.P(cu + w1, cv - w1, Z1)], INK_W * 0.5, INK);
+  return iso.build();
+}
+
+/** A SCULPTED MEMORIAL FOUNTAIN — a low circular granite basin with a central
+ *  bronze figure/pedestal and a thin water jet. Shared by the Burnett Memorial
+ *  Fountain (the Secret-Garden children) and similar. 1×1, low. */
+function fountainTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 50 });
+  void seed;
+  const ST = hex('#bdb6a6');
+  const cu = 0.5;
+  const cv = 0.52;
+  const [cx, cyB] = iso.P(cu, cv, 0);
+  iso.shadow(cu - 0.2, cv - 0.1, cu + 0.2, cv + 0.16, 0.14, 0.18);
+  // the circular basin (an ellipse ring)
+  const R = 0.32 * (CELL_W / 2);
+  const ring = (rad: number, zPx: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 28; i++) {
+      const a = (i / 28) * Math.PI * 2;
+      pts.push([cx + Math.cos(a) * rad, cyB - zPx + Math.sin(a) * rad * 0.5]);
+    }
+    return pts;
+  };
+  iso.r.poly([...ring(R, 0), ...ring(R, 8 * RES).reverse()], shaded(ST, 0.06), lit(ST, 0.06)); // basin wall
+  iso.r.poly(ring(R * 0.86, 8 * RES), alpha(COLORS.water, 0.7)); // the water surface
+  iso.r.polyline(ring(R, 8 * RES), INK_W * 0.6, INK, true);
+  // the central bronze pedestal + figure + a thin jet
+  iso.box(cu - 0.04, cv - 0.04, cu + 0.04, cv + 0.04, 8, 22, lighten(ST, 0.04));
+  const [sx, sy] = iso.P(cu, cv, 22);
+  iso.r.line([sx, sy], [sx, sy - 9 * RES], 1.6 * RES, hex('#5d6b54'));
+  iso.r.line([sx, sy - 9 * RES], [sx, sy - 16 * RES], 0.7 * RES, alpha(COLORS.waterGlint, 0.7)); // jet
+  return iso.build();
+}
+
+/** THE DELACORTE MUSICAL CLOCK (Central Park Zoo, 1965) — the beloved bronze
+ *  glockenspiel: a stone-and-bronze arch carrying a clock, surmounted by a band
+ *  of dancing bronze ANIMAL musicians, with two bronze monkeys striking a bell
+ *  on top. Small, charming, 1×1 + headroom. */
+function delacorteClockTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 90 });
+  void seed;
+  const ST = hex('#bdb6a6'); // brick-and-stone pier
+  const BRZ = hex('#5d6b54'); // bronze
+  const cu = 0.5;
+  const cv = 0.52;
+  iso.shadow(cu - 0.18, cv - 0.08, cu + 0.18, cv + 0.14, 0.16, 0.2);
+  // the two stone piers carrying the arch
+  iso.box(cu - 0.18, cv - 0.04, cu - 0.1, cv + 0.06, 0, 40, ST);
+  iso.box(cu + 0.1, cv - 0.04, cu + 0.18, cv + 0.06, 0, 40, ST);
+  // the arch spanning between them (a band) with the clock dial
+  iso.box(cu - 0.18, cv - 0.04, cu + 0.18, cv + 0.06, 40, 50, lighten(ST, 0.04));
+  const [dx, dy] = iso.P(cu, cv + 0.06 + 0.004, 38);
+  const cr = 6 * RES;
+  const dial: Pt[] = [];
+  for (let i = 0; i <= 14; i++) {
+    const a = (i / 14) * Math.PI * 2;
+    dial.push([dx + Math.cos(a) * cr, dy + Math.sin(a) * cr]);
+  }
+  iso.r.poly(dial, DIALSTONE);
+  iso.r.polyline(dial, INK_W * 0.5, INK, true);
+  iso.r.line([dx, dy], [dx + cr * 0.5, dy - cr * 0.3], 0.9 * RES, INK);
+  iso.r.line([dx, dy], [dx, dy - cr * 0.6], 0.9 * RES, INK);
+  // the band of dancing bronze animal musicians on the arch top
+  for (const du of [-0.13, -0.04, 0.05, 0.14]) {
+    const [px, py] = iso.P(cu + du, cv, 50);
+    iso.r.line([px, py], [px, py - 7 * RES], 1.4 * RES, BRZ);
+    iso.r.poly([[px - 1.6 * RES, py - 6 * RES], [px + 1.6 * RES, py - 6 * RES], [px, py - 9 * RES]], BRZ);
+  }
+  // the two monkeys + the bell on the very top
+  const [bx, by] = iso.P(cu, cv, 64);
+  iso.r.poly([[bx - 3 * RES, by], [bx + 3 * RES, by], [bx + 2 * RES, by - 5 * RES], [bx - 2 * RES, by - 5 * RES]], hex('#7a6f4a')); // bell
+  return iso.build();
+}
+
+// ===========================================================================
+//  ROUND-2 CIVIC / MUSEUM / SPECIAL — the flagged museums, the historic bar,
+//  the heliport pier.
+// ===========================================================================
+
+/** STONEWALL INN (1843/1930) — the historic Greenwich-Village tavern, birthplace
+ *  of the gay-rights movement: a low two-storey brick row building with the
+ *  arched storefront, the famous frontage and the rainbow flags. Small, warm-lit,
+ *  1×1. (Its rainbow flags are the one colour note in the drab gamut.) */
+function stonewallTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 40 });
+  void seed;
+  const BK = hex('#9a8d7c'); // greyed brick
+  iso.shadow(0.28, 0.4, 0.78, 0.78, 0.16, 0.2);
+  iso.box(0.34, 0.36, 0.78, 0.82, 0, 30, BK);
+  // the arched ground-floor storefront (warm-lit windows — the bar inside)
+  for (const v of [0.44, 0.6] as const) {
+    iso.r.poly([iso.P(0.78, v, 4), iso.P(0.78, v + 0.12, 4), iso.P(0.78, v + 0.12, 16), iso.P(0.78, v + 0.06, 20), iso.P(0.78, v, 16)], alpha(hex('#ffcf7a'), 0.8));
+  }
+  // upper windows
+  gridFace(iso, 'r', 0.78, 0.42, 0.78, 20, 28, 3, alpha(GLASS_DK, 0.85));
+  iso.box(0.32, 0.34, 0.8, 0.84, 30, 34, lighten(BK, 0.06), { ink: false }); // cornice
+  // the rainbow flags flying from the facade (the colour note)
+  const stripes = [hex('#e23b3b'), hex('#e2873b'), hex('#e2d23b'), hex('#3ba84e'), hex('#3b6fe2'), hex('#8a3be2')] as const;
+  for (const [u, vbase] of [[0.6, 0.84], [0.74, 0.84]] as const) {
+    const [fx, fy] = iso.P(u, vbase, 30);
+    iso.r.line([fx, fy], [fx + 2 * RES, fy - 14 * RES], 0.8 * RES, INK); // pole
+    for (let s = 0; s < stripes.length; s++) {
+      const yy = fy - 13 * RES + s * 1.6 * RES;
+      iso.r.line([fx + 2 * RES, yy], [fx + 10 * RES, yy + 1 * RES], 1.4 * RES, stripes[s]!);
+    }
+  }
+  return iso.build();
+}
+
+/** A landmark ROWHOUSE / small museum building — a grey-brick Italianate or
+ *  Federal row block with a stoop, cornice and ranks of windows. Shared by the
+ *  Lower East Side Tenement Museum, the Yeshiva University Museum and the
+ *  Museum of the Moving Image (varied by seed). 1×1, low. */
+function rowhouseMuseumTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 60 });
+  const palette = [hex('#a4937e'), hex('#bdb6a6'), hex('#c8c3b6')] as const;
+  const ST = palette[seed % 3]!;
+  const tall = 40 + (seed % 3) * 8;
+  iso.shadow(0.28, 0.4, 0.78, 0.78, 0.16, 0.2);
+  iso.box(0.34, 0.36, 0.78, 0.82, 0, tall, ST);
+  // ranks of windows (tenement rhythm) + a cornice
+  gridFace(iso, 'r', 0.78, 0.42, 0.78, 8, tall - 6, 4, alpha(GLASS_DK, 0.9));
+  gridFace(iso, 'l', 0.82, 0.4, 0.74, 8, tall - 6, 3, alpha(GLASS_DK, 0.92));
+  iso.box(0.32, 0.34, 0.8, 0.84, tall, tall + 4, lighten(ST, 0.07), { ink: false });
+  // a stoop on the show face
+  const [sx, sy] = iso.P(0.78, 0.6, 0);
+  iso.r.poly([[sx, sy], [sx + 7 * RES, sy + 3 * RES], [sx + 7 * RES, sy - 4 * RES], [sx, sy - 8 * RES]], shaded(ST, 0.1));
+  return iso.build();
+}
+
+/** STOREFRONT FOR ART AND ARCHITECTURE (Acconci & Holl, 1993) — the famous
+ *  experimental gallery on Kenmare St: a razor-thin triangular grey façade
+ *  whose wall PIVOTS open in hinged concrete-and-fibreboard panels. A very
+ *  narrow, very flat wedge — quirky. 1×1, low. */
+function storefrontTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 50 });
+  void seed;
+  const ST = hex('#b8b2a4'); // grey fibreboard/concrete
+  iso.shadow(0.3, 0.42, 0.76, 0.74, 0.14, 0.18);
+  // a long thin low wall (the gallery is essentially a façade)
+  iso.box(0.3, 0.56, 0.78, 0.66, 0, 32, ST);
+  // the hinged pivoting panels — a grid of rectangles, some kicked out at angles
+  const [wx0, wy0] = iso.P(0.78, 0.58, 4);
+  const [wx1] = iso.P(0.78, 0.66, 4);
+  let x = wx0;
+  const dx = (wx1 - wx0) / 5;
+  for (let i = 0; i < 5; i++) {
+    const kick = i % 2 === 0 ? -3 * RES : 0; // alternate panels pivot out
+    iso.r.poly([[x, wy0], [x + dx * 0.85, wy0 + kick], [x + dx * 0.85, wy0 - 22 * RES + kick], [x, wy0 - 22 * RES]], i % 2 === 0 ? lit(ST, 0.06) : shaded(ST, 0.08));
+    iso.r.polyline([[x, wy0], [x + dx * 0.85, wy0 + kick], [x + dx * 0.85, wy0 - 22 * RES + kick], [x, wy0 - 22 * RES]], 0.6 * RES, alpha(INK, 0.7));
+    x += dx;
+  }
+  return iso.build();
+}
+
+/** WEST 30TH STREET HELIPORT — the Hudson-River-edge heliport: a low concrete
+ *  pier deck with the big circular "H" helipad, perimeter lights, a windsock and
+ *  a parked helicopter. Reads as an airfield-on-the-water. 2×2 SW, low. */
+function heliportTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 60 });
+  void seed;
+  const cu = 1.0;
+  const cv = 1.1;
+  iso.shadow(0.4, 0.7, 1.6, 1.55, 0.16, 0.18);
+  // the water + the concrete pier deck
+  iso.quad(0.3, 0.5, 1.7, 1.7, 0, shaded(COLORS.water, 0.05));
+  iso.box(0.4, 0.6, 1.6, 1.6, 0, 8, COLORS.concrete, { topC: lighten(COLORS.concrete, 0.06) });
+  // the big painted helipad circle + "H"
+  const [cx, cyB] = iso.P(cu, cv, 8.5);
+  const R = 0.42 * (CELL_W / 2);
+  const ring: Pt[] = [];
+  for (let i = 0; i <= 28; i++) {
+    const a = (i / 28) * Math.PI * 2;
+    ring.push([cx + Math.cos(a) * R, cyB + Math.sin(a) * R * 0.5]);
+  }
+  iso.r.polyline(ring, 1.4 * RES, alpha(COLORS.marking, 0.8), true);
+  // the H
+  iso.r.line([cx - 5 * RES, cyB - 4 * RES], [cx - 5 * RES, cyB + 4 * RES], 1.6 * RES, alpha(COLORS.marking, 0.85));
+  iso.r.line([cx + 5 * RES, cyB - 4 * RES], [cx + 5 * RES, cyB + 4 * RES], 1.6 * RES, alpha(COLORS.marking, 0.85));
+  iso.r.line([cx - 5 * RES, cyB], [cx + 5 * RES, cyB], 1.6 * RES, alpha(COLORS.marking, 0.85));
+  // a small parked helicopter (a pod + tail boom + rotor disc) toward a corner
+  const hu = 0.7;
+  const hv = 0.8;
+  iso.box(hu - 0.12, hv - 0.08, hu + 0.12, hv + 0.08, 8, 20, STEEL_GLASS, { topC: lighten(STEEL_GLASS, 0.08) });
+  const [tx, ty] = iso.P(hu - 0.12, hv, 14);
+  iso.r.line([tx, ty], [tx - 16 * RES, ty - 2 * RES], 1.6 * RES, STEEL_GLASS_D); // tail boom
+  const [rx, ry] = iso.P(hu, hv, 20);
+  iso.r.line([rx - 16 * RES, ry - 1 * RES], [rx + 16 * RES, ry - 1 * RES], 0.7 * RES, alpha(INK, 0.6)); // rotor
+  // a windsock pole at the deck edge
+  const [px, py] = iso.P(1.5, 0.7, 8);
+  iso.r.line([px, py], [px, py - 16 * RES], 0.8 * RES, INK);
+  iso.r.poly([[px, py - 16 * RES], [px + 9 * RES, py - 14 * RES], [px + 9 * RES, py - 11 * RES], [px, py - 12 * RES]], alpha(COLORS.orange, 0.8)); // sock
+  return iso.build();
+}
+
+// ===========================================================================
 //  REGISTRY — match against the REAL placed names in newyork.ts `named`.
 //  Order matters (first match wins). More-specific names first.
 // ===========================================================================
@@ -1843,5 +2876,389 @@ export const CITY_HEROES: BespokeHero[] = [
     seed: 5138,
     draw: brooklynHistoryTile,
     light: { kind: 'facadeFlood', topZ: 78, halfW: 0.8 },
+  },
+
+  // =========================================================================
+  //  ROUND 2 — the rest of the placed `named` set (Midtown commercial towers,
+  //  the church spires, the Fifth-Ave mansions, the harbor fleet & sculptures,
+  //  the flagged museums). Order: specific names before the shared-fn families.
+  // =========================================================================
+
+  // --- round-2 commercial towers -------------------------------------------
+  {
+    city: 'newyork',
+    key: 'bryant-park-hotel',
+    // the American Radiator Building — black-and-gold Gothic.
+    match: /Bryant Park Hotel/i,
+    foot: [2, 2],
+    seed: 5201,
+    draw: bryantParkHotelTile,
+    light: { kind: 'towerCrown', topZ: 300, halfW: 0.5 },
+  },
+  {
+    city: 'newyork',
+    key: 'cocoa-exchange-building',
+    match: /Cocoa Exchange Building/i,
+    foot: [2, 2],
+    seed: 5202,
+    draw: cocoaExchangeTile,
+    light: { kind: 'towerCrown', topZ: 132, halfW: 0.55 },
+  },
+  {
+    city: 'newyork',
+    key: 'candler-building',
+    match: /Candler Building/i,
+    foot: [2, 2],
+    seed: 5203,
+    draw: candlerBuildingTile,
+    light: { kind: 'towerCrown', topZ: 276, halfW: 0.5 },
+  },
+  {
+    city: 'newyork',
+    key: 'imm-building',
+    match: /International Mercantile Marine Company Building/i,
+    foot: [3, 3],
+    seed: 5204,
+    draw: immBuildingTile,
+    light: { kind: 'towerCrown', topZ: 168, halfW: 1.0 },
+  },
+  {
+    city: 'newyork',
+    key: 'scribners-building',
+    match: /Charles Scribner.s Sons Building/i,
+    foot: [2, 2],
+    seed: 5205,
+    draw: scribnersTile,
+    light: { kind: 'facadeFlood', topZ: 84, halfW: 0.6 },
+  },
+  // --- round-2 churches (specific caps via seed) ---------------------------
+  {
+    city: 'newyork',
+    key: 'st-bartholomews',
+    match: /St\.? ?Bartholomew/i,
+    foot: [2, 2],
+    seed: 5206,
+    draw: stBartholomewTile,
+    light: { kind: 'facadeFlood', topZ: 110, halfW: 0.9 },
+  },
+  {
+    city: 'newyork',
+    key: 'grace-church',
+    match: /Grace Church/i,
+    foot: [1, 1],
+    seed: 5207,
+    draw: graceChurchTile,
+    light: { kind: 'facadeFlood', topZ: 200, halfW: 0.4 },
+  },
+  {
+    city: 'newyork',
+    key: 'st-pauls-chapel',
+    match: /Saint Paul.s Chapel/i,
+    foot: [1, 1],
+    seed: 5208,
+    draw: stPaulsChapelTile,
+    light: { kind: 'facadeFlood', topZ: 156, halfW: 0.4 },
+  },
+  {
+    city: 'newyork',
+    key: 'church-of-st-paul-the-apostle',
+    match: /Church of Saint Paul the Apostle/i,
+    foot: [2, 2],
+    seed: 5209, // cap 0 → pyramidal copper, tall towers
+    draw: twinTowerChurchTile,
+    light: { kind: 'facadeFlood', topZ: 200, halfW: 0.9 },
+  },
+  {
+    city: 'newyork',
+    key: 'st-ignatius-loyola',
+    match: /Saint Ignatius Loyola/i,
+    foot: [2, 2],
+    seed: 5210, // cap 1 → stone pinnacle
+    draw: twinTowerChurchTile,
+    light: { kind: 'facadeFlood', topZ: 210, halfW: 0.9 },
+  },
+  {
+    city: 'newyork',
+    key: 'st-georges-church',
+    match: /St\.? ?George.s Church/i,
+    foot: [2, 2],
+    seed: 5211, // cap 2 → octagonal lantern
+    draw: twinTowerChurchTile,
+    light: { kind: 'facadeFlood', topZ: 190, halfW: 0.9 },
+  },
+  {
+    city: 'newyork',
+    key: 'st-marks-in-the-bowery',
+    match: /Saint Mark.s in-the-Bowery/i,
+    foot: [1, 1],
+    seed: 5212,
+    draw: steepleChurchTile,
+    light: { kind: 'facadeFlood', topZ: 170, halfW: 0.4 },
+  },
+  {
+    city: 'newyork',
+    key: 'st-lukes-church',
+    match: /St\.? ?Luke.s Church/i,
+    foot: [1, 1],
+    seed: 5213,
+    draw: steepleChurchTile,
+    light: { kind: 'facadeFlood', topZ: 160, halfW: 0.4 },
+  },
+  {
+    city: 'newyork',
+    key: 'church-of-st-mary-the-virgin',
+    match: /Church of Saint Mary the Virgin/i,
+    foot: [1, 1],
+    seed: 5214,
+    draw: steepleChurchTile,
+    light: { kind: 'facadeFlood', topZ: 150, halfW: 0.4 },
+  },
+  // --- round-2 mansions, hotels & apartments -------------------------------
+  {
+    city: 'newyork',
+    key: 'otto-kahn-house',
+    match: /Otto H\.? ?Kahn House/i,
+    foot: [2, 2],
+    seed: 5215,
+    draw: kahnHouseTile,
+    light: { kind: 'facadeFlood', topZ: 78, halfW: 0.8 },
+  },
+  {
+    city: 'newyork',
+    key: 'george-baker-houses',
+    match: /George F\.? ?Baker/i,
+    foot: [1, 1],
+    seed: 5216,
+    draw: fifthAveTownhouseTile,
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 0.45 },
+  },
+  {
+    city: 'newyork',
+    key: 'lucy-dahlgren-house',
+    match: /Lucy Drexel Dahlgren House/i,
+    foot: [1, 1],
+    seed: 5217,
+    draw: fifthAveTownhouseTile,
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 0.45 },
+  },
+  {
+    city: 'newyork',
+    key: 'richard-morris-hunt-house',
+    // the "Richard Morris Hunt" memorial / associated townhouse.
+    match: /Richard Morris Hunt/i,
+    foot: [1, 1],
+    seed: 5218,
+    draw: fifthAveTownhouseTile,
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 0.45 },
+  },
+  {
+    city: 'newyork',
+    key: 'hotel-wolcott',
+    match: /Hotel Wolcott/i,
+    foot: [2, 2],
+    seed: 5219,
+    draw: hotelWolcottTile,
+    light: { kind: 'towerCrown', topZ: 174, halfW: 0.55 },
+  },
+  {
+    city: 'newyork',
+    key: 'the-grand-hotel',
+    match: /The Grand Hotel/i,
+    foot: [2, 2],
+    seed: 5220,
+    draw: grandHotelTile,
+    light: { kind: 'facadeFlood', topZ: 106, halfW: 0.8 },
+  },
+  {
+    city: 'newyork',
+    key: 'astral-apartments',
+    match: /Astral Apartments/i,
+    foot: [3, 3],
+    seed: 5221,
+    draw: astralApartmentsTile,
+    light: { kind: 'facadeFlood', topZ: 86, halfW: 1.1 },
+  },
+  {
+    city: 'newyork',
+    key: 'blackwell-house',
+    match: /Blackwell House/i,
+    foot: [1, 1],
+    seed: 5222,
+    draw: federalHouseTile,
+    light: { kind: 'genericGlow', topZ: 44, halfW: 0.45 },
+  },
+  {
+    city: 'newyork',
+    key: 'quarters-a',
+    match: /Quarters A/i,
+    foot: [1, 1],
+    seed: 5223,
+    draw: federalHouseTile,
+    light: { kind: 'genericGlow', topZ: 44, halfW: 0.45 },
+  },
+  {
+    city: 'newyork',
+    key: 'hostelling-international',
+    match: /Hostelling International/i,
+    foot: [2, 2],
+    seed: 5224,
+    draw: hostellingTile,
+    light: { kind: 'facadeFlood', topZ: 110, halfW: 0.8 },
+  },
+  // --- round-2 harbor fleet ------------------------------------------------
+  {
+    city: 'newyork',
+    key: 'uss-intrepid',
+    match: /USS Intrepid/i,
+    foot: [5, 5],
+    seed: 5225,
+    draw: intrepidTile,
+    light: { kind: 'stadiumFlood', topZ: 90, halfW: 1.7 },
+  },
+  {
+    city: 'newyork',
+    key: 'wavertree',
+    match: /Wavertree/i,
+    foot: [2, 2],
+    seed: 5226, // even → square-rigger (three masts)
+    draw: historicShipTile,
+    light: { kind: 'aerialBeacon', topZ: 200, halfW: 0.5 },
+  },
+  {
+    city: 'newyork',
+    key: 'ambrose-lightship',
+    match: /Ambrose/i,
+    foot: [2, 2],
+    seed: 5227, // odd → the red lightship (mast + lantern)
+    draw: historicShipTile,
+    light: { kind: 'aerialBeacon', topZ: 130, halfW: 0.4 },
+  },
+  {
+    city: 'newyork',
+    key: 'fireboat-john-j-harvey',
+    match: /Fireboat John J\.? ?Harvey/i,
+    foot: [2, 2],
+    seed: 5228,
+    draw: fireboatTile,
+    light: { kind: 'genericGlow', topZ: 66, halfW: 0.5 },
+  },
+  // --- round-2 sculptures, fountains, clocks & monuments -------------------
+  {
+    city: 'newyork',
+    key: 'the-sphere',
+    match: /The Sphere/i,
+    foot: [1, 1],
+    seed: 5229,
+    draw: sphereTile,
+    light: { kind: 'genericGlow', topZ: 80, halfW: 0.4 },
+  },
+  {
+    city: 'newyork',
+    key: 'womens-rights-pioneers-monument',
+    match: /Women.s Rights Pioneers Monument/i,
+    foot: [1, 1],
+    seed: 5230, // mode 0 → figure group
+    draw: monumentTile,
+    light: { kind: 'genericGlow', topZ: 32, halfW: 0.4 },
+  },
+  {
+    city: 'newyork',
+    key: 'triumph-of-the-human-spirit',
+    match: /Triumph of the Human Spirit/i,
+    foot: [1, 1],
+    seed: 5231, // mode 1 → abstract black-granite form
+    draw: monumentTile,
+    light: { kind: 'genericGlow', topZ: 64, halfW: 0.3 },
+  },
+  {
+    city: 'newyork',
+    key: 'giuseppe-verdi-monument',
+    match: /Giuseppe Verdi Monument/i,
+    foot: [1, 1],
+    seed: 5232, // mode 2 → figure-on-column
+    draw: monumentTile,
+    light: { kind: 'genericGlow', topZ: 70, halfW: 0.3 },
+  },
+  {
+    city: 'newyork',
+    key: 'general-worth-monument',
+    match: /General Worth Monument/i,
+    foot: [1, 1],
+    seed: 5233,
+    draw: memorialObeliskTile,
+    light: { kind: 'aerialBeacon', topZ: 132, halfW: 0.12 },
+  },
+  {
+    city: 'newyork',
+    key: 'burnett-memorial-fountain',
+    match: /Burnett Memorial Fountain/i,
+    foot: [1, 1],
+    seed: 5234,
+    draw: fountainTile,
+    light: { kind: 'genericGlow', topZ: 22, halfW: 0.4 },
+  },
+  {
+    city: 'newyork',
+    key: 'delacorte-musical-clock',
+    match: /Delacorte Musical Clock/i,
+    foot: [1, 1],
+    seed: 5235,
+    draw: delacorteClockTile,
+    light: { kind: 'genericGlow', topZ: 64, halfW: 0.4 },
+  },
+  // --- round-2 civic / museum / special ------------------------------------
+  {
+    city: 'newyork',
+    key: 'stonewall-inn',
+    match: /Stonewall Inn/i,
+    foot: [1, 1],
+    seed: 5236,
+    draw: stonewallTile,
+    light: { kind: 'genericGlow', topZ: 34, halfW: 0.45 },
+  },
+  {
+    city: 'newyork',
+    key: 'lower-east-side-tenement-museum',
+    match: /Lower East Side Tenement Museum/i,
+    foot: [1, 1],
+    seed: 5237,
+    draw: rowhouseMuseumTile,
+    light: { kind: 'genericGlow', topZ: 56, halfW: 0.45 },
+  },
+  {
+    city: 'newyork',
+    key: 'yeshiva-university-museum',
+    match: /Yeshiva University Museum/i,
+    foot: [1, 1],
+    seed: 5238,
+    draw: rowhouseMuseumTile,
+    light: { kind: 'genericGlow', topZ: 56, halfW: 0.45 },
+  },
+  {
+    city: 'newyork',
+    key: 'museum-of-the-moving-image',
+    match: /Museum of the Moving Image/i,
+    foot: [1, 1],
+    seed: 5239,
+    draw: rowhouseMuseumTile,
+    light: { kind: 'genericGlow', topZ: 56, halfW: 0.45 },
+  },
+  {
+    city: 'newyork',
+    key: 'storefront-for-art-and-architecture',
+    match: /Storefront for Art and Architecture/i,
+    foot: [1, 1],
+    seed: 5240,
+    draw: storefrontTile,
+    light: { kind: 'genericGlow', topZ: 32, halfW: 0.4 },
+  },
+  {
+    city: 'newyork',
+    key: 'west-30th-street-heliport',
+    match: /West 30th Street Heliport/i,
+    foot: [2, 2],
+    seed: 5241,
+    draw: heliportTile,
+    light: { kind: 'stadiumFlood', topZ: 60, halfW: 1.0 },
   },
 ];
