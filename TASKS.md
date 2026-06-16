@@ -12,31 +12,41 @@
 
 ## Open
 
-### 🚐 W7b + W7c (subagent worktree `worktree-agent-ae3b6443a0ea890ba`, 2026-06-16) — IN PROGRESS
-Two GRAPHICAL playtest re-raises, one PR. Branch is an isolated worktree off the
-feature branch; gates = tsc + eslint + vitest + build + a DESIGN GATE (real shots).
-**W7b — VANS DRIVE ON THE MAP**
-- [ ] Vans must be visible DRIVING on the road/street vector layer, not only parked
-      at the depot. Today `stepFleet` (src/sim/fleet/fleet.ts) moves vans in straight
-      `Math.hypot` lines — they fly across fields ignoring roads. FIX: build a road
-      GRAPH from `map.routes` (drivable classes) + path-find (depot→fault→depot) so
-      vans follow streets; renderer glides the van along the path with correct heading.
-- [ ] Believable behaviour: dispatched to faults; readable at mid/close zoom; lofi dusk.
-**W7c — TURBINE FOOTPRINT + WIND-FARM ICON + CAPACITY PICKER**
-- [ ] FOOTPRINT BUG: advertised "~3 tiles" (CapacityPicker, 15 MW ÷ 5) ≠ what lands —
-      the renderer (MapRenderer ~2669) draws TWO turbines per claimed tile across a
-      checkerboard-parity BFS blob (radius up to 9), so a "3-tile" farm sprawls into a
-      "10×4 diagonal". Make the reserved/placed footprint MATCH the advertised tiles:
-      tighten the blob to a compact rect-ish cluster, ~5 MW/square, no diagonal sprawl;
-      verify the mast/rotor sit centred on the tile.
-- [ ] WIND-FARM ICON: proper icon — WHITE, tapering mast, wing-shaped blades (narrow at
-      hub → widening → tapering to a point), blades ≥60% of hub height (src/ui/icons.tsx
-      IconWind/IconWindSea + the in-world turbine sprite).
-- [ ] CAPACITY PICKER for wind farms (choose MW when building, consistent w/ subs MVA
-      picker). A `CapacityPicker` already exists in BuildPalette.tsx — VERIFY it works
-      end-to-end (MW → build command → footprint) and is good; extend if needed.
-DESIGN GATE: vans driving (mid+close), turbine/wind-farm far/mid/close BEFORE vs AFTER
-the footprint fix, wind-farm icon + capacity-picker UI. Save to preview/, critique, iterate.
+### 🚐 W7b + W7c (subagent worktree `worktree-agent-ae3b6443a0ea890ba`, 2026-06-16) — DONE (pending parent integration)
+Two GRAPHICAL playtest re-raises, one PR. Isolated worktree off the feature branch.
+GATES ALL GREEN: tsc -b clean · eslint(src tests e2e tools) clean · vitest 717 pass
+(+1 KNOWN landmarks-atlas timeout flake that passes in isolation — TASKS-documented) ·
+build OK. DESIGN-GATE shots in preview/ (inspected + iterated, genuinely good).
+**W7b — VANS DRIVE ON THE MAP — DONE**
+- [x] Vans DRIVE on the street network now (was: straight `Math.hypot` flight across
+      fields). NEW src/sim/fleet/roadGraph.ts builds a drivable road GRAPH from
+      `map.routes` (motorway/arterial/street/lane; rail+river excluded), quantising
+      crossing samples onto shared junction nodes; deterministic A* `planRoute` returns
+      a road-following polyline (degrades to a straight hop with no road). fleet.ts: a
+      van carries a (non-serialized) road plan + `driveToward` follows it, replanning
+      when the goal moves; stepFleet takes `ctx.map` for both job travel and depot
+      return. The renderer's existing glide just follows the snapshot → van visibly
+      drives the roads. Unit: tests/roadGraph.test.ts (routes around an L-street not the
+      diagonal; determinism; van drives to/from on roads). DEV-only `__testFault`
+      command + `getRoad()` hook for deterministic shots (UI never sends __testFault).
+- [x] Believable: dispatched to faults, returns to depot, readable mid/close, lofi dusk.
+      Shots: van-enroute-close (van mid-street on the carriageway), van-drive-close /
+      van-enroute (van on a road at a fault w/ "crew on it"), van-drive-mid, van-depot.
+**W7c — TURBINE FOOTPRINT + WIND-FARM ICON + CAPACITY PICKER — DONE**
+- [x] FOOTPRINT BUG FIXED: wind farms claimed an anchor-parity CHECKERBOARD (every-other
+      tile) so a "3-tile" 15 MW farm sprawled into a ~10×4 diagonal. farms.ts
+      `farmTileOrder` now grows a COMPACT contiguous blob for wind too (like solar):
+      ~5 MW per square, advertised tiles == reserved tiles == visual footprint. The
+      sprite draws ONE turbine dead-centred per tile (WIND_HUBS u=v=0.5, was 2 per tile);
+      rotor stays centred on the mast. footprints.test rewritten (15 MW within a 2-tile
+      span; 100 MW = 20 contiguous tiles).
+- [x] TURBINES READ WHITE: dusk box-shader darkened a side wall to grey-navy; towers now
+      keep bright explicit gloss-white faces (no dark ink edges) — clean white mast.
+- [x] WIND-FARM ICON: redrew IconWind/IconWindSea — tapering mast + three WING-shaped
+      blades (narrow at hub → belly → point), ≥60% of hub height. Shot: wind-icon.
+- [x] CAPACITY PICKER verified end-to-end (MW → build command → compact footprint),
+      consistent with the substation MVA picker; "reserves ~N tiles" caption now uses
+      ceil(MW/per) to match the footprint exactly. Shot: wind-picker (+ stepped).
 
 ### 🏁 OWNER DIRECTIVE (2026-06-16 16:12): "Finish, test, critique all you're doing, then merge when ready."
 THE plan to close out this branch (PR #63) to PRODUCTION:

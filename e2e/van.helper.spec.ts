@@ -83,10 +83,9 @@ test('vans drive on the road network to faults', async ({ page }) => {
       (window.__ec!.getState().snapshot?.fleet.jobs ?? []).map((j) => ({ x: j.x, y: j.y })),
     );
 
-  // run the clock briefly so the vans are CAUGHT mid-route on the streets
-  // (not yet arrived) — short hop, then freeze for the shot
-  await cmd(page, { type: 'setSpeed', speed: 6 });
-  await page.waitForTimeout(2600);
+  // run the clock so the vans leave the depot and reach the spread of faults
+  await cmd(page, { type: 'setSpeed', speed: 8 });
+  await page.waitForTimeout(4500);
   await cmd(page, { type: 'setSpeed', speed: 0 });
 
   const vans = await sampleVans();
@@ -101,23 +100,22 @@ test('vans drive on the road network to faults', async ({ page }) => {
     (depot.y + targets.reduce((a, t) => a + t.y, 0) / Math.max(1, targets.length)) / 2,
   );
 
-  // MID zoom — vans as little trucks moving along streets
+  // MID zoom — vans as little trucks on the streets attending faults
   await page.evaluate(
     ({ x, y }) => {
       window.__ec!.panTo(x, y);
-      window.__ec!.setZoom(1.25);
+      window.__ec!.setZoom(1.3);
     },
     { x: cx, y: cy },
   );
   await page.waitForTimeout(500);
   await page.screenshot({ path: 'preview/van-drive-mid.png' });
 
-  // CLOSE zoom on a van that's en route (busy AND still > 4 tiles from any job
-  // site, so it's mid-street, not parked at the fault)
-  const enRoute =
-    vans.find((v) => v.busy && sites.every((s) => Math.hypot(s.x - v.x, s.y - v.y) > 4)) ??
+  // CLOSE on a van that arrived at a fault (busy, on a road, at the spanner pin)
+  const atSite =
+    vans.find((v) => v.busy && sites.some((s) => Math.hypot(s.x - v.x, s.y - v.y) < 2)) ??
     vans.find((v) => v.busy);
-  const focus = enRoute ?? vans[0] ?? { x: cx, y: cy };
+  const focus = atSite ?? vans[0] ?? { x: cx, y: cy };
   await page.evaluate(
     ({ x, y }) => {
       window.__ec!.panTo(x, y);
@@ -134,6 +132,87 @@ test('vans drive on the road network to faults', async ({ page }) => {
       y: Math.max(0, fpos.y - 240),
       width: 460,
       height: 430,
+    },
+  });
+});
+
+test('a single van caught mid-street en route to a distant fault', async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await boot(page);
+  await page.evaluate(() => window.__ec!.setAtmosphere(18 * 60, { cloud: 0.25, wind: 0.5 }));
+
+  const road = await roadTiles(page, 8);
+  // depot at one road tile, fault at the FARTHEST road tile from it
+  const depot = road[0] ?? { x: 60, y: 40 };
+  let fault = road[1] ?? { x: 160, y: 60 };
+  let far = 0;
+  for (const t of road.slice(1)) {
+    const d = Math.hypot(t.x - depot.x, t.y - depot.y);
+    if (d > far) {
+      far = d;
+      fault = t;
+    }
+  }
+  await cmd(page, { type: 'build', spec: { kind: 'depot', x: depot.x, y: depot.y } });
+  await cmd(page, { type: 'setFleet', vans: 1 });
+  await page.waitForTimeout(300);
+  await cmd(page, { type: '__testFault', x: fault.x, y: fault.y, label: 'storm damage' });
+
+  // creep the clock until the lone van is caught roughly HALFWAY down the
+  // streets (not yet at the fault) — poll at low speed so we freeze mid-route
+  const halfway = (): { x: number; y: number } => ({
+    x: (depot.x + fault.x) / 2,
+    y: (depot.y + fault.y) / 2,
+  });
+  let van: { x: number; y: number; busy: boolean } | undefined;
+  await cmd(page, { type: 'setSpeed', speed: 2 });
+  for (let k = 0; k < 30; k++) {
+    await page.waitForTimeout(350);
+    van = await page.evaluate(() => {
+      const v = window.__ec!.getState().snapshot?.fleet.vans[0];
+      return v ? { x: v.x, y: v.y, busy: v.busy } : undefined;
+    });
+    const h = halfway();
+    // stop once the van has left the depot but not yet reached the fault
+    if (
+      van &&
+      Math.hypot(van.x - depot.x, van.y - depot.y) > 8 &&
+      Math.hypot(van.x - fault.x, van.y - fault.y) > 8
+    ) {
+      void h;
+      break;
+    }
+  }
+  await cmd(page, { type: 'setSpeed', speed: 0 });
+  console.log('MID-DRIVE VAN:', JSON.stringify(van), 'DEPOT:', JSON.stringify(depot), 'FAULT:', JSON.stringify(fault));
+  const focus = van ?? depot;
+
+  // re-read the van's position AFTER pausing (the renderer snaps to the latest
+  // snapshot when paused), pan to it, then crop around its real screen spot.
+  const paused = await page.evaluate(() => {
+    const v = window.__ec!.getState().snapshot?.fleet.vans[0];
+    return v ? { x: v.x, y: v.y } : undefined;
+  });
+  const at = paused ?? focus;
+  await page.evaluate(
+    ({ x, y }) => {
+      window.__ec!.panTo(x, y);
+      window.__ec!.setZoom(1.8);
+    },
+    at,
+  );
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: 'preview/van-enroute-full.png' });
+  const fpos = await page.evaluate(({ x, y }) => window.__ec!.tileToScreen(x, y), at);
+  // the van sprite sits a little ABOVE the tile centre (iso anchor), so bias up
+  await page.screenshot({
+    path: 'preview/van-enroute-close.png',
+    clip: {
+      x: Math.max(0, Math.round(fpos.x) - 220),
+      y: Math.max(0, Math.round(fpos.y) - 250),
+      width: 440,
+      height: 400,
     },
   });
 });
