@@ -47,6 +47,9 @@ export type Command =
   | { type: 'build'; spec: BuildSpec }
   | { type: 'demolish'; assetId: number }
   | { type: 'setFleet'; vans: number }
+  /** DEV/TEST ONLY: seed a repair job at a tile so the fleet dispatches a van
+   *  (deterministic van-on-road screenshots — the UI never sends this). */
+  | { type: '__testFault'; x: number; y: number; repairMin?: number; label?: string }
   | { type: 'setVegPolicy'; policy: VegPolicy }
   | { type: 'respondApplication'; appId: number; response: 'firm' | 'flex' | 'decline' }
   /** Award a generation tender to one of its bidders. */
@@ -1157,6 +1160,26 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
       }
       state.fleetSize = cmd.vans;
       return { ok: true };
+
+    case '__testFault': {
+      // DEV/TEST: seed a repair job so a free van dispatches and drives the
+      // roads to it. A negative synthetic branch id keeps it clear of real
+      // branch ids; -1 in outages == AWAITING_CREW (tick.ts).
+      const branchId = -(1000 + Math.floor(Math.abs(cmd.x) * 1000 + Math.abs(cmd.y)));
+      const label = cmd.label ?? 'test fault';
+      state.outages.set(branchId, -1);
+      state.outageCause.set(branchId, label);
+      state.jobs.set(branchId, {
+        branchId,
+        assetId: -1,
+        x: cmd.x,
+        y: cmd.y,
+        repairMin: cmd.repairMin ?? 6000, // long, so the van stays on site for the shot
+        waitedMin: 0,
+        label,
+      });
+      return { ok: true };
+    }
 
     case 'setVegPolicy':
       state.vegPolicy = cmd.policy;
