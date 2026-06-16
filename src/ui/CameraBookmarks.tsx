@@ -32,7 +32,7 @@ function Star({ size = 13, filled = true }: { size?: number; filled?: boolean })
 
 const MAX_SLOTS = 6;
 
-export function CameraBookmarks() {
+export function CameraBookmarks({ frame }: { frame?: React.CSSProperties } = {}) {
   const [open, setOpen] = useState(false);
   const bookmarks = useAppStore((s) => s.bookmarks);
   const addBookmark = useAppStore((s) => s.addBookmark);
@@ -86,6 +86,7 @@ export function CameraBookmarks() {
           gap: 5,
           fontSize: 11,
           cursor: 'pointer',
+          ...frame,
         }}
       >
         <Star size={14} />
@@ -107,6 +108,7 @@ export function CameraBookmarks() {
         display: 'flex',
         flexDirection: 'column',
         gap: 6,
+        ...frame,
       }}
     >
       <div

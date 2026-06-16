@@ -66,7 +66,7 @@ function terrainWash(): HTMLCanvasElement | undefined {
   return c;
 }
 
-export function Minimap() {
+export function Minimap({ frame }: { frame?: React.CSSProperties } = {}) {
   const open = useAppStore((s) => s.minimapOpen);
   const setOpen = useAppStore((s) => s.setMinimapOpen);
   const requestPan = useAppStore((s) => s.requestPan);
@@ -176,6 +176,7 @@ export function Minimap() {
           gap: 5,
           fontSize: 11,
           cursor: 'pointer',
+          ...frame,
         }}
       >
         <IconBolt size={13} />
@@ -197,6 +198,7 @@ export function Minimap() {
         display: 'flex',
         flexDirection: 'column',
         gap: 4,
+        ...frame,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>

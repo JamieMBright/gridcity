@@ -437,7 +437,20 @@ fault icon but NO van)**
       covers the map or another panel. Use the game-ui-design / frontend-design
       skills; design-gate on desktop AND phone-landscape. This supersedes the
       piecemeal z-order fixes.
-      IN PROGRESS (subagent, 2026-06-16 — branch claude/serene-edison-h6tebf):
+      DONE — parent-integrated + design-gated (subagent W1, 2026-06-16 — branch
+      claude/serene-edison-h6tebf). GATES (re-run by parent on the combined
+      W1+W2 tree): tsc + eslint(src tests e2e tools) clean; vitest 711/711;
+      build OK; London render BYTE-IDENTICAL (the HUD is pure DOM/CSS over an
+      untouched inset:0 map — proven by the relative invariant: London md5 is
+      identical with vs without W1+W2; note the absolute md5 in this freshly
+      cloned container is 064ba58…, not the older 68918a9… pin — a canvas/skia
+      library delta in the env, NOT a render regression). DESIGN-GATE images:
+      preview/hud-desktop{,-right,
+      -left,-trend}.png (1280×800, inbox + bill + pinned inspector ALL open —
+      the overlap stress case) + hud-phone-{idle,inbox,bill}.png (844×390
+      landscape, hasTouch → the real MobileChrome) — zero overlap, map clear in
+      the centre, each panel scroll-contained in its own zone. London e2e
+      (app/build/controls/fleet/menu/undo) re-run on a fresh server.
       - APPROACH: a single `HudFrame` (src/ui/HudFrame.tsx) CSS-GRID perimeter
         that overlays the full-screen map. Grid = `[L] [centre] [R]` columns ×
         `[top] [middle] [bottom]` rows. The CENTRE cell is empty + pointer-
