@@ -330,6 +330,67 @@ export const NAMED_PLACES: Array<{ x: number; y: number; name: string }> = [
   { x: 105, y: 101, name: 'County Hall' }, // opposite Westminster
   { x: 114, y: 96, name: 'National Theatre' }, // the Brutalist terraces
   { x: 119, y: 96, name: 'Tate Modern' }, // Bankside, the great chimney
+
+  // --- NEW bespoke heroes (W3 round 2): the City office towers, the West-End
+  //     hotels, the colleges + libraries, the South-Bank/Bankside set, the
+  //     Marylebone/Regent's-Park terraces, the palaces and the department
+  //     stores — each at its true relative London position, on land, no
+  //     footprint overlap (anchors verified by tools/place solver). The dense
+  //     Whitehall government quarter is already saturated by Buckingham/Abbey/
+  //     Parliament + the Thames, so a few Whitehall blocks (FCDO, GOGGS,
+  //     Whitehall Court, Old War Office, Burlington House) have NO sensible
+  //     footprint and are intentionally NOT placed this round. ----------------
+  // City of London — the eastern financial cluster
+  { x: 123, y: 79, name: '100 Bishopsgate' }, // the City's eastern edge
+  { x: 119, y: 82, name: '200 Aldersgate' }, // by the Museum of London / London Wall
+  { x: 113, y: 83, name: 'One New Change' }, // the glass mall hard by St Paul's
+  { x: 122, y: 82, name: 'Bank of New York Mellon' }, // the City
+  { x: 119, y: 74, name: 'London Wall Buildings' }, // Finsbury Circus
+  { x: 116, y: 73, name: 'Maughan Library' }, // Chancery Lane, the neo-Gothic strong-box
+  { x: 120, y: 71, name: 'Holborn Bars' }, // the red-terracotta Prudential, Holborn
+  // the West End — Strand / Covent Garden / Mayfair / Piccadilly
+  { x: 109, y: 85, name: 'Savoy Hotel' }, // the Strand, above the river
+  { x: 109, y: 74, name: 'Royal Opera House' }, // Covent Garden
+  { x: 106, y: 79, name: 'London Trocadero' }, // Piccadilly Circus
+  { x: 106, y: 76, name: 'Grosvenor House Hotel' }, // Park Lane, Mayfair
+  { x: 96, y: 74, name: 'One Hyde Park' }, // Knightsbridge, the glass apartments
+  // St James's / Westminster
+  { x: 105, y: 89, name: "St James's Palace" }, // the Tudor brick gatehouse
+  { x: 102, y: 89, name: 'Institute of Contemporary Arts' }, // The Mall, Nash terrace
+  { x: 114, y: 92, name: 'Ministry of Defence' }, // Whitehall, the big riverside block
+  { x: 97, y: 85, name: 'Ministry of Justice' }, // Petty France, Westminster
+  { x: 96, y: 93, name: 'Department for Transport' }, // Pimlico, by the river
+  // South Kensington — the Imperial College / museum quarter
+  { x: 95, y: 77, name: 'Royal School of Mines' }, // Prince Consort Road
+  { x: 94, y: 80, name: 'City and Guilds Building' }, // Exhibition Road
+  { x: 94, y: 83, name: 'Sherfield Building' }, // the Imperial College tower block
+  // Kensington / Bayswater (the west)
+  { x: 91, y: 80, name: 'Kensington Palace' }, // in Kensington Gardens
+  { x: 91, y: 84, name: 'Derry & Toms' }, // Kensington High Street, the roof gardens
+  { x: 94, y: 71, name: 'Whiteleys' }, // Bayswater / Queensway
+  { x: 98, y: 70, name: 'Hilton London Metropole' }, // Edgware Road
+  // Marylebone / Regent's Park / Maida Vale (the NW)
+  { x: 96, y: 66, name: 'Maida Vale Studios' }, // the BBC sound studios
+  { x: 103, y: 61, name: 'Cornwall Terrace' }, // Regent's Park, Nash terrace
+  { x: 99, y: 59, name: 'Sussex Place' }, // Regent's Park, the domed terrace (LBS)
+  { x: 99, y: 63, name: 'Chiltern Court' }, // above Baker Street station
+  { x: 103, y: 72, name: 'Broadcasting House' }, // Portland Place, the BBC
+  // Bloomsbury / King's Cross / Camden / Islington (the north)
+  { x: 110, y: 65, name: 'Senate House' }, // the University of London tower
+  { x: 110, y: 61, name: 'Francis Crick Institute' }, // by St Pancras / the Crick
+  { x: 118, y: 62, name: 'Central Saint Martins' }, // King's Cross, the Granary
+  { x: 116, y: 58, name: 'Business Design Centre' }, // Islington, the iron hall
+  // the South Bank / Bankside cultural mile (south of the river)
+  { x: 111, y: 93, name: 'BFI Southbank' }, // under Waterloo Bridge
+  { x: 112, y: 99, name: 'IBM Building' }, // the South Bank, Lasdun
+  { x: 116, y: 99, name: 'Sea Containers House' }, // Bankside, west of Blackfriars
+  // Southwark / the Pool of London
+  { x: 121, y: 93, name: "Hay's Galleria" }, // the arcaded wharf, Southwark
+  { x: 119, y: 90, name: 'HMS Belfast' }, // the museum cruiser, moored off Tooley St
+  // the outer set — Vauxhall / Wapping / Chelsea
+  { x: 95, y: 89, name: 'SIS Building' }, // Vauxhall Cross, the MI6 ziggurat
+  { x: 129, y: 86, name: 'Tobacco Dock' }, // Wapping, the great brick warehouse
+  { x: 91, y: 100, name: 'Lots Road Power Station' }, // Chelsea, the twin chimneys
 ];
 
 // NOTE: EXISTING_GENERATION (the seeded estuary CCGTs / Lea peaker / Essex

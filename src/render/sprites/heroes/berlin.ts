@@ -1159,10 +1159,1086 @@ function gedaechtniskircheTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 }
 
 // =====================================================================
-// REGISTRY — order matters: the BESPOKE Brandenburg is FIRST + tightly matched
-// so it beats any generic arch resolver. Each `match` hits a PLACED name from
-// src/data/cities/berlin.ts's `named` list (German, incl. umlauts).
+// ROUND-2 SHARED PRIMITIVES — memorials, stations, modernist civic & a wider
+// church family. Each hero below composes these (or the Round-1 ones) freshly.
 // =====================================================================
+
+/** Speckled fieldstone (Feldstein) rubble texture dabbed over the visible walls
+ *  of a footprint — the look of Berlin's oldest medieval village churches. */
+function fieldstone(iso: Iso, u0: number, v0: number, u1: number, v1: number, z0: number, z1: number, seed: number): void {
+  let s = seed | 0;
+  const rnd = (): number => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const grey = hex('#8f8a82');
+  for (let i = 0; i < 46; i++) {
+    const t = rnd(), zz = z0 + (z1 - z0) * rnd();
+    // left face (v1) and right face (u1) alternately
+    if (rnd() < 0.5) {
+      const u = u0 + (u1 - u0) * t;
+      const p = iso.P(u, v1, zz);
+      iso.r.rect(p[0] - 1.1 * RES, p[1] - 1.0 * RES, p[0] + 1.1 * RES, p[1] + 1.0 * RES, rnd() < 0.5 ? shaded(grey, 0.1) : darken(grey, 0.16));
+    } else {
+      const v = v0 + (v1 - v0) * t;
+      const p = iso.P(u1, v, zz);
+      iso.r.rect(p[0] - 1.1 * RES, p[1] - 1.0 * RES, p[0] + 1.1 * RES, p[1] + 1.0 * RES, rnd() < 0.5 ? lit(grey, 0.06) : grey);
+    }
+  }
+}
+
+/** A tall industrial round brick CHIMNEY at a screen footprint point. */
+function chimney(iso: Iso, u: number, v: number, h: number, rad = 0.07): void {
+  iso.box(u - rad, v - rad, u + rad, v + rad, 0, h, BRICK_D);
+  // banded top
+  iso.r.line(iso.P(u - rad, v + rad, h - 6), iso.P(u + rad, v + rad, h - 6), 1.4 * RES, lit(BRICK, 0.08));
+  iso.box(u - rad - 0.01, v - rad - 0.01, u + rad + 0.01, v + rad + 0.01, h, h + 3, lighten(BRICK, 0.04), { ink: false });
+  iso.r.line(iso.P(u, v, h + 3), iso.P(u, v, h + 7), 0.8 * RES, alpha(SLATE, 0.7));
+}
+
+/** A faceted barrel-VAULT train-shed / market roof spanning u0..u1 along v,
+ *  from springing zS to crown zC. Returns nothing; draws glass facets + ribs. */
+function barrelVault(iso: Iso, u0: number, u1: number, v0: number, v1: number, zS: number, zC: number, glassC: RGBA): void {
+  const vm = (v0 + v1) / 2;
+  // near slope (front half of the arch) + far slope, as canted glass planes
+  iso.r.poly([iso.P(u0, vm, zC), iso.P(u1, vm, zC), iso.P(u1, v1, zS), iso.P(u0, v1, zS)], alpha(glassC, 0.6));
+  iso.r.poly([iso.P(u0, v0, zS), iso.P(u1, v0, zS), iso.P(u1, vm, zC), iso.P(u0, vm, zC)], alpha(lit(glassC, 0.1), 0.5));
+  // ribs across the span
+  const n = Math.max(3, Math.round((u1 - u0) * 4));
+  for (let i = 0; i <= n; i++) {
+    const u = u0 + ((u1 - u0) * i) / n;
+    iso.r.polyline([iso.P(u, v0, zS), iso.P(u, vm, zC), iso.P(u, v1, zS)], 0.7 * RES, alpha(STEEL, 0.8));
+  }
+  iso.r.polyline([iso.P(u0, v0, zS), iso.P(u0, vm, zC), iso.P(u0, v1, zS)], INK_W * 0.8, INK);
+  iso.r.polyline([iso.P(u1, v0, zS), iso.P(u1, vm, zC), iso.P(u1, v1, zS)], INK_W * 0.8, INK);
+  iso.r.line(iso.P(u0, vm, zC), iso.P(u1, vm, zC), INK_W * 0.7, INK);
+}
+
+// =====================================================================
+// SOWJETISCHES EHRENMAL (TREPTOW) — the colossal Soviet war memorial: a long
+// axial park closed by a great kurgan MOUND topped by the bronze "Soviet
+// Warrior" (a soldier holding a child, sword lowered over a smashed swastika),
+// approached between two huge red-granite PYLONS shaped as lowered banners. The
+// most monumental thing on the map. 5×5.
+// =====================================================================
+function sovietTreptowTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(5, 5, { swAnchor: true, headroom: 220 });
+  void seed;
+  const GRAN = hex('#6e3b39'); // Soviet red granite
+  const u0 = 0.3, u1 = 4.7, v0 = 0.4, v1 = 4.6;
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.2);
+  // the long sunken lawn of honour (axis runs front→back)
+  iso.box(u0, v0, u1, v1, 0, 3, shaded(COLORS.grass, 0.12), { ink: false });
+  // the central axial path
+  iso.box(2.2, v0, 2.8, v1, 3, 5, shaded(COLORS.pavement, 0.05), { ink: false });
+  // the two great lowered-banner PYLONS flanking the entry (front, low v)
+  for (const cu of [1.0, 4.0] as const) {
+    // a wedge: tall at the path side, sloping down outward (a furled flag)
+    const hi = 92, lo = 40;
+    iso.box(cu - 0.28, v0 + 0.4, cu + 0.28, v0 + 0.9, 0, lo, GRAN);
+    iso.r.poly(
+      [iso.P(cu - 0.28, v0 + 0.9, lo), iso.P(cu + 0.28, v0 + 0.9, lo), iso.P(cu + 0.28, v0 + 0.9, hi), iso.P(cu - 0.28, v0 + 0.9, hi)],
+      lit(GRAN, 0.06),
+    );
+    iso.r.poly(
+      [iso.P(cu + 0.28, v0 + 0.4, lo), iso.P(cu + 0.28, v0 + 0.9, lo), iso.P(cu + 0.28, v0 + 0.9, hi)],
+      shaded(GRAN, 0.1),
+    );
+    iso.r.polyline([iso.P(cu - 0.28, v0 + 0.9, hi), iso.P(cu + 0.28, v0 + 0.9, hi), iso.P(cu + 0.28, v0 + 0.9, lo)], INK_W * 0.8, INK);
+    // a carved gilt wreath on the banner face
+    iso.glint(iso.P(cu, v0 + 0.9, lo + 20), 2.4 * RES);
+  }
+  // ---- the great kurgan MOUND at the far end (high v) ----
+  const mcx = (u0 + u1) / 2, mcy = v1 - 0.7;
+  // stepped green mound as concentric shrinking boxes
+  iso.box(mcx - 1.3, mcy - 0.9, mcx + 1.3, mcy + 0.9, 3, 26, shaded(COLORS.grass, 0.06), { topC: top(COLORS.grass, 0.16) });
+  iso.box(mcx - 0.95, mcy - 0.65, mcx + 0.95, mcy + 0.65, 26, 46, shaded(COLORS.grass, 0.04), { topC: top(COLORS.grass, 0.18) });
+  // the round granite mausoleum-plinth/pedestal the warrior stands on
+  iso.box(mcx - 0.46, mcy - 0.38, mcx + 0.46, mcy + 0.38, 46, 64, lit(GRAN, 0.04));
+  // a stepped sub-plinth so the bronze reads as raised
+  iso.box(mcx - 0.28, mcy - 0.24, mcx + 0.28, mcy + 0.24, 64, 72, lighten(GRAN, 0.06));
+  // ---- the colossal bronze Soviet Warrior — the ICON: he must dominate the
+  // whole mound, sword down, child on the arm ----
+  const [sx, syB] = iso.P(mcx, mcy, 72);
+  const SH = 68 * RES; // big — towers over the pedestal
+  // greatcoat skirt (broad, flaring)
+  iso.r.poly([[sx - 5 * RES, syB], [sx + 5 * RES, syB], [sx + 3 * RES, syB - SH * 0.58], [sx - 3 * RES, syB - SH * 0.58]], COPPER, COPPER_D);
+  // torso
+  iso.r.poly([[sx - 3 * RES, syB - SH * 0.54], [sx + 3.6 * RES, syB - SH * 0.54], [sx + 2 * RES, syB - SH * 0.86], [sx - 2 * RES, syB - SH * 0.86]], lit(COPPER, 0.1), COPPER_D);
+  // the cradled rescued child bundle on the left arm
+  iso.r.poly([[sx - 7 * RES, syB - SH * 0.62], [sx - 2.5 * RES, syB - SH * 0.7], [sx - 2.5 * RES, syB - SH * 0.5], [sx - 6 * RES, syB - SH * 0.44]], lit(COPPER, 0.16), COPPER_D);
+  // head
+  iso.r.rect(sx - 2 * RES, syB - SH - 1 * RES, sx + 2 * RES, syB - SH * 0.86, lit(COPPER, 0.14));
+  iso.r.polyline([[sx - 2 * RES, syB - SH - 1 * RES], [sx + 2 * RES, syB - SH - 1 * RES], [sx + 2 * RES, syB - SH * 0.86]], INK_W * 0.5, alpha(INK, 0.6));
+  // the great lowered sword resting point-down on the broken swastika
+  iso.r.line([sx + 3.6 * RES, syB - SH * 0.5], [sx + 9 * RES, syB + 3 * RES], 2.2 * RES, lit(COPPER, 0.16));
+  iso.r.line([sx + 3 * RES, syB - SH * 0.52], [sx + 4.6 * RES, syB - SH * 0.48], 1.4 * RES, GILT); // hilt cross-guard
+  iso.glint([sx, syB - SH * 0.74], 2.8 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// SOWJETISCHES EHRENMAL TIERGARTEN — the smaller Soviet memorial on Straße des
+// 17. Juni: a concave curved COLONNADE screen carrying a bronze soldier on a
+// central plinth, flanked by two real T-34 tanks + field guns. Low, axial,
+// pale stone. 3×3.
+// =====================================================================
+function sovietTiergartenTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 130 });
+  void seed;
+  const u0 = 0.3, u1 = 2.7, v0 = 0.5, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.2);
+  // the plaza apron
+  iso.box(u0, v0, u1, v1, 0, 3, shaded(COLORS.pavement, 0.05), { ink: false });
+  // the curved colonnade screen across the back (low v) — a band of columns on
+  // a low wall, stepped slightly forward at the wings to read concave
+  iso.box(u0 + 0.2, v0 + 0.15, u1 - 0.2, v0 + 0.45, 0, 18, RENDER);
+  colonnadeL(iso, v0 + 0.45, u0 + 0.3, u1 - 0.3, 18, 50, 9, COLORS.white);
+  iso.box(u0 + 0.18, v0 + 0.13, u1 - 0.18, v0 + 0.47, 50, 56, lighten(RENDER, 0.06), { topC: top(RENDER, 0.28) });
+  // the wing end-blocks stepped forward (the tanks sit on these)
+  for (const cu of [u0 + 0.3, u1 - 0.3] as const) {
+    iso.box(cu - 0.22, v0 + 0.5, cu + 0.22, v0 + 0.9, 0, 20, lighten(RENDER, 0.03));
+    // a stubby T-34 tank silhouette on the plinth (hull + turret + gun)
+    const [tx, tyB] = iso.P(cu, v0 + 0.7, 20);
+    iso.r.rect(tx - 4 * RES, tyB - 5 * RES, tx + 4 * RES, tyB - 1 * RES, shaded(COLORS.grass, 0.2));
+    iso.r.rect(tx - 2 * RES, tyB - 8 * RES, tx + 1.5 * RES, tyB - 5 * RES, darken(hex('#5a6650'), 0.05));
+    iso.r.line([tx + 1.5 * RES, tyB - 6.5 * RES], [tx + 8 * RES, tyB - 6.5 * RES], 1.2 * RES, hex('#4a5442'));
+  }
+  // ---- the central plinth + bronze soldier ----
+  const cx = (u0 + u1) / 2;
+  iso.box(cx - 0.22, v0 + 0.3, cx + 0.22, v0 + 0.62, 50, 66, lit(RENDER, 0.02));
+  const [sx, syB] = iso.P(cx, v0 + 0.46, 66);
+  const SH = 30 * RES;
+  iso.r.poly([[sx - 2.2 * RES, syB], [sx + 2.2 * RES, syB], [sx + 1.4 * RES, syB - SH], [sx - 1.4 * RES, syB - SH]], COPPER, COPPER_D);
+  iso.r.rect(sx - 1.3 * RES, syB - SH - 3.5 * RES, sx + 1.3 * RES, syB - SH, lit(COPPER, 0.1)); // head
+  iso.r.line([sx, syB - SH], [sx - 4 * RES, syB - SH - 7 * RES], 1.2 * RES, lit(COPPER, 0.12)); // raised arm
+  iso.glint([sx, syB - SH * 0.6], 2.2 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// GEDENKSTÄTTE BERLINER MAUER — the Berlin Wall Memorial on Bernauer Straße: a
+// preserved stretch of the death strip — the rounded-top concrete Hinterland
+// WALL, the raked sand strip, a cylindrical "Lichtgrenze" watchTOWER, and the
+// rusted steel "Wall of Remembrance" rod-screen. Grey + rust + sand. 3×3.
+// =====================================================================
+function berlinWallMemorialTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 110 });
+  void seed;
+  const CONC = hex('#c3beb4'); // weathered wall concrete
+  const RUST = hex('#9a6a44'); // corten / rusted steel rods
+  const SANDY = hex('#cdbf9e'); // raked death-strip sand
+  const u0 = 0.3, u1 = 2.7, v0 = 0.5, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.2);
+  // the raked death-strip sand
+  iso.box(u0, v0, u1, v1, 0, 3, shaded(SANDY, 0.06), { ink: false });
+  // raking lines in the sand
+  for (let i = 1; i < 7; i++) {
+    const v = v0 + ((v1 - v0) * i) / 7;
+    iso.r.line(iso.P(u0, v, 3), iso.P(u1, v, 3), 0.5 * RES, alpha(darken(SANDY, 0.12), 0.7));
+  }
+  // ---- the concrete WALL segment along the front edge (high v), with the
+  // characteristic rounded sewer-pipe top ----
+  const wz = 40;
+  iso.box(u0 + 0.1, v1 - 0.3, u1 - 0.1, v1 - 0.16, 0, wz, CONC);
+  // rounded top cap (a half-round bead)
+  const a = iso.P(u0 + 0.1, v1 - 0.23, wz), b = iso.P(u1 - 0.1, v1 - 0.23, wz);
+  iso.r.line(a, b, 3.2 * RES, lighten(CONC, 0.1));
+  iso.r.line([a[0], a[1] - 1.4 * RES], [b[0], b[1] - 1.4 * RES], 1.2 * RES, top(CONC, 0.2));
+  // panel seams down the wall
+  for (let i = 1; i < 7; i++) {
+    const u = u0 + 0.1 + ((u1 - u0 - 0.2) * i) / 7;
+    iso.r.line(iso.P(u, v1 - 0.16, 2), iso.P(u, v1 - 0.16, wz), 0.6 * RES, alpha(shaded(CONC, 0.2), 0.8));
+  }
+  // ---- the rusted-rod Wall-of-Remembrance screen (a rank of vertical rods,
+  // gappy, behind the wall) ----
+  for (let i = 0; i <= 22; i++) {
+    const u = u0 + 0.16 + ((u1 - u0 - 0.32) * i) / 22;
+    if (i % 5 === 2) continue; // the symbolic gaps
+    iso.r.line(iso.P(u, v0 + 0.7, 4), iso.P(u, v0 + 0.7, 30), 0.8 * RES, i % 2 ? RUST : lit(RUST, 0.06));
+  }
+  // ---- the cylindrical watchTOWER at one end ----
+  const tu = u1 - 0.5, tv = v0 + 0.45;
+  iso.box(tu - 0.12, tv - 0.12, tu + 0.12, tv + 0.12, 0, 64, lighten(CONC, 0.02));
+  // glazed octagonal cabin on top
+  iso.box(tu - 0.17, tv - 0.17, tu + 0.17, tv + 0.17, 64, 78, alpha(COLORS.glassDark, 0.8), {
+    leftC: alpha(COLORS.glassDark, 0.85), rightC: alpha(COLORS.glassLit, 0.4),
+  });
+  iso.r.line(iso.P(tu - 0.17, tv + 0.17, 71), iso.P(tu + 0.17, tv + 0.17, 71), 0.7 * RES, alpha(COLORS.white, 0.5));
+  // shallow cap + a swept floodlight
+  iso.box(tu - 0.19, tv - 0.19, tu + 0.19, tv + 0.19, 78, 82, shaded(SLATE, 0.04), { ink: false });
+  iso.glint(iso.P(tu, tv, 74), 2.2 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// DENKMAL FÜR DIE ERMORDETEN JUDEN EUROPAS — Eisenman's Holocaust Memorial: a
+// vast undulating FIELD of 2,711 grey concrete STELAE in a strict grid on a
+// rolling sunken ground, the blocks rising toward the centre. Abstract, grey,
+// silent — its silhouette is a sea of slabs. 5×5.
+// =====================================================================
+function holocaustMemorialTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(5, 5, { swAnchor: true, headroom: 90 });
+  void seed;
+  const CONC = hex('#9c9a96'); // dark concrete stele grey
+  const u0 = 0.34, u1 = 4.66, v0 = 0.5, v1 = 4.5;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.18);
+  // the rolling ground
+  iso.box(u0, v0, u1, v1, 0, 3, shaded(COLORS.pavement, 0.08), { ink: false });
+  // a strict grid of stelae; height swells toward the centre (a smooth bump),
+  // drawn back-to-front so nearer blocks overlap farther ones correctly.
+  const NU = 11, NV = 11;
+  const cu = (u0 + u1) / 2, cv = (v0 + v1) / 2;
+  const gw = (u1 - u0) / NU, gh = (v1 - v0) / NV;
+  for (let j = 0; j < NV; j++) {
+    for (let i = 0; i < NU; i++) {
+      const bu = u0 + gw * (i + 0.5), bv = v0 + gh * (j + 0.5);
+      const dist = Math.hypot((bu - cu) / (u1 - u0), (bv - cv) / (v1 - v0));
+      const h = 6 + Math.max(0, 1 - dist * 1.9) * 64; // tall in the middle
+      const hw = gw * 0.32, hh = gh * 0.32;
+      iso.box(bu - hw, bv - hh, bu + hw, bv + hh, 0, h, CONC, {
+        topC: top(CONC, 0.22), leftC: shaded(CONC, 0.26), rightC: lit(CONC, 0.05), ink: h > 14,
+      });
+    }
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// TRÄNENPALAST — the "Palace of Tears", the former GDR border departure hall at
+// Friedrichstraße: a single-storey 1960s pavilion of pale STEEL + glass with a
+// distinctive scalloped/folded blue roof fascia and a long glazed curtain wall.
+// Low, wide, transparent. 3×3.
+// =====================================================================
+function traenenpalastTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 70 });
+  void seed;
+  const BLUE = hex('#3d6e8e'); // the GDR petrol-blue roof fascia
+  const u0 = 0.3, u1 = 2.7, v0 = 0.5, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.2);
+  // a low pale podium
+  iso.box(u0, v0, u1, v1, 0, 8, lighten(STONE, 0.06));
+  // the all-glass hall (set in a touch under the oversailing roof)
+  iso.box(u0 + 0.12, v0 + 0.12, u1 - 0.12, v1 - 0.12, 8, 40, alpha(COLORS.glassSky, 0.55), {
+    leftC: alpha(COLORS.glassDark, 0.6), rightC: alpha(COLORS.glassLit, 0.4),
+  });
+  // tall slim mullions all round
+  for (let i = 1; i < 12; i++) {
+    const u = u0 + 0.12 + ((u1 - u0 - 0.24) * i) / 12;
+    iso.r.line(iso.P(u, v1 - 0.12, 8), iso.P(u, v1 - 0.12, 40), 0.6 * RES, alpha(COLORS.white, 0.5));
+  }
+  for (let i = 1; i < 10; i++) {
+    const v = v0 + 0.12 + ((v1 - v0 - 0.24) * i) / 10;
+    iso.r.line(iso.P(u1 - 0.12, v, 8), iso.P(u1 - 0.12, v, 40), 0.6 * RES, alpha(COLORS.white, 0.4));
+  }
+  // ---- the folded/scalloped blue roof fascia (a row of shallow peaks) ----
+  const rz = 40;
+  iso.box(u0, v0, u1, v1, rz, rz + 4, BLUE, { topC: lit(BLUE, 0.08), ink: false });
+  // a sawtooth of small peaks along the front fascia
+  const n = 10;
+  for (let i = 0; i < n; i++) {
+    const ua = u0 + ((u1 - u0) * i) / n, ub = u0 + ((u1 - u0) * (i + 1)) / n, um = (ua + ub) / 2;
+    iso.r.poly([iso.P(ua, v1, rz + 4), iso.P(ub, v1, rz + 4), iso.P(um, v1, rz + 11)], i % 2 ? lit(BLUE, 0.1) : BLUE);
+    iso.r.polyline([iso.P(ua, v1, rz + 4), iso.P(um, v1, rz + 11), iso.P(ub, v1, rz + 4)], INK_W * 0.6, INK);
+  }
+  iso.r.polyline([iso.P(u0, v0, rz + 4), iso.P(u1, v0, rz + 4), iso.P(u1, v1, rz + 4), iso.P(u0, v1, rz + 4)], INK_W, INK, true);
+  return iso.build();
+}
+
+// =====================================================================
+// NEUE WACHE — Schinkel's neoclassical guardhouse on Unter den Linden: a small
+// austere stone CUBE fronted by a deep Doric portico of six columns under a
+// plain pediment, with solid corner pylons (a Roman castrum gate). Now the
+// central war memorial. Low, grave, perfectly symmetrical. 2×2.
+// =====================================================================
+function neueWacheTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 70 });
+  void seed;
+  const u0 = 0.4, u1 = 1.6, v0 = 0.5, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // the solid stone block
+  iso.box(u0, v0, u1, v1, 0, 40, STONE);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 9, shaded(STONE, 0.14), { ink: false });
+  // the heavy corner pylons (project slightly, taller than the wall)
+  for (const [pu, pv] of [[u0 + 0.12, v1 - 0.12], [u1 - 0.12, v1 - 0.12], [u1 - 0.12, v0 + 0.12]] as const) {
+    iso.box(pu - 0.12, pv - 0.12, pu + 0.12, pv + 0.12, 0, 46, lighten(STONE, 0.04));
+  }
+  // the deep Doric portico across the front (v1)
+  const cx = (u0 + u1) / 2;
+  colonnadeL(iso, v1, cx - 0.34, cx + 0.34, 6, 40, 6, COLORS.white);
+  // entablature + plain pediment with a low-relief tympanum
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 40, 46, lighten(STONE, 0.06), { topC: top(STONE, 0.26) });
+  pediment(iso, v1, cx - 0.4, cx + 0.4, 46, 13, STONE);
+  // a row of Victory figures in the tympanum (tiny dark pips)
+  for (let i = 0; i < 4; i++) {
+    const q = iso.P(cx - 0.22 + i * 0.15, v1, 48);
+    iso.r.rect(q[0] - 1 * RES, q[1] - 3 * RES, q[0] + 1 * RES, q[1], alpha(shaded(STONE, 0.3), 0.8));
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// BELVEDERE (CHARLOTTENBURG) — the rococo garden teahouse in the Schlosspark: a
+// tall slim three-storey RENDER tower, oval in plan, with a bell-curved roof
+// rising to a lantern crowned by three gilt putti carrying a basket. Tall,
+// delicate, pale. 2×2 with headroom. =====================================================================
+function belvedereTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 150 });
+  void seed;
+  const cx = 1.0, cy = 1.0;
+  iso.shadow(0.5, 0.55, 1.5, 1.5, 0.2, 0.22);
+  // garden lawn
+  iso.box(0.3, 0.35, 1.7, 1.65, 0, 3, shaded(COLORS.grass, 0.1), { ink: false });
+  // a low rusticated base
+  iso.box(0.5, 0.55, 1.5, 1.5, 0, 12, shaded(RENDER, 0.06));
+  // the slim three-storey oval body (taper slightly upward)
+  iso.box(0.56, 0.6, 1.44, 1.44, 12, 50, RENDER);
+  iso.box(0.6, 0.64, 1.4, 1.4, 50, 84, lighten(RENDER, 0.02));
+  // tall round-headed windows over the storeys, both faces
+  iso.windowsLeft(1.44, 0.62, 1.38, 18, 44, 3, alpha(COLORS.glassDark, 0.85), COLORS.white);
+  iso.windowsLeft(1.4, 0.66, 1.34, 54, 80, 3, alpha(COLORS.glassDark, 0.85), COLORS.white);
+  iso.windowsRight(1.4, 0.66, 1.34, 54, 80, 3, alpha(COLORS.glassDark, 0.85), COLORS.white);
+  // cornice
+  iso.box(0.58, 0.62, 1.42, 1.42, 84, 88, lighten(RENDER, 0.06), { topC: top(RENDER, 0.3) });
+  // ---- the bell-curved (ogee) roof rising to a lantern ----
+  const { tipX, tipY } = domeAt(iso, cx, cy, 88, 0.42 * (CELL_W / 2), 1.25, ZINC, { bulb: true, ribs: 6 });
+  lantern(iso, tipX, tipY, 12, lighten(ZINC, 0.06), GILT_HOT);
+  // three gilt putti + basket finial (a little gold cluster)
+  iso.r.poly([[tipX - 3 * RES, tipY - 12 * RES], [tipX + 3 * RES, tipY - 12 * RES], [tipX, tipY - 19 * RES]], GILT);
+  iso.glint([tipX, tipY - 14 * RES], 2.2 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// MAUSOLEUM (CHARLOTTENBURG) — the royal mausoleum at the end of a dark avenue:
+// a small grave Greek-DORIC temple of grey granite — four baseless columns in
+// antis under a low pediment, a windowless cella behind, deep in the trees.
+// Tiny, solemn. 2×2. =====================================================================
+function mausoleumCharlottenburgTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 70 });
+  void seed;
+  const GRAN = hex('#7d7a74'); // grey granite
+  const u0 = 0.46, u1 = 1.54, v0 = 0.5, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // a screen of dark conifers behind it
+  iso.cone(u0 + 0.06, v0 + 0.1, 0.22, 64, hex('#2f4636'));
+  iso.cone(u1 - 0.04, v0 + 0.16, 0.2, 56, hex('#2f4636'));
+  // stepped crepidoma
+  iso.box(u0, v0 + 0.18, u1, v1, 0, 8, shaded(GRAN, 0.08));
+  // the windowless cella
+  iso.box(u0 + 0.16, v0 + 0.24, u1 - 0.16, v1 - 0.16, 8, 40, GRAN);
+  // four Doric columns in antis across the front
+  colonnadeL(iso, v1, u0 + 0.22, u1 - 0.22, 8, 40, 4, lighten(GRAN, 0.12));
+  // the projecting anta walls flanking the porch
+  iso.box(u0 + 0.1, v1 - 0.16, u0 + 0.22, v1, 8, 42, lighten(GRAN, 0.05));
+  iso.box(u1 - 0.22, v1 - 0.16, u1 - 0.1, v1, 8, 42, lighten(GRAN, 0.05));
+  // entablature + low pediment
+  iso.box(u0 + 0.06, v0 + 0.2, u1 - 0.06, v1 + 0.02, 40, 46, lighten(GRAN, 0.06), { topC: top(GRAN, 0.22) });
+  pediment(iso, v1, u0 + 0.1, u1 - 0.1, 46, 11, GRAN);
+  return iso.build();
+}
+
+// =====================================================================
+// BAHNHOF ALEXANDERPLATZ — the great brick S-/U-Bahn through-station: a long
+// yellow-BRICK viaduct of round arches carrying a wide glazed BARREL-VAULT train
+// shed that runs across the whole footprint, with arched portals at the ends. A
+// long station hero. 4×4 drawn long. =====================================================================
+function bahnhofAlexTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 110 });
+  void seed;
+  const YBRICK = hex('#c9a36a'); // Berlin S-Bahn yellow brick
+  const u0 = 0.3, u1 = 3.7, v0 = 0.7, v1 = 3.3;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  // the brick viaduct base running the length
+  iso.box(u0, v0, u1, v1, 0, 30, YBRICK);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 8, shaded(YBRICK, 0.16), { ink: false });
+  // round-arched windows along the long flank (the viaduct arcade)
+  for (let i = 0; i < 9; i++) {
+    const u = u0 + 0.18 + i * 0.38;
+    const poly: Pt[] = [iso.P(u, v1, 6), iso.P(u, v1, 20)];
+    for (let j = 0; j <= 6; j++) { const t = j / 6; poly.push(iso.P(u + 0.26 * t, v1, 20 + Math.sin(t * Math.PI) * 7)); }
+    poly.push(iso.P(u + 0.26, v1, 20), iso.P(u + 0.26, v1, 6));
+    iso.r.poly(poly, alpha(COLORS.glassDark, 0.8), lit(YBRICK, 0.06));
+  }
+  // a brick cornice
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 30, 34, lighten(YBRICK, 0.06), { topC: top(YBRICK, 0.24) });
+  // ---- the wide glazed barrel-vault train shed running across the top ----
+  barrelVault(iso, u0 + 0.05, u1 - 0.05, v0 + 0.05, v1 - 0.05, 34, 78, COLORS.glassSky);
+  // the big arched glazed gable portals at each end
+  for (const vv of [v0 + 0.05, v1 - 0.05] as const) {
+    const um = (u0 + u1) / 2;
+    const poly: Pt[] = [iso.P(u0 + 0.05, vv, 34), iso.P(um, vv, 78), iso.P(u1 - 0.05, vv, 34)];
+    iso.r.poly(poly, alpha(COLORS.glassLit, 0.4));
+    iso.r.polyline(poly, INK_W * 0.7, INK);
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// PORTIKUS DES ANHALTER BAHNHOFS — the lone surviving fragment of the demolished
+// Anhalter Bahnhof: a craggy ruined yellow-BRICK entrance PORTICO — a tall
+// central arch flanked by two pillars carrying broken cornice stumps and the two
+// figures of "Day & Night", standing alone on grass. Evocative ruin. 2×2.
+// =====================================================================
+function anhalterPortikusTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 110 });
+  void seed;
+  const YBRICK = hex('#c2a06a');
+  const u0 = 0.42, u1 = 1.58, v0 = 0.6, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // grass it stands on
+  iso.box(0.3, 0.4, 1.7, 1.65, 0, 3, shaded(COLORS.grass, 0.1), { ink: false });
+  // the broad brick portico wall (thin in depth — a screen)
+  iso.box(u0, v1 - 0.2, u1, v1, 0, 56, YBRICK);
+  iso.box(u0 - 0.02, v1 - 0.22, u1 + 0.02, v1, 0, 9, shaded(YBRICK, 0.16), { ink: false });
+  // the great central arch void
+  const cx = (u0 + u1) / 2;
+  const arch: Pt[] = [iso.P(cx - 0.22, v1, 4), iso.P(cx - 0.22, v1, 30)];
+  for (let j = 0; j <= 8; j++) { const t = j / 8; arch.push(iso.P(cx - 0.22 + 0.44 * t, v1, 30 + Math.sin(t * Math.PI) * 14)); }
+  arch.push(iso.P(cx + 0.22, v1, 30), iso.P(cx + 0.22, v1, 4));
+  iso.r.poly(arch, alpha(COLORS.waterDeep, 0.7));
+  // flanking pillars rise higher than the centre, with broken (jagged) tops
+  for (const pu of [u0 + 0.14, u1 - 0.14] as const) {
+    const bz = 56;
+    const jag: Pt[] = [
+      iso.P(pu - 0.13, v1, bz), iso.P(pu - 0.05, v1, bz + 16), iso.P(pu + 0.04, v1, bz + 4), iso.P(pu + 0.13, v1, bz + 12),
+    ];
+    iso.r.poly([iso.P(pu - 0.13, v1, bz - 2), ...jag, iso.P(pu + 0.13, v1, bz - 2)], lit(YBRICK, 0.05), shaded(YBRICK, 0.1));
+    iso.r.polyline(jag, INK_W * 0.7, INK);
+    // a stone figure (Day/Night) on the pillar
+    const f = iso.P(pu, v1, bz + 14);
+    iso.r.rect(f[0] - 1.6 * RES, f[1] - 7 * RES, f[0] + 1.6 * RES, f[1], alpha(lighten(STONE, 0.06), 0.95));
+  }
+  // a broken stub of entablature over the arch
+  iso.box(cx - 0.26, v1 - 0.04, cx + 0.26, v1, 50, 58, lighten(YBRICK, 0.04), { ink: false });
+  return iso.build();
+}
+
+// =====================================================================
+// TOPOGRAPHIE DES TERRORS — the documentation centre on the former Gestapo site:
+// a low, single-storey grey pavilion of horizontal louvred METAL bands + glass
+// (Wandel Hoefer Lorch), sitting on raw gravel beside a surviving WALL segment.
+// Deliberately mute, horizontal, grey. 3×3. =====================================================================
+function topographieTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 60 });
+  void seed;
+  const MET = hex('#8d9094'); // grey metal louvre
+  const CONC = hex('#c3beb4');
+  const u0 = 0.3, u1 = 2.7, v0 = 0.5, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.18);
+  // grey gravel ground
+  iso.box(u0, v0, u1, v1, 0, 3, shaded(hex('#a9a59c'), 0.06), { ink: false });
+  // the low louvred pavilion (set back a little)
+  iso.box(u0 + 0.3, v0 + 0.3, u1 - 0.1, v1 - 0.1, 3, 34, MET, { topC: top(MET, 0.18) });
+  // horizontal louvre bands wrapping the two faces
+  for (let z = 8; z < 32; z += 4) {
+    iso.r.line(iso.P(u0 + 0.3, v1 - 0.1, z), iso.P(u1 - 0.1, v1 - 0.1, z), 1.0 * RES, z % 8 === 0 ? shaded(MET, 0.18) : alpha(COLORS.glassDark, 0.5));
+    iso.r.line(iso.P(u1 - 0.1, v0 + 0.3, z), iso.P(u1 - 0.1, v1 - 0.1, z), 1.0 * RES, z % 8 === 0 ? lit(MET, 0.08) : alpha(COLORS.glassLit, 0.3));
+  }
+  // a thin oversailing roof slab
+  iso.box(u0 + 0.26, v0 + 0.26, u1 - 0.06, v1 - 0.06, 34, 37, lighten(MET, 0.06), { ink: false });
+  // ---- the surviving rounded-top WALL segment running along the front edge ----
+  iso.box(u0 + 0.05, v1 - 0.06, u1 - 0.5, v1, 0, 22, CONC);
+  const a = iso.P(u0 + 0.05, v1 - 0.03, 22), b = iso.P(u1 - 0.5, v1 - 0.03, 22);
+  iso.r.line(a, b, 2.4 * RES, lighten(CONC, 0.1));
+  for (let i = 1; i < 5; i++) { const u = u0 + 0.05 + ((u1 - 0.55) * i) / 5; iso.r.line(iso.P(u, v1, 2), iso.P(u, v1, 22), 0.6 * RES, alpha(shaded(CONC, 0.2), 0.7)); }
+  return iso.build();
+}
+
+// =====================================================================
+// AMERIKA-GEDENKBIBLIOTHEK — the 1950s West-Berlin memorial library: a long low
+// pale-stone modernist block on a podium, its facade an austere grid of square
+// windows, with a taller set-back glazed reading-room volume behind and a flat
+// roof. Horizontal, calm, Bauhaus-by-1954. 3×3. =====================================================================
+function amerikaBibliothekTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 80 });
+  void seed;
+  const STN = hex('#d3cdbf'); // travertine
+  const u0 = 0.3, u1 = 2.7, v0 = 0.5, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.2);
+  // podium
+  iso.box(u0 - 0.04, v0 - 0.04, u1 + 0.04, v1 + 0.04, 0, 8, shaded(STN, 0.1));
+  // the long low front block
+  iso.box(u0, v0 + 0.6, u1, v1, 8, 46, STN);
+  // a regular grid of square windows on the long facade
+  iso.windowsLeft(v1, u0 + 0.12, u1 - 0.12, 16, 26, 14, alpha(COLORS.glassDark, 0.85), lighten(STN, 0.06));
+  iso.windowsLeft(v1, u0 + 0.12, u1 - 0.12, 30, 40, 14, alpha(COLORS.glassDark, 0.85), lighten(STN, 0.06));
+  iso.windowsRight(u1, v0 + 0.64, v1 - 0.1, 16, 40, 10, alpha(COLORS.glassDark, 0.85), lighten(STN, 0.06));
+  // thin roof fascia
+  iso.box(u0 - 0.02, v0 + 0.58, u1 + 0.02, v1 + 0.02, 46, 49, lighten(STN, 0.06), { topC: top(STN, 0.26) });
+  // ---- the taller set-back glazed reading-room volume behind ----
+  iso.box(u0 + 0.3, v0 + 0.1, u1 - 0.3, v0 + 0.62, 8, 64, alpha(COLORS.glassSky, 0.5), {
+    leftC: alpha(COLORS.glassDark, 0.6), rightC: alpha(COLORS.glassLit, 0.4),
+  });
+  for (let i = 1; i < 9; i++) { const u = u0 + 0.3 + ((u1 - u0 - 0.6) * i) / 9; iso.r.line(iso.P(u, v0 + 0.62, 10), iso.P(u, v0 + 0.62, 64), 0.6 * RES, alpha(COLORS.white, 0.45)); }
+  iso.box(u0 + 0.28, v0 + 0.08, u1 - 0.28, v0 + 0.64, 64, 67, lighten(STN, 0.04), { ink: false });
+  return iso.build();
+}
+
+// =====================================================================
+// CORBUSIERHAUS — Le Corbusier's Berlin Unité d'Habitation ("Typ Berlin"): a
+// huge long béton-brut SLAB lifted on massive pilotis, the facade a deep
+// concrete brise-soleil grid punched with panels painted in primary RED / BLUE /
+// YELLOW, crowned by a sculptural roofscape. A monster modernist hero. 4×4.
+// =====================================================================
+function corbusierhausTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 200 });
+  void seed;
+  const BETON = hex('#bdb6a8'); // raw concrete
+  const RED = hex('#b5503e'), BLU = hex('#3f6ea0'), YEL = hex('#cb9b4a');
+  const u0 = 1.0, u1 = 3.0, v0 = 0.5, v1 = 3.5; // a SLAB: narrow in u, long in v
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // the massive pilotis lifting the slab
+  for (let i = 0; i <= 5; i++) {
+    const v = v0 + 0.2 + ((v1 - v0 - 0.4) * i) / 5;
+    iso.box(u0 + 0.3, v - 0.06, u0 + 0.5, v + 0.06, 0, 20, shaded(BETON, 0.1));
+    iso.box(u1 - 0.5, v - 0.06, u1 - 0.3, v + 0.06, 0, 20, shaded(BETON, 0.1));
+  }
+  // the great slab body
+  iso.box(u0 + 0.3, v0 + 0.1, u1 - 0.3, v1 - 0.1, 20, 150, BETON);
+  // the deep brise-soleil grid with coloured panels on the long (left, v1) face
+  const vL = v1 - 0.1;
+  for (let row = 0; row < 9; row++) {
+    const z = 26 + row * 14;
+    iso.r.line(iso.P(u0 + 0.3, vL, z), iso.P(u1 - 0.3, vL, z), 0.7 * RES, alpha(shaded(BETON, 0.2), 0.8));
+    for (let col = 0; col < 9; col++) {
+      const va = (v1 - v0 - 0.2);
+      const vv = v0 + 0.1 + va * (col / 9) + va * 0.04;
+      const w = va * (1 / 9) * 0.5;
+      const cols = [RED, BLU, YEL, BETON, BETON];
+      const cc = cols[(row * 3 + col) % cols.length]!;
+      if (cc === BETON) continue;
+      iso.r.poly([iso.P(u0 + 0.3, vv, z + 2), iso.P(u0 + 0.3, vv + w, z + 2), iso.P(u0 + 0.3, vv + w, z + 10), iso.P(u0 + 0.3, vv, z + 10)], alpha(cc, 0.92));
+    }
+  }
+  // mullions on the short right (u1) end
+  for (let i = 1; i < 6; i++) { const v = v0 + 0.1 + ((v1 - v0 - 0.2) * i) / 6; void v; }
+  iso.windowsRight(u1 - 0.3, v0 + 0.14, v1 - 0.14, 30, 144, 14, alpha(COLORS.glassDark, 0.7), undefined);
+  // ---- the sculptural concrete roofscape (a set-back penthouse + fin) ----
+  iso.box(u0 + 0.5, v0 + 0.4, u1 - 0.5, v0 + 1.4, 150, 168, lighten(BETON, 0.04), { topC: top(BETON, 0.2) });
+  iso.r.poly([iso.P(u0 + 0.5, v0 + 0.9, 168), iso.P(u1 - 0.5, v0 + 0.9, 168), iso.P(u1 - 0.5, v0 + 0.9, 182), iso.P(u0 + 0.5, v0 + 0.9, 182)], shaded(BETON, 0.06));
+  return iso.build();
+}
+
+// =====================================================================
+// ZOO PALAST — the iconic 1950s West-Berlin premiere cinema: a long horizontal
+// modernist block with a sweeping cantilevered marquee CANOPY over the entry, a
+// big blank wall for the film posters/lettering, and a slim vertical sign-fin.
+// Curtain-glass foyer below. The Berlinale's old home. 3×3. =====================================================================
+function zooPalastTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 90 });
+  void seed;
+  const CRM = hex('#d8d0c0'); // cream cladding
+  const u0 = 0.3, u1 = 2.7, v0 = 0.5, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.2);
+  // the long block
+  iso.box(u0, v0, u1, v1, 0, 52, CRM);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 8, shaded(CRM, 0.12), { ink: false });
+  // the glazed foyer band along the bottom of the front (v1)
+  iso.box(u0 + 0.06, v1 - 0.05, u1 - 0.06, v1, 0, 18, alpha(COLORS.glassLit, 0.5), { ink: false });
+  for (let i = 1; i < 10; i++) { const u = u0 + ((u1 - u0) * i) / 10; iso.r.line(iso.P(u, v1, 2), iso.P(u, v1, 18), 0.5 * RES, alpha(STEEL, 0.6)); }
+  // a big blank poster panel on the upper facade with warm "lettering" glints
+  iso.r.poly([iso.P(u0 + 0.2, v1, 24), iso.P(u1 - 0.6, v1, 24), iso.P(u1 - 0.6, v1, 46), iso.P(u0 + 0.2, v1, 46)], shaded(CRM, 0.08));
+  for (let i = 0; i < 5; i++) iso.glint(iso.P(u0 + 0.34 + i * 0.18, v1, 36), 1.6 * RES);
+  // ---- the sweeping cantilevered marquee canopy over the entry ----
+  iso.box(u0 + 0.02, v1 - 0.02, u1 - 0.5, v1 + 0.22, 18, 22, hex('#c64f3e'), { topC: lit(hex('#c64f3e'), 0.1) });
+  iso.r.line(iso.P(u0 + 0.02, v1 + 0.22, 20), iso.P(u1 - 0.5, v1 + 0.22, 20), 1.2 * RES, GILT_HOT);
+  // the slim vertical sign-fin
+  iso.box(u1 - 0.4, v1 - 0.06, u1 - 0.28, v1 + 0.06, 0, 70, hex('#b5483a'));
+  for (let z = 14; z < 66; z += 8) iso.glint(iso.P(u1 - 0.34, v1, z), 1.4 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// SYNAGOGE RYKESTRASSE — Germany's largest synagogue: a tall red-BRICK
+// Romanesque-Revival basilica reached through a gatehouse arch in a courtyard,
+// with a high gabled west front pierced by a great rose window + round-arched
+// portal, and a steep slate roof. Brick, rose, rounded. 3×3. =====================================================================
+function rykestrasseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 150 });
+  void seed;
+  const u0 = 0.5, u1 = 2.5, v0 = 0.5, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.2);
+  // the tall basilica nave (set back, runs front→back)
+  iso.box(u0 + 0.4, v0 + 0.2, u1 - 0.4, v1, 0, 70, BRICK);
+  iso.gable(u0 + 0.4, v0 + 0.2, u1 - 0.4, v1, 70, 26, 'u', SLATE, BRICK);
+  // round-arched clerestory windows down the flank
+  iso.windowsRight(u1 - 0.4, v0 + 0.26, v1 - 0.06, 30, 60, 6, alpha(COLORS.glassDark, 0.85), lit(BRICK, 0.08));
+  // string-courses
+  for (const z of [26, 50] as const) iso.r.line(iso.P(u1 - 0.4, v0 + 0.2, z), iso.P(u1 - 0.4, v1, z), 1.0 * RES, lit(SAND, 0.06));
+  // ---- the high gabled west front facing the viewer (v1) ----
+  const cx = (u0 + u1) / 2;
+  iso.box(u0 + 0.34, v1 - 0.04, u1 - 0.34, v1, 0, 78, lit(BRICK, 0.02));
+  iso.gable(u0 + 0.34, v1 - 0.16, u1 - 0.34, v1, 78, 18, 'u', SLATE, BRICK);
+  // the great rose window
+  const [rx, ry] = iso.P(cx, v1, 56);
+  const RR = 5.5 * RES;
+  const rose: Pt[] = [];
+  for (let i = 0; i <= 16; i++) { const a = (i / 16) * Math.PI * 2; rose.push([rx + Math.cos(a) * RR, ry + Math.sin(a) * RR * 0.92]); }
+  iso.r.poly(rose, alpha(GILT, 0.5), alpha(GILT_HOT, 0.3));
+  iso.r.polyline(rose, INK_W * 0.6, INK, true);
+  for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2; iso.r.line([rx, ry], [rx + Math.cos(a) * RR, ry + Math.sin(a) * RR * 0.92], 0.5 * RES, alpha(INK, 0.5)); }
+  // the round-arched portal
+  const portal: Pt[] = [iso.P(cx - 0.16, v1, 4), iso.P(cx - 0.16, v1, 26)];
+  for (let j = 0; j <= 6; j++) { const t = j / 6; portal.push(iso.P(cx - 0.16 + 0.32 * t, v1, 26 + Math.sin(t * Math.PI) * 9)); }
+  portal.push(iso.P(cx + 0.16, v1, 26), iso.P(cx + 0.16, v1, 4));
+  iso.r.poly(portal, alpha(COLORS.waterDeep, 0.7), lit(GILT, 0.05));
+  // small flanking turrets at the gable shoulders
+  for (const tu of [u0 + 0.42, u1 - 0.42] as const) {
+    iso.box(tu - 0.06, v1 - 0.08, tu + 0.06, v1, 78, 90, lighten(BRICK, 0.04), { ink: false });
+    const ap = iso.P(tu, v1 - 0.04, 100);
+    iso.r.poly([iso.P(tu - 0.06, v1, 90), iso.P(tu + 0.06, v1, 90), ap], shaded(COPPER, 0.06));
+    iso.r.line(ap, [ap[0], ap[1] - 4 * RES], 0.8 * RES, GILT);
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// FELDSTEINKIRCHE — a medieval Brandenburg VILLAGE church of grey fieldstone
+// rubble: a short broad nave with a steep saddle roof and a squat west TOWER
+// carrying a hipped or saddle cap. Serves the oldest village churches (Alte
+// Dorfkirche, Sankt-Annen-Kirche Dahlem). Speckled grey stone. 2×2. =====================================================================
+function feldsteinkircheTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 110 });
+  const grey = hex('#8f8a82');
+  const u0 = 0.52, u1 = 1.48, v0 = 0.5, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // an old churchyard with a couple of trees
+  iso.box(0.34, 0.4, 1.66, 1.64, 0, 3, shaded(COLORS.grass, 0.12), { ink: false });
+  iso.ball(1.6, 0.5, 0.16, 30, hex('#4a6240'));
+  // the broad low nave
+  iso.box(u0, v0 + 0.34, u1, v1, 0, 34, grey);
+  fieldstone(iso, u0, v0 + 0.34, u1, v1, 0, 34, seed);
+  iso.gable(u0, v0 + 0.34, u1, v1, 34, 16, 'u', SLATE, grey);
+  // a small round-arched window or two on the flank
+  iso.windowsRight(u1, v0 + 0.42, v1 - 0.08, 12, 26, 3, alpha(COLORS.glassDark, 0.85), lit(grey, 0.06));
+  // ---- the squat west tower ----
+  const tu = u0 + 0.36, tv = v0 + 0.34;
+  iso.box(tu - 0.22, tv - 0.2, tu + 0.22, tv + 0.16, 0, 58, grey);
+  fieldstone(iso, tu - 0.22, tv - 0.2, tu + 0.22, tv + 0.16, 0, 58, seed + 7);
+  // belfry openings near the top
+  iso.windowsLeft(tv + 0.16, tu - 0.16, tu + 0.16, 42, 54, 2, alpha(COLORS.glassDark, 0.8), lit(grey, 0.06));
+  // a steep saddle (Satteldach) cap with two slate gables
+  iso.gable(tu - 0.22, tv - 0.2, tu + 0.22, tv + 0.16, 58, 18, 'v', SLATE, grey);
+  return iso.build();
+}
+
+// =====================================================================
+// STÜLER-KIRCHE — a Stüler/Schinkel-school POLYCHROME-BRICK Rundbogenstil church:
+// a yellow + red banded brick basilica with a free-standing Italianate CAMPANILE
+// tower and a round-arched arcaded west front. Serves Sankt Matthäus-Kirche (the
+// Kulturforum landmark). Striped brick, campanile. 2×2. =====================================================================
+function stuelerKircheTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 160 });
+  void seed;
+  const RBR = hex('#b25a45'), YBR = hex('#cdab6e'); // red & yellow brick bands
+  const u0 = 0.5, u1 = 1.5, v0 = 0.5, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // the banded-brick nave
+  iso.box(u0, v0 + 0.18, u1 - 0.16, v1, 0, 46, RBR);
+  // yellow string-courses banding the red brick
+  for (const z of [10, 22, 34] as const) {
+    iso.r.line(iso.P(u0, v1, z), iso.P(u1 - 0.16, v1, z), 1.6 * RES, YBR);
+    iso.r.line(iso.P(u1 - 0.16, v0 + 0.18, z), iso.P(u1 - 0.16, v1, z), 1.6 * RES, lit(YBR, 0.06));
+  }
+  iso.gable(u0, v0 + 0.18, u1 - 0.16, v1, 46, 16, 'u', SLATE, RBR);
+  // round-arched windows
+  iso.windowsRight(u1 - 0.16, v0 + 0.24, v1 - 0.06, 14, 38, 5, alpha(COLORS.glassDark, 0.85), YBR);
+  // a small apse bump at the back
+  iso.box(u0 + 0.2, v0 + 0.06, u0 + 0.6, v0 + 0.2, 0, 30, RBR);
+  // ---- the free-standing Italianate campanile at the front-right ----
+  const tu = u1 - 0.18, tv = v1 - 0.2;
+  iso.box(tu - 0.16, tv - 0.16, tu + 0.16, tv + 0.16, 0, 104, RBR);
+  for (const z of [26, 52, 78] as const) iso.r.line(iso.P(tu - 0.16, tv + 0.16, z), iso.P(tu + 0.16, tv + 0.16, z), 1.4 * RES, YBR);
+  // arcaded belfry openings near the top (Rundbogenstil)
+  iso.windowsLeft(tv + 0.16, tu - 0.12, tu + 0.12, 84, 98, 2, alpha(COLORS.glassDark, 0.85), YBR);
+  // a low pyramidal tiled cap with deep eaves
+  iso.box(tu - 0.18, tv - 0.18, tu + 0.18, tv + 0.18, 104, 108, lit(RBR, 0.04), { ink: false });
+  iso.hip(tu - 0.16, tv - 0.16, tu + 0.16, tv + 0.16, 108, 18, hex('#7a4030'));
+  return iso.build();
+}
+
+// =====================================================================
+// BACKSTEIN TWIN-TOWER CHURCH — a 19th-c brick church with a tall pair of
+// matching west TOWERS + pointed copper spires framing a gabled, rose-windowed
+// front. Serves St. Joseph (and other Wilhelmine twin-spire parishes). Brick,
+// symmetrical, twin spikes. 2×2. =====================================================================
+function twinTowerChurchTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 200 });
+  void seed;
+  const u0 = 0.5, u1 = 1.5, v0 = 0.5, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // the nave behind
+  iso.box(u0 + 0.12, v0 + 0.1, u1 - 0.12, v1 - 0.28, 0, 52, BRICK);
+  iso.gable(u0 + 0.12, v0 + 0.1, u1 - 0.12, v1 - 0.28, 52, 18, 'u', SLATE, BRICK);
+  // the gabled front wall between the towers, with a rose
+  const cx = (u0 + u1) / 2;
+  iso.box(u0 + 0.28, v1 - 0.3, u1 - 0.28, v1 - 0.18, 0, 60, lit(BRICK, 0.02));
+  const [rx, ry] = iso.P(cx, v1 - 0.18, 42);
+  const RR = 4 * RES; const rose: Pt[] = [];
+  for (let i = 0; i <= 14; i++) { const a = (i / 14) * Math.PI * 2; rose.push([rx + Math.cos(a) * RR, ry + Math.sin(a) * RR * 0.9]); }
+  iso.r.poly(rose, alpha(COLORS.glassDark, 0.7)); iso.r.polyline(rose, INK_W * 0.6, INK, true);
+  // ---- the twin west towers + pointed copper spires ----
+  for (const tu of [u0 + 0.16, u1 - 0.16] as const) {
+    const tv = v1 - 0.18;
+    iso.box(tu - 0.12, tv - 0.12, tu + 0.12, tv + 0.1, 0, 96, BRICK);
+    iso.r.line(iso.P(tu - 0.12, tv + 0.1, 64), iso.P(tu + 0.12, tv + 0.1, 64), 1.0 * RES, lit(BRICK, 0.1));
+    iso.windowsLeft(tv + 0.1, tu - 0.09, tu + 0.09, 70, 88, 1, alpha(COLORS.glassDark, 0.85), lit(BRICK, 0.06));
+    // copper spire
+    iso.box(tu - 0.13, tv - 0.13, tu + 0.13, tv + 0.11, 96, 102, lighten(BRICK, 0.04), { ink: false });
+    const apex = iso.P(tu, tv - 0.01, 150);
+    const c0 = iso.P(tu - 0.13, tv + 0.11, 102), c1 = iso.P(tu + 0.13, tv + 0.11, 102), c2 = iso.P(tu + 0.13, tv - 0.13, 102);
+    iso.r.poly([c0, c1, apex], shaded(COPPER, 0.06));
+    iso.r.poly([c1, c2, apex], lit(COPPER, 0.06));
+    iso.r.polyline([c0, apex, c2], INK_W * 0.6, INK);
+    iso.r.line(apex, [apex[0], apex[1] - 6 * RES], 0.9 * RES, GILT);
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// MARIA REGINA MARTYRUM — the modernist Catholic memorial church (1963) for the
+// martyrs of Nazism: a stark windowless raised concrete WORSHIP-BOX floating on
+// piers over an austere walled atrium, with a free-standing slab CAMPANILE.
+// Béton-brut, abstract, grave. 3×3. =====================================================================
+function mariaReginaTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 120 });
+  void seed;
+  const BETON = hex('#bcb6aa');
+  const u0 = 0.3, u1 = 2.7, v0 = 0.5, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.2);
+  // the low walled atrium enclosing the court
+  iso.box(u0, v0, u1, v1, 0, 18, shaded(BETON, 0.06), { topC: top(BETON, 0.14) });
+  iso.box(u0 + 0.2, v0 + 0.2, u1 - 0.2, v1 - 0.2, 0, 4, shaded(COLORS.pavement, 0.06), { ink: false });
+  // piers lifting the worship-box at the back
+  for (const [pu, pv] of [[u0 + 0.7, v0 + 0.5], [u1 - 0.7, v0 + 0.5], [u0 + 0.7, v0 + 1.1], [u1 - 0.7, v0 + 1.1]] as const) {
+    iso.box(pu - 0.05, pv - 0.05, pu + 0.05, pv + 0.05, 18, 40, shaded(BETON, 0.12));
+  }
+  // ---- the raised windowless concrete worship-box ----
+  iso.box(u0 + 0.5, v0 + 0.35, u1 - 0.5, v0 + 1.3, 40, 78, BETON, { topC: top(BETON, 0.2) });
+  // a sparse grid of relief panels (the cast concrete texture)
+  for (let i = 1; i < 6; i++) { const v = v0 + 0.4 + ((0.85) * i) / 6; iso.r.line(iso.P(u1 - 0.5, v, 44), iso.P(u1 - 0.5, v, 74), 0.6 * RES, alpha(shaded(BETON, 0.2), 0.7)); }
+  for (const z of [52, 64] as const) iso.r.line(iso.P(u1 - 0.5, v0 + 0.35, z), iso.P(u1 - 0.5, v0 + 1.3, z), 0.6 * RES, alpha(shaded(BETON, 0.18), 0.7));
+  // ---- the free-standing slab campanile ----
+  const tu = u1 - 0.4, tv = v1 - 0.4;
+  iso.box(tu - 0.06, tv - 0.18, tu + 0.06, tv + 0.18, 0, 96, lighten(BETON, 0.02));
+  // open bell slot near the top
+  iso.r.rect(iso.P(tu, tv + 0.18, 78)[0] - 1.6 * RES, iso.P(tu, tv + 0.18, 78)[1] - 6 * RES, iso.P(tu, tv + 0.18, 78)[0] + 1.6 * RES, iso.P(tu, tv + 0.18, 78)[1], alpha(COLORS.waterDeep, 0.7));
+  const crossB = iso.P(tu, tv, 96);
+  iso.r.line(crossB, [crossB[0], crossB[1] - 16 * RES], 1 * RES, alpha(STEEL, 0.8)); // a thin cross
+  iso.r.line([crossB[0] - 3 * RES, crossB[1] - 11 * RES], [crossB[0] + 3 * RES, crossB[1] - 11 * RES], 1 * RES, alpha(STEEL, 0.8));
+  return iso.build();
+}
+
+// =====================================================================
+// BRICK BASILICA — a Wilhelmine red-BRICK basilica with a tall single corner
+// tower, a long clerestoried nave + lower aisles, and a round apse. Serves the
+// larger neo-Romanesque/gothic parishes (Rosenkranz-Basilika, Zum Guten Hirten,
+// Königin-Luise-Gedächtniskirche w/ octagon variant). `octagon` swaps the spire
+// for an octagonal lantern dome. 2×2. =====================================================================
+function brickBasilikaTile(seed: number, octagon: boolean): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: octagon ? 150 : 190 });
+  void seed;
+  const u0 = 0.5, u1 = 1.5, v0 = 0.5, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // lower aisle + tall clerestory nave (two stacked masses)
+  iso.box(u0, v0 + 0.2, u1, v1, 0, 30, BRICK); // aisle band
+  iso.box(u0 + 0.16, v0 + 0.2, u1 - 0.16, v1, 0, 54, lit(BRICK, 0.02)); // clerestory
+  iso.gable(u0 + 0.16, v0 + 0.2, u1 - 0.16, v1, 54, 16, 'u', SLATE, BRICK);
+  // round apse at the back
+  iso.box(u0 + 0.28, v0 + 0.04, u0 + 0.72, v0 + 0.22, 0, 36, BRICK);
+  // round-arched windows
+  iso.windowsRight(u1, v0 + 0.28, v1 - 0.06, 10, 26, 5, alpha(COLORS.glassDark, 0.85), lit(BRICK, 0.06));
+  iso.windowsRight(u1 - 0.16, v0 + 0.28, v1 - 0.06, 38, 50, 5, alpha(COLORS.glassDark, 0.85), lit(BRICK, 0.06));
+  // ---- the single corner tower ----
+  const tu = u0 + 0.26, tv = v1 - 0.22;
+  iso.box(tu - 0.2, tv - 0.18, tu + 0.2, tv + 0.18, 0, 92, BRICK);
+  for (const z of [40, 68] as const) iso.r.line(iso.P(tu - 0.2, tv + 0.18, z), iso.P(tu + 0.2, tv + 0.18, z), 1.0 * RES, lit(BRICK, 0.08));
+  iso.windowsLeft(tv + 0.18, tu - 0.14, tu + 0.14, 72, 88, 2, alpha(COLORS.glassDark, 0.85), lit(BRICK, 0.06));
+  if (octagon) {
+    // an octagonal lantern + low cap
+    iso.box(tu - 0.17, tv - 0.17, tu + 0.17, tv + 0.17, 92, 110, lit(BRICK, 0.04));
+    iso.windowsLeft(tv + 0.17, tu - 0.13, tu + 0.13, 94, 106, 2, alpha(COLORS.glassLit, 0.4), lit(BRICK, 0.06));
+    const { tipX, tipY } = domeAt(iso, tu, tv, 110, 0.17 * (CELL_W / 2), 0.9, COPPER, { ribs: 6, bulb: true });
+    lantern(iso, tipX, tipY, 8, COPPER_D, GILT_HOT);
+  } else {
+    // a tall pointed copper spire
+    iso.box(tu - 0.21, tv - 0.19, tu + 0.21, tv + 0.19, 92, 98, lighten(BRICK, 0.04), { ink: false });
+    const apex = iso.P(tu, tv, 144);
+    const c0 = iso.P(tu - 0.21, tv + 0.19, 98), c1 = iso.P(tu + 0.21, tv + 0.19, 98), c2 = iso.P(tu + 0.21, tv - 0.19, 98);
+    iso.r.poly([c0, c1, apex], shaded(COPPER, 0.06));
+    iso.r.poly([c1, c2, apex], lit(COPPER, 0.06));
+    iso.r.polyline([c0, apex, c2], INK_W * 0.6, INK);
+    iso.r.line(apex, [apex[0], apex[1] - 6 * RES], 0.9 * RES, GILT);
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// BACKSTEIN HALL-CHURCH (tall single spire) — a slim Wilhelmine red-BRICK gothic
+// church dominated by ONE very tall west tower + a soaring pointed spire over a
+// modest nave. Serves Apostel-Paulus-Kirche, Zwölf-Apostel-Kirche, Kirche Zum
+// Vaterhaus. Brick, one big spike. 2×2. =====================================================================
+function spireChurchTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 230 });
+  void seed;
+  const u0 = 0.54, u1 = 1.46, v0 = 0.5, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // the modest nave
+  iso.box(u0, v0 + 0.24, u1, v1, 0, 44, BRICK);
+  iso.gable(u0, v0 + 0.24, u1, v1, 44, 16, 'u', SLATE, BRICK);
+  iso.windowsRight(u1, v0 + 0.3, v1 - 0.06, 10, 38, 5, alpha(COLORS.glassDark, 0.85), lit(BRICK, 0.08));
+  // ---- the dominant single west tower ----
+  const tu = u0 + 0.34, tv = v0 + 0.24;
+  iso.box(tu - 0.22, tv - 0.22, tu + 0.22, tv + 0.18, 0, 112, BRICK);
+  for (const z of [40, 72, 100] as const) iso.r.line(iso.P(tu - 0.22, tv + 0.18, z), iso.P(tu + 0.22, tv + 0.18, z), 1.0 * RES, lit(BRICK, 0.08));
+  // a pointed-arch belfry pair near the top
+  iso.windowsLeft(tv + 0.18, tu - 0.16, tu + 0.16, 86, 106, 2, alpha(COLORS.glassDark, 0.85), lit(BRICK, 0.06));
+  // gablets at the tower top
+  iso.gable(tu - 0.22, tv - 0.22, tu + 0.22, tv + 0.18, 112, 8, 'u', SLATE, BRICK);
+  // the soaring copper spire with corner pinnacles
+  iso.box(tu - 0.18, tv - 0.18, tu + 0.18, tv + 0.16, 120, 126, lighten(BRICK, 0.04), { ink: false });
+  const apex = iso.P(tu, tv - 0.01, 196);
+  const c0 = iso.P(tu - 0.18, tv + 0.16, 126), c1 = iso.P(tu + 0.18, tv + 0.16, 126), c2 = iso.P(tu + 0.18, tv - 0.18, 126);
+  iso.r.poly([c0, c1, apex], shaded(COPPER, 0.06));
+  iso.r.poly([c1, c2, apex], lit(COPPER, 0.06));
+  iso.r.polyline([c0, apex, c2], INK_W * 0.6, INK);
+  for (const [pu, pv] of [[tu - 0.18, tv + 0.16], [tu + 0.18, tv + 0.16], [tu + 0.18, tv - 0.18]] as const) {
+    const pb = iso.P(pu, pv, 126);
+    iso.r.line(pb, [pb[0], pb[1] - 12 * RES], 1.1 * RES, lit(BRICK, 0.06));
+    iso.r.line([pb[0], pb[1] - 12 * RES], [pb[0], pb[1] - 18 * RES], 0.8 * RES, shaded(COPPER, 0.06));
+  }
+  iso.r.line(apex, [apex[0], apex[1] - 7 * RES], 0.9 * RES, GILT);
+  return iso.build();
+}
+
+// =====================================================================
+// KULTURBRAUEREI — the great Prenzlauer Berg brewery, now a cultural quarter: a
+// dense ensemble of red-and-yellow BRICK industrial halls of varying heights
+// around courts, gabled and stepped, with a tall round brick CHIMNEY. Rambling,
+// muscular, polychrome brick. 4×4. =====================================================================
+function kulturbrauereiTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 130 });
+  void seed;
+  const RBR = hex('#a8513c'), YBR = hex('#cdab6e');
+  const u0 = 0.3, u1 = 3.7, v0 = 0.5, v1 = 3.5;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  // a cluster of brick wings of different heights
+  const wings: Array<[number, number, number, number, number]> = [
+    [u0, v0, 1.7, 1.7, 56],
+    [1.6, v0, u1, 1.5, 44],
+    [u0, 1.6, 1.5, v1, 48],
+    [1.5, 1.5, u1, v1, 60],
+    [1.2, 1.2, 2.6, 2.6, 38],
+  ];
+  for (const [a0, b0, a1, b1, h] of wings) {
+    iso.box(a0, b0, a1, b1, 0, h, RBR);
+    // yellow brick string-courses
+    for (const z of [12, h - 10]) if (z > 14) iso.r.line(iso.P(a0, b1, z), iso.P(a1, b1, z), 1.4 * RES, YBR);
+    // segmental factory windows on the long face
+    iso.windowsLeft(b1, a0 + 0.1, a1 - 0.1, 14, h - 14, Math.max(3, Math.round((a1 - a0) * 4)), alpha(COLORS.glassDark, 0.82), YBR);
+    // a shallow gable cap
+    iso.gable(a0, b0, a1, b1, h, 7, 'u', SLATE, RBR);
+  }
+  // the tall round brick chimney
+  chimney(iso, u1 - 0.55, v0 + 0.5, 116, 0.09);
+  return iso.build();
+}
+
+// =====================================================================
+// WASSERTURM — a historic round red-BRICK water tower: a tall cylindrical brick
+// shaft widening to a corbelled brick TANK-house drum near the top under a
+// conical or domed slate cap. A Berlin skyline punctuation. 2×2 with headroom.
+// =====================================================================
+function wasserturmTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 170 });
+  void seed;
+  const u = 1.0, v = 1.0;
+  iso.shadow(u - 0.4, v - 0.28, u + 0.4, v + 0.46, 0.26, 0.26);
+  // small green base
+  iso.box(0.42, 0.48, 1.58, 1.52, 0, 4, shaded(COLORS.grass, 0.1), { ink: false });
+  // a SHORTER, modest brick shaft (the Prenzlauer Berg tower is squat — the
+  // fat tank-house drum dominates, not the stalk)
+  iso.box(u - 0.24, v - 0.24, u + 0.24, v + 0.24, 4, 56, BRICK);
+  // string-courses up the shaft
+  for (const z of [22, 42] as const) iso.r.line(iso.P(u - 0.24, v + 0.24, z), iso.P(u + 0.24, v + 0.24, z), 1.2 * RES, lit(BRICK, 0.08));
+  // narrow slit windows
+  iso.windowsLeft(v + 0.24, u - 0.16, u + 0.16, 18, 48, 2, alpha(COLORS.glassDark, 0.8), lit(BRICK, 0.06));
+  // ---- the great corbelled tank-house drum (MUCH wider + tall — the signature
+  // fat brick cylinder) ----
+  // a corbel band flaring out from the shaft to the drum
+  iso.box(u - 0.34, v - 0.34, u + 0.34, v + 0.34, 56, 62, shaded(BRICK, 0.06), { ink: false });
+  iso.box(u - 0.46, v - 0.46, u + 0.46, v + 0.46, 62, 118, lit(BRICK, 0.03));
+  // two tiers of round-arched windows round the tank
+  iso.windowsLeft(v + 0.46, u - 0.4, u + 0.4, 68, 86, 5, alpha(COLORS.glassDark, 0.85), lit(BRICK, 0.06));
+  iso.windowsLeft(v + 0.46, u - 0.4, u + 0.4, 92, 110, 5, alpha(COLORS.glassDark, 0.85), lit(BRICK, 0.06));
+  iso.windowsRight(u + 0.46, v - 0.4, v + 0.4, 68, 110, 5, alpha(COLORS.glassDark, 0.85), lit(BRICK, 0.06));
+  // a heavy corbelled brick cornice crowning the drum
+  iso.r.line(iso.P(u - 0.46, v + 0.46, 113), iso.P(u + 0.46, v + 0.46, 113), 1.8 * RES, lit(BRICK, 0.1));
+  iso.box(u - 0.5, v - 0.5, u + 0.5, v + 0.5, 118, 122, lighten(BRICK, 0.04), { topC: top(BRICK, 0.2), ink: false });
+  // ---- the prominent conical slate cap (tall, with a finial) ----
+  const { tipX, tipY } = domeAt(iso, u, v, 122, 0.5 * (CELL_W / 2), 1.35, SLATE, { ribs: 8 });
+  iso.r.line([tipX, tipY], [tipX, tipY - 9 * RES], 1.1 * RES, GILT);
+  iso.glint([tipX, tipY - 5 * RES], 1.8 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// MARKTHALLE — a 19th-c iron + BRICK market hall: a long red-brick shell with
+// big round-arched portals and a wide glazed BARREL-VAULT iron roof with a raised
+// clerestory ridge. Serves Arminiusmarkthalle, Markthalle VII (Marheineke).
+// Brick + glass span. 3×3 drawn long. =====================================================================
+function marktHalleTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 90 });
+  void seed;
+  const u0 = 0.3, u1 = 2.7, v0 = 0.6, v1 = 2.4;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  // the brick base shell
+  iso.box(u0, v0, u1, v1, 0, 34, BRICK);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 8, shaded(BRICK, 0.16), { ink: false });
+  // big round-arched portals along the front (v1)
+  for (let i = 0; i < 4; i++) {
+    const u = u0 + 0.22 + i * 0.6;
+    const poly: Pt[] = [iso.P(u, v1, 4), iso.P(u, v1, 22)];
+    for (let j = 0; j <= 6; j++) { const t = j / 6; poly.push(iso.P(u + 0.34 * t, v1, 22 + Math.sin(t * Math.PI) * 9)); }
+    poly.push(iso.P(u + 0.34, v1, 22), iso.P(u + 0.34, v1, 4));
+    iso.r.poly(poly, alpha(COLORS.glassDark, 0.8), lit(BRICK, 0.05));
+  }
+  // sandstone string-course + cornice
+  iso.r.line(iso.P(u0, v1, 28), iso.P(u1, v1, 28), 1.2 * RES, lighten(SAND, 0.06));
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 34, 38, lighten(BRICK, 0.06), { topC: top(BRICK, 0.2) });
+  // ---- the glazed barrel-vault iron roof with a clerestory ridge ----
+  barrelVault(iso, u0 + 0.06, u1 - 0.06, v0 + 0.06, v1 - 0.06, 38, 70, COLORS.glassSky);
+  // a raised lantern ridge along the crown
+  const vm = (v0 + v1) / 2;
+  iso.box(u0 + 0.1, vm - 0.12, u1 - 0.1, vm + 0.12, 70, 78, alpha(COLORS.glassLit, 0.45), { ink: false });
+  iso.r.line(iso.P(u0 + 0.1, vm, 78), iso.P(u1 - 0.1, vm, 78), 0.9 * RES, alpha(STEEL, 0.7));
+  return iso.build();
+}
+
+// =====================================================================
+// SCHWERBELASTUNGSKÖRPER — the surreal Nazi-era "heavy load-bearing body": a
+// single colossal raw-CONCRETE cylinder sunk into the ground (a soil-compression
+// test for Speer's Germania triumphal arch), standing alone, stained and grim.
+// A pure dark concrete drum. 2×2. =====================================================================
+function schwerbelastungTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 130 });
+  void seed;
+  const CONC = hex('#aaa49a'); // stained grey concrete
+  const u = 1.0, v = 1.0;
+  iso.shadow(u - 0.34, v - 0.24, u + 0.34, v + 0.38, 0.24, 0.26);
+  // bare ground
+  iso.box(0.4, 0.45, 1.6, 1.55, 0, 3, shaded(hex('#9a958c'), 0.06), { ink: false });
+  // the colossal cylinder (a tall, slightly tapering drum)
+  iso.box(u - 0.34, v - 0.34, u + 0.34, v + 0.34, 0, 96, CONC, { topC: top(CONC, 0.16), leftC: shaded(CONC, 0.24), rightC: lit(CONC, 0.04) });
+  // formwork ring lines + vertical board-marks + dark water-staining
+  for (let z = 10; z < 92; z += 12) iso.r.line(iso.P(u - 0.34, v + 0.34, z), iso.P(u + 0.34, v + 0.34, z), 0.8 * RES, alpha(shaded(CONC, 0.22), 0.7));
+  for (let i = 0; i <= 6; i++) {
+    const t = i / 6;
+    iso.r.line(iso.P(u - 0.34 + 0.68 * t, v + 0.34, 2), iso.P(u - 0.34 + 0.68 * t, v + 0.34, 94), 0.5 * RES, alpha(darken(CONC, 0.12), 0.5));
+  }
+  // a couple of dark vertical stains
+  iso.r.line(iso.P(u - 0.1, v + 0.34, 90), iso.P(u - 0.1, v + 0.34, 30), 1.6 * RES, alpha(darken(CONC, 0.2), 0.35));
+  // a small measuring cabin doorway at the base
+  iso.r.rect(iso.P(u, v + 0.34, 2)[0] - 2 * RES, iso.P(u, v + 0.34, 16)[1], iso.P(u, v + 0.34, 2)[0] + 2 * RES, iso.P(u, v + 0.34, 2)[1], alpha(COLORS.waterDeep, 0.7));
+  return iso.build();
+}
+
+// =====================================================================
+// BUNDESRAT (former Preußisches Herrenhaus) — the grand neo-Baroque former
+// Prussian House of Lords on Leipziger Straße: a long sandstone palace front
+// with a strong rusticated base, a giant-order central PORTICO of engaged
+// columns under a pediment + cartouche, and a balustraded roof. 3×3. =====================================================================
+function bundesratTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 100 });
+  void seed;
+  const u0 = 0.3, u1 = 2.7, v0 = 0.55, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  // the long palace block, two grand storeys on a rusticated base
+  iso.box(u0, v0, u1, v1, 0, 62, SAND);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 16, shaded(SAND, 0.16), { ink: false });
+  iso.windowsLeft(v1, u0 + 0.12, u1 - 0.12, 20, 36, 13, alpha(COLORS.glassDark, 0.85), lighten(SAND, 0.08));
+  iso.windowsLeft(v1, u0 + 0.12, u1 - 0.12, 42, 56, 13, alpha(COLORS.glassDark, 0.85), lighten(SAND, 0.08));
+  iso.windowsRight(u1, v0 + 0.12, v1 - 0.12, 20, 56, 11, alpha(COLORS.glassDark, 0.85), lighten(SAND, 0.08));
+  // balustraded roof
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 62, 68, lighten(SAND, 0.08), { topC: top(SAND, 0.28) });
+  // ---- the giant central portico + pediment + cartouche ----
+  const cx = (u0 + u1) / 2;
+  iso.box(cx - 0.46, v1 - 0.16, cx + 0.46, v1, 0, 66, lighten(SAND, 0.03));
+  colonnadeL(iso, v1, cx - 0.4, cx + 0.4, 16, 62, 6, COLORS.white);
+  pediment(iso, v1, cx - 0.44, cx + 0.44, 66, 13, SAND);
+  // cartouche / sculpture group on the pediment
+  const q = iso.P(cx, v1, 70);
+  iso.r.poly([[q[0] - 4 * RES, q[1]], [q[0] + 4 * RES, q[1]], [q[0], q[1] - 6 * RES]], COPPER);
+  iso.glint([q[0], q[1] - 3 * RES], 2 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// GARTENPALAIS — a small late-baroque/neoclassical garden manor: a compact
+// render villa of two storeys with a low hipped roof, a pedimented centre and a
+// little belvedere or balustrade, set in a green plot. Serves Schoeler-
+// Schlösschen, Gutshaus Steglitz (Wrangelschlösschen). 2×2. =====================================================================
+function gartenpalaisTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 80 });
+  void seed;
+  const u0 = 0.44, u1 = 1.56, v0 = 0.5, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // garden
+  iso.box(0.3, 0.36, 1.7, 1.64, 0, 3, shaded(COLORS.grass, 0.1), { ink: false });
+  iso.ball(0.36, 1.5, 0.14, 26, hex('#4a6240'));
+  // the villa body
+  iso.box(u0, v0, u1, v1, 0, 40, RENDER);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 9, shaded(RENDER, 0.12), { ink: false });
+  iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, 10, 20, 6, alpha(COLORS.glassDark, 0.85), COLORS.white);
+  iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, 24, 34, 6, alpha(COLORS.glassDark, 0.85), COLORS.white);
+  iso.windowsRight(u1, v0 + 0.1, v1 - 0.1, 10, 34, 5, alpha(COLORS.glassDark, 0.85), COLORS.white);
+  // cornice + low hipped mansard
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 40, 44, lighten(RENDER, 0.06), { topC: top(RENDER, 0.3) });
+  iso.hip(u0, v0, u1, v1, 44, 12, ZINC);
+  // central pedimented frontispiece
+  const cx = (u0 + u1) / 2;
+  iso.box(cx - 0.22, v1 - 0.1, cx + 0.22, v1, 0, 44, lighten(RENDER, 0.04));
+  pediment(iso, v1, cx - 0.24, cx + 0.24, 44, 8, RENDER);
+  return iso.build();
+}
+
+// =====================================================================
+// HISTORISTENBLOCK — a Wilhelmine historicist civic/industrial brick block with
+// a render-and-brick facade, a strong cornice, paired pilasters and a low roof.
+// Serves Hubertusbad (the grand Lichtenberg baths) and Heeresbäckerei (the
+// military bakery). Brick + render, monumental but earthbound. 3×3. =====================================================================
+function historistenblockTile(seed: number, baths: boolean): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 80 });
+  void seed;
+  const body = baths ? hex('#c9bfa6') : BRICK; // baths = render+stone; bakery = brick
+  const u0 = 0.3, u1 = 2.7, v0 = 0.5, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  iso.box(u0, v0, u1, v1, 0, 52, body);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 12, shaded(body, 0.14), { ink: false });
+  // three storeys of windows
+  for (const [zb, zt] of [[16, 26], [30, 40], [44, 50]] as const) {
+    iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, zb, zt, 12, alpha(COLORS.glassDark, 0.85), baths ? lighten(body, 0.08) : lit(SAND, 0.04));
+  }
+  iso.windowsRight(u1, v0 + 0.1, v1 - 0.1, 16, 50, 11, alpha(COLORS.glassDark, 0.85), baths ? lighten(body, 0.08) : lit(SAND, 0.04));
+  // a strong cornice
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 52, 57, lighten(body, 0.06), { topC: top(body, 0.26) });
+  if (baths) {
+    // a central glazed gable hall + flanking corner pavilions (the swimming hall)
+    const cx = (u0 + u1) / 2;
+    iso.box(cx - 0.5, v0 + 0.1, cx + 0.5, v1, 57, 74, lighten(body, 0.03));
+    iso.gable(cx - 0.5, v0 + 0.1, cx + 0.5, v1, 74, 14, 'v', ZINC, body);
+    // big arched hall window in the gable
+    iso.r.poly([iso.P(cx - 0.4, v1, 60), iso.P(cx, v1, 84), iso.P(cx + 0.4, v1, 60)], alpha(COLORS.glassLit, 0.4));
+    for (const cu of [u0 + 0.18, u1 - 0.18] as const) cornerTower(iso, cu, v1 - 0.18, 0.16, 57, 12, 14, body, ZINC);
+  } else {
+    // the bakery: a long low hipped roof + roof vents
+    iso.hip(u0, v0, u1, v1, 57, 12, SLATE);
+    for (const cu of [u0 + 0.6, (u0 + u1) / 2, u1 - 0.6] as const) {
+      const p = iso.P(cu, (v0 + v1) / 2, 65);
+      iso.r.rect(p[0] - 2 * RES, p[1] - 6 * RES, p[0] + 2 * RES, p[1], shaded(ZINC, 0.1));
+    }
+  }
+  return iso.build();
+}
+
 export const CITY_HEROES: BespokeHero[] = [
   // ---- MARQUEE ICONS (bespoke draws) ----
   {
@@ -1489,5 +2565,351 @@ export const CITY_HEROES: BespokeHero[] = [
     seed: 1909,
     draw: (seed) => turbinenfabrikTile(seed),
     light: { kind: 'genericGlow', topZ: 74, halfW: 1.4 },
+  },
+
+  // =====================================================================
+  // ROUND 2 — memorials, stations, modernist civic, a wider church family,
+  // industrial & market halls. Specific matches precede family matchers so a
+  // named hero always wins its own sprite. Each `match` hits a PLACED name.
+  // =====================================================================
+
+  // ---- MONUMENTS & MEMORIALS ----
+  {
+    city: 'berlin',
+    key: 'soviet-memorial-treptow',
+    // Treptow is the colossal one; the plain "Sowjetisches Ehrenmal" placed name
+    // (x181,y114 = Treptower Park) resolves here. Tiergarten variant matched first below.
+    match: /Sowjetisches Ehrenmal(?!\s*Tiergarten)/i,
+    foot: [5, 5],
+    seed: 1949,
+    draw: (seed) => sovietTreptowTile(seed),
+    light: { kind: 'facadeFlood', topZ: 200, halfW: 1.9 },
+  },
+  {
+    city: 'berlin',
+    key: 'soviet-memorial-tiergarten',
+    match: /Sowjetisches Ehrenmal Tiergarten/i,
+    foot: [3, 3],
+    seed: 1945,
+    draw: (seed) => sovietTiergartenTile(seed),
+    light: { kind: 'facadeFlood', topZ: 70, halfW: 1.4 },
+  },
+  {
+    city: 'berlin',
+    key: 'berlin-wall-memorial',
+    match: /Gedenkst[äa]tte Berliner Mauer/i,
+    foot: [3, 3],
+    seed: 1961,
+    draw: (seed) => berlinWallMemorialTile(seed),
+    light: { kind: 'aerialBeacon', topZ: 82, halfW: 1.4 },
+  },
+  {
+    city: 'berlin',
+    key: 'holocaust-memorial',
+    match: /Denkmal f[üu]r die ermordeten Juden Europas/i,
+    foot: [5, 5],
+    seed: 2005,
+    draw: (seed) => holocaustMemorialTile(seed),
+    light: { kind: 'genericGlow', topZ: 70, halfW: 1.9 },
+  },
+  {
+    city: 'berlin',
+    key: 'schwerbelastungskoerper',
+    match: /Schwerbelastungsk[öo]rper/i,
+    foot: [2, 2],
+    seed: 1941,
+    draw: (seed) => schwerbelastungTile(seed),
+    light: { kind: 'facadeFlood', topZ: 96, halfW: 0.9 },
+  },
+
+  // ---- STATIONS & RUINS ----
+  {
+    city: 'berlin',
+    key: 'bahnhof-alexanderplatz',
+    match: /Bahnhof Alexanderplatz/i,
+    foot: [4, 4],
+    seed: 1882,
+    draw: (seed) => bahnhofAlexTile(seed),
+    light: { kind: 'genericGlow', topZ: 78, halfW: 1.6 },
+  },
+  {
+    city: 'berlin',
+    key: 'anhalter-portikus',
+    match: /Portikus des zerst[öo]rten Anhalter Bahnhofs/i,
+    foot: [2, 2],
+    seed: 1880,
+    draw: (seed) => anhalterPortikusTile(seed),
+    light: { kind: 'facadeFlood', topZ: 70, halfW: 1.0 },
+  },
+
+  // ---- MODERNIST CIVIC ----
+  {
+    city: 'berlin',
+    key: 'topographie-des-terrors',
+    match: /Topographie des Terrors/i,
+    foot: [3, 3],
+    seed: 2010,
+    draw: (seed) => topographieTile(seed),
+    light: { kind: 'genericGlow', topZ: 37, halfW: 1.4 },
+  },
+  {
+    city: 'berlin',
+    key: 'amerika-gedenkbibliothek',
+    match: /Amerika-Gedenkbibliothek/i,
+    foot: [3, 3],
+    seed: 1954,
+    draw: (seed) => amerikaBibliothekTile(seed),
+    light: { kind: 'genericGlow', topZ: 64, halfW: 1.4 },
+  },
+  {
+    city: 'berlin',
+    key: 'corbusierhaus',
+    match: /Corbusierhaus/i,
+    foot: [4, 4],
+    seed: 1957,
+    draw: (seed) => corbusierhausTile(seed),
+    light: { kind: 'towerCrown', topZ: 182, halfW: 1.2 },
+  },
+  {
+    city: 'berlin',
+    key: 'zoo-palast',
+    match: /Zoo Palast/i,
+    foot: [3, 3],
+    seed: 1957,
+    draw: (seed) => zooPalastTile(seed),
+    light: { kind: 'genericGlow', topZ: 70, halfW: 1.4 },
+  },
+  {
+    city: 'berlin',
+    key: 'traenenpalast',
+    match: /Tr[äa]nenpalast/i,
+    foot: [3, 3],
+    seed: 1962,
+    draw: (seed) => traenenpalastTile(seed),
+    light: { kind: 'genericGlow', topZ: 51, halfW: 1.4 },
+  },
+
+  // ---- CHARLOTTENBURG OUTBUILDINGS & GARDEN PALAIS ----
+  {
+    city: 'berlin',
+    key: 'neue-wache',
+    match: /Neue Wache/i,
+    foot: [2, 2],
+    seed: 1818,
+    draw: (seed) => neueWacheTile(seed),
+    light: { kind: 'facadeFlood', topZ: 59, halfW: 1.0 },
+  },
+  {
+    city: 'berlin',
+    key: 'belvedere-charlottenburg',
+    match: /Belvedere/i,
+    foot: [2, 2],
+    seed: 1788,
+    draw: (seed) => belvedereTile(seed),
+    light: { kind: 'facadeFlood', topZ: 130, halfW: 1.0 },
+  },
+  {
+    city: 'berlin',
+    key: 'mausoleum-charlottenburg',
+    match: /Mausoleum Charlottenburg/i,
+    foot: [2, 2],
+    seed: 1810,
+    draw: (seed) => mausoleumCharlottenburgTile(seed),
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 1.0 },
+  },
+  {
+    city: 'berlin',
+    key: 'schoeler-schloesschen',
+    match: /Schoeler-Schl[öo]sschen/i,
+    foot: [2, 2],
+    seed: 1751,
+    draw: (seed) => gartenpalaisTile(seed),
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 1.0 },
+  },
+  {
+    city: 'berlin',
+    key: 'gutshaus-steglitz',
+    match: /Gutshaus Steglitz/i,
+    foot: [2, 2],
+    seed: 1804,
+    draw: (seed) => gartenpalaisTile(seed),
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 1.0 },
+  },
+
+  // ---- INDUSTRIAL / MARKET / UTILITY ----
+  {
+    city: 'berlin',
+    key: 'kulturbrauerei',
+    match: /Museum in der Kulturbrauerei|Kulturbrauerei/i,
+    foot: [4, 4],
+    seed: 1890,
+    draw: (seed) => kulturbrauereiTile(seed),
+    light: { kind: 'genericGlow', topZ: 116, halfW: 1.6 },
+  },
+  {
+    city: 'berlin',
+    key: 'wasserturm-bergstrasse',
+    match: /Wasserturm Bergstra[ßs]e|Wasserturm/i,
+    foot: [2, 2],
+    seed: 1888,
+    draw: (seed) => wasserturmTile(seed),
+    light: { kind: 'aerialBeacon', topZ: 150, halfW: 0.9 },
+  },
+  {
+    city: 'berlin',
+    key: 'arminiusmarkthalle',
+    match: /Arminiusmarkthalle/i,
+    foot: [3, 3],
+    seed: 1891,
+    draw: (seed) => marktHalleTile(seed),
+    light: { kind: 'genericGlow', topZ: 70, halfW: 1.4 },
+  },
+  {
+    city: 'berlin',
+    key: 'markthalle-vii',
+    match: /Markthalle VII/i,
+    foot: [3, 3],
+    seed: 1892,
+    draw: (seed) => marktHalleTile(seed),
+    light: { kind: 'genericGlow', topZ: 70, halfW: 1.4 },
+  },
+  {
+    city: 'berlin',
+    key: 'hubertusbad',
+    match: /Hubertusbad/i,
+    foot: [3, 3],
+    seed: 1928,
+    draw: (seed) => historistenblockTile(seed, true),
+    light: { kind: 'facadeFlood', topZ: 84, halfW: 1.4 },
+  },
+  {
+    city: 'berlin',
+    key: 'heeresbaeckerei',
+    match: /Heeresb[äa]ckerei/i,
+    foot: [3, 3],
+    seed: 1890,
+    draw: (seed) => historistenblockTile(seed, false),
+    light: { kind: 'genericGlow', topZ: 65, halfW: 1.4 },
+  },
+
+  // ---- CIVIC ----
+  {
+    city: 'berlin',
+    key: 'bundesrat',
+    match: /Bundesrat/i,
+    foot: [3, 3],
+    seed: 1904,
+    draw: (seed) => bundesratTile(seed),
+    light: { kind: 'facadeFlood', topZ: 68, halfW: 1.5 },
+  },
+
+  // ---- WIDER CHURCH FAMILY (each bespoke draw) ----
+  {
+    city: 'berlin',
+    key: 'sankt-matthaeus-kirche',
+    match: /Sankt Matth[äa]us-Kirche|St\.?\s*Matth[äa]us/i,
+    foot: [2, 2],
+    seed: 1846,
+    draw: (seed) => stuelerKircheTile(seed),
+    light: { kind: 'facadeFlood', topZ: 150, halfW: 1.0 },
+  },
+  {
+    city: 'berlin',
+    key: 'synagoge-rykestrasse',
+    match: /Synagoge Rykestra[ßs]e/i,
+    foot: [3, 3],
+    seed: 1904,
+    draw: (seed) => rykestrasseTile(seed),
+    light: { kind: 'facadeFlood', topZ: 96, halfW: 1.4 },
+  },
+  {
+    city: 'berlin',
+    key: 'st-joseph-kirche',
+    match: /St\.?\s*Joseph/i,
+    foot: [2, 2],
+    seed: 1909,
+    draw: (seed) => twinTowerChurchTile(seed),
+    light: { kind: 'facadeFlood', topZ: 196, halfW: 1.0 },
+  },
+  {
+    city: 'berlin',
+    key: 'maria-regina-martyrum',
+    match: /Maria Regina Martyrum/i,
+    foot: [3, 3],
+    seed: 1963,
+    draw: (seed) => mariaReginaTile(seed),
+    light: { kind: 'genericGlow', topZ: 96, halfW: 1.4 },
+  },
+  {
+    city: 'berlin',
+    key: 'koenigin-luise-kirche',
+    match: /K[öo]nigin-Luise-Ged[äa]chtniskirche|K[öo]nigin-Luise/i,
+    foot: [2, 2],
+    seed: 1912,
+    draw: (seed) => brickBasilikaTile(seed, true),
+    light: { kind: 'facadeFlood', topZ: 120, halfW: 1.0 },
+  },
+  {
+    city: 'berlin',
+    key: 'rosenkranz-basilika',
+    match: /Rosenkranz-Basilika/i,
+    foot: [2, 2],
+    seed: 1900,
+    draw: (seed) => brickBasilikaTile(seed, false),
+    light: { kind: 'facadeFlood', topZ: 150, halfW: 1.0 },
+  },
+  {
+    city: 'berlin',
+    key: 'zum-guten-hirten',
+    match: /Zum Guten Hirten/i,
+    foot: [2, 2],
+    seed: 1893,
+    draw: (seed) => brickBasilikaTile(seed, false),
+    light: { kind: 'facadeFlood', topZ: 150, halfW: 1.0 },
+  },
+  {
+    city: 'berlin',
+    key: 'apostel-paulus-kirche',
+    match: /Apostel-Paulus-Kirche/i,
+    foot: [2, 2],
+    seed: 1894,
+    draw: (seed) => spireChurchTile(seed),
+    light: { kind: 'facadeFlood', topZ: 196, halfW: 1.0 },
+  },
+  {
+    city: 'berlin',
+    key: 'zwoelf-apostel-kirche',
+    match: /Zw[öo]lf-Apostel-Kirche/i,
+    foot: [2, 2],
+    seed: 1874,
+    draw: (seed) => spireChurchTile(seed),
+    light: { kind: 'facadeFlood', topZ: 196, halfW: 1.0 },
+  },
+  {
+    city: 'berlin',
+    key: 'kirche-zum-vaterhaus',
+    match: /Kirche Zum Vaterhaus/i,
+    foot: [2, 2],
+    seed: 1905,
+    draw: (seed) => spireChurchTile(seed),
+    light: { kind: 'facadeFlood', topZ: 196, halfW: 1.0 },
+  },
+  {
+    city: 'berlin',
+    key: 'alte-dorfkirche',
+    match: /Alte Dorfkirche/i,
+    foot: [2, 2],
+    seed: 1250,
+    draw: (seed) => feldsteinkircheTile(seed),
+    light: { kind: 'facadeFlood', topZ: 76, halfW: 1.0 },
+  },
+  {
+    city: 'berlin',
+    key: 'sankt-annen-kirche',
+    match: /Sankt-Annen-Kirche|St\.?\s*Annen/i,
+    foot: [2, 2],
+    seed: 1390,
+    draw: (seed) => feldsteinkircheTile(seed),
+    light: { kind: 'facadeFlood', topZ: 76, halfW: 1.0 },
   },
 ];

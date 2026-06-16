@@ -33,6 +33,7 @@ import type { BespokeHero } from './registry';
 import type { HeroLightSpec } from '../../heroLights';
 import {
   CELL_W,
+  DUSK_COOL,
   INK,
   INK_W,
   Iso,
@@ -42,7 +43,7 @@ import {
   top,
 } from '../iso';
 import { COLORS } from '../palette';
-import { alpha, darken, hex, lighten, type Pt, type RGBA } from '../raster';
+import { alpha, darken, hex, lighten, mix, type Pt, type RGBA } from '../raster';
 import {
   allypallyTile,
   bttowerTile,
@@ -1253,6 +1254,1414 @@ function oldBaileyTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 }
 
 // =============================================================================
+// NEW BESPOKE DRAWS — W3 ROUND 2
+// =============================================================================
+
+// ---- shared helpers for round 2 ---------------------------------------------
+const STEEL_GLASS = alpha(hex('#9fb6c8'), 0.92); // pale curtain-wall glass
+const STEEL_GLASS_LIT = alpha(hex('#bcd2e2'), 0.94);
+const GLASS_GREEN = alpha(hex('#8fb0a6'), 0.9); // greenish modern glazing
+const STONE_WARM = hex('#d8caa9'); // warm Portland/Bath stone
+
+/** A regular curtain-wall office tower: a tall glazed box with horizontal
+ *  floor banding + a slim crown. Shared base for the modern City heroes; each
+ *  caller tweaks proportions/colour so silhouettes differ. */
+function glassTower(
+  iso: Iso,
+  u0: number,
+  v0: number,
+  u1: number,
+  v1: number,
+  H: number,
+  glass: RGBA,
+  opts: { floors?: number; crownH?: number; mullions?: boolean } = {},
+): void {
+  const floors = opts.floors ?? 12;
+  iso.box(u0, v0, u1, v1, 0, H, mix(glass, COLORS.glassDark, 0.25));
+  // glazed floors on both visible walls
+  for (let f = 0; f < floors; f++) {
+    const zb = 6 + (f * (H - 10)) / floors;
+    const zt = 6 + ((f + 0.7) * (H - 10)) / floors;
+    iso.windowsLeft(v1, u0 + 0.05, u1 - 0.05, zb, zt, Math.max(6, Math.round((u1 - u0) * 7)), glass, alpha(STEEL_GLASS_LIT, 0.5));
+    iso.windowsRight(u1, v0 + 0.05, v1 - 0.05, zb, zt, Math.max(4, Math.round((v1 - v0) * 7)), mix(glass, DUSK_COOL, 0.12), alpha(STEEL_GLASS_LIT, 0.4));
+  }
+  // vertical mullion hint on the sunny wall
+  if (opts.mullions !== false) {
+    for (let u = u0 + 0.12; u < u1 - 0.05; u += 0.16) iso.r.line(iso.P(u, v1, 6), iso.P(u, v1, H - 4), 0.6 * RES, alpha(STEEL_GLASS_LIT, 0.35));
+  }
+  const ch = opts.crownH ?? 4;
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, H, H + ch, lighten(glass, 0.12), { ink: false, topC: top(STEEL_GLASS_LIT, 0.2) });
+}
+
+/** 100 BISHOPSGATE: a tall, sharp curtain-wall City tower with a faceted
+ *  chamfered south-west corner and a crisp flat top — slim and very tall so it
+ *  towers over the fabric. Two linked masses (the spec notes "two buildings"):
+ *  a dominant tower + a lower companion block. */
+function bishopsgate100Tile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 210 });
+  void seed;
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  // the lower companion block at the front
+  glassTower(iso, 0.5, 1.9, 1.6, 2.55, 96, STEEL_GLASS, { floors: 14 });
+  // the dominant slim tower, set back, very tall with a chamfered SW corner
+  const u0 = 1.5;
+  const u1 = 2.55;
+  const v0 = 0.5;
+  const v1 = 1.7;
+  const H = 232;
+  // chamfer: cut the near (u1,v1) corner by drawing the body then a clipped face
+  glassTower(iso, u0, v0, u1, v1, H, STEEL_GLASS_LIT, { floors: 30, crownH: 6 });
+  // a recessed double-height entrance notch at the base on the sunny wall
+  iso.r.poly([iso.P(u0 + 0.15, v1, 0), iso.P(u1 - 0.15, v1, 0), iso.P(u1 - 0.15, v1, 16), iso.P(u0 + 0.15, v1, 16)], alpha(hex('#1f2740'), 0.85));
+  // crisp ink crown rim + a corner gleam
+  iso.gleam(iso.P(u1, v0, H), iso.P(u1, v1, H));
+  return iso.build();
+}
+
+/** 200 ALDERSGATE: a chunky 1990s City office block — a broad stepped glass-
+ *  and-steel mass with a banded curtain wall and a set-back upper storey, plus
+ *  the little glazed pyramid rooflight (it shares the view with the Museum of
+ *  London pyramid in the reference). 3×3. */
+function aldersgate200Tile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 130 });
+  void seed;
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  glassTower(iso, 0.45, 1.0, 2.55, 2.55, 104, STEEL_GLASS, { floors: 16 });
+  // a set-back top storey
+  iso.box(0.7, 1.2, 2.3, 2.3, 104, 122, STEEL_GLASS_LIT, { ink: true });
+  iso.windowsLeft(2.3, 0.8, 2.2, 108, 118, 14, STEEL_GLASS, alpha(STEEL_GLASS_LIT, 0.5));
+  // the small glazed pyramid rooflight on the front plaza corner
+  const [px, pyB] = iso.P(1.5, 2.62, 0);
+  iso.r.poly([[px - 6 * RES, pyB], [px + 6 * RES, pyB], [px, pyB - 14 * RES]], alpha(hex('#bcd0e0'), 0.85), alpha(hex('#8fa6b4'), 0.7));
+  iso.r.polyline([[px - 6 * RES, pyB], [px, pyB - 14 * RES], [px + 6 * RES, pyB]], INK_W * 0.6, INK);
+  return iso.build();
+}
+
+/** ONE NEW CHANGE: Jean Nouvel's dark-glass "stealth bomber" mall by St Paul's
+ *  — a low, broad, faceted mass clad in brown/charcoal patterned glass, cut by
+ *  a deep canyon-like slot framing the cathedral, with chamfered sloping
+ *  flanks. Low + wide. 3×3. */
+function oneNewChangeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 80 });
+  void seed;
+  const DK = alpha(hex('#5a4f4a'), 0.95); // the brown-bronze patterned glass
+  const DK_L = alpha(hex('#7a6b60'), 0.95);
+  iso.shadow(0.4, 0.55, 2.6, 2.6, 0.22, 0.22);
+  // two faceted wings either side of a central canyon slot
+  const H = 58;
+  // left wing
+  iso.box(0.45, 0.9, 1.32, 2.55, 0, H, DK, { rightC: DK_L });
+  // right wing
+  iso.box(1.68, 0.9, 2.55, 2.55, 0, H, DK, { rightC: DK_L });
+  // the deep slot between them (recessed, dark)
+  iso.box(1.32, 1.1, 1.68, 2.55, 0, H - 6, alpha(hex('#20242c'), 0.92), { ink: false });
+  // patterned-glass facets: faint diagonal banding on the sunny faces
+  for (const [u0, u1] of [[0.45, 1.32], [1.68, 2.55]] as const) {
+    for (let z = 8; z < H - 4; z += 7) iso.r.line(iso.P(u0 + 0.05, 2.55, z), iso.P(u1 - 0.05, 2.55, z + 4), 0.5 * RES, alpha(DK_L, 0.5));
+  }
+  // chamfered sloping top edges (the angular roofline)
+  for (const [u0, u1] of [[0.45, 1.32], [1.68, 2.55]] as const) {
+    iso.r.poly([iso.P(u0, 0.9, H), iso.P(u1, 0.9, H), iso.P(u1, 1.3, H + 10), iso.P(u0, 1.3, H + 10)], top(DK_L, 0.1));
+  }
+  return iso.build();
+}
+
+/** BANK OF NEW YORK MELLON (former Barclays, 1 Churchill Place style): a clean
+ *  modern City office tower — a glazed slab with a strong gridded curtain wall
+ *  and a flat capped top, slimmer + tall. 3×3. */
+function bnyMellonTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 180 });
+  void seed;
+  iso.shadow(0.45, 0.6, 2.55, 2.55, 0.22, 0.22);
+  glassTower(iso, 0.7, 0.7, 2.35, 2.35, 196, mix(STEEL_GLASS, hex('#2e4a6a'), 0.18), { floors: 26, crownH: 6 });
+  // a slim service mast on the roof
+  const [mx, my] = iso.P(1.5, 1.5, 202);
+  iso.r.line([mx, my], [mx, my - 12 * RES], 1.2 * RES, COLORS.steel);
+  iso.gleam(iso.P(2.35, 0.7, 196), iso.P(2.35, 2.35, 196));
+  return iso.build();
+}
+
+/** LONDON WALL BUILDINGS: an Edwardian-baroque Portland-stone office range at
+ *  Finsbury Circus — a long curved stone frontage with rusticated base, regular
+ *  windows, paired pilasters and a balustraded cornice with corner cupolas.
+ *  3×3, dignified not tall. */
+function londonWallBuildingsTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 70 });
+  void seed;
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.2, 0.2);
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.3;
+  const v1 = 2.5;
+  const H = 50;
+  iso.box(u0, v0, u1, v1, 0, H, STONE_WARM);
+  for (const [zb, zt] of [[8, 20], [24, 36], [40, 48]] as const) {
+    iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, zb, zt, 16, GLASS_DK, lighten(STONE_WARM, 0.1));
+  }
+  // rusticated base + paired pilaster strips + balustraded cornice
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 8, shaded(STONE_WARM, 0.12), { ink: false });
+  for (let u = u0 + 0.22; u < u1 - 0.1; u += 0.34) iso.r.line(iso.P(u, v1, 8), iso.P(u, v1, H - 2), 1.4 * RES, alpha(STONE_DARK, 0.4));
+  iso.box(u0 - 0.04, v0 - 0.04, u1 + 0.04, v1 + 0.04, H, H + 4, lighten(STONE_WARM, 0.08), { topC: top(STONE_WARM, 0.3) });
+  // a pair of small lead corner cupolas
+  for (const cu of [u0 + 0.3, u1 - 0.3]) {
+    iso.box(cu - 0.16, v1 - 0.16, cu + 0.16, v1 + 0.02, H + 4, H + 12, STONE_WARM, { ink: false });
+    const [dx, dyB] = iso.P(cu, v1 - 0.06, H + 12);
+    const dome: Pt[] = [];
+    for (let i = 0; i <= 12; i++) { const a = Math.PI * (i / 12); dome.push([dx + Math.cos(a) * 4 * RES, dyB - Math.sin(a) * 6 * RES]); }
+    iso.r.poly(dome, shaded(LEAD, 0.05), lit(LEAD, 0.06));
+    iso.r.polyline(dome, INK_W * 0.6, INK);
+    iso.r.line([dx, dyB - 6 * RES], [dx, dyB - 11 * RES], 0.9 * RES, COLORS.glassLit);
+  }
+  return iso.build();
+}
+
+/** MAUGHAN LIBRARY (former Public Record Office): Pennethorne's neo-Gothic
+ *  "strong-box of the Empire" on Chancery Lane — a fortress-like Bath-stone
+ *  range with battlemented parapets, tall traceried Gothic windows, octagonal
+ *  corner turrets and a central tower with a clock. 3×3. */
+function maughanLibraryTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 120 });
+  void seed;
+  const GST = hex('#cabd9c');
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.4;
+  const v1 = 2.5;
+  const H = 56;
+  iso.box(u0, v0, u1, v1, 0, H, GST);
+  // two tiers of tall pointed Gothic windows
+  for (const [zb, zt] of [[10, 28], [32, 50]] as const) {
+    iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, zb, zt, 12, alpha(hex('#2c3550'), 0.85), lighten(GST, 0.1));
+  }
+  // battlemented parapet (crenellations)
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 4, lighten(GST, 0.06), { ink: false });
+  for (let u = u0 + 0.1; u < u1; u += 0.18) iso.box(u, v1 - 0.03, u + 0.09, v1 + 0.01, H + 4, H + 9, lighten(GST, 0.08), { ink: false });
+  // octagonal corner turrets
+  for (const cu of [u0 + 0.05, u1 - 0.05]) {
+    iso.box(cu - 0.1, v1 - 0.1, cu + 0.1, v1 + 0.04, 0, H + 18, lighten(GST, 0.03));
+    const [tx, tyB] = iso.P(cu, v1 - 0.03, H + 18);
+    iso.r.poly([[tx - 4 * RES, tyB], [tx + 4 * RES, tyB], [tx, tyB - 12 * RES]], shaded(SLATE, 0.05), lit(SLATE, 0.05));
+    iso.r.line([tx, tyB - 12 * RES], [tx, tyB - 16 * RES], 0.9 * RES, COLORS.glassLit);
+  }
+  // central clock tower
+  const cu = (u0 + u1) / 2;
+  iso.box(cu - 0.26, v1 - 0.26, cu + 0.26, v1 + 0.04, 0, 84, GST);
+  const [clx, cly] = iso.P(cu, v1 + 0.04, 66);
+  const cr = 4 * RES;
+  const clk: Pt[] = [];
+  for (let i = 0; i <= 12; i++) { const a = (i / 12) * Math.PI * 2; clk.push([clx + Math.cos(a) * cr, cly + Math.sin(a) * cr]); }
+  iso.r.poly(clk, COLORS.white);
+  iso.r.polyline(clk, INK_W * 0.6, INK, true);
+  iso.hip(cu - 0.28, v1 - 0.28, cu + 0.28, v1 + 0.06, 84, 18, SLATE);
+  return iso.build();
+}
+
+/** HOLBORN BARS (the Prudential Assurance Building): Waterhouse's vast red
+ *  terracotta High-Victorian Gothic pile on Holborn — deep blood-red brick and
+ *  terracotta, pointed gables, a great central archway and a tall pinnacled
+ *  clock tower. 3×3, richly Gothic. */
+function holbornBarsTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 140 });
+  void seed;
+  const RED = hex('#9c3f30'); // Prudential terracotta red
+  const RED_L = hex('#b5563f');
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.4;
+  const v1 = 2.5;
+  const H = 60;
+  iso.box(u0, v0, u1, v1, 0, H, RED);
+  for (const [zb, zt] of [[10, 24], [30, 44], [48, 56]] as const) {
+    iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, zb, zt, 13, alpha(hex('#2c2540'), 0.8), RED_L);
+  }
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 3, lighten(RED, 0.06), { ink: false });
+  // a row of steep terracotta gables along the parapet
+  for (let u = u0 + 0.3; u < u1 - 0.1; u += 0.55) {
+    iso.r.poly([iso.P(u - 0.18, v1, H + 3), iso.P(u + 0.18, v1, H + 3), iso.P(u, v1, H + 16)], lit(RED, 0.05));
+    iso.r.polyline([iso.P(u - 0.18, v1, H + 3), iso.P(u, v1, H + 16), iso.P(u + 0.18, v1, H + 3)], INK_W * 0.6, INK);
+  }
+  // the great central archway (the gateway to Waterhouse Square)
+  const cu = (u0 + u1) / 2;
+  archGableLeft(iso, v1 + 0.001, cu - 0.22, cu + 0.22, 6, 30, alpha(hex('#241c30'), 0.9), RED_L);
+  // the tall pinnacled clock tower at one end
+  const ctu = u0 + 0.55;
+  iso.box(ctu - 0.22, v1 - 0.28, ctu + 0.16, v1 + 0.02, 0, 104, RED);
+  const [clx, cly] = iso.P(ctu - 0.03, v1 + 0.02, 80);
+  const cr = 3.6 * RES;
+  const clk: Pt[] = [];
+  for (let i = 0; i <= 12; i++) { const a = (i / 12) * Math.PI * 2; clk.push([clx + Math.cos(a) * cr, cly + Math.sin(a) * cr]); }
+  iso.r.poly(clk, COLORS.white);
+  iso.r.polyline(clk, INK_W * 0.6, INK, true);
+  iso.box(ctu - 0.24, v1 - 0.3, ctu + 0.18, v1 + 0.04, 104, 110, lighten(RED, 0.06), { ink: false });
+  iso.hip(ctu - 0.22, v1 - 0.28, ctu + 0.16, v1 + 0.02, 110, 30, SLATE);
+  const [tx, ty] = iso.P(ctu - 0.03, v1 - 0.13, 140);
+  iso.r.line([tx, ty], [tx, ty - 10 * RES], 1.3 * RES, COLORS.glassLit);
+  return iso.build();
+}
+
+// ---- West End: hotels, theatres, stores -------------------------------------
+
+/** SAVOY HOTEL: the Strand's grand Edwardian hotel — a tall cream-and-stone
+ *  block with deep banded windows, a mansard roof, and the unmistakable
+ *  stainless-steel Savoy entrance sign/canopy projecting at the front. (The
+ *  first building in Britain lit throughout by electric light.) 3×3. */
+function savoyHotelTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 100 });
+  void seed;
+  const CR = hex('#e3d8bd'); // cream faience
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.3;
+  const v1 = 2.5;
+  const H = 70;
+  iso.box(u0, v0, u1, v1, 0, H, CR);
+  for (const [zb, zt] of [[8, 20], [24, 36], [40, 52], [56, 66]] as const) {
+    iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, zb, zt, 16, GLASS_DK, lighten(CR, 0.1));
+    iso.windowsRight(u1, v0 + 0.08, v1 - 0.08, zb, zt, 9, GLASS_DK, lighten(CR, 0.1));
+  }
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 3, lighten(CR, 0.08), { ink: false });
+  // the mansard roof
+  iso.gable(u0, v0, u1, v1, H + 3, 14, 'u', SLATE, CR);
+  for (let u = u0 + 0.35; u < u1 - 0.2; u += 0.5) {
+    iso.box(u - 0.05, v1 - 0.03, u + 0.05, v1, H + 4, H + 11, CR, { ink: false });
+    iso.r.poly([iso.P(u - 0.05, v1, H + 11), iso.P(u + 0.05, v1, H + 11), iso.P(u, v1, H + 15)], SLATE);
+  }
+  // the projecting stainless-steel Savoy canopy + sign at the entrance
+  const cu = (u0 + u1) / 2;
+  iso.box(cu - 0.32, v1, cu + 0.32, v1 + 0.34, 10, 13, COLORS.steel, { ink: false, topC: lighten(COLORS.steel, 0.2) });
+  const [sx, syB] = iso.P(cu, v1 + 0.18, 13);
+  iso.box(cu - 0.06, v1 + 0.14, cu + 0.06, v1 + 0.22, 13, 30, COLORS.steelDark, { ink: false });
+  iso.r.line([sx, syB - 34 * RES], [sx, syB - 34 * RES], 2 * RES, COLORS.glassHot);
+  iso.glint([sx, syB - 24 * RES]);
+  return iso.build();
+}
+
+/** ROYAL OPERA HOUSE: Covent Garden — E.M. Barry's Victorian-classical opera
+ *  house: a Portland-stone front with a giant hexastyle portico under a
+ *  sculptured frieze, beside the great barrel-vaulted glass-and-iron Floral
+ *  Hall (the Paul Hamlyn Hall) with its arched glazed roof. 4×4. */
+function royalOperaTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 90 });
+  void seed;
+  iso.shadow(0.35, 0.55, 3.65, 3.65, 0.22, 0.22);
+  // the great glazed Floral Hall vault behind, to one side
+  const [gx, gyB] = iso.P(2.7, 0.9, 0);
+  const GR = 0.92 * (CELL_W / 2);
+  const vault: Pt[] = [];
+  for (let i = 0; i <= 20; i++) { const a = Math.PI * (i / 20); vault.push([gx + Math.cos(a) * GR, gyB - 60 * RES - Math.sin(a) * GR * 0.66]); }
+  iso.r.poly([...vault, [gx + GR, gyB - 30 * RES], [gx - GR, gyB - 30 * RES]], GLASS_SHED, alpha(hex('#7d92ad'), 0.8));
+  iso.r.polyline(vault, INK_W * 0.6, alpha(INK, 0.5));
+  for (let i = 2; i < 20; i += 3) { const a = Math.PI * (i / 20); iso.r.line([gx + Math.cos(a) * GR, gyB - 30 * RES], [gx + Math.cos(a) * GR, gyB - 60 * RES - Math.sin(a) * GR * 0.66], 0.6 * RES, alpha(COLORS.white, 0.45)); }
+  // the stone opera-house block
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.8;
+  const v1 = 3.45;
+  const H = 56;
+  iso.box(u0, v0, u1, v1, 0, H, PORTLAND);
+  iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, 30, 48, 12, GLASS_DK, COLORS.white);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 4, lighten(PORTLAND, 0.08), { topC: top(PORTLAND, 0.3) });
+  // the grand projecting portico: tall columns + frieze + pediment
+  const cu = (u0 + u1) / 2;
+  iso.box(cu - 0.7, v1, cu + 0.7, v1 + 0.4, 0, H - 2, PORTLAND, { ink: false });
+  for (let i = 0; i <= 7; i++) {
+    const u = cu - 0.56 + (1.12 * i) / 7;
+    iso.r.poly([iso.P(u - 0.024, v1 + 0.4, H - 4), iso.P(u + 0.024, v1 + 0.4, H - 4), iso.P(u + 0.024, v1 + 0.4, 6), iso.P(u - 0.024, v1 + 0.4, 6)], i % 2 ? COLORS.white : lit(PORTLAND, 0.08));
+  }
+  iso.box(cu - 0.74, v1, cu + 0.74, v1 + 0.42, H - 4, H + 2, lighten(PORTLAND, 0.06), { ink: false });
+  iso.r.poly([iso.P(cu - 0.78, v1 + 0.42, H + 2), iso.P(cu + 0.78, v1 + 0.42, H + 2), iso.P(cu, v1 + 0.42, H + 14)], lighten(PORTLAND, 0.1));
+  iso.r.polyline([iso.P(cu - 0.78, v1 + 0.42, H + 2), iso.P(cu + 0.78, v1 + 0.42, H + 2), iso.P(cu, v1 + 0.42, H + 14), iso.P(cu - 0.78, v1 + 0.42, H + 2)], INK_W * 0.7, INK, true);
+  return iso.build();
+}
+
+/** LONDON TROCADERO: the great Beaux-Arts entertainment pile at Piccadilly
+ *  Circus — a tall stone-and-glass block bristling with restless detail and,
+ *  above all, plastered in giant illuminated advertising hoardings (the
+ *  Piccadilly lights). A blocky mass crowned by a glowing screen band. 3×3. */
+function trocaderoTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 100 });
+  void seed;
+  const STN = hex('#c9bda4');
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.4;
+  const v1 = 2.5;
+  const H = 64;
+  iso.box(u0, v0, u1, v1, 0, H, STN);
+  for (const [zb, zt] of [[8, 20], [24, 36]] as const) {
+    iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, zb, zt, 16, GLASS_DK, lighten(STN, 0.1));
+  }
+  // the great illuminated advertising band across the upper front (Piccadilly
+  // lights): a glowing multi-colour screen
+  const adZ0 = 42;
+  const adZ1 = H - 2;
+  const adColors = [hex('#e0506a'), hex('#4fb0d8'), hex('#f0c04a'), hex('#6fc080')];
+  const segs = 6;
+  for (let i = 0; i < segs; i++) {
+    const a = u0 + 0.15 + ((u1 - u0 - 0.3) * i) / segs;
+    const b = u0 + 0.15 + ((u1 - u0 - 0.3) * (i + 1)) / segs;
+    iso.r.poly([iso.P(a, v1, adZ1), iso.P(b, v1, adZ1), iso.P(b, v1, adZ0), iso.P(a, v1, adZ0)], alpha(adColors[i % adColors.length] ?? hex('#e0506a'), 0.92));
+  }
+  iso.r.polyline([iso.P(u0 + 0.12, v1, adZ0), iso.P(u1 - 0.12, v1, adZ0), iso.P(u1 - 0.12, v1, adZ1), iso.P(u0 + 0.12, v1, adZ1)], INK_W * 0.5, alpha(INK, 0.6), true);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 4, lighten(STN, 0.08), { topC: top(STN, 0.3) });
+  // a small parapet crest
+  for (let u = u0 + 0.3; u < u1 - 0.1; u += 0.5) {
+    iso.r.poly([iso.P(u - 0.1, v1, H + 4), iso.P(u + 0.1, v1, H + 4), iso.P(u, v1, H + 10)], lit(STN, 0.06));
+  }
+  return iso.build();
+}
+
+/** GROSVENOR HOUSE HOTEL: the big inter-war Park Lane hotel — a long, tall,
+ *  symmetrical brick-and-stone slab with regular punched windows, a strong
+ *  cornice and twin set-back roof pavilions, facing Hyde Park. 3×3. */
+function grosvenorHouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 110 });
+  void seed;
+  const BR = hex('#b98e63'); // pale 1920s brown brick
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.4;
+  const v1 = 2.5;
+  const H = 86;
+  iso.box(u0, v0, u1, v1, 0, H, BR);
+  for (let f = 0; f < 8; f++) {
+    const zb = 8 + (f * (H - 14)) / 8;
+    const zt = 8 + ((f + 0.6) * (H - 14)) / 8;
+    iso.windowsLeft(v1, u0 + 0.07, u1 - 0.07, zb, zt, 18, GLASS_DK, lighten(BR, 0.12));
+    iso.windowsRight(u1, v0 + 0.07, v1 - 0.07, zb, zt, 9, GLASS_DK, lighten(BR, 0.12));
+  }
+  // stone base + cornice
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 8, PORTLAND, { ink: false });
+  iso.box(u0 - 0.04, v0 - 0.04, u1 + 0.04, v1 + 0.04, H, H + 4, lighten(PORTLAND, 0.06), { topC: top(PORTLAND, 0.3) });
+  // twin set-back roof pavilions
+  for (const cu of [u0 + 0.5, u1 - 0.5]) {
+    iso.box(cu - 0.28, v0 + 0.2, cu + 0.28, v1 - 0.2, H + 4, H + 22, BR);
+    iso.windowsLeft(v1 - 0.2, cu - 0.22, cu + 0.22, H + 8, H + 18, 6, GLASS_DK, lighten(BR, 0.12));
+    iso.box(cu - 0.3, v0 + 0.18, cu + 0.3, v1 - 0.18, H + 22, H + 25, lighten(BR, 0.1), { ink: false });
+  }
+  return iso.build();
+}
+
+/** ONE HYDE PARK: Rogers' ultra-luxury Knightsbridge towers — four linked
+ *  glass-and-steel pavilions stepping in height, with the architect's signature
+ *  exposed steel bracing nodes and bright winter-garden glazing. Slim, modern,
+ *  pale blue-green glass. 3×3. */
+function oneHydeParkTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 160 });
+  void seed;
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  // four linked stepping pavilions along the u axis
+  const pav = [
+    { u0: 0.45, u1: 1.05, H: 120 },
+    { u0: 1.05, u1: 1.6, H: 150 },
+    { u0: 1.6, u1: 2.15, H: 138 },
+    { u0: 2.15, u1: 2.6, H: 108 },
+  ];
+  for (const p of pav) {
+    glassTower(iso, p.u0, 1.2, p.u1, 2.5, p.H, GLASS_GREEN, { floors: Math.round(p.H / 9), mullions: false });
+    // exposed steel bracing X on the sunny end wall
+    const e = p.u1;
+    for (let z = 16; z < p.H - 8; z += 22) {
+      iso.r.line(iso.P(e, 1.2, z), iso.P(e, 2.5, z + 12), 0.7 * RES, alpha(COLORS.steel, 0.7));
+      iso.r.line(iso.P(e, 1.2, z + 12), iso.P(e, 2.5, z), 0.7 * RES, alpha(COLORS.steel, 0.7));
+    }
+  }
+  return iso.build();
+}
+
+/** ST JAMES'S PALACE: Henry VIII's Tudor red-brick palace — a low, sprawling
+ *  range of warm diapered brick with crow-stepped/crenellated parapets and,
+ *  above all, the famous four-storey octagonal-turreted GATEHOUSE with its
+ *  clock and twin polygonal towers. Low + broad. 4×4. */
+function stJamesPalaceTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 90 });
+  void seed;
+  const TBR = hex('#8e4a3a'); // warm Tudor brick
+  const TBR_L = hex('#a55c46');
+  iso.shadow(0.35, 0.55, 3.65, 3.65, 0.22, 0.22);
+  const u0 = 0.4;
+  const u1 = 3.6;
+  const v0 = 1.9;
+  const v1 = 3.4;
+  const H = 40;
+  iso.box(u0, v0, u1, v1, 0, H, TBR);
+  // diaper-pattern brick hint (faint diagonal lozenges) + mullioned windows
+  for (const [zb, zt] of [[8, 20], [24, 34]] as const) {
+    iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, zb, zt, 18, alpha(hex('#2c2030'), 0.8), lighten(TBR, 0.12));
+  }
+  // crenellated parapet
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 3, lighten(TBR, 0.06), { ink: false });
+  for (let u = u0 + 0.1; u < u1; u += 0.2) iso.box(u, v1 - 0.03, u + 0.1, v1 + 0.01, H + 3, H + 8, lighten(TBR, 0.08), { ink: false });
+  // THE GATEHOUSE: a tall block with twin octagonal turrets + clock
+  const gu = u0 + 1.0;
+  iso.box(gu - 0.42, v1 - 0.3, gu + 0.42, v1 + 0.04, 0, 78, TBR);
+  // the deep arched gateway
+  archGableLeft(iso, v1 + 0.04, gu - 0.18, gu + 0.18, 4, 26, alpha(hex('#1f1626'), 0.9), TBR_L);
+  // clock face high on the gatehouse
+  const [clx, cly] = iso.P(gu, v1 + 0.04, 58);
+  const cr = 4 * RES;
+  const clk: Pt[] = [];
+  for (let i = 0; i <= 12; i++) { const a = (i / 12) * Math.PI * 2; clk.push([clx + Math.cos(a) * cr, cly + Math.sin(a) * cr]); }
+  iso.r.poly(clk, hex('#2a2a36'));
+  iso.r.polyline(clk, INK_W * 0.6, lighten(TBR_L, 0.2), true);
+  // the twin polygonal turrets either side, each with a small lead cupola
+  for (const tu of [gu - 0.5, gu + 0.5]) {
+    iso.box(tu - 0.13, v1 - 0.28, tu + 0.13, v1 + 0.02, 0, 92, TBR);
+    iso.box(tu - 0.15, v1 - 0.3, tu + 0.15, v1 + 0.04, 92, 96, lighten(TBR, 0.06), { ink: false });
+    const [tx, tyB] = iso.P(tu, v1 - 0.13, 96);
+    const dome: Pt[] = [];
+    for (let i = 0; i <= 12; i++) { const a = Math.PI * (i / 12); dome.push([tx + Math.cos(a) * 5 * RES, tyB - Math.sin(a) * 8 * RES]); }
+    iso.r.poly(dome, shaded(LEAD, 0.05), lit(LEAD, 0.06));
+    iso.r.polyline(dome, INK_W * 0.6, INK);
+    iso.r.line([tx, tyB - 8 * RES], [tx, tyB - 13 * RES], 0.9 * RES, COLORS.glassLit);
+  }
+  return iso.build();
+}
+
+/** INSTITUTE OF CONTEMPORARY ARTS (Nash House, Carlton House Terrace): a
+ *  stuccoed cream Regency terrace front on The Mall — a long, low, elegant
+ *  classical facade with a giant order of Corinthian columns, a balustraded
+ *  parapet and the regular rhythm of tall windows. Low + wide. 3×3. */
+function icaTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 60 });
+  void seed;
+  const CR = hex('#ece2cc'); // Nash cream stucco
+  iso.shadow(0.4, 0.7, 2.6, 2.6, 0.2, 0.2);
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.7;
+  const v1 = 2.5;
+  const H = 40;
+  iso.box(u0, v0, u1, v1, 0, H, CR);
+  // tall windows in two storeys
+  for (const [zb, zt] of [[8, 22], [26, 36]] as const) {
+    iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, zb, zt, 16, GLASS_DK, lighten(CR, 0.08));
+  }
+  // the giant order of Corinthian columns across the front
+  const colV = v1 + 0.02;
+  for (let i = 0; i <= 12; i++) {
+    const u = u0 + 0.18 + ((u1 - u0 - 0.36) * i) / 12;
+    iso.r.poly([iso.P(u - 0.022, colV, H - 4), iso.P(u + 0.022, colV, H - 4), iso.P(u + 0.022, colV, 4), iso.P(u - 0.022, colV, 4)], i % 2 ? COLORS.white : lit(CR, 0.06));
+  }
+  // entablature + balustraded parapet
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H - 4, H + 3, lighten(CR, 0.06), { ink: false });
+  for (let u = u0 + 0.15; u <= u1 - 0.1; u += 0.22) iso.box(u - 0.03, v1 - 0.03, u + 0.03, v1, H + 3, H + 8, lighten(CR, 0.05), { ink: false });
+  return iso.build();
+}
+
+/** MINISTRY OF DEFENCE (Main Building, Whitehall): a vast, austere 1950s
+ *  neoclassical-stripped Portland-stone government block — a long, monumental,
+ *  flat-roofed mass with deeply regular windows, a rusticated base and two
+ *  monumental seated stone figures (Earth & Water) flanking the entrance.
+ *  Big + blocky. 4×4. */
+function modTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 80 });
+  void seed;
+  iso.shadow(0.35, 0.55, 3.65, 3.65, 0.22, 0.22);
+  const u0 = 0.4;
+  const u1 = 3.6;
+  const v0 = 1.4;
+  const v1 = 3.4;
+  const H = 64;
+  iso.box(u0, v0, u1, v1, 0, H, PORTLAND);
+  for (let f = 0; f < 7; f++) {
+    const zb = 12 + (f * (H - 18)) / 7;
+    const zt = 12 + ((f + 0.6) * (H - 18)) / 7;
+    iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, zb, zt, 26, GLASS_DK, lighten(PORTLAND, 0.08));
+    iso.windowsRight(u1, v0 + 0.06, v1 - 0.06, zb, zt, 14, GLASS_DK, lighten(PORTLAND, 0.08));
+  }
+  // heavy rusticated base
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 12, shaded(PORTLAND, 0.14), { ink: false });
+  iso.box(u0 - 0.04, v0 - 0.04, u1 + 0.04, v1 + 0.04, H, H + 4, lighten(PORTLAND, 0.06), { topC: top(PORTLAND, 0.3) });
+  // a slightly projecting, taller centre bay
+  const cu = (u0 + u1) / 2;
+  iso.box(cu - 0.6, v1 - 0.02, cu + 0.6, v1 + 0.05, 0, H + 8, lighten(PORTLAND, 0.04));
+  // the monumental entrance + the two seated stone figures flanking it
+  archGableLeft(iso, v1 + 0.05, cu - 0.18, cu + 0.18, 4, 22, shaded(PORTLAND, 0.5), PORTLAND);
+  for (const dx of [-0.36, 0.36]) {
+    const [fx, fyB] = iso.P(cu + dx, v1 + 0.06, 0);
+    iso.r.poly([[fx - 2.4 * RES, fyB], [fx + 2.4 * RES, fyB], [fx + 1.8 * RES, fyB - 14 * RES], [fx - 1.8 * RES, fyB - 14 * RES]], shaded(PORTLAND, 0.2));
+    iso.r.poly([[fx - 1.8 * RES, fyB - 14 * RES], [fx + 1.8 * RES, fyB - 14 * RES], [fx, fyB - 20 * RES]], lit(PORTLAND, 0.05));
+  }
+  return iso.build();
+}
+
+/** MINISTRY OF JUSTICE (102 Petty France): Basil Spence's brutalist Westminster
+ *  block — a heavy, dark, deeply-modelled pre-cast concrete tower-on-podium
+ *  with strongly projecting vertical fins/bays and recessed bronze glazing. A
+ *  blunt, severe modern mass. 3×3. */
+function mojTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 120 });
+  void seed;
+  const CON = hex('#9a958a'); // dark weathered concrete
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  // low podium
+  iso.box(0.4, 1.5, 2.6, 2.55, 0, 22, CON);
+  iso.box(0.38, 1.48, 2.62, 2.57, 22, 25, lighten(CON, 0.06), { ink: false });
+  // the slab tower with strong projecting vertical bays
+  const u0 = 0.6;
+  const u1 = 2.4;
+  const v0 = 1.5;
+  const v1 = 2.2;
+  const H = 104;
+  iso.box(u0, v0, u1, v1, 0, H, CON);
+  // projecting fins on the sunny wall: alternate raised bays + recessed bronze glazing
+  const bays = 6;
+  for (let i = 0; i < bays; i++) {
+    const a = u0 + 0.05 + ((u1 - u0 - 0.1) * i) / bays;
+    const b = u0 + 0.05 + ((u1 - u0 - 0.1) * (i + 0.66)) / bays;
+    // recessed glazing column
+    iso.r.poly([iso.P(a, v1, 26), iso.P(b, v1, 26), iso.P(b, v1, H - 6), iso.P(a, v1, H - 6)], alpha(hex('#5a4a3a'), 0.85));
+    // the projecting concrete fin between
+    iso.r.line(iso.P(b + 0.02, v1, 26), iso.P(b + 0.02, v1, H - 4), 1.6 * RES, shaded(CON, 0.16));
+  }
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 5, lighten(CON, 0.06), { ink: false });
+  return iso.build();
+}
+
+/** DEPARTMENT FOR TRANSPORT (Great Minster House, Horseferry Road): a clean
+ *  modern Pimlico office — a glazed, stone-and-glass block with a curved
+ *  glass-fronted entrance bay, horizontal banding and a flat capped roofline.
+ *  3×3. */
+function dftTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 90 });
+  void seed;
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.4;
+  const v1 = 2.5;
+  const H = 72;
+  iso.box(u0, v0, u1, v1, 0, H, mix(STONE_WARM, hex('#bcd0e0'), 0.3));
+  for (let f = 0; f < 8; f++) {
+    const zb = 8 + (f * (H - 12)) / 8;
+    const zt = 8 + ((f + 0.65) * (H - 12)) / 8;
+    iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, zb, zt, 18, STEEL_GLASS, alpha(STEEL_GLASS_LIT, 0.45));
+  }
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 4, lighten(STONE_WARM, 0.08), { ink: false });
+  // a curved glazed entrance bay bulging at the front centre
+  const cu = (u0 + u1) / 2;
+  const [bx, byB] = iso.P(cu, v1 + 0.18, 0);
+  const BR = 0.5 * (CELL_W / 2);
+  const bay: Pt[] = [];
+  for (let i = 0; i <= 14; i++) { const a = Math.PI * (i / 14); bay.push([bx + Math.cos(a) * BR, byB - 40 * RES - Math.sin(a) * 6 * RES]); }
+  iso.r.poly([...bay, [bx + BR, byB], [bx - BR, byB]], STEEL_GLASS_LIT, alpha(hex('#8fa6b4'), 0.6));
+  iso.r.polyline(bay, INK_W * 0.6, alpha(INK, 0.5));
+  for (let z = 8; z < 38; z += 9) iso.r.line([bx - BR, byB - z * RES], [bx + BR, byB - z * RES], 0.5 * RES, alpha(COLORS.white, 0.4));
+  return iso.build();
+}
+
+// ---- South Kensington colleges + Kensington/Bayswater -----------------------
+
+/** ROYAL SCHOOL OF MINES: Aston Webb's grand Edwardian-baroque college front on
+ *  Prince Consort Road — a tall warm-stone facade with a deep arched entrance,
+ *  giant engaged columns, sculptural figures over the arch and a bold cornice.
+ *  3×3. */
+function royalSchoolMinesTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 80 });
+  void seed;
+  const STN = hex('#d8c49c');
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.4;
+  const v1 = 2.5;
+  const H = 56;
+  iso.box(u0, v0, u1, v1, 0, H, STN);
+  for (const [zb, zt] of [[10, 24], [30, 46]] as const) {
+    iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, zb, zt, 12, GLASS_DK, lighten(STN, 0.1));
+  }
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 4, lighten(STN, 0.08), { topC: top(STN, 0.3) });
+  // the deep arched centre entrance with giant columns either side
+  const cu = (u0 + u1) / 2;
+  iso.box(cu - 0.5, v1 - 0.02, cu + 0.5, v1 + 0.05, 0, H + 6, lighten(STN, 0.04));
+  archGableLeft(iso, v1 + 0.05, cu - 0.26, cu + 0.26, 6, 40, alpha(hex('#2c2438'), 0.85), lighten(STN, 0.12));
+  for (const dx of [-0.4, 0.4]) {
+    iso.r.poly([iso.P(cu + dx - 0.03, v1 + 0.05, H + 2), iso.P(cu + dx + 0.03, v1 + 0.05, H + 2), iso.P(cu + dx + 0.03, v1 + 0.05, 6), iso.P(cu + dx - 0.03, v1 + 0.05, 6)], lit(STN, 0.08));
+  }
+  // figures over the arch (a small sculptural group)
+  const [sx, syB] = iso.P(cu, v1 + 0.05, H + 6);
+  iso.r.poly([[sx - 5 * RES, syB], [sx + 5 * RES, syB], [sx + 3 * RES, syB - 8 * RES], [sx - 3 * RES, syB - 8 * RES]], shaded(STN, 0.1));
+  return iso.build();
+}
+
+/** CITY AND GUILDS BUILDING: a clean later-20th-century Imperial College block
+ *  on Exhibition Road — a brick-and-glass mass with strong horizontal window
+ *  bands and a flat roofline; modern, regular, plain. 3×3. */
+function cityGuildsTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 80 });
+  void seed;
+  const BR = hex('#b07a55');
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.4;
+  const v1 = 2.5;
+  const H = 60;
+  iso.box(u0, v0, u1, v1, 0, H, BR);
+  // strong horizontal ribbon glazing
+  for (let f = 0; f < 6; f++) {
+    const zb = 8 + (f * (H - 12)) / 6;
+    const zt = 8 + ((f + 0.55) * (H - 12)) / 6;
+    iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, zb, zt, 1, alpha(hex('#2c3550'), 0.7), lighten(BR, 0.1));
+    iso.windowsRight(u1, v0 + 0.06, v1 - 0.06, zb, zt, 1, alpha(hex('#2c3550'), 0.7), lighten(BR, 0.1));
+  }
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 3, lighten(BR, 0.08), { ink: false });
+  return iso.build();
+}
+
+/** SHERFIELD BUILDING: Imperial College's 1960s central tower-block — a tall,
+ *  slim, pale curtain-wall slab with regular gridded glazing rising over a low
+ *  podium; the campus landmark. 3×3, tall. */
+function sherfieldTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 150 });
+  void seed;
+  const CON = hex('#cfc9bb');
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  // low podium
+  iso.box(0.4, 1.7, 2.6, 2.55, 0, 18, CON);
+  iso.box(0.38, 1.68, 2.62, 2.57, 18, 21, lighten(CON, 0.06), { ink: false });
+  // the slim slab tower
+  const u0 = 0.7;
+  const u1 = 2.3;
+  const v0 = 1.6;
+  const v1 = 2.1;
+  const H = 156;
+  iso.box(u0, v0, u1, v1, 0, H, CON);
+  for (let f = 0; f < 18; f++) {
+    const zb = 22 + (f * (H - 28)) / 18;
+    const zt = 22 + ((f + 0.62) * (H - 28)) / 18;
+    iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, zb, zt, 12, alpha(hex('#2c3550'), 0.75), alpha(COLORS.white, 0.6));
+  }
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 4, lighten(CON, 0.08), { ink: false });
+  return iso.build();
+}
+
+/** KENSINGTON PALACE: Wren's restrained red-brick royal residence in Kensington
+ *  Gardens — a calm, symmetrical brick range with stone quoins and dressings, a
+ *  hipped roof with dormers, tall sash windows and the prominent stone clock-
+ *  tower over the courtyard entrance. Low + broad, garden-set. 3×3. */
+function kensingtonPalaceTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 80 });
+  void seed;
+  const BR = hex('#9a5240');
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  // a touch of garden lawn in front
+  iso.quad(0.4, 2.4, 2.6, 2.6, 0, hex('#6f7a4a'));
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.4;
+  const v1 = 2.4;
+  const H = 42;
+  iso.box(u0, v0, u1, v1, 0, H, BR);
+  // tall sash windows with pale stone surrounds
+  for (const [zb, zt] of [[8, 20], [24, 36]] as const) {
+    iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, zb, zt, 14, GLASS_DK, PORTLAND);
+  }
+  // stone quoins at the corners
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, H, H + 3, lighten(BR, 0.06), { ink: false });
+  // hipped roof with dormers
+  iso.hip(u0, v0, u1, v1, H + 3, 12, SLATE);
+  for (let u = u0 + 0.4; u < u1 - 0.2; u += 0.5) {
+    iso.box(u - 0.05, v1 - 0.04, u + 0.05, v1, H + 4, H + 9, BR, { ink: false });
+    iso.r.poly([iso.P(u - 0.05, v1, H + 9), iso.P(u + 0.05, v1, H + 9), iso.P(u, v1, H + 12)], SLATE);
+  }
+  // the stone clock tower / cupola over the centre
+  const cu = (u0 + u1) / 2;
+  iso.box(cu - 0.18, v0 + 0.3, cu + 0.18, v0 + 0.66, H + 3, H + 16, PORTLAND);
+  const [clx, cly] = iso.P(cu, v0 + 0.48, H + 11);
+  const cr = 3.4 * RES;
+  const clk: Pt[] = [];
+  for (let i = 0; i <= 12; i++) { const a = (i / 12) * Math.PI * 2; clk.push([clx + Math.cos(a) * cr, cly + Math.sin(a) * cr]); }
+  iso.r.poly(clk, COLORS.white);
+  iso.r.polyline(clk, INK_W * 0.6, INK, true);
+  const [dx, dyB] = iso.P(cu, v0 + 0.48, H + 16);
+  const dome: Pt[] = [];
+  for (let i = 0; i <= 12; i++) { const a = Math.PI * (i / 12); dome.push([dx + Math.cos(a) * 5 * RES, dyB - Math.sin(a) * 7 * RES]); }
+  iso.r.poly(dome, shaded(LEAD, 0.05), lit(LEAD, 0.06));
+  iso.r.polyline(dome, INK_W * 0.6, INK);
+  iso.r.line([dx, dyB - 7 * RES], [dx, dyB - 12 * RES], 0.9 * RES, COLORS.glassLit);
+  return iso.build();
+}
+
+/** DERRY & TOMS: the great Art-Deco Kensington High Street department store —
+ *  a long, low, dignified stone-faced facade with vertical Deco pilaster
+ *  fluting, bronze shopfronts and, famously, the lush roof gardens (a green
+ *  hedge-and-tree band along the parapet). 3×3, low + wide. */
+function derryTomsTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 60 });
+  void seed;
+  const STN = hex('#ddd0b6');
+  iso.shadow(0.4, 0.7, 2.6, 2.6, 0.2, 0.2);
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.6;
+  const v1 = 2.5;
+  const H = 42;
+  iso.box(u0, v0, u1, v1, 0, H, STN);
+  // bronze shopfront band at the base
+  iso.r.poly([iso.P(u0, v1, 2), iso.P(u1, v1, 2), iso.P(u1, v1, 12), iso.P(u0, v1, 12)], alpha(hex('#6b5a3a'), 0.9));
+  // Deco vertical fluting + windows above
+  iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 16, 34, 18, GLASS_DK, lighten(STN, 0.08));
+  for (let u = u0 + 0.2; u < u1 - 0.1; u += 0.2) iso.r.line(iso.P(u, v1, 14), iso.P(u, v1, H - 2), 1.2 * RES, alpha(STONE_DARK, 0.4));
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 3, lighten(STN, 0.08), { ink: false });
+  // the famous ROOF GARDENS: a band of hedges + small trees along the parapet
+  for (let u = u0 + 0.2; u < u1 - 0.1; u += 0.28) {
+    const [hx, hyB] = iso.P(u, v1 - 0.06, H + 3);
+    iso.r.poly([[hx - 4 * RES, hyB], [hx + 4 * RES, hyB], [hx + 3 * RES, hyB - 5 * RES], [hx - 3 * RES, hyB - 5 * RES]], shaded(hex('#5f7a44'), 0.05));
+  }
+  iso.ball(u0 + 0.5, v0 + 0.3, 0.16, 24, hex('#5f7a44'), H + 3);
+  iso.ball(u1 - 0.6, v0 + 0.4, 0.16, 22, hex('#688046'), H + 3);
+  return iso.build();
+}
+
+/** WHITELEYS: the grand Edwardian-baroque Bayswater department store — a long
+ *  Portland-stone palace front with paired columns, a deep cornice and a great
+ *  central copper DOME over the corner entrance (the Queensway landmark). 4×4. */
+function whiteleysTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 110 });
+  void seed;
+  iso.shadow(0.35, 0.55, 3.65, 3.65, 0.22, 0.22);
+  const u0 = 0.4;
+  const u1 = 3.6;
+  const v0 = 1.6;
+  const v1 = 3.4;
+  const H = 54;
+  iso.box(u0, v0, u1, v1, 0, H, PORTLAND);
+  for (const [zb, zt] of [[8, 22], [28, 42]] as const) {
+    iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, zb, zt, 22, GLASS_DK, lighten(PORTLAND, 0.1));
+  }
+  // paired pilasters
+  for (let u = u0 + 0.25; u < u1 - 0.1; u += 0.45) {
+    iso.r.line(iso.P(u, v1, 8), iso.P(u, v1, H - 2), 1.4 * RES, alpha(STONE_DARK, 0.4));
+    iso.r.line(iso.P(u + 0.06, v1, 8), iso.P(u + 0.06, v1, H - 2), 1.4 * RES, alpha(STONE_DARK, 0.4));
+  }
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 4, lighten(PORTLAND, 0.08), { topC: top(PORTLAND, 0.3) });
+  // the great central copper dome on a drum
+  const cu = (u0 + u1) / 2;
+  iso.box(cu - 0.4, v0 + 0.5, cu + 0.4, v0 + 1.3, H, H + 16, PORTLAND);
+  const [dx, dyB] = iso.P(cu, v0 + 0.9, H + 16);
+  const DR = 0.62 * (CELL_W / 2);
+  const dome: Pt[] = [];
+  for (let i = 0; i <= 18; i++) { const a = Math.PI * (i / 18); dome.push([dx + Math.cos(a) * DR, dyB - Math.sin(a) * DR * 1.1]); }
+  iso.r.poly(dome, shaded(hex('#6f9c8a'), 0.05), lit(hex('#7fae98'), 0.06)); // verdigris copper
+  iso.r.polyline(dome, INK_W * 0.7, INK);
+  for (let i = 3; i < 18; i += 3) { const a = Math.PI * (i / 18); iso.r.line([dx + Math.cos(a) * DR, dyB], [dx + Math.cos(a) * DR, dyB - Math.sin(a) * DR * 1.1], 0.5 * RES, alpha(hex('#bfe0d4'), 0.4)); }
+  iso.r.line([dx, dyB - DR * 1.1], [dx, dyB - DR * 1.1 - 8 * RES], 1.2 * RES, COLORS.glassLit);
+  return iso.build();
+}
+
+/** HILTON LONDON METROPOLE: a big 1970s Edgware Road tower hotel — a tall,
+ *  slab-like concrete-and-glass block with strongly banded floors stepping up
+ *  to a flat top; a blunt modern high-rise. 4×4, tall. */
+function hiltonMetropoleTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 170 });
+  void seed;
+  const CON = hex('#b8b0a2');
+  iso.shadow(0.35, 0.55, 3.65, 3.65, 0.22, 0.22);
+  // lower wing
+  iso.box(0.5, 2.2, 3.5, 3.5, 0, 60, CON);
+  iso.windowsLeft(3.5, 0.6, 3.4, 8, 54, 28, GLASS_DK, alpha(COLORS.white, 0.6));
+  iso.box(0.48, 2.18, 3.52, 3.52, 60, 63, lighten(CON, 0.06), { ink: false });
+  // the tall main slab
+  const u0 = 0.7;
+  const u1 = 3.3;
+  const v0 = 0.8;
+  const v1 = 2.2;
+  const H = 178;
+  iso.box(u0, v0, u1, v1, 0, H, CON);
+  for (let f = 0; f < 20; f++) {
+    const zb = 8 + (f * (H - 14)) / 20;
+    const zt = 8 + ((f + 0.62) * (H - 14)) / 20;
+    iso.windowsLeft(v1, u0 + 0.05, u1 - 0.05, zb, zt, 20, GLASS_DK, alpha(COLORS.white, 0.55));
+    iso.windowsRight(u1, v0 + 0.05, v1 - 0.05, zb, zt, 11, GLASS_DK, alpha(COLORS.white, 0.5));
+  }
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 4, lighten(CON, 0.08), { ink: false });
+  return iso.build();
+}
+
+// ---- Marylebone / Regent's Park / Maida Vale --------------------------------
+
+/** MAIDA VALE STUDIOS: the BBC's Edwardian roller-skating-palace-turned-sound-
+ *  studios — a long, low, plain brick-and-render block with big arched windows
+ *  and a modest parapet; a quiet, horizontal building with rooftop aerials/
+ *  vents hinting at the studios within. 3×3, low. */
+function maidaValeStudiosTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 60 });
+  void seed;
+  const REN = hex('#cdbfa6'); // pale render
+  iso.shadow(0.4, 0.7, 2.6, 2.6, 0.2, 0.2);
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.6;
+  const v1 = 2.5;
+  const H = 36;
+  iso.box(u0, v0, u1, v1, 0, H, REN);
+  // a row of tall round-arched windows
+  for (let u = u0 + 0.18; u < u1 - 0.12; u += 0.3) {
+    archGableLeft(iso, v1, u, u + 0.2, 10, 28, alpha(hex('#2c3550'), 0.8), lighten(REN, 0.08));
+  }
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 4, lighten(REN, 0.08), { topC: top(REN, 0.3) });
+  // rooftop aerials / studio vents
+  for (const [au, av] of [[u0 + 0.5, v0 + 0.4], [cuOf(u0, u1), v0 + 0.5], [u1 - 0.5, v0 + 0.4]] as const) {
+    const [ax, ay] = iso.P(au, av, H + 4);
+    iso.r.line([ax, ay], [ax, ay - 12 * RES], 1 * RES, COLORS.steel);
+    iso.r.line([ax - 3 * RES, ay - 10 * RES], [ax + 3 * RES, ay - 10 * RES], 0.8 * RES, COLORS.steelDark);
+  }
+  return iso.build();
+}
+
+/** Small helper: centre-u of a span (kept local to round 2). */
+function cuOf(u0: number, u1: number): number {
+  return (u0 + u1) / 2;
+}
+
+/** CORNWALL TERRACE: Decimus Burton's pristine Nash-era Regent's Park terrace —
+ *  a long, palatial, brilliant-white stuccoed classical range with a continuous
+ *  giant order of Corinthian columns, projecting pedimented pavilions and a
+ *  balustraded parapet, fronting park lawn. Low + very wide. 4×4. */
+function cornwallTerraceTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 60 });
+  void seed;
+  const CR = hex('#efe7d3'); // brilliant white stucco
+  iso.shadow(0.35, 0.7, 3.65, 3.65, 0.2, 0.2);
+  // park lawn in front
+  iso.quad(0.4, 3.3, 3.6, 3.6, 0, hex('#6f7c48'));
+  const u0 = 0.4;
+  const u1 = 3.6;
+  const v0 = 1.9;
+  const v1 = 3.3;
+  const H = 40;
+  iso.box(u0, v0, u1, v1, 0, H, CR);
+  for (const [zb, zt] of [[8, 20], [24, 34]] as const) {
+    iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, zb, zt, 24, GLASS_DK, lighten(CR, 0.08));
+  }
+  // the continuous giant order of columns across the front
+  const colV = v1 + 0.02;
+  for (let i = 0; i <= 22; i++) {
+    const u = u0 + 0.15 + ((u1 - u0 - 0.3) * i) / 22;
+    iso.r.poly([iso.P(u - 0.018, colV, H - 4), iso.P(u + 0.018, colV, H - 4), iso.P(u + 0.018, colV, 4), iso.P(u - 0.018, colV, 4)], i % 2 ? COLORS.white : lit(CR, 0.06));
+  }
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H - 4, H + 3, lighten(CR, 0.06), { ink: false });
+  // projecting pedimented pavilions at the ends + centre
+  for (const cu of [u0 + 0.5, (u0 + u1) / 2, u1 - 0.5]) {
+    iso.r.poly([iso.P(cu - 0.4, colV, H + 3), iso.P(cu + 0.4, colV, H + 3), iso.P(cu, colV, H + 11)], lighten(CR, 0.1));
+    iso.r.polyline([iso.P(cu - 0.4, colV, H + 3), iso.P(cu + 0.4, colV, H + 3), iso.P(cu, colV, H + 11), iso.P(cu - 0.4, colV, H + 3)], INK_W * 0.6, INK, true);
+  }
+  return iso.build();
+}
+
+/** SUSSEX PLACE: Nash's unusual Regent's Park terrace (now London Business
+ *  School) — a curved white-stucco range distinguished by its pair of pointed
+ *  polygonal cupolas/turrets and projecting bow-fronted bays. Low + wide, with
+ *  the two distinctive pointed domes. 4×4. */
+function sussexPlaceTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 80 });
+  void seed;
+  const CR = hex('#ece4d0');
+  iso.shadow(0.35, 0.7, 3.65, 3.65, 0.2, 0.2);
+  iso.quad(0.4, 3.3, 3.6, 3.6, 0, hex('#6f7c48'));
+  const u0 = 0.4;
+  const u1 = 3.6;
+  const v0 = 1.9;
+  const v1 = 3.3;
+  const H = 40;
+  iso.box(u0, v0, u1, v1, 0, H, CR);
+  for (const [zb, zt] of [[8, 20], [24, 34]] as const) {
+    iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, zb, zt, 22, GLASS_DK, lighten(CR, 0.08));
+  }
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 3, lighten(CR, 0.06), { topC: top(CR, 0.3) });
+  // bow-fronted projecting bays
+  for (const cu of [u0 + 0.7, u1 - 0.7]) {
+    iso.box(cu - 0.3, v1 - 0.02, cu + 0.3, v1 + 0.12, 0, H - 2, lighten(CR, 0.03));
+  }
+  // the two distinctive pointed polygonal cupolas
+  for (const cu of [u0 + 0.7, u1 - 0.7]) {
+    iso.box(cu - 0.16, v1 - 0.18, cu + 0.16, v1 + 0.06, H, H + 14, CR);
+    const [tx, tyB] = iso.P(cu, v1 - 0.06, H + 14);
+    // a sharp pointed (ogee-ish) cap
+    iso.r.poly([[tx - 6 * RES, tyB], [tx + 6 * RES, tyB], [tx, tyB - 22 * RES]], shaded(LEAD, 0.04), lit(LEAD, 0.06));
+    iso.r.polyline([[tx - 6 * RES, tyB], [tx, tyB - 22 * RES], [tx + 6 * RES, tyB]], INK_W * 0.6, INK);
+    iso.r.line([tx, tyB - 22 * RES], [tx, tyB - 27 * RES], 1 * RES, COLORS.glassLit);
+  }
+  return iso.build();
+}
+
+/** CHILTERN COURT: the monumental Edwardian-baroque mansion block over Baker
+ *  Street station — a tall, richly-modelled red-brick-and-stone pile with a
+ *  deep mansard roof, corner domes/cupolas and a heavy cornice. 3×3, tall. */
+function chilternCourtTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 110 });
+  void seed;
+  const BR = hex('#a86a4a');
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.4;
+  const v1 = 2.5;
+  const H = 72;
+  iso.box(u0, v0, u1, v1, 0, H, BR);
+  for (const [zb, zt] of [[8, 20], [24, 36], [40, 52], [56, 68]] as const) {
+    iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, zb, zt, 16, GLASS_DK, lighten(BR, 0.12));
+  }
+  // stone base + cornice
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 8, PORTLAND, { ink: false });
+  iso.box(u0 - 0.04, v0 - 0.04, u1 + 0.04, v1 + 0.04, H, H + 4, lighten(PORTLAND, 0.06), { topC: top(PORTLAND, 0.3) });
+  // deep mansard roof
+  iso.gable(u0, v0, u1, v1, H + 4, 16, 'u', SLATE, BR);
+  // corner cupolas
+  for (const [cu, cv] of [[u0 + 0.3, v1], [u1 - 0.3, v1]] as const) {
+    iso.box(cu - 0.16, cv - 0.18, cu + 0.16, cv, H + 4, H + 16, PORTLAND, { ink: false });
+    const [dx, dyB] = iso.P(cu, cv - 0.09, H + 16);
+    const dome: Pt[] = [];
+    for (let i = 0; i <= 12; i++) { const a = Math.PI * (i / 12); dome.push([dx + Math.cos(a) * 5 * RES, dyB - Math.sin(a) * 8 * RES]); }
+    iso.r.poly(dome, shaded(LEAD, 0.05), lit(LEAD, 0.06));
+    iso.r.polyline(dome, INK_W * 0.6, INK);
+    iso.r.line([dx, dyB - 8 * RES], [dx, dyB - 13 * RES], 0.9 * RES, COLORS.glassLit);
+  }
+  return iso.build();
+}
+
+/** BROADCASTING HOUSE: the BBC's prow-shaped Portland-stone Art-Deco flagship
+ *  on Portland Place — a tall stone block with a curved, ship's-bow front, a
+ *  central tower with the clock/Ariel sculpture over the entrance, and clean
+ *  Deco vertical lines. 3×3. */
+function broadcastingHouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 110 });
+  void seed;
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.4;
+  const v1 = 2.5;
+  const H = 70;
+  iso.box(u0, v0, u1, v1, 0, H, PORTLAND);
+  for (let f = 0; f < 7; f++) {
+    const zb = 8 + (f * (H - 14)) / 7;
+    const zt = 8 + ((f + 0.6) * (H - 14)) / 7;
+    iso.windowsLeft(v1, u0 + 0.07, u1 - 0.07, zb, zt, 16, GLASS_DK, lighten(PORTLAND, 0.1));
+    iso.windowsRight(u1, v0 + 0.07, v1 - 0.07, zb, zt, 9, GLASS_DK, lighten(PORTLAND, 0.1));
+  }
+  // Deco vertical pilaster lines
+  for (let u = u0 + 0.2; u < u1 - 0.1; u += 0.3) iso.r.line(iso.P(u, v1, 8), iso.P(u, v1, H - 4), 1.2 * RES, alpha(STONE_DARK, 0.35));
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 4, lighten(PORTLAND, 0.08), { topC: top(PORTLAND, 0.3) });
+  // the central tower carrying the clock (the prow front faces the corner)
+  const cu = (u0 + u1) / 2;
+  iso.box(cu - 0.3, v1 - 0.22, cu + 0.3, v1 + 0.06, 0, H + 14, lighten(PORTLAND, 0.04));
+  const [clx, cly] = iso.P(cu, v1 + 0.06, 56);
+  const cr = 4 * RES;
+  const clk: Pt[] = [];
+  for (let i = 0; i <= 12; i++) { const a = (i / 12) * Math.PI * 2; clk.push([clx + Math.cos(a) * cr, cly + Math.sin(a) * cr]); }
+  iso.r.poly(clk, COLORS.white);
+  iso.r.polyline(clk, INK_W * 0.6, INK, true);
+  // a small finial mast (the Ariel statue hint)
+  const [fx, fy] = iso.P(cu, v1 - 0.08, H + 14);
+  iso.r.line([fx, fy], [fx, fy - 8 * RES], 1 * RES, COLORS.steel);
+  iso.glint([fx, fy - 6 * RES]);
+  return iso.build();
+}
+
+// ---- Bloomsbury / King's Cross / Camden / Islington -------------------------
+
+/** SENATE HOUSE: Charles Holden's monumental Art-Deco University of London
+ *  tower — a towering, stark, stepped white Portland-stone ziggurat-like block,
+ *  almost windowless and severe, rising in clean setbacks. Tall + austere.
+ *  3×3. */
+function senateHouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 170 });
+  void seed;
+  const STN = hex('#e0d8c6');
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  // broad base block
+  iso.box(0.4, 1.4, 2.6, 2.55, 0, 50, STN);
+  iso.windowsLeft(2.55, 0.5, 2.5, 12, 44, 18, GLASS_DK, lighten(STN, 0.08));
+  iso.box(0.38, 1.38, 2.62, 2.57, 50, 54, lighten(STN, 0.06), { ink: false });
+  // the stepped tower rising in setbacks
+  const steps = [
+    { u0: 0.7, u1: 2.3, v0: 1.5, v1: 2.3, z0: 50, H: 110 },
+    { u0: 0.85, u1: 2.15, v0: 1.6, v1: 2.2, z0: 110, H: 150 },
+    { u0: 1.0, u1: 2.0, v0: 1.7, v1: 2.1, z0: 150, H: 178 },
+  ];
+  for (const s of steps) {
+    iso.box(s.u0, s.v0, s.u1, s.v1, s.z0, s.H, STN);
+    // sparse, narrow vertical windows (the austere Holden rhythm)
+    iso.windowsLeft(s.v1, s.u0 + 0.08, s.u1 - 0.08, s.z0 + 6, s.H - 6, 8, GLASS_DK, lighten(STN, 0.06));
+    iso.box(s.u0 - 0.02, s.v0 - 0.02, s.u1 + 0.02, s.v1 + 0.02, s.H, s.H + 3, lighten(STN, 0.08), { ink: false });
+  }
+  iso.gleam(iso.P(2.0, 1.7, 178), iso.P(2.0, 2.1, 178));
+  return iso.build();
+}
+
+/** FRANCIS CRICK INSTITUTE: the vast biomedical lab by St Pancras — a huge,
+ *  bulky modern block under a great curved, vaulted glazed roof (its
+ *  distinctive double-barrel aluminium-and-glass canopy), with terracotta-and-
+ *  glass walls. Big + broad with the swooping roof. 4×4. */
+function francisCrickTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 120 });
+  void seed;
+  const WALL = mix(hex('#b08a6a'), STEEL_GLASS, 0.4);
+  iso.shadow(0.35, 0.55, 3.65, 3.65, 0.22, 0.22);
+  const u0 = 0.4;
+  const u1 = 3.6;
+  const v0 = 1.4;
+  const v1 = 3.4;
+  const H = 70;
+  iso.box(u0, v0, u1, v1, 0, H, WALL);
+  for (let f = 0; f < 8; f++) {
+    const zb = 8 + (f * (H - 14)) / 8;
+    const zt = 8 + ((f + 0.6) * (H - 14)) / 8;
+    iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, zb, zt, 24, STEEL_GLASS, alpha(STEEL_GLASS_LIT, 0.45));
+  }
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, H, H + 3, lighten(WALL, 0.06), { ink: false });
+  // the great curved double-barrel glazed roof canopy
+  for (const cu of [(u0 + u1) / 2 - 0.7, (u0 + u1) / 2 + 0.7]) {
+    const [sx, syB] = iso.P(cu, (v0 + v1) / 2, H + 3);
+    const R = 0.62 * (CELL_W / 2);
+    const vault: Pt[] = [];
+    for (let i = 0; i <= 16; i++) { const a = Math.PI * (i / 16); vault.push([sx + Math.cos(a) * R, syB - Math.sin(a) * R * 0.62]); }
+    iso.r.poly(vault, alpha(hex('#cfe0ec'), 0.85), alpha(hex('#9fb3c4'), 0.7));
+    iso.r.polyline(vault, INK_W * 0.6, alpha(INK, 0.5));
+    for (let i = 2; i < 16; i += 2) { const a = Math.PI * (i / 16); iso.r.line([sx + Math.cos(a) * R, syB], [sx + Math.cos(a) * R, syB - Math.sin(a) * R * 0.62], 0.5 * RES, alpha(COLORS.white, 0.5)); }
+  }
+  return iso.build();
+}
+
+/** CENTRAL SAINT MARTINS (the Granary Building, King's Cross): the great
+ *  Victorian yellow-stock-brick granary warehouse — a long, tall, severe
+ *  rectangular brick block with a strict grid of regularly punched windows and
+ *  a flat roofline, fronting the fountained Granary Square. 4×4. */
+function centralStMartinsTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 90 });
+  void seed;
+  const YB = hex('#c8ac72'); // King's Cross yellow stock brick
+  iso.shadow(0.35, 0.55, 3.65, 3.65, 0.22, 0.22);
+  // the fountained square apron
+  iso.quad(0.4, 3.3, 3.6, 3.6, 0, hex('#b8a98c'));
+  const u0 = 0.4;
+  const u1 = 3.6;
+  const v0 = 1.5;
+  const v1 = 3.3;
+  const H = 64;
+  iso.box(u0, v0, u1, v1, 0, H, YB);
+  // a strict grid of punched windows (6 storeys)
+  for (let f = 0; f < 6; f++) {
+    const zb = 8 + (f * (H - 12)) / 6;
+    const zt = 8 + ((f + 0.55) * (H - 12)) / 6;
+    iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, zb, zt, 16, GLASS_DK, lighten(YB, 0.1));
+    iso.windowsRight(u1, v0 + 0.08, v1 - 0.08, zb, zt, 9, GLASS_DK, lighten(YB, 0.1));
+  }
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, H, H + 3, lighten(YB, 0.08), { topC: top(YB, 0.28) });
+  // tall round-arched openings at ground (the granary arches)
+  for (let u = u0 + 0.3; u < u1 - 0.2; u += 0.55) {
+    archGableLeft(iso, v1, u, u + 0.3, 2, 14, alpha(hex('#2c2418'), 0.85), lighten(YB, 0.06));
+  }
+  return iso.build();
+}
+
+/** BUSINESS DESIGN CENTRE (the Royal Agricultural Hall): the great Victorian
+ *  Islington exhibition hall — a long brick frontage fronting an enormous
+ *  glazed iron train-shed-like barrel roof spanning the hall behind. 3×3. */
+function businessDesignCentreTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 90 });
+  void seed;
+  const BR = hex('#9c5a40');
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  // the huge glazed iron barrel roof behind
+  const [sx, syB] = iso.P(1.5, 1.0, 0);
+  const R = 1.25 * (CELL_W / 2);
+  const vault: Pt[] = [];
+  for (let i = 0; i <= 22; i++) { const a = Math.PI * (i / 22); vault.push([sx + Math.cos(a) * R, syB - 56 * RES - Math.sin(a) * R * 0.6]); }
+  iso.r.poly([...vault, [sx + R, syB - 30 * RES], [sx - R, syB - 30 * RES]], GLASS_SHED, alpha(hex('#7d92ad'), 0.8));
+  iso.r.polyline(vault, INK_W * 0.6, alpha(INK, 0.5));
+  for (let i = 2; i < 22; i += 3) { const a = Math.PI * (i / 22); iso.r.line([sx + Math.cos(a) * R, syB - 30 * RES], [sx + Math.cos(a) * R, syB - 56 * RES - Math.sin(a) * R * 0.6], 0.6 * RES, alpha(COLORS.white, 0.45)); }
+  // the brick frontage
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 2.0;
+  const v1 = 2.5;
+  const H = 44;
+  iso.box(u0, v0, u1, v1, 0, H, BR);
+  for (const [zb, zt] of [[8, 20], [24, 38]] as const) {
+    iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, zb, zt, 14, GLASS_DK, lighten(BR, 0.12));
+  }
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 4, lighten(BR, 0.06), { topC: top(BR, 0.28) });
+  // a central pedimented entrance
+  const cu = (u0 + u1) / 2;
+  archGableLeft(iso, v1, cu - 0.18, cu + 0.18, 4, 24, alpha(hex('#241c30'), 0.85), lighten(BR, 0.1));
+  return iso.build();
+}
+
+// ---- South Bank / Bankside / Southwark --------------------------------------
+
+/** BFI SOUTHBANK: the cinema tucked under Waterloo Bridge — a low, modern
+ *  glass-and-concrete pavilion with a long glazed frontage glowing with a film
+ *  marquee, sheltered beneath the sweeping concrete bridge deck. Low + wide.
+ *  3×3. */
+function bfiSouthbankTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 60 });
+  void seed;
+  const CON = hex('#b0a99c');
+  iso.shadow(0.4, 0.7, 2.6, 2.6, 0.2, 0.2);
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.7;
+  const v1 = 2.5;
+  const H = 30;
+  iso.box(u0, v0, u1, v1, 0, H, CON);
+  // long glazed frontage, glowing
+  iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, 6, 24, 1, alpha(hex('#3a4a66'), 0.85), undefined);
+  // a bright marquee band (the cinema sign)
+  iso.r.poly([iso.P(u0 + 0.3, v1, 25), iso.P(u1 - 0.3, v1, 25), iso.P(u1 - 0.3, v1, 30), iso.P(u0 + 0.3, v1, 30)], alpha(hex('#e0a040'), 0.9));
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, H, H + 3, lighten(CON, 0.06), { ink: false });
+  // the sweeping concrete bridge deck overhead (a thick slab on a pier)
+  const [bx0] = iso.P(0.3, 1.2, 0);
+  iso.r.poly([iso.P(0.2, 0.9, 52), iso.P(2.7, 0.9, 52), iso.P(2.7, 1.25, 46), iso.P(0.2, 1.25, 46)], shaded(CON, 0.12));
+  iso.r.poly([iso.P(0.2, 0.9, 52), iso.P(2.7, 0.9, 52), iso.P(2.7, 0.9, 58), iso.P(0.2, 0.9, 58)], lit(CON, 0.06));
+  iso.r.polyline([iso.P(0.2, 0.9, 58), iso.P(2.7, 0.9, 58)], INK_W * 0.6, alpha(INK, 0.5));
+  void bx0;
+  // a bridge pier
+  iso.box(1.4, 1.05, 1.7, 1.35, 0, 46, CON, { ink: false });
+  return iso.build();
+}
+
+/** IBM BUILDING (South Bank): Denys Lasdun's elegant 1980s offices next to the
+ *  National Theatre — horizontal layered concrete terraces and strong banded
+ *  glazing, in the same board-marked grey concrete idiom but lower and more
+ *  regular. 3×3. */
+function ibmBuildingTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 70 });
+  void seed;
+  const CON = hex('#b3aea0');
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.2);
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.4;
+  const v1 = 2.5;
+  const H = 50;
+  iso.box(u0, v0, u1, v1, 0, H, CON);
+  // strong layered horizontal terraces with banded glazing + deep shadow lines
+  for (let f = 0; f < 5; f++) {
+    const zb = 6 + (f * (H - 10)) / 5;
+    const zt = 6 + ((f + 0.55) * (H - 10)) / 5;
+    iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, zb, zt, 1, alpha(hex('#2c3550'), 0.7), undefined);
+    iso.windowsRight(u1, v0 + 0.06, v1 - 0.06, zb, zt, 1, alpha(hex('#2c3550'), 0.7), undefined);
+    // the projecting terrace lip casting a shadow
+    const lz = 6 + ((f + 0.9) * (H - 10)) / 5;
+    iso.r.line(iso.P(u0, v1, lz), iso.P(u1, v1, lz), 1.6 * RES, shaded(CON, 0.18));
+  }
+  iso.box(u0 - 0.04, v0 - 0.04, u1 + 0.04, v1 + 0.04, H, H + 3, lighten(CON, 0.06), { ink: false });
+  return iso.build();
+}
+
+/** SEA CONTAINERS HOUSE: the big 1970s Bankside riverside block (the gilded
+ *  hotel/office) — a long, tall slab with a strongly gridded facade, a
+ *  distinctive gold-toned glazed crown band and the giant ship's-prow motif at
+ *  the river corner. 3×3. */
+function seaContainersTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 110 });
+  void seed;
+  const STN = hex('#c4b89c');
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.4;
+  const v1 = 2.5;
+  const H = 78;
+  iso.box(u0, v0, u1, v1, 0, H, STN);
+  for (let f = 0; f < 9; f++) {
+    const zb = 8 + (f * (H - 20)) / 9;
+    const zt = 8 + ((f + 0.6) * (H - 20)) / 9;
+    iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, zb, zt, 18, GLASS_DK, lighten(STN, 0.1));
+    iso.windowsRight(u1, v0 + 0.06, v1 - 0.06, zb, zt, 10, GLASS_DK, lighten(STN, 0.1));
+  }
+  // the gold-toned glazed crown band at the top
+  iso.r.poly([iso.P(u0, v1, H - 10), iso.P(u1, v1, H - 10), iso.P(u1, v1, H - 2), iso.P(u0, v1, H - 2)], alpha(hex('#d4a850'), 0.9));
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 4, lighten(hex('#d4a850'), 0.1), { ink: false, topC: alpha(hex('#e0c070'), 0.9) });
+  iso.gleam(iso.P(u1, v0, H), iso.P(u1, v1, H));
+  return iso.build();
+}
+
+/** HAY'S GALLERIA: the great Victorian Southwark wharf arcade — a long brick
+ *  warehouse frontage on the river roofed by a soaring barrel-vaulted glass-
+ *  and-iron arcade (the converted dock), with the riverside facade facing the
+ *  Pool of London. 3×3. */
+function haysGalleriaTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 90 });
+  void seed;
+  const BR = hex('#a06a4e');
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  // the soaring glazed arcade vault down the middle (front-to-back)
+  const su0 = 0.9;
+  const su1 = 2.1;
+  const vBack = 0.6;
+  const vFront = 2.5;
+  const wallZ = 22;
+  const Hs = 70;
+  const NB = 14;
+  const zAt = (t: number) => wallZ + Math.sin(t * Math.PI) * (Hs - wallZ);
+  const uAt = (t: number) => su0 + (su1 - su0) * t;
+  iso.box(su0, vBack, su0 + 0.06, vFront, 0, wallZ, BR, { ink: false });
+  iso.box(su1 - 0.06, vBack, su1, vFront, 0, wallZ, BR, { ink: false });
+  for (let i = 0; i < NB; i++) {
+    const t0 = i / NB;
+    const t1 = (i + 1) / NB;
+    const col = t0 > 0.5 ? alpha(hex('#cfe0ec'), 0.9) : GLASS_SHED;
+    iso.r.poly([iso.P(uAt(t0), vBack, zAt(t0)), iso.P(uAt(t1), vBack, zAt(t1)), iso.P(uAt(t1), vFront, zAt(t1)), iso.P(uAt(t0), vFront, zAt(t0))], col, alpha(hex('#8fa6b4'), 0.55));
+  }
+  const gable: Pt[] = [];
+  for (let i = 0; i <= NB; i++) gable.push(iso.P(uAt(i / NB), vFront, zAt(i / NB)));
+  gable.push(iso.P(su1, vFront, 0), iso.P(su0, vFront, 0));
+  iso.r.poly(gable, alpha(hex('#b9cee0'), 0.92), alpha(hex('#7d92ad'), 0.7));
+  iso.r.polyline(gable.slice(0, NB + 1), INK_W * 0.6, alpha(INK, 0.6));
+  // brick warehouse wings either side
+  iso.box(0.4, 1.4, su0, 2.5, 0, 44, BR);
+  iso.box(su1, 1.4, 2.6, 2.5, 0, 44, BR);
+  for (const [wu0, wu1] of [[0.4, su0], [su1, 2.6]] as const) {
+    iso.windowsLeft(2.5, wu0 + 0.06, wu1 - 0.06, 10, 38, 6, GLASS_DK, lighten(BR, 0.12));
+  }
+  return iso.build();
+}
+
+/** HMS BELFAST: the WWII light-cruiser museum ship moored off Tooley Street —
+ *  a long grey warship hull low on the water, bristling with gun turrets, the
+ *  bridge superstructure, twin funnels, lattice masts and radar. A long 4×1
+ *  hugging the south bank. */
+function hmsBelfastTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 1, { swAnchor: true, headroom: 90 });
+  void seed;
+  const HULL = hex('#5d6b78'); // battleship grey
+  const HULL_L = hex('#74828f');
+  const DECK = hex('#7a6a52');
+  iso.shadow(0.2, 0.3, 3.8, 0.8, 0.3, 0.18);
+  // the long hull (low box along u)
+  const v0 = 0.25;
+  const v1 = 0.7;
+  iso.box(0.2, v0, 3.8, v1, 0, 16, HULL, { rightC: HULL_L });
+  // tapered bow (sharpen the +u end)
+  iso.r.poly([iso.P(3.8, v0, 0), iso.P(3.95, (v0 + v1) / 2, 0), iso.P(3.8, v1, 0), iso.P(3.8, v1, 16), iso.P(3.8, v0, 16)], HULL_L);
+  // deck top
+  iso.quad(0.2, v0, 3.8, v1, 16, DECK);
+  iso.r.polyline([iso.P(0.2, v0, 16), iso.P(3.8, v0, 16), iso.P(3.95, (v0 + v1) / 2, 16), iso.P(3.8, v1, 16), iso.P(0.2, v1, 16)], INK_W * 0.7, INK, true);
+  // gun turrets fore + aft (low cylinders with barrels)
+  for (const tu of [0.9, 3.1]) {
+    iso.box(tu - 0.12, (v0 + v1) / 2 - 0.08, tu + 0.12, (v0 + v1) / 2 + 0.08, 16, 24, HULL_L);
+    // twin barrels
+    const dir = tu < 2 ? 1 : -1;
+    const [gx, gy] = iso.P(tu + dir * 0.1, (v0 + v1) / 2, 21);
+    iso.r.line([gx, gy], [gx + dir * 14 * RES, gy], 1.2 * RES, HULL);
+    iso.r.line([gx, gy + 2 * RES], [gx + dir * 14 * RES, gy + 2 * RES], 1.2 * RES, HULL);
+  }
+  // the central bridge superstructure (stacked boxes)
+  iso.box(1.7, (v0 + v1) / 2 - 0.12, 2.3, (v0 + v1) / 2 + 0.12, 16, 40, HULL_L);
+  iso.box(1.85, (v0 + v1) / 2 - 0.09, 2.15, (v0 + v1) / 2 + 0.09, 40, 52, HULL);
+  // twin funnels
+  for (const fu of [1.6, 2.4]) iso.box(fu - 0.07, (v0 + v1) / 2 - 0.06, fu + 0.07, (v0 + v1) / 2 + 0.06, 16, 34, hex('#4a5560'));
+  // two lattice masts with radar
+  for (const mu of [1.95, 2.5]) {
+    const [mx, my] = iso.P(mu, (v0 + v1) / 2, 52);
+    iso.r.line([mx, my], [mx, my - 26 * RES], 1 * RES, COLORS.steel);
+    iso.r.line([mx - 5 * RES, my - 18 * RES], [mx + 5 * RES, my - 18 * RES], 0.8 * RES, COLORS.steelDark);
+    iso.r.line([mx - 3 * RES, my - 26 * RES], [mx + 3 * RES, my - 26 * RES], 0.8 * RES, COLORS.steelDark);
+  }
+  return iso.build();
+}
+
+// ---- outer: Vauxhall / Wapping / Chelsea ------------------------------------
+
+/** SIS BUILDING (MI6, Vauxhall Cross): Terry Farrell's postmodern ziggurat on
+ *  the river — a monumental cream-and-green stepped fortress of stacked
+ *  terraces, deep towers either side and bands of bronze/green glazing, the
+ *  unmistakable Bond-film silhouette. 3×3. */
+function sisBuildingTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 110 });
+  void seed;
+  const CR = hex('#ddd2b8'); // cream stone
+  const GR = alpha(hex('#4a7a6a'), 0.9); // the green glazing
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.22, 0.22);
+  // central stepped ziggurat (stacked setback terraces)
+  const steps = [
+    { u0: 0.5, u1: 2.5, v0: 1.3, v1: 2.55, H: 44 },
+    { u0: 0.7, u1: 2.3, v0: 1.5, v1: 2.3, H: 64 },
+    { u0: 0.9, u1: 2.1, v0: 1.7, v1: 2.1, H: 80 },
+  ];
+  for (const s of steps) {
+    iso.box(s.u0, s.v0, s.u1, s.v1, 0, s.H, CR);
+    // green glazing bands
+    iso.windowsLeft(s.v1, s.u0 + 0.08, s.u1 - 0.08, s.H - 14, s.H - 4, 12, GR, lighten(CR, 0.1));
+    iso.box(s.u0 - 0.02, s.v0 - 0.02, s.u1 + 0.02, s.v1 + 0.02, s.H, s.H + 3, lighten(CR, 0.08), { ink: false });
+  }
+  // the two flanking towers
+  for (const tu of [0.7, 2.3]) {
+    iso.box(tu - 0.22, 1.3, tu + 0.22, 1.8, 0, 92, CR);
+    iso.windowsLeft(1.8, tu - 0.16, tu + 0.16, 20, 84, 8, GR, lighten(CR, 0.1));
+    iso.box(tu - 0.24, 1.28, tu + 0.24, 1.82, 92, 96, lighten(CR, 0.08), { ink: false });
+  }
+  return iso.build();
+}
+
+/** TOBACCO DOCK: John Rennie's great Georgian Wapping warehouse — a long, low,
+ *  brick-arched depot with a forest of regular round-arched openings and a flat
+ *  parapet, the cast-iron-and-brick vaulted store. Low + very wide. 3×3. */
+function tobaccoDockTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 50 });
+  void seed;
+  const BR = hex('#9c6448');
+  iso.shadow(0.4, 0.7, 2.6, 2.6, 0.2, 0.2);
+  const u0 = 0.4;
+  const u1 = 2.6;
+  const v0 = 1.6;
+  const v1 = 2.5;
+  const H = 30;
+  iso.box(u0, v0, u1, v1, 0, H, BR);
+  // a forest of round-arched openings
+  for (let u = u0 + 0.14; u < u1 - 0.1; u += 0.26) {
+    archGableLeft(iso, v1, u, u + 0.18, 4, 22, alpha(hex('#241c18'), 0.85), lighten(BR, 0.08));
+  }
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 4, lighten(BR, 0.06), { topC: top(BR, 0.28) });
+  // a couple of timber roof lanterns / skylights along the flat roof
+  for (const lu of [u0 + 0.6, (u0 + u1) / 2, u1 - 0.6]) {
+    iso.box(lu - 0.12, v0 + 0.3, lu + 0.12, v0 + 0.6, H + 4, H + 9, alpha(hex('#bcd0e0'), 0.7), { ink: false });
+  }
+  return iso.build();
+}
+
+/** LOTS ROAD POWER STATION: the great Chelsea riverside power station that
+ *  drove the Tube — a vast dark-brick hall with TWO tall square brick chimneys
+ *  (originally four), regular tall industrial windows and a massive turbine-hall
+ *  silhouette. Industrial, with its twin chimneys. 3×3. */
+function lotsRoadTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 160 });
+  void seed;
+  const BR = hex('#8a6450'); // soot brown brick
+  iso.shadow(0.4, 0.6, 2.6, 2.6, 0.24, 0.22);
+  const u0 = 0.5;
+  const u1 = 2.5;
+  const v0 = 1.3;
+  const v1 = 2.5;
+  const H = 64;
+  iso.box(u0, v0, u1, v1, 0, H, BR);
+  // tall industrial slot windows
+  for (let u = u0 + 0.18; u < u1 - 0.1; u += 0.26) {
+    iso.r.poly([iso.P(u, v1, 12), iso.P(u + 0.14, v1, 12), iso.P(u + 0.14, v1, H - 8), iso.P(u, v1, H - 8)], alpha(hex('#2c3550'), 0.75));
+  }
+  // brick pilaster ribs
+  for (let u = u0 + 0.1; u < u1 - 0.02; u += 0.26) iso.r.line(iso.P(u + 0.16, v1, 4), iso.P(u + 0.16, v1, H - 2), 1.4 * RES, alpha(darken(BR, 0.18), 0.5));
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, H, H + 3, lighten(BR, 0.06), { ink: false });
+  // TWO tall square brick chimneys
+  for (const [cu, cv] of [[u0 + 0.55, v0 + 0.4], [u1 - 0.55, v0 + 0.6]] as const) {
+    iso.box(cu - 0.16, cv - 0.16, cu + 0.16, cv + 0.16, 0, 168, BR);
+    for (let z = H; z < 164; z += 14) iso.r.line(iso.P(cu - 0.14, cv + 0.16, z), iso.P(cu + 0.14, cv + 0.16, z), 0.8 * RES, alpha(darken(BR, 0.16), 0.4));
+    iso.box(cu - 0.18, cv - 0.18, cu + 0.18, cv + 0.18, 168, 174, lighten(BR, 0.08), { ink: false });
+  }
+  return iso.build();
+}
+
+// =============================================================================
 // THE REGISTRY
 // =============================================================================
 
@@ -1638,5 +3047,386 @@ export const CITY_HEROES: BespokeHero[] = [
     seed: 3125,
     draw: (s) => oldBaileyTile(s),
     light: L.facade(82, 1.3),
+  },
+
+  // ---- W3 ROUND 2: City towers, West-End hotels, colleges, palaces, the
+  //      South-Bank/Bankside set, the Regent's-Park terraces + stores --------
+  // City of London — the eastern financial cluster
+  {
+    city: 'london',
+    key: '100-bishopsgate',
+    match: /100 Bishopsgate/i,
+    foot: [3, 3],
+    seed: 3201,
+    draw: (s) => bishopsgate100Tile(s),
+    light: L.towerCrown(232, 0.6),
+  },
+  {
+    city: 'london',
+    key: '200-aldersgate',
+    match: /200 Aldersgate/i,
+    foot: [3, 3],
+    seed: 3202,
+    draw: (s) => aldersgate200Tile(s),
+    light: L.towerCrown(122, 1.2),
+  },
+  {
+    city: 'london',
+    key: 'one-new-change',
+    match: /One New Change/i,
+    foot: [3, 3],
+    seed: 3203,
+    draw: (s) => oneNewChangeTile(s),
+    light: L.facade(58, 1.4),
+  },
+  {
+    city: 'london',
+    key: 'the-bank-of-new-york-mellon',
+    match: /Bank of New York Mellon|BNY Mellon/i,
+    foot: [3, 3],
+    seed: 3204,
+    draw: (s) => bnyMellonTile(s),
+    light: L.towerCrown(196, 0.7),
+  },
+  {
+    city: 'london',
+    key: 'london-wall-buildings',
+    match: /London Wall Buildings/i,
+    foot: [3, 3],
+    seed: 3205,
+    draw: (s) => londonWallBuildingsTile(s),
+    light: L.facade(50, 1.3),
+  },
+  {
+    city: 'london',
+    key: 'maughan-library',
+    match: /Maughan Library/i,
+    foot: [3, 3],
+    seed: 3206,
+    draw: (s) => maughanLibraryTile(s),
+    light: L.facade(84, 1.2),
+  },
+  {
+    city: 'london',
+    key: 'holborn-bars',
+    match: /Holborn Bars|Prudential/i,
+    foot: [3, 3],
+    seed: 3207,
+    draw: (s) => holbornBarsTile(s),
+    light: L.facade(140, 1.2),
+  },
+  // West End — Strand / Covent Garden / Mayfair / Piccadilly
+  {
+    city: 'london',
+    key: 'savoy-hotel',
+    match: /Savoy Hotel|^Savoy$/i,
+    foot: [3, 3],
+    seed: 3208,
+    draw: (s) => savoyHotelTile(s),
+    light: L.facade(70, 1.2),
+  },
+  {
+    city: 'london',
+    key: 'royal-opera-house',
+    match: /Royal Opera House|Covent Garden/i,
+    foot: [4, 4],
+    seed: 3209,
+    draw: (s) => royalOperaTile(s),
+    light: L.facade(60, 1.5),
+  },
+  {
+    city: 'london',
+    key: 'london-trocadero',
+    match: /Trocadero/i,
+    foot: [3, 3],
+    seed: 3210,
+    draw: (s) => trocaderoTile(s),
+    light: L.towerCrown(64, 1.3),
+  },
+  {
+    city: 'london',
+    key: 'grosvenor-house-hotel',
+    match: /Grosvenor House/i,
+    foot: [3, 3],
+    seed: 3211,
+    draw: (s) => grosvenorHouseTile(s),
+    light: L.facade(86, 1.2),
+  },
+  {
+    city: 'london',
+    key: 'one-hyde-park',
+    match: /One Hyde Park/i,
+    foot: [3, 3],
+    seed: 3212,
+    draw: (s) => oneHydeParkTile(s),
+    light: L.towerCrown(150, 1.2),
+  },
+  // St James's / Westminster
+  {
+    city: 'london',
+    key: 'st-james-s-palace',
+    match: /St James'?s Palace/i,
+    foot: [4, 4],
+    seed: 3213,
+    draw: (s) => stJamesPalaceTile(s),
+    light: L.facade(92, 1.5),
+  },
+  {
+    city: 'london',
+    key: 'institute-of-contemporary-arts',
+    match: /Institute of Contemporary Arts|\bICA\b/i,
+    foot: [3, 3],
+    seed: 3214,
+    draw: (s) => icaTile(s),
+    light: L.facade(40, 1.3),
+  },
+  {
+    city: 'london',
+    key: 'ministry-of-defence',
+    match: /Ministry of Defence/i,
+    foot: [4, 4],
+    seed: 3215,
+    draw: (s) => modTile(s),
+    light: L.facade(64, 1.6),
+  },
+  {
+    city: 'london',
+    key: 'ministry-of-justice',
+    match: /Ministry of Justice/i,
+    foot: [3, 3],
+    seed: 3216,
+    draw: (s) => mojTile(s),
+    light: L.towerCrown(104, 1.1),
+  },
+  {
+    city: 'london',
+    key: 'department-for-transport',
+    match: /Department for Transport/i,
+    foot: [3, 3],
+    seed: 3217,
+    draw: (s) => dftTile(s),
+    light: L.facade(72, 1.2),
+  },
+  // South Kensington — the Imperial College / museum quarter
+  {
+    city: 'london',
+    key: 'royal-school-of-mines',
+    match: /Royal School of Mines/i,
+    foot: [3, 3],
+    seed: 3218,
+    draw: (s) => royalSchoolMinesTile(s),
+    light: L.facade(56, 1.2),
+  },
+  {
+    city: 'london',
+    key: 'city-and-guilds-building',
+    match: /City and Guilds/i,
+    foot: [3, 3],
+    seed: 3219,
+    draw: (s) => cityGuildsTile(s),
+    light: L.facade(60, 1.2),
+  },
+  {
+    city: 'london',
+    key: 'sherfield-building',
+    match: /Sherfield/i,
+    foot: [3, 3],
+    seed: 3220,
+    draw: (s) => sherfieldTile(s),
+    light: L.towerCrown(156, 0.7),
+  },
+  // Kensington / Bayswater
+  {
+    city: 'london',
+    key: 'kensington-palace',
+    match: /Kensington Palace/i,
+    foot: [3, 3],
+    seed: 3221,
+    draw: (s) => kensingtonPalaceTile(s),
+    light: L.facade(42, 1.3),
+  },
+  {
+    city: 'london',
+    key: 'derry-toms',
+    match: /Derry (&|and) Toms|Derry ?& ?Toms/i,
+    foot: [3, 3],
+    seed: 3222,
+    draw: (s) => derryTomsTile(s),
+    light: L.facade(42, 1.3),
+  },
+  {
+    city: 'london',
+    key: 'whiteleys',
+    match: /Whiteleys/i,
+    foot: [4, 4],
+    seed: 3223,
+    draw: (s) => whiteleysTile(s),
+    light: L.facade(86, 1.5),
+  },
+  {
+    city: 'london',
+    key: 'hilton-london-metropole',
+    match: /Hilton London Metropole|Metropole/i,
+    foot: [4, 4],
+    seed: 3224,
+    draw: (s) => hiltonMetropoleTile(s),
+    light: L.towerCrown(178, 1.0),
+  },
+  // Marylebone / Regent's Park / Maida Vale
+  {
+    city: 'london',
+    key: 'maida-vale-studios',
+    match: /Maida Vale Studios/i,
+    foot: [3, 3],
+    seed: 3225,
+    draw: (s) => maidaValeStudiosTile(s),
+    light: L.facade(36, 1.3),
+  },
+  {
+    city: 'london',
+    key: 'cornwall-terrace',
+    match: /Cornwall Terrace/i,
+    foot: [4, 4],
+    seed: 3226,
+    draw: (s) => cornwallTerraceTile(s),
+    light: L.facade(40, 1.6),
+  },
+  {
+    city: 'london',
+    key: 'sussex-place',
+    match: /Sussex Place/i,
+    foot: [4, 4],
+    seed: 3227,
+    draw: (s) => sussexPlaceTile(s),
+    light: L.facade(54, 1.5),
+  },
+  {
+    city: 'london',
+    key: 'chiltern-court-baker-street',
+    match: /Chiltern Court/i,
+    foot: [3, 3],
+    seed: 3228,
+    draw: (s) => chilternCourtTile(s),
+    light: L.facade(72, 1.2),
+  },
+  {
+    city: 'london',
+    key: 'broadcasting-house',
+    match: /Broadcasting House/i,
+    foot: [3, 3],
+    seed: 3229,
+    draw: (s) => broadcastingHouseTile(s),
+    light: L.facade(70, 1.2),
+  },
+  // Bloomsbury / King's Cross / Camden / Islington
+  {
+    city: 'london',
+    key: 'senate-house',
+    match: /Senate House/i,
+    foot: [3, 3],
+    seed: 3230,
+    draw: (s) => senateHouseTile(s),
+    light: L.towerCrown(178, 0.8),
+  },
+  {
+    city: 'london',
+    key: 'francis-crick-institute',
+    match: /Francis Crick/i,
+    foot: [4, 4],
+    seed: 3231,
+    draw: (s) => francisCrickTile(s),
+    light: L.facade(70, 1.6),
+  },
+  {
+    city: 'london',
+    key: 'central-saint-martins',
+    match: /Central Saint Martins|Central St Martins/i,
+    foot: [4, 4],
+    seed: 3232,
+    draw: (s) => centralStMartinsTile(s),
+    light: L.facade(64, 1.6),
+  },
+  {
+    city: 'london',
+    key: 'business-design-centre',
+    match: /Business Design Centre|Agricultural Hall/i,
+    foot: [3, 3],
+    seed: 3233,
+    draw: (s) => businessDesignCentreTile(s),
+    light: L.facade(56, 1.3),
+  },
+  // South Bank / Bankside / Southwark
+  {
+    city: 'london',
+    key: 'bfi-southbank',
+    match: /BFI Southbank|National Film Theatre/i,
+    foot: [3, 3],
+    seed: 3234,
+    draw: (s) => bfiSouthbankTile(s),
+    light: L.facade(30, 1.3),
+  },
+  {
+    city: 'london',
+    key: 'ibm-building',
+    match: /IBM Building/i,
+    foot: [3, 3],
+    seed: 3235,
+    draw: (s) => ibmBuildingTile(s),
+    light: L.facade(50, 1.3),
+  },
+  {
+    city: 'london',
+    key: 'sea-containers-house',
+    match: /Sea Containers/i,
+    foot: [3, 3],
+    seed: 3236,
+    draw: (s) => seaContainersTile(s),
+    light: L.towerCrown(78, 1.2),
+  },
+  {
+    city: 'london',
+    key: 'hay-s-galleria',
+    match: /Hay'?s Galleria/i,
+    foot: [3, 3],
+    seed: 3237,
+    draw: (s) => haysGalleriaTile(s),
+    light: L.facade(70, 1.2),
+  },
+  {
+    city: 'london',
+    key: 'hms-belfast',
+    match: /HMS Belfast/i,
+    foot: [4, 1],
+    seed: 3238,
+    draw: (s) => hmsBelfastTile(s),
+    light: L.facade(52, 1.5),
+  },
+  // outer: Vauxhall / Wapping / Chelsea
+  {
+    city: 'london',
+    key: 'sis-building',
+    match: /SIS Building|MI6/i,
+    foot: [3, 3],
+    seed: 3239,
+    draw: (s) => sisBuildingTile(s),
+    light: L.facade(92, 1.4),
+  },
+  {
+    city: 'london',
+    key: 'tobacco-dock',
+    match: /Tobacco Dock/i,
+    foot: [3, 3],
+    seed: 3240,
+    draw: (s) => tobaccoDockTile(s),
+    light: L.facade(30, 1.4),
+  },
+  {
+    city: 'london',
+    key: 'lots-road-power-station',
+    match: /Lots Road/i,
+    foot: [3, 3],
+    seed: 3241,
+    draw: (s) => lotsRoadTile(s),
+    light: L.facade(168, 1.3),
   },
 ];

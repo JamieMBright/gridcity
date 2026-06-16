@@ -440,7 +440,12 @@ export function seedScenario(state: GameState, ctx: SimContext): void {
 
 // --- save / load -----------------------------------------------------------
 
-export const SAVE_VERSION = 14;
+// v15 (W3 round 2): 41 more bespoke London heroes were placed in NAMED_PLACES
+// (City office towers, West-End hotels, colleges/libraries, the South-Bank /
+// Bankside set, the Regent's-Park terraces, the palaces and department stores).
+// Their hero footprints now stamp protected London tiles, so map geometry —
+// and thus the heroTable baked into saves — changed; bump so old saves rebuild.
+export const SAVE_VERSION = 15;
 
 /** Guard for untrusted save payloads; lives beside SAVE_VERSION so the two
  *  can never drift apart again (a stale guard silently discarded saves). */
@@ -485,7 +490,7 @@ export function isSaveData(d: unknown): d is SaveData {
 }
 
 export interface SaveData {
-  v: 14;
+  v: 15;
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;
