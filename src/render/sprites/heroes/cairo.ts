@@ -1416,6 +1416,165 @@ function modernMosque(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
+// =====================  ROUND 3 — THE OLD-CAIRO LONG TAIL  ==================
+// The final batch to round Cairo to 100: the great Abbasid Mosque of Ibn Tulun
+// (its unique helicoidal minaret), the Bayn-al-Qasrayn Mamluk complexes (Qalawun
+// + Barquq), the Fatimid al-Salih Tala'i, the Ayyubid Salihiyya, and the Citadel-
+// square / al-Muizz mosques — most via the flexible mosque() with bespoke params,
+// two with their own hand-built silhouettes (Ibn Tulun + Qalawun).
+
+/** MOSQUE OF IBN TULUN (876–879) — the oldest, largest mosque in Cairo and one
+ *  of the great monuments of Islamic architecture: a VAST square Abbasid
+ *  enclosure of honey-sandstone walls topped by the famous pierced crenellations
+ *  ("paper-doll" merlons), wrapped by an outer ziyada wall, around an open
+ *  courtyard with a domed central ablution pavilion — and its UNIQUE helicoidal
+ *  MINARET with an external spiral staircase ramp (modelled on Samarra). The
+ *  spiral minaret is the unmistakable read. Broad 5×5 SW, on headroom. */
+function ibnTulunMosque(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(5, 5, { swAnchor: true, headroom: 150 });
+  void seed;
+  const STONE = LIME; // honey sandstone
+  const u0 = 0.3, u1 = 4.7, v0 = 0.4, v1 = 4.6;
+  sandApron(iso, 5, 5, 30, seed * 17 + 5);
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.22);
+  // the outer ZIYADA wall (a low precinct wall ringing the mosque)
+  iso.box(u0, v0, u1, v1, 0, 14, shaded(STONE, 0.06), { ink: true });
+  // the great prayer-hall enclosure (tall blank Abbasid walls) set inside it
+  const a0 = u0 + 0.5, a1 = u1 - 0.5, b0 = v0 + 0.5, b1 = v1 - 0.5;
+  iso.box(a0, b0, a1, b1, 0, 62, STONE);
+  // the open central courtyard (sahn) sunk in the middle — a darker floor inset
+  const cu = (a0 + a1) / 2, cv = (b0 + b1) / 2;
+  iso.quad(cu - 1.25, cv - 1.25, cu + 1.25, cv + 1.25, 62, shaded(STONE, 0.16));
+  // ranks of pointed-arch arcade openings around the courtyard (the riwaqs) seen
+  // over the near walls — drawn as a band of arches on the two visible inner faces
+  for (const face of ['l', 'r'] as const) {
+    for (let i = 0; i < 9; i++) {
+      const t = (i + 0.5) / 9;
+      if (face === 'l') {
+        const u = (a0 + 0.3) + (a1 - a0 - 0.6) * t;
+        iso.r.poly([iso.P(u - 0.12, b1, 30), iso.P(u + 0.12, b1, 30), iso.P(u + 0.12, b1, 46), iso.P(u, b1, 54), iso.P(u - 0.12, b1, 46)], alpha(COLORS.glassDark, 0.7));
+      } else {
+        const v = (b0 + 0.3) + (b1 - b0 - 0.6) * t;
+        iso.r.poly([iso.P(a1, v - 0.12, 30), iso.P(a1, v + 0.12, 30), iso.P(a1, v + 0.12, 46), iso.P(a1, v, 54), iso.P(a1, v - 0.12, 46)], alpha(COLORS.glassDark, 0.6));
+      }
+    }
+  }
+  // the famous PIERCED CRENELLATIONS ("paper-doll" merlons) along the wall tops —
+  // a continuous fretted parapet on the two near faces
+  for (let u = a0 + 0.12; u < a1; u += 0.2) {
+    iso.box(u, b1 - 0.03, u + 0.1, b1, 62, 70, lighten(STONE, 0.08), { ink: false });
+    const [mx, my] = iso.P(u + 0.05, b1, 70);
+    iso.r.poly([[mx - 1.4 * RES, my], [mx + 1.4 * RES, my], [mx, my - 3 * RES]], lighten(STONE, 0.06)); // the pointed merlon cap
+  }
+  for (let v = b0 + 0.12; v < b1; v += 0.2) {
+    iso.box(a1 - 0.03, v, a1, v + 0.1, 62, 70, lighten(STONE, 0.06), { ink: false });
+  }
+  // the small domed ABLUTION PAVILION in the centre of the courtyard
+  iso.box(cu - 0.28, cv - 0.28, cu + 0.28, cv + 0.28, 62, 80, lighten(STONE, 0.03));
+  const [px, pyT] = iso.P(cu, cv, 80);
+  const PDR = 0.3 * (CELL_W / 2);
+  const pdome: Pt[] = [];
+  for (let i = 0; i <= 16; i++) {
+    const a = Math.PI * (i / 16);
+    pdome.push([px + Math.cos(a) * PDR, pyT - Math.sin(a) * PDR * 0.8]);
+  }
+  iso.r.poly(pdome, shaded(DOMEC, 0.06), lit(DOMEC, 0.06));
+  iso.r.polyline(pdome, INK_W * 0.7, INK);
+
+  // ---- THE HELICOIDAL MINARET (the signature) — a thick round stone tower with
+  //      an EXTERNAL spiral staircase ramp winding up the outside, capped by an
+  //      open domed kiosk (mabkhara). Stands at the NW corner, outside the hall.
+  const mu = a0 - 0.12, mv = (b0 + b1) / 2 - 0.6;
+  const [bx, byB] = iso.P(mu, mv, 14);
+  const MR = 0.2 * (CELL_W / 2); // the cylinder radius (screen px)
+  const Z0 = 14, ZTOP = 132;
+  // the cylindrical shaft (two stacked drums, the lower square-ish, upper round)
+  // draw as a tapering stack of short cylinders so the spiral can wrap it
+  const drumCol = (zPx: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 18; i++) { const a = Math.PI * (i / 18) - Math.PI / 2; pts.push([bx + Math.cos(a) * MR, byB - zPx + Math.sin(a) * MR * 0.5]); }
+    return pts;
+  };
+  // front half of the shaft wall
+  const zb0 = (Z0) * RES, zt0 = (ZTOP) * RES;
+  iso.r.poly([...drumCol(zb0).slice(0, 10), ...drumCol(zt0).slice(0, 10).reverse()], shaded(STONE, 0.05), lit(STONE, 0.05));
+  iso.edge([bx - MR, byB - zb0], [bx - MR, byB - zt0]);
+  iso.edge([bx + MR, byB - zb0], [bx + MR, byB - zt0]);
+  // the EXTERNAL SPIRAL RAMP — a helix winding up the front of the shaft. Drawn
+  // as a polyline whose x oscillates across the cylinder while z climbs, with a
+  // shadow under each coil so it reads as a projecting stone ramp.
+  const turns = 4.2;
+  const helix: Pt[] = [];
+  const steps = 90;
+  for (let s = 0; s <= steps; s++) {
+    const t = s / steps;
+    const ang = t * turns * Math.PI * 2;
+    const x = bx + Math.cos(ang) * (MR + 1.4 * RES);
+    const z = Z0 + (ZTOP - Z0 - 18) * t;
+    const y = byB - z * RES + Math.sin(ang) * MR * 0.5;
+    helix.push([x, y]);
+  }
+  // only the front-facing arcs read; draw the whole helix thin, then re-stroke
+  // the front coils thicker (where sin(ang) < 0 → nearer the viewer)
+  iso.r.polyline(helix, 1.0 * RES, alpha(DOMEC_D, 0.55));
+  for (let s = 0; s < steps; s++) {
+    const ang = (s / steps) * turns * Math.PI * 2;
+    if (Math.cos(ang) < 0) continue; // front face only
+    iso.r.line(helix[s]!, helix[s + 1]!, 2.0 * RES, lit(STONE, 0.06));
+    iso.r.line([helix[s]![0], helix[s]![1] + 1.6 * RES], [helix[s + 1]![0], helix[s + 1]![1] + 1.6 * RES], 0.8 * RES, alpha(INK, 0.4));
+  }
+  // the open domed kiosk (mabkhara) crowning the minaret — a little columned
+  // pavilion with a ribbed cap
+  const [kx, kyB] = iso.P(mu, mv, ZTOP);
+  for (const dx of [-MR * 0.7, 0, MR * 0.7]) iso.r.line([kx + dx, kyB], [kx + dx, kyB - 9 * RES], 1.0 * RES, lighten(STONE, 0.08));
+  const kib: Pt[] = [];
+  for (let i = 0; i <= 14; i++) { const a = Math.PI * (i / 14); kib.push([kx + Math.cos(a) * MR * 0.9, kyB - 9 * RES - Math.sin(a) * 11 * RES]); }
+  iso.r.poly(kib, shaded(DOMEC, 0.05), lit(DOMEC, 0.06));
+  iso.r.polyline(kib, INK_W * 0.7, INK);
+  iso.r.line([kx, kyB - 20 * RES], [kx, kyB - 27 * RES], 1.1 * RES, COLORS.glassLit); // brass finial
+  return iso.build();
+}
+
+/** AL-MANSUR QALAWUN COMPLEX (Bayn al-Qasrayn, al-Muizz St, 1285) — the great
+ *  Mamluk madrasa-mausoleum-hospital: a tall narrow honey-stone street façade of
+ *  stacked recessed pointed-arch panels with paired windows, a soaring square
+ *  fluted-top MINARET (one of Cairo's finest), and behind it the large ribbed
+ *  carved-stone MAUSOLEUM DOME on its windowed drum. 2×2 SW, on headroom. */
+function qalawunComplex(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 200 });
+  void seed;
+  const STONE = LIME;
+  const u0 = 0.34, u1 = 1.66, v0 = 0.44, v1 = 1.56;
+  sandApron(iso, 2, 2, 10, seed * 19 + 3);
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.22);
+  // the tall street-front block (a deep narrow Mamluk façade)
+  iso.box(u0, v0, u1, v1, 0, 130, STONE);
+  // the signature stacked tall recessed pointed-arch panels down the show (v1)
+  // face — paired lancet windows within each recessed bay
+  for (let i = 0; i < 4; i++) {
+    const u = u0 + 0.2 + i * 0.32;
+    // the recessed panel
+    iso.r.poly([iso.P(u, v1, 16), iso.P(u + 0.24, v1, 16), iso.P(u + 0.24, v1, 96), iso.P(u + 0.12, v1, 112), iso.P(u, v1, 96)], shaded(STONE, 0.16));
+    // the paired windows inside
+    for (const du of [0.05, 0.15]) {
+      iso.r.poly([iso.P(u + du, v1, 30), iso.P(u + du + 0.06, v1, 30), iso.P(u + du + 0.06, v1, 60), iso.P(u + du + 0.03, v1, 68), iso.P(u + du, v1, 60)], alpha(COLORS.glassDark, 0.8));
+    }
+    iso.r.polyline([iso.P(u, v1, 96), iso.P(u + 0.12, v1, 112), iso.P(u + 0.24, v1, 96)], INK_W * 0.45, alpha(INK, 0.6));
+  }
+  // ablaq banding + crenellated parapet
+  for (let z = 8; z < 124; z += 14) iso.r.poly([iso.P(u0, v1, z + 4), iso.P(u1, v1, z + 4), iso.P(u1, v1, z), iso.P(u0, v1, z)], alpha(ABLAQ, 0.42));
+  for (let u = u0 + 0.1; u < u1; u += 0.22) iso.box(u, v1 - 0.03, u + 0.11, v1, 130, 136, lighten(STONE, 0.07), { ink: false });
+  // the large ribbed MAMLUK DOME on its windowed drum (the mausoleum, rear corner)
+  const du = u0 + (u1 - u0) * 0.32, dv = v0 + (v1 - v0) * 0.34;
+  iso.box(du - 0.36, dv - 0.36, du + 0.36, dv + 0.36, 130, 150, STONE);
+  // small drum windows
+  for (let k = 0; k < 4; k++) iso.r.poly([iso.P(du - 0.28 + k * 0.18, dv + 0.36, 134), iso.P(du - 0.22 + k * 0.18, dv + 0.36, 134), iso.P(du - 0.22 + k * 0.18, dv + 0.36, 146), iso.P(du - 0.28 + k * 0.18, dv + 0.36, 146)], alpha(COLORS.glassDark, 0.7));
+  mamlukDome(iso, du, dv, 150, 0.46, 34, false);
+  // the soaring square fluted-topped MINARET at the street corner
+  minaret(iso, u1 - 0.14, v1 - 0.16, 0, 184, 0.07, 'mamluk', STONE);
+  return iso.build();
+}
+
 // ============================================================================
 //  THE REGISTRY
 // ============================================================================
@@ -2382,5 +2541,145 @@ export const CITY_HEROES: BespokeHero[] = [
     seed: 5814,
     draw: (seed) => palace(seed, 0),
     light: floodLight(80, 1.0),
+  },
+
+  // ==========================================================================
+  //  ROUND 3 — the old-Cairo long tail to round the city to 100 bespoke heroes.
+  //  (al-Nasir-Muhammad above already claims "قلاوون" in جامع الناصر محمد بن
+  //  قلاوون, so the Qalawun COMPLEX below places under its own distinct name.)
+  // ==========================================================================
+  {
+    city: 'cairo',
+    key: 'ibn-tulun-mosque',
+    // The great Abbasid mosque with the spiral minaret. Native: مسجد ابن طولون.
+    match: /ibn tulun|ibn tulon|ابن طولون|أحمد ابن طولون|جامع ابن طولون/iu,
+    foot: [5, 5],
+    seed: 5970,
+    draw: ibnTulunMosque,
+    light: { kind: 'facadeFlood', topZ: 132, halfW: 2.4 },
+  },
+  {
+    city: 'cairo',
+    key: 'qalawun-complex',
+    match: /qalawun|qalaun|qala'un|مجمع قلاوون|قبة قلاوون|مدرسة قلاوون|بيمارستان قلاوون/iu,
+    foot: [2, 2],
+    seed: 5971,
+    draw: qalawunComplex,
+    light: { kind: 'facadeFlood', topZ: 188, halfW: 1.1 },
+  },
+  {
+    city: 'cairo',
+    key: 'sultan-barquq-complex',
+    // Funerary complex of Sultan Barquq, al-Muizz St (twin domes + twin minarets).
+    match: /barquq|barqouq|barqūq|برقوق|السلطان برقوق|مجمع برقوق/iu,
+    foot: [3, 3],
+    seed: 5972,
+    draw: (seed) =>
+      mosque(seed, {
+        foot: 3, head: 200, bodyH: 60, domeR: 0.5, domeRise: 36, style: 'mamluk', ablaqBands: true,
+        minarets: [{ u: 0.4, v: 2.6, h: 176, r: 0.062 }, { u: 2.6, v: 2.6, h: 170, r: 0.062 }],
+      }),
+    light: { kind: 'facadeFlood', topZ: 182, halfW: 1.6 },
+  },
+  {
+    city: 'cairo',
+    key: 'salih-talai-mosque',
+    // Al-Salih Tala'i — the last Fatimid mosque, on a raised arcaded porch, by
+    // Bab Zuwayla. (Anchored so it doesn't grab Sultan al-Salih / Salihiyya.)
+    match: /tala'?i|talai|طلائع|الصالح طلائع|مسجد الصالح طلائع/iu,
+    foot: [2, 2],
+    seed: 5973,
+    draw: (seed) =>
+      mosque(seed, {
+        foot: 2, head: 140, bodyH: 36, domeR: 0.3, domeRise: 20, style: 'fatimid',
+        minarets: [{ u: 1.6, v: 0.4, h: 124, r: 0.08 }],
+      }),
+    light: floodLight(124, 1.1),
+  },
+  {
+    city: 'cairo',
+    key: 'salihiyya-madrasa',
+    // Ayyubid madrasa-mausoleum of as-Salih Najm ad-Din Ayyub, al-Muizz St —
+    // its tall square brick minaret + ribbed mausoleum dome.
+    match: /salihiyya|salihiya|al[- ]?salih najm|المدرسة الصالحية|الصالحية النجمية|مدرسة الصالح نجم/iu,
+    foot: [2, 2],
+    seed: 5974,
+    draw: (seed) =>
+      mosque(seed, {
+        foot: 2, head: 170, bodyH: 44, domeR: 0.34, domeRise: 24, style: 'mamluk', ablaqBands: true,
+        minarets: [{ u: 0.4, v: 1.6, h: 150, r: 0.072 }],
+      }),
+    light: floodLight(150, 1.1),
+  },
+  {
+    city: 'cairo',
+    key: 'sultan-ghuri-mosque',
+    // Mosque-Madrasa of Sultan al-Ghuri — the red-and-white chequered square
+    // minaret with a multi-headed top. (The wikala/qasaba al-Ghuri are separate.)
+    match: /al[- ]?ghuri mosque|ghuri madrasa|madrasa.*ghuri|جامع.*الغوري|مدرسة.*الغوري|مسجد.*الغوري/iu,
+    foot: [2, 2],
+    seed: 5975,
+    draw: (seed) =>
+      mosque(seed, {
+        foot: 2, head: 180, bodyH: 50, domeR: 0.3, domeRise: 22, style: 'mamluk', ablaqBands: true,
+        minarets: [{ u: 1.62, v: 0.4, h: 158, r: 0.085 }],
+      }),
+    light: { kind: 'facadeFlood', topZ: 160, halfW: 1.1 },
+  },
+  {
+    city: 'cairo',
+    key: 'qanibay-al-ramah-mosque',
+    // Mosque of Qani-Bay al-Rammah, on the slope below the Citadel (Salah al-Din
+    // Square): a slim Mamluk mosque with a tall carved minaret + carved dome.
+    match: /qanibay|qani[- ]?bay|qani bay|al[- ]?ramah|al[- ]?rammah|قانيباي|قاني باي|الرماح/iu,
+    foot: [2, 2],
+    seed: 5976,
+    draw: (seed) =>
+      mosque(seed, {
+        foot: 2, head: 180, bodyH: 46, domeR: 0.34, domeRise: 26, chevron: true, style: 'mamluk', ablaqBands: true,
+        minarets: [{ u: 0.4, v: 1.6, h: 156, r: 0.065 }],
+      }),
+    light: { kind: 'facadeFlood', topZ: 158, halfW: 1.1 },
+  },
+  {
+    city: 'cairo',
+    key: 'mahmudiya-mosque',
+    // Mosque of Mahmud Pasha (al-Mahmudiya), facing Bab al-Azab at the Citadel —
+    // an Ottoman mosque with a pencil minaret + a single lead-grey dome.
+    match: /mahmudiya|mahmoudia|mahmud pasha|محمودية|المحمودية|مسجد محمود باشا/iu,
+    foot: [2, 2],
+    seed: 5977,
+    draw: (seed) =>
+      mosque(seed, {
+        foot: 2, head: 150, bodyH: 40, domeR: 0.4, domeRise: 28, style: 'ottoman',
+        minarets: [{ u: 1.62, v: 1.62, h: 128, r: 0.06 }],
+      }),
+    light: floodLight(128, 1.1),
+  },
+  {
+    city: 'cairo',
+    key: 'rahma-mosque',
+    // El-Rahma Mosque (1926) — a Neo-Mamluk neighbourhood mosque: dome + a single
+    // carved minaret. (Anchored so it doesn't grab الرحمن / other names.)
+    match: /el[- ]?rahma|al[- ]?rahma mosque|مسجد الرحمة|الرحمة/iu,
+    foot: [1, 1],
+    seed: 5978,
+    draw: (seed) =>
+      mosque(seed, {
+        foot: 1, head: 130, bodyH: 28, domeR: 0.2, domeRise: 15, style: 'mamluk',
+        minarets: [{ u: 0.78, v: 0.78, h: 108, r: 0.07 }],
+      }),
+    light: floodLight(108, 0.7),
+  },
+  {
+    city: 'cairo',
+    key: 'azhar-admin-building',
+    // The Al-Azhar Administration Building (Mashyakhat al-Azhar) — a modern
+    // Neo-Mamluk civic block beside the mosque (NOT the mosque, claimed above).
+    match: /azhar administration|mashyakha|مشيخة الأزهر|إدارة الأزهر|مبنى الأزهر|الإدارة الأزهرية/iu,
+    foot: [2, 2],
+    seed: 5979,
+    draw: (seed) => civicTower(seed, 1),
+    light: { kind: 'towerCrown', topZ: 112, halfW: 1.0 },
   },
 ];

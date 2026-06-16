@@ -12,6 +12,17 @@
 
 ## Open
 
+### 🏁 OWNER DIRECTIVE (2026-06-16 16:12): "Finish, test, critique all you're doing, then merge when ready."
+THE plan to close out this branch (PR #63) to PRODUCTION:
+1. FINISH heroes: Batch 8 (NYC/Cairo/Shanghai/Athens → 100), then NE 89→100. Every city
+   with ≥100 notable buildings reaches 100; Cape Town (~88) + Pune (~31) at their real ceilings.
+2. TEST: full local e2e on a fresh server + tsc/eslint/vitest/build + London byte-stable.
+3. CRITIQUE: honest design-gate pass — real in-game screenshots (far/mid/close per city +
+   marquee close-ups), critique HARSHLY vs the real buildings (per CLAUDE.md graphics gate);
+   list what's genuinely good vs weak/needs-polish; fix the worst before merge.
+4. MERGE PR #63 → main (auto-merge standing policy: green CI + critique-passed). Then it's LIVE.
+   (NOTE: tutorials/playtest-re-raise W7 NOT done — flagged to owner; a follow-up after merge.)
+
 ### 🌊 WAVE PLAN (owner, 2026-06-16: "Analyse tasks into waves of work that make a sensible PR, and use sub agents to action them.")
 The whole open backlog, sequenced into waves. Branch is `claude/serene-edison-h6tebf`
 (one feature branch, owner-mandated) so each wave lands as a self-contained,

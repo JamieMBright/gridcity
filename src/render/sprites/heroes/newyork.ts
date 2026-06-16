@@ -3324,6 +3324,173 @@ function parachuteJumpTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 }
 
 // ===========================================================================
+//  ROUND 4 — the FINANCIAL-DISTRICT / DOWNTOWN long tail to round the city to
+//  100 bespoke heroes: 40 Wall Street's green-copper Gothic spire, the black
+//  Brooklyn Tower supertall, the bulky Equitable monolith, the Cunard palazzo.
+// ===========================================================================
+
+/** 40 WALL STREET (the Trump Building / former Bank of Manhattan, 1930, 283 m) —
+ *  the neo-Gothic Deco tower that briefly raced the Chrysler for "world's
+ *  tallest": a grey-limestone setback shaft crowned by a steep GREEN-COPPER
+ *  pyramidal spire with a slim gilt lantern + corner pyramidlets. Its copper
+ *  pyramid against the Financial-District sky is the read. Slim 2×2 on big
+ *  headroom. */
+function fortyWallTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 420 });
+  void seed;
+  const ST = LIMESTONE;
+  const CU = lighten(COPPER, 0.1); // a brighter verdigris for the famous green crown
+  iso.shadow(0.32, 0.5, 1.68, 1.64, 0.3, 0.26);
+  // granite base + broad lower massing
+  iso.box(0.26, 0.38, 1.74, 1.72, 0, 24, GRANITE);
+  iso.box(0.44, 0.54, 1.56, 1.58, 24, 150, ST);
+  gridFace(iso, 'r', 1.56, 0.6, 1.52, 34, 144, 8, alpha(GLASS_DK, 0.9));
+  gridFace(iso, 'l', 1.58, 0.5, 1.5, 34, 144, 8, alpha(GLASS_DK, 0.92));
+  // first setback, then the slim soaring shaft
+  iso.box(0.5, 0.6, 1.5, 1.52, 150, 168, ST, { topC: lighten(ST, 0.06) });
+  iso.box(0.64, 0.72, 1.36, 1.38, 168, 296, ST);
+  gridFace(iso, 'r', 1.36, 0.78, 1.32, 176, 288, 6, alpha(GLASS_DK, 0.9));
+  gridFace(iso, 'l', 1.38, 0.68, 1.3, 176, 288, 6, alpha(GLASS_DK, 0.92));
+  for (const v of [0.84, 0.98, 1.12, 1.26] as const) iso.r.line(iso.P(1.36, v, 176), iso.P(1.36, v, 290), 0.7 * RES, lighten(ST, 0.12));
+  // upper setback + a colonnaded crown stage under the spire
+  iso.box(0.72, 0.8, 1.28, 1.3, 296, 314, ST, { topC: lighten(ST, 0.06) });
+  const cu = 1.0;
+  const cv = 1.05;
+  iso.box(cu - 0.2, cv - 0.2, cu + 0.2, cv + 0.2, 314, 332, lighten(ST, 0.04));
+  // four corner pyramidlets clustering the base of the great spire
+  for (const [du, dv] of [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]] as const) {
+    iso.box(cu + du - 0.04, cv + dv - 0.04, cu + du + 0.04, cv + dv + 0.04, 332, 344, CU, { ink: false });
+    needle(iso, cu + du, cv + dv, 344, 22, 1.6 * RES, CU, GOLDLEAF);
+  }
+  // the signature steep GREEN-COPPER pyramidal spire + tall gilt lantern needle
+  iso.box(cu - 0.16, cv - 0.16, cu + 0.16, cv + 0.16, 332, 348, lighten(ST, 0.02));
+  iso.hip(cu - 0.16, cv - 0.16, cu + 0.16, cv + 0.16, 348, 56, CU);
+  // a bright sunlit cheek up the SE face of the pyramid (so the verdigris reads)
+  const [ax, ay] = iso.P(cu, cv, 348);
+  iso.r.poly([[ax, ay], [ax + 7 * RES, ay - 3 * RES], [ax, ay - 56 * RES]], lit(CU, 0.12));
+  // crocket ticks up the copper pyramid (the Gothic detail)
+  for (let k = 1; k <= 5; k++) {
+    const yy = ay - (56 * RES * k) / 6;
+    iso.r.line([ax - 3 * RES, yy], [ax - 5 * RES, yy + 1.4 * RES], 0.7 * RES, darken(CU, 0.08));
+    iso.r.line([ax + 3 * RES, yy], [ax + 5 * RES, yy + 1.4 * RES], 0.7 * RES, lighten(CU, 0.08));
+  }
+  needle(iso, cu, cv, 404, 40, 1.8 * RES, CU, GLASS_LIT);
+  return iso.build();
+}
+
+/** BROOKLYN TOWER (9 DeKalb Ave, 2022, 325 m) — Downtown Brooklyn's black Art-
+ *  Deco SUPERTALL: a hexagonal shaft of alternating BLACK and BRONZE vertical
+ *  fluting that steps inward in tall Deco setbacks toward a faceted crown of
+ *  bronze fins, rising from the squat limestone Dime Savings Bank base. The dark
+ *  fluted spike with its bronze gleam is the read. Slim 2×2, very tall. */
+function brooklynTowerTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 470 });
+  void seed;
+  const BLK = hex('#34373d'); // near-black charcoal facade
+  const BLK_D = hex('#212328');
+  const BRZ = hex('#7d6a44'); // the bronze pinstripe metal
+  const BRZ_L = lighten(BRZ, 0.14);
+  iso.shadow(0.34, 0.52, 1.66, 1.62, 0.3, 0.28);
+  // the pale limestone Dime Savings Bank base (preserved at the foot)
+  iso.box(0.28, 0.4, 1.72, 1.72, 0, 30, LIMESTONE);
+  gridFace(iso, 'r', 1.72, 0.46, 1.68, 8, 26, 6, alpha(GLASS_DK, 0.8));
+  iso.box(0.28, 0.4, 1.72, 1.72, 30, 36, lighten(LIMESTONE, 0.06), { ink: false });
+  // the black fluted shaft stepping inward in three tall Deco stages
+  const stages: ReadonlyArray<readonly [number, number, number]> = [
+    [0.46, 36, 230],
+    [0.56, 230, 360],
+    [0.66, 360, 432],
+  ];
+  for (const [inset, zb, zt] of stages) {
+    const a = inset, b = 2 - inset;
+    iso.box(a, a + 0.06, b, b + 0.06, zb, zt, BLK, { leftC: BLK_D, rightC: lit(BLK, 0.05), topC: lighten(BLK, 0.06) });
+    // vertical bronze-and-black fluting (the pinstripe Deco read) on both faces
+    const cols = Math.round((b - a) / 0.11);
+    for (let i = 0; i <= cols; i++) {
+      const t = i / cols;
+      const v = (a + 0.04) + (b - a - 0.08) * t;
+      iso.r.line(iso.P(b, v, zb + 4), iso.P(b, v, zt - 4), 0.6 * RES, i % 2 ? BRZ_L : alpha(BRZ, 0.7));
+      const u = (a + 0.04) + (b - a - 0.08) * t;
+      iso.r.line(iso.P(u, b + 0.06, zb + 4), iso.P(u, b + 0.06, zt - 4), 0.6 * RES, i % 2 ? alpha(BRZ, 0.6) : BLK_D);
+    }
+    // a bright bronze setback lip
+    iso.box(a - 0.02, a + 0.04, b + 0.02, b + 0.08, zt, zt + 5, BRZ_L, { ink: false });
+  }
+  // the faceted crown of bronze fins fanning to the tip
+  const cu = 1.0, cv = 1.04;
+  iso.box(cu - 0.12, cv - 0.12, cu + 0.12, cv + 0.12, 432, 448, BLK);
+  for (const [du, dv, h] of [
+    [-0.1, -0.1, 26], [0.1, -0.1, 30], [-0.1, 0.1, 30], [0.1, 0.1, 26],
+    [0, -0.12, 36], [0, 0.12, 36],
+  ] as const) {
+    needle(iso, cu + du, cv + dv, 448, h, 1.4 * RES, BRZ, BRZ_L);
+  }
+  needle(iso, cu, cv, 448, 54, 2.2 * RES, BRZ, GLASS_LIT); // the central bronze spike
+  return iso.build();
+}
+
+/** EQUITABLE BUILDING (120 Broadway, 1915, 169 m) — the colossal bulky H-plan
+ *  monolith whose sheer 38-storey rise (no setbacks) blotted out the sun and
+ *  shamed the city into the 1916 zoning law. A grey-limestone "base–shaft–
+ *  capital" slab: a rusticated base, a vast unbroken gridded shaft, a heavy
+ *  bracketed cornice. Broad + heavy, 3×3 SW. */
+function equitableTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 230 });
+  void seed;
+  const ST = hex('#c4bfb2'); // grey limestone
+  iso.shadow(0.4, 0.66, 2.6, 2.56, 0.3, 0.26);
+  // the rusticated three-storey base (the "base" of the column analogy)
+  iso.box(0.3, 0.46, 2.7, 2.62, 0, 30, GRANITE);
+  for (const z of [10, 20] as const) iso.r.line(iso.P(2.7, 0.46, z), iso.P(2.7, 2.62, z), 0.6 * RES, darken(GRANITE, 0.12));
+  // the vast unbroken shaft — the whole point is the SHEER bulk, full block
+  iso.box(0.34, 0.5, 2.66, 2.58, 30, 196, ST);
+  // dense regular window grid over both great faces, no relief (the slab read)
+  gridFace(iso, 'r', 2.66, 0.58, 2.5, 40, 188, 16, alpha(GLASS_DK, 0.92));
+  gridFace(iso, 'l', 2.58, 0.5, 2.5, 40, 188, 16, alpha(GLASS_DK, 0.92));
+  // faint vertical pier lines to make the grid read as masonry, not glass
+  for (let v = 0.66; v < 2.54; v += 0.16) iso.r.line(iso.P(2.66, v, 36), iso.P(2.66, v, 190), 0.45 * RES, lighten(ST, 0.08));
+  for (let u = 0.5; u < 2.62; u += 0.16) iso.r.line(iso.P(u, 2.58, 36), iso.P(u, 2.58, 190), 0.45 * RES, shaded(ST, 0.06));
+  // the heavy bracketed cornice + low attic (the "capital")
+  iso.box(0.28, 0.44, 2.72, 2.64, 196, 206, lighten(ST, 0.08), { topC: top(ST, 0.24) });
+  // a row of cornice modillion ticks under the lip
+  for (let v = 0.56; v < 2.6; v += 0.12) iso.r.line(iso.P(2.72, v, 196), iso.P(2.72, v, 200), 1.0 * RES, shaded(ST, 0.14));
+  iso.box(0.4, 0.56, 2.6, 2.54, 206, 216, ST, { ink: false });
+  return iso.build();
+}
+
+/** CUNARD BUILDING (25 Broadway, 1921) — the Italian-Renaissance limestone
+ *  palazzo facing Bowling Green that housed the great ocean-liner booking hall:
+ *  a rusticated arcaded base of tall round arches, a banded ashlar shaft of
+ *  ranked windows, and a deep bracketed cornice. Broad, pale grey, 2×2 SW. */
+function cunardTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 150 });
+  void seed;
+  const ST = hex('#cdc7b8'); // pale limestone ashlar
+  iso.shadow(0.32, 0.5, 1.68, 1.66, 0.26, 0.24);
+  // the rusticated base with a row of tall round-arched openings (the famous
+  // arcade fronting the great booking hall)
+  iso.box(0.28, 0.4, 1.72, 1.74, 0, 36, lighten(GRANITE, 0.06));
+  for (let v = 0.5; v < 1.66; v += 0.28) {
+    iso.r.poly(
+      [iso.P(1.72, v, 4), iso.P(1.72, v + 0.18, 4), iso.P(1.72, v + 0.18, 24), iso.P(1.72, v + 0.09, 34), iso.P(1.72, v, 24)],
+      alpha(GLASS_DK, 0.85),
+    );
+  }
+  for (const z of [12, 24] as const) iso.r.line(iso.P(1.72, 0.4, z), iso.P(1.72, 1.74, z), 0.5 * RES, darken(GRANITE, 0.1));
+  // the banded ashlar shaft of ranked windows
+  iso.box(0.34, 0.46, 1.66, 1.68, 36, 100, ST);
+  gridFace(iso, 'r', 1.66, 0.54, 1.62, 44, 92, 9, alpha(GLASS_DK, 0.9));
+  gridFace(iso, 'l', 1.68, 0.46, 1.6, 44, 92, 9, alpha(GLASS_DK, 0.92));
+  // faint ashlar banding courses
+  for (let z = 46; z < 92; z += 9) iso.r.line(iso.P(1.66, 0.5, z), iso.P(1.66, 1.66, z), 0.4 * RES, shaded(ST, 0.06));
+  // the deep bracketed cornice + a low parapet
+  iso.box(0.3, 0.42, 1.7, 1.72, 100, 110, lighten(ST, 0.08), { topC: top(ST, 0.24) });
+  for (let v = 0.5; v < 1.68; v += 0.12) iso.r.line(iso.P(1.7, v, 100), iso.P(1.7, v, 104), 0.9 * RES, shaded(ST, 0.14));
+  iso.box(0.42, 0.54, 1.58, 1.6, 110, 118, ST, { ink: false });
+  return iso.build();
+}
+
+// ===========================================================================
 //  REGISTRY — match against the REAL placed names in newyork.ts `named`.
 //  Order matters (first match wins). More-specific names first.
 // ===========================================================================
@@ -4241,5 +4408,47 @@ export const CITY_HEROES: BespokeHero[] = [
     seed: 5317,
     draw: parachuteJumpTile,
     light: { kind: 'aerialBeacon', topZ: 170, halfW: 0.14 },
+  },
+
+  // =========================================================================
+  //  ROUND 4 — the Financial-District / Downtown-Brooklyn long tail to 100.
+  // =========================================================================
+  {
+    city: 'newyork',
+    key: '40-wall-street',
+    // 40 Wall St / the Trump Building / former Bank of Manhattan Trust.
+    match: /40 Wall Street|Trump Building|Bank of Manhattan/i,
+    foot: [2, 2],
+    seed: 5401,
+    draw: fortyWallTile,
+    // the steep green-copper Gothic spire + gilt lantern — a spire beacon caps it.
+    light: { kind: 'spireBeacon', topZ: 444, halfW: 0.4 },
+  },
+  {
+    city: 'newyork',
+    key: 'brooklyn-tower',
+    match: /Brooklyn Tower/i,
+    foot: [2, 2],
+    seed: 5402,
+    draw: brooklynTowerTile,
+    light: { kind: 'spireBeacon', topZ: 502, halfW: 0.32 },
+  },
+  {
+    city: 'newyork',
+    key: 'equitable-building',
+    match: /Equitable Building/i,
+    foot: [3, 3],
+    seed: 5403,
+    draw: equitableTile,
+    light: { kind: 'towerCrown', topZ: 216, halfW: 1.1 },
+  },
+  {
+    city: 'newyork',
+    key: 'cunard-building',
+    match: /Cunard Building/i,
+    foot: [2, 2],
+    seed: 5404,
+    draw: cunardTile,
+    light: { kind: 'facadeFlood', topZ: 118, halfW: 0.9 },
   },
 ];

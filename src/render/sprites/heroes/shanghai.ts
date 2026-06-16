@@ -2620,6 +2620,144 @@ function lilongBlockTile(seed: number, withGate: boolean): Uint8ClampedArray<Arr
   return iso.build();
 }
 
+// #####################################################################
+// ROUND 4 — the final 8 to reach 100. Three new BESPOKE marquees (the Long
+// Museum's concrete vaults, the MoCA glass pavilion, the Children's-Museum
+// rocket) plus five famous placed-but-unmatched landmarks resolved via the
+// rich Bund/mansion/civic workhorses. Every entry has its own bespoke light.
+// #####################################################################
+
+const RAWCON = hex('#b9b1a6'); // the Long Museum's raw board-formed concrete
+const RAWCON_D = hex('#968f84');
+
+// =====================================================================
+// LONG MUSEUM WEST BUND — Atelier Deshaus's raw board-formed concrete gallery:
+// the unmistakable "umbrella vault" structure — a forest of cantilevered
+// PARABOLIC CONCRETE VAULTS in parallel rows, open beneath, the most distinctive
+// art-museum silhouette in Shanghai. Low, wide, brutalist-poetic. 3×3.
+// =====================================================================
+function longMuseumTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 100 });
+  void seed;
+  const u0 = 0.2, u1 = 2.8, v0 = 0.3, v1 = 2.7;
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.22);
+  // a low concrete podium / sunken-court deck
+  iso.box(u0, v0, u1, v1, 0, 10, shaded(RAWCON_D, 0.12), { topC: top(RAWCON, 0.08) });
+  // --- rows of parabolic VAULTS running along v; draw back rows first ---
+  const rows = 4;
+  const vaultZ0 = 10, vaultH = 74; // tall vaults so the umbrella structure reads
+  for (let row = 0; row < rows; row++) {
+    const vc = v0 + 0.4 + row * ((v1 - v0 - 0.8) / (rows - 1));
+    const halfV = 0.3; // each vault's half-depth in v
+    // the vault is a parabolic arch swept along u: draw its near long face as a
+    // filled parabola band, plus the curved end cap on the u1 side.
+    const segs = 14;
+    // near (v+halfV) long face: a long parabolic ridge
+    const ridge: Pt[] = [];
+    const eaveN: Pt[] = [];
+    for (let i = 0; i <= segs; i++) {
+      const t = i / segs;
+      const uu = u0 + 0.15 + (u1 - u0 - 0.3) * t;
+      ridge.push(iso.P(uu, vc + halfV, vaultZ0 + vaultH));
+      eaveN.push(iso.P(uu, vc + halfV, vaultZ0 + 6));
+    }
+    // the shaded under-curve (front face of the vault shell)
+    iso.r.poly([...ridge, ...[...eaveN].reverse()], row % 2 ? RAWCON : lit(RAWCON, 0.05));
+    // ribs down the shell
+    for (let i = 0; i <= segs; i += 2) {
+      iso.r.line(ridge[i]!, eaveN[i]!, 0.6 * RES, alpha(RAWCON_D, 0.5));
+    }
+    // the curved END CAP (parabola) on the u1 end of each vault
+    const cap: Pt[] = [];
+    for (let i = 0; i <= 10; i++) {
+      const t = i / 10;
+      // parabola: x across the vault depth, z = height*(1-(2t-1)^2)
+      const vv = vc - halfV + 2 * halfV * t;
+      const zz = vaultZ0 + 6 + (vaultH - 6) * (1 - (2 * t - 1) ** 2);
+      cap.push(iso.P(u1 - 0.15, vv, zz));
+    }
+    iso.r.poly([iso.P(u1 - 0.15, vc - halfV, vaultZ0 + 6), ...cap, iso.P(u1 - 0.15, vc + halfV, vaultZ0 + 6)], shaded(RAWCON_D, 0.18));
+    iso.r.polyline(cap, INK_W * 0.7, INK);
+    // ink the near ridge
+    iso.r.polyline(ridge, INK_W * 0.7, alpha(INK, 0.7));
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// MoCA SHANGHAI — the small all-GLASS pavilion set in People's Park (a former
+// greenhouse): a transparent two-storey glass box with a slender steel frame
+// and a thin flat canopy roof, glowing as a lantern among the park trees. 2×2.
+// =====================================================================
+function mocaPavilionTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 70 });
+  void seed;
+  const u0 = 0.36, u1 = 1.64, v0 = 0.36, v1 = 1.64;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // a low stone terrace
+  iso.box(u0 - 0.08, v0 - 0.08, u1 + 0.08, v1 + 0.08, 0, 5, BUND, { ink: false });
+  const bz = 5, bodyH = 44;
+  // the glass box (warm-lit core showing through)
+  iso.box(u0, v0, u1, v1, bz, bodyH, alpha(JADE_SKY, 0.7), {
+    topC: alpha(top(JADE_SKY, 0.2), 0.8), leftC: alpha(shaded(JADE, 0.16), 0.78), rightC: alpha(lit(JADE_L, 0.1), 0.78),
+  });
+  // fine steel mullion grid on both glass faces (two storeys)
+  iso.windowsLeft(v1, u0 + 0.04, u1 - 0.04, bz + 2, bodyH - 2, 8, alpha(JADE_SKY, 0.4), STEELG);
+  iso.windowsRight(u1, v0 + 0.04, v1 - 0.04, bz + 2, bodyH - 2, 7, alpha(JADE_SKY, 0.36), STEELG);
+  // a horizontal floor band mid-height
+  iso.box(u0 - 0.01, v0 - 0.01, u1 + 0.01, v1 + 0.01, bz + (bodyH - bz) / 2 - 1, bz + (bodyH - bz) / 2 + 1, STEELG, { ink: false });
+  // a thin flat steel canopy oversailing the box
+  iso.box(u0 - 0.1, v0 - 0.1, u1 + 0.1, v1 + 0.1, bodyH, bodyH + 3, lighten(STEELG, 0.06), { topC: top(STEELG, 0.12) });
+  return iso.build();
+}
+
+// =====================================================================
+// SHANGHAI CHILDREN'S MUSEUM — the museum famous for its ROCKET: a stout white
+// launch-tower with a slim red-and-white rocket rising from a low rounded
+// pavilion, gantry struts at the base. Playful, vertical, unmistakable. 2×2,
+// headroom (the rocket towers).
+// =====================================================================
+function childrensRocketTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 170 });
+  void seed;
+  const u0 = 0.3, u1 = 1.7, v0 = 0.3, v1 = 1.7;
+  const SHELL = hex('#dcd6c8'), REDR = hex('#c0492f');
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.22);
+  // a low rounded pavilion base
+  iso.box(u0, v0, u1, v1, 0, 26, SHELL, { topC: top(SHELL, 0.14), leftC: shaded(SHELL, 0.12) });
+  iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 8, 22, 5, alpha(COLORS.glassSky, 0.8), lighten(SHELL, 0.05));
+  // a flat roof deck
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 26, 30, lit(SHELL, 0.06), { topC: top(SHELL, 0.14) });
+  // --- the ROCKET rising from the deck centre ---
+  const cu = (u0 + u1) / 2, cv = (v0 + v1) / 2;
+  const [rx, rg] = iso.P(cu, cv, 30);
+  const rTop = 168; // rocket tip height above the deck — it TOWERS
+  const bodyW = 6.2 * RES;
+  // gantry struts at the base
+  for (const sx of [-1, 1] as const) {
+    iso.r.line([rx + sx * bodyW * 1.8, rg], [rx + sx * bodyW * 0.4, rg - rTop * 0.34 * RES], 1.2 * RES, STEELG);
+  }
+  // the white cylindrical body with red bands
+  const bodyTopY = rg - rTop * 0.8 * RES;
+  iso.r.poly([[rx - bodyW, rg], [rx + bodyW, rg], [rx + bodyW, bodyTopY], [rx - bodyW, bodyTopY]], SHELL);
+  iso.r.poly([[rx - bodyW, rg], [rx - bodyW * 0.4, rg], [rx - bodyW * 0.4, bodyTopY], [rx - bodyW, bodyTopY]], shaded(SHELL, 0.14));
+  // red bands
+  for (const f of [0.18, 0.5]) {
+    const y = rg - rTop * (0.7 * f + 0.06) * RES;
+    iso.r.poly([[rx - bodyW, y], [rx + bodyW, y], [rx + bodyW, y - 3 * RES], [rx - bodyW, y - 3 * RES]], REDR);
+  }
+  // the nose cone (red)
+  const tipY = rg - rTop * RES;
+  iso.r.poly([[rx - bodyW, bodyTopY], [rx + bodyW, bodyTopY], [rx, tipY]], REDR);
+  iso.r.polyline([[rx - bodyW, rg], [rx - bodyW, bodyTopY], [rx, tipY], [rx + bodyW, bodyTopY], [rx + bodyW, rg]], INK_W * 0.7, INK);
+  // fins at the base
+  iso.r.poly([[rx - bodyW, rg], [rx - bodyW * 2, rg], [rx - bodyW, rg - 12 * RES]], shaded(REDR, 0.1));
+  iso.r.poly([[rx + bodyW, rg], [rx + bodyW * 2, rg], [rx + bodyW, rg - 12 * RES]], lit(REDR, 0.08));
+  // a tiny beacon at the tip
+  iso.r.line([rx, tipY], [rx, tipY - 5 * RES], 1 * RES, GOLD_HOT);
+  return iso.build();
+}
+
 export const CITY_HEROES: BespokeHero[] = [
   // --- PUDONG marquee supertalls -----------------------------------------
   {
@@ -3539,5 +3677,90 @@ export const CITY_HEROES: BespokeHero[] = [
     seed: 1932,
     draw: (s) => lilongBlockTile(s, true),
     light: { kind: 'genericGlow', topZ: 50, halfW: 1.0 },
+  },
+
+  // === ROUND 4: the final 8 to 100 =======================================
+  // --- three new bespoke marquees ----------------------------------------
+  {
+    // 龙美术馆（浦东馆） — Long Museum (the raw-concrete umbrella vaults)
+    city: 'shanghai',
+    key: 'long-museum',
+    match: /龙美术馆/,
+    foot: [3, 3],
+    seed: 2014,
+    draw: longMuseumTile,
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 1.6 },
+  },
+  {
+    // 上海当代艺术馆 — MoCA Shanghai (the People's Park glass pavilion)
+    city: 'shanghai',
+    key: 'moca-shanghai',
+    match: /当代艺术馆/,
+    foot: [2, 2],
+    seed: 2005,
+    draw: mocaPavilionTile,
+    light: { kind: 'towerCrown', topZ: 47, halfW: 0.9 },
+  },
+  {
+    // 上海儿童博物馆 — Shanghai Children's Museum (the rocket tower)
+    city: 'shanghai',
+    key: 'childrens-museum-rocket',
+    match: /儿童博物馆/,
+    foot: [2, 2],
+    seed: 1996,
+    draw: childrensRocketTile,
+    light: { kind: 'spireBeacon', topZ: 162, halfW: 0.5 },
+  },
+
+  // --- five famous placed landmarks via the rich workhorses --------------
+  {
+    // 上海外滩美术馆 — Rockbund Art Museum (1932 RAS deco-stone tower on the Bund)
+    city: 'shanghai',
+    key: 'rockbund-art-museum',
+    match: /外滩美术馆/,
+    foot: [2, 2],
+    seed: 1932,
+    draw: (s) => bundBankTile(s, 3, false),
+    light: { kind: 'facadeFlood', topZ: 88, halfW: 1.0 },
+  },
+  {
+    // 王伯群住宅 — Wang Boqun Residence (a grand eclectic brick mansion)
+    city: 'shanghai',
+    key: 'wang-boqun-residence',
+    match: /王伯群/,
+    foot: [1, 1],
+    seed: 1934,
+    draw: (s) => frenchMansionTile(s, true),
+    light: { kind: 'facadeFlood', topZ: 50, halfW: 0.6 },
+  },
+  {
+    // 上海铁路博物馆 — Shanghai Railway Museum (recreated 1909 Beizhan station)
+    city: 'shanghai',
+    key: 'railway-museum',
+    match: /铁路博物馆/,
+    foot: [3, 3],
+    seed: 1909,
+    draw: raceClubTile,
+    light: { kind: 'facadeFlood', topZ: 132, halfW: 1.2 },
+  },
+  {
+    // 上海纺织博物馆 — Shanghai Textile Museum (a stone civic museum block)
+    city: 'shanghai',
+    key: 'textile-museum',
+    match: /纺织博物馆/,
+    foot: [1, 1],
+    seed: 2009,
+    draw: (s) => civicBlockTile(s, false),
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 0.6 },
+  },
+  {
+    // 罗丹艺术文化发展中心 — Rodin Art Centre (a brick cultural block)
+    city: 'shanghai',
+    key: 'rodin-art-center',
+    match: /罗丹艺术/,
+    foot: [1, 1],
+    seed: 2013,
+    draw: (s) => theatreTile(s, true),
+    light: { kind: 'towerCrown', topZ: 86, halfW: 0.6 },
   },
 ];

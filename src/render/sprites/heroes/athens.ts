@@ -44,6 +44,12 @@ const BRONZE_HOT = hex('#86c0a2');
 const GILT = hex('#d8b24e'); // gilt detail / lit lantern
 const SLATEBLUE = hex('#5a6680'); // a few cool slate/lead roofs
 
+/** Deterministic hash → [0,1) for stable scatter (no runtime RNG). */
+function frac(n: number): number {
+  const s = Math.sin(n * 12.9898) * 43758.5453;
+  return s - Math.floor(s);
+}
+
 /** A filled disc at a screen point (the Raster has no circle primitive). */
 function disc(iso: Iso, x: number, y: number, r: number, col: RGBA): void {
   const pts: Pt[] = [];
@@ -2069,12 +2075,419 @@ function modernCultureCubeTile(seed: number, accent: RGBA): Uint8ClampedArray<Ar
   return iso.build();
 }
 
+// #####################################################################
+// ROUND 3 — APPENDED BESPOKE HEROES (seeds 185+). The final push to 100:
+// the modern marquees (Acropolis Museum, Onassis Stegi, the National Hellenic
+// Research Foundation, the Conservatoire), the great mansions (Villa Ilissia /
+// Duchess of Plaisance, Sarogleio), Athens City Hall on Kotzia Square, the
+// open-air Lycabettus Theatre on its pine hilltop, plus more ministries,
+// mansions, churches, hotels and the Piraeus/Larissa stations placed via the
+// established marble workhorses. Each marquee is a NEW draw fn; every entry
+// carries its own bespoke electrification light.
+// #####################################################################
+
+const CONCRETE = hex('#cbb89a'); // warm modernist exposed concrete (Tschumi / Bauhaus)
+const CONCRETE_D = hex('#a99b80');
+const GLASS_MUS = hex('#9fb4c0'); // the cool museum curtain-glass (dusk-reflecting)
+
+// =====================================================================
+// ACROPOLIS MUSEUM — Bernard Tschumi's modern museum below the rock: a glass-
+// and-concrete machine in three stacked tiers — a base on PILOTIS (slim
+// columns over the excavated ruins), a broad glass-clad middle, and a top
+// gallery box ROTATED off-axis (aligned to the Parthenon, not the street).
+// Wide, flat, modern — the deliberate counterpoint to the marble temples. 3×3.
+// =====================================================================
+function acropolisMuseumTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 90 });
+  void seed;
+  const u0 = 0.2, u1 = 2.8, v0 = 0.4, v1 = 2.6;
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.22);
+  // the excavation under glass: a dark recessed ground showing the ruins
+  iso.box(u0, v0, u1, v1, 0, 6, shaded(CONCRETE_D, 0.24), { ink: false });
+  // PILOTIS — slim concrete columns lifting the museum off the dig
+  for (let i = 0; i <= 5; i++) {
+    const u = u0 + 0.12 + ((u1 - u0 - 0.24) * i) / 5;
+    iso.box(u - 0.03, v1 - 0.07, u + 0.03, v1 - 0.01, 6, 22, CONCRETE, { ink: false });
+    iso.box(u - 0.03, v0 + 0.01, u + 0.03, v0 + 0.07, 6, 22, shaded(CONCRETE_D, 0.1), { ink: false });
+  }
+  // --- the broad GLASS middle gallery (the curtain-walled level) ---
+  const mz0 = 22, mz1 = 56;
+  iso.box(u0 + 0.06, v0 + 0.06, u1 - 0.06, v1 - 0.06, mz0, mz1, alpha(GLASS_MUS, 0.9), {
+    topC: top(CONCRETE, 0.16), leftC: alpha(shaded(GLASS_MUS, 0.18), 0.9), rightC: alpha(lit(GLASS_MUS, 0.12), 0.9),
+  });
+  // mullions: a fine grid of glazing bars on both glass faces
+  iso.windowsLeft(v1 - 0.06, u0 + 0.1, u1 - 0.1, mz0 + 2, mz1 - 2, 12, alpha(GLASS_MUS, 0.5), lighten(CONCRETE, 0.06));
+  iso.windowsRight(u1 - 0.06, v0 + 0.1, v1 - 0.1, mz0 + 2, mz1 - 2, 10, alpha(GLASS_MUS, 0.46), lighten(CONCRETE, 0.06));
+  // a flat concrete slab capping the middle
+  iso.box(u0, v0, u1, v1, mz1, mz1 + 4, lit(CONCRETE, 0.06), { topC: top(CONCRETE, 0.14) });
+
+  // --- the TOP gallery box, ROTATED off the building axis (the Parthenon
+  // gallery). Drawn as a slab inset + skewed: pulled in on one pair of corners
+  // so it reads as a separate, twisted volume sitting on the slab. ---
+  const tz0 = mz1 + 4, tz1 = tz0 + 26;
+  // the rotation read: offset the box footprint diagonally within the slab
+  const ru0 = u0 + 0.34, ru1 = u1 - 0.18, rv0 = v0 + 0.18, rv1 = v1 - 0.34;
+  iso.box(ru0, rv0, ru1, rv1, tz0, tz1, alpha(GLASS_MUS, 0.92), {
+    topC: top(CONCRETE, 0.18), leftC: alpha(shaded(GLASS_MUS, 0.2), 0.92),
+  });
+  iso.windowsLeft(rv1, ru0 + 0.06, ru1 - 0.06, tz0 + 2, tz1 - 3, 11, alpha(GLASS_MUS, 0.55), lighten(CONCRETE, 0.08));
+  iso.windowsRight(ru1, rv0 + 0.06, rv1 - 0.06, tz0 + 2, tz1 - 3, 9, alpha(GLASS_MUS, 0.5), lighten(CONCRETE, 0.08));
+  // thin flat roof + a couple of rooftop light-monitors
+  iso.box(ru0 - 0.02, rv0 - 0.02, ru1 + 0.02, rv1 + 0.02, tz1, tz1 + 3, lit(CONCRETE, 0.08), { topC: top(CONCRETE, 0.16) });
+  return iso.build();
+}
+
+// =====================================================================
+// ATHENS CITY HALL — the Kotzia Square civic block (Kalkos, 1872): a low,
+// broad neoclassical building with a deep recessed GROUND ARCADE (an open
+// loggia of arches under a colonnaded piano-nobile), a painted frieze band and
+// a flat parapet topped by a clock cartouche + a small flagstaff. 2×2. The
+// civic read is the arcade + the central flag. Distinct from the museum blocks.
+// =====================================================================
+function cityHallTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 70 });
+  void seed;
+  const u0 = 0.22, u1 = 1.78, v0 = 0.3, v1 = 1.7;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.22);
+  const bz = 0, bodyH = 66;
+  iso.box(u0, v0, u1, v1, bz, bodyH, OCHRE, { topC: top(OCHRE, 0.14), leftC: shaded(OCHRE_D, 0.12) });
+  // pale ground arcade band (the open loggia): a row of recessed arches on the front
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, bz, 20, MARBLE_W, { ink: false });
+  for (let i = 0; i < 7; i++) {
+    const uu = u0 + 0.08 + i * ((u1 - u0 - 0.16) / 7);
+    const w = (u1 - u0 - 0.16) / 7 - 0.02;
+    const archP: Pt[] = [iso.P(uu, v1, 3), iso.P(uu, v1, 12)];
+    for (let j = 0; j <= 6; j++) {
+      const t = j / 6;
+      archP.push(iso.P(uu + w * t, v1, 12 + Math.sin(t * Math.PI) * 5));
+    }
+    archP.push(iso.P(uu + w, v1, 3));
+    iso.r.poly(archP, shaded(MARBLE_D, 0.34));
+  }
+  // a painted frieze band just above the arcade (Fotis Kontoglou's frescoes)
+  iso.box(u0 - 0.01, v0 - 0.01, u1 + 0.01, v1 + 0.01, 30, 35, hex('#8a5a3c'), { ink: false });
+  // two storeys of tall windows over the arcade (piano nobile + upper)
+  iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, 38, bodyH - 4, 7, alpha(COLORS.glassDark, 0.78), MARBLE_L);
+  iso.windowsRight(u1, v0 + 0.06, v1 - 0.06, 38, bodyH - 4, 6, alpha(COLORS.glassDark, 0.72), MARBLE_L);
+  // cornice + parapet
+  iso.box(u0 - 0.04, v0 - 0.04, u1 + 0.04, v1 + 0.04, bodyH, bodyH + 5, MARBLE_L, { topC: top(MARBLE_L, 0.16) });
+  // central clock cartouche + flagstaff
+  const cu = (u0 + u1) / 2;
+  iso.box(cu - 0.14, v1 - 0.05, cu + 0.14, v1, bodyH + 5, bodyH + 12, MARBLE_L, { ink: false });
+  disc(iso, iso.P(cu, v1, bodyH + 9)[0], iso.P(cu, v1, bodyH + 9)[1], 2.4 * RES, BRONZE);
+  const fp = iso.P(cu, v0 + 0.4, bodyH + 5);
+  iso.r.line(fp, [fp[0], fp[1] - 16 * RES], 1 * RES, INK);
+  iso.r.poly([[fp[0], fp[1] - 16 * RES], [fp[0] + 9 * RES, fp[1] - 13 * RES], [fp[0], fp[1] - 10 * RES]], hex('#3f6fb0'));
+  return iso.build();
+}
+
+// =====================================================================
+// ONASSIS STEGI — the contemporary cultural centre on Syngrou (AB Architects):
+// a tall rectangular volume entirely VEILED in horizontal MARBLE LOUVRE BANDS
+// (thin bridge-like strips of Thassos marble), glowing as a lantern from
+// within at night, set back behind an open forecourt. The horizontal striping
+// over a glassy core is the unmistakable read. 2×2, tall, big headroom.
+// =====================================================================
+function onassisStegiTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 180 });
+  void seed;
+  const u0 = 0.34, u1 = 1.66, v0 = 0.34, v1 = 1.66;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.22);
+  // forecourt plinth
+  iso.box(u0 - 0.1, v0 - 0.1, u1 + 0.1, v1 + 0.1, 0, 4, MARBLE_W, { ink: false });
+  const bz = 4, top1 = 150;
+  // the glowing glass core (warm at night) inside the louvre veil
+  iso.box(u0 + 0.03, v0 + 0.03, u1 - 0.03, v1 - 0.03, bz, top1, alpha(hex('#e8d8b0'), 0.85), { ink: false });
+  // the marble louvre cage: many thin horizontal bands wrapping both faces,
+  // with narrow slots of the glowing core showing between them
+  const bands = 22;
+  for (let i = 0; i < bands; i++) {
+    const z0 = bz + (i * (top1 - bz)) / bands;
+    const z1 = z0 + ((top1 - bz) / bands) * 0.62; // slot gap between bands
+    // left face strip
+    iso.r.poly([iso.P(u0, v1, z1), iso.P(u1, v1, z1), iso.P(u1, v1, z0), iso.P(u0, v1, z0)], i % 2 ? MARBLE_L : MARBLE);
+    // right face strip
+    iso.r.poly([iso.P(u1, v0, z1), iso.P(u1, v1, z1), iso.P(u1, v1, z0), iso.P(u1, v0, z0)], i % 2 ? lit(MARBLE, 0.06) : MARBLE_W);
+  }
+  // silhouette ink + flat roof slab
+  iso.r.polyline([iso.P(u0, v1, top1), iso.P(u1, v1, top1), iso.P(u1, v0, top1)], INK_W, INK);
+  iso.r.line(iso.P(u0, v1, bz), iso.P(u1, v1, bz), INK_W * 0.7, INK);
+  iso.r.line(iso.P(u1, v1, bz), iso.P(u1, v0, bz), INK_W * 0.7, INK);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, top1, top1 + 5, MARBLE_L, { topC: top(MARBLE_L, 0.18) });
+  return iso.build();
+}
+
+// =====================================================================
+// SAROGLEIO MANSION — the grand baroque-revival officers' mansion (Nikoloudis,
+// 1933): a symmetrical ashlar block with a heavily rusticated ground floor, a
+// projecting central bay topped by a curved BAROQUE PEDIMENT, tall French
+// windows with balustrades and a slate MANSARD roof with dormers. 2×2.
+// =====================================================================
+function baroqueMansionTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 80 });
+  void seed;
+  const u0 = 0.26, u1 = 1.74, v0 = 0.32, v1 = 1.68;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.22);
+  const bodyH = 50;
+  iso.box(u0, v0, u1, v1, 0, bodyH, MARBLE, { topC: top(MARBLE, 0.14), leftC: shaded(MARBLE_D, 0.13) });
+  // rusticated ground floor (banded ashlar) — a darker base with score lines
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 16, MARBLE_W, { ink: false });
+  for (let z = 4; z < 16; z += 4) {
+    iso.r.line(iso.P(u0, v1, z), iso.P(u1, v1, z), 0.6 * RES, alpha(MARBLE_D, 0.5));
+    iso.r.line(iso.P(u1, v0, z), iso.P(u1, v1, z), 0.6 * RES, alpha(MARBLE_D, 0.4));
+  }
+  // two storeys of tall French windows w/ balustrade hints
+  iso.windowsLeft(v1, u0 + 0.07, u1 - 0.07, 19, 32, 6, alpha(COLORS.glassDark, 0.8), MARBLE_L);
+  iso.windowsLeft(v1, u0 + 0.07, u1 - 0.07, 35, bodyH - 4, 6, alpha(COLORS.glassDark, 0.74), MARBLE_L);
+  iso.windowsRight(u1, v0 + 0.07, v1 - 0.07, 19, 32, 5, alpha(COLORS.glassDark, 0.76), MARBLE_L);
+  iso.windowsRight(u1, v0 + 0.07, v1 - 0.07, 35, bodyH - 4, 5, alpha(COLORS.glassDark, 0.7), MARBLE_L);
+  // projecting central bay
+  const cu = (u0 + u1) / 2;
+  iso.box(cu - 0.22, v1 - 0.06, cu + 0.22, v1 + 0.05, 0, bodyH + 4, lit(MARBLE, 0.04), { topC: top(MARBLE, 0.14) });
+  // cornice
+  iso.box(u0 - 0.04, v0 - 0.04, u1 + 0.04, v1 + 0.04, bodyH, bodyH + 4, MARBLE_L, { ink: false });
+  // the slate MANSARD roof with dormers
+  iso.box(u0 + 0.05, v0 + 0.05, u1 - 0.05, v1 - 0.05, bodyH + 4, bodyH + 18, SLATEBLUE, {
+    topC: top(SLATEBLUE, 0.16), leftC: shaded(SLATEBLUE, 0.14),
+  });
+  for (let i = 0; i < 4; i++) {
+    const u = u0 + 0.2 + i * 0.32;
+    iso.box(u - 0.04, v1 - 0.1, u + 0.04, v1 - 0.05, bodyH + 6, bodyH + 12, MARBLE_L, { ink: false });
+  }
+  // a curved baroque pediment over the central bay
+  const pa = iso.P(cu - 0.22, v1, bodyH + 4), pb = iso.P(cu + 0.22, v1, bodyH + 4);
+  const pm: Pt = [(pa[0] + pb[0]) / 2, pa[1] - 10 * RES];
+  const curve: Pt[] = [pa];
+  for (let i = 0; i <= 8; i++) {
+    const t = i / 8;
+    curve.push([pa[0] + (pb[0] - pa[0]) * t, pa[1] - Math.sin(t * Math.PI) * 10 * RES]);
+  }
+  curve.push(pb);
+  iso.r.poly([pa, ...curve, pb], lit(MARBLE_L, 0.08));
+  iso.r.polyline(curve, INK_W * 0.8, INK);
+  void pm;
+  return iso.build();
+}
+
+// =====================================================================
+// VILLA ILISSIA / DUCHESS OF PLAISANCE MANSION — Kleanthis's romantic 1840s
+// villa (now the Byzantine & Christian Museum): an ochre Florentine-cloister
+// villa built around a courtyard, with arched loggias on two storeys and a low
+// square corner TOWER with a pyramidal tile roof. Picturesque, asymmetric. 2×2.
+// =====================================================================
+function villaIlissiaTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 90 });
+  void seed;
+  const u0 = 0.24, u1 = 1.76, v0 = 0.3, v1 = 1.7;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.22);
+  const bodyH = 40;
+  // the ochre villa wings around the court (a U; we read two wings + the void)
+  iso.box(u0, v0, u1, v0 + 0.5, 0, bodyH, OCHRE, { topC: top(OCHRE, 0.14), leftC: shaded(OCHRE_D, 0.12) });
+  iso.box(u0, v0, u0 + 0.5, v1, 0, bodyH, OCHRE, { topC: top(OCHRE, 0.13), leftC: shaded(OCHRE_D, 0.13) });
+  iso.box(u1 - 0.5, v0, u1, v1, 0, bodyH, lit(OCHRE, 0.03), { topC: top(OCHRE, 0.14) });
+  // the open courtyard floor (a warm paved void at the front-near)
+  iso.box(u0 + 0.5, v0 + 0.5, u1 - 0.5, v1, 0, 4, MARBLE_W, { ink: false });
+  // two storeys of arched LOGGIA on the inward courtyard faces (the signature)
+  for (let row = 0; row < 2; row++) {
+    const az0 = 8 + row * 16;
+    for (let i = 0; i < 4; i++) {
+      const uu = u0 + 0.56 + i * 0.26;
+      const archP: Pt[] = [iso.P(uu, v0 + 0.5, az0), iso.P(uu, v0 + 0.5, az0 + 8)];
+      for (let j = 0; j <= 6; j++) {
+        const t = j / 6;
+        archP.push(iso.P(uu + 0.18 * t, v0 + 0.5, az0 + 8 + Math.sin(t * Math.PI) * 4));
+      }
+      archP.push(iso.P(uu + 0.18, v0 + 0.5, az0));
+      iso.r.poly(archP, shaded(OCHRE_D, 0.26));
+    }
+  }
+  // outward windows
+  iso.windowsLeft(v1, u0 + 0.06, u0 + 0.46, 14, bodyH - 4, 3, alpha(COLORS.glassDark, 0.76), MARBLE_L);
+  iso.windowsRight(u1, v0 + 0.06, v1 - 0.06, 14, bodyH - 4, 5, alpha(COLORS.glassDark, 0.72), MARBLE_L);
+  // tile cornices + a low pitched tile roof on the wings
+  iso.gable(u0, v0, u1, v0 + 0.5, bodyH, 8, 'u', TERRA, OCHRE);
+  iso.gable(u0, v0 + 0.5, u0 + 0.5, v1, bodyH, 8, 'v', TERRA, OCHRE);
+  // the square corner TOWER with a pyramidal tile roof (back-left corner)
+  const tz1 = bodyH + 24;
+  iso.box(u0 + 0.02, v0 + 0.02, u0 + 0.34, v0 + 0.34, bodyH, tz1, lit(OCHRE, 0.04), { topC: top(OCHRE, 0.14) });
+  iso.windowsLeft(v0 + 0.34, u0 + 0.06, u0 + 0.3, tz1 - 14, tz1 - 4, 2, alpha(COLORS.glassDark, 0.7), MARBLE_L);
+  iso.hip(u0 + 0.02, v0 + 0.02, u0 + 0.34, v0 + 0.34, tz1, 12, TERRA);
+  return iso.build();
+}
+
+// =====================================================================
+// LYCABETTUS THEATRE — the open-air amphitheatre quarried into the top of
+// pine-clad Lycabettus Hill (Zenetos, 1965): the city's tallest natural peak —
+// a steep wooded GREEN CONE that TOWERS, with the carved stone seating bowl +
+// flat stage notched into its near face. Read = a commanding pine peak. 3×3,
+// big headroom so the cone soars over the fabric.
+// =====================================================================
+function lycabettusTheatreTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 220 });
+  void seed;
+  const u0 = 0.06, u1 = 2.94, v0 = 0.06, v1 = 2.94;
+  const PINE = hex('#566a40'), PINE_L = hex('#6b8050'), PINE_D = hex('#3c4a2b');
+  iso.shadow(u0, v0, u1, v1, 0.34, 0.26);
+  // a tawny rock skirt at the base
+  iso.box(u0, v0, u1, v1, 0, 16, ROCK, { leftC: shaded(ROCK_D, 0.16), rightC: lit(ROCK, 0.06), topC: top(ROCK, 0.08) });
+  const cu = (u0 + u1) / 2, cv = (v0 + v1) / 2;
+  const halfW = (u1 - u0) * (CELL_W / 2) * 0.5; // screen half-width of the footprint
+  const hillH = 150; // tall — the peak soars
+  // --- the steep wooded CONE: a stack of filled rings drawn bottom→top so the
+  // silhouette is a SOLID tapering green peak (not see-through). Each ring is a
+  // band between its own ellipse and the next-smaller one above it. ---
+  const RINGS = 20;
+  let prev: Pt[] | null = null;
+  for (let i = 0; i <= RINGS; i++) {
+    const f = i / RINGS;
+    const r = halfW * (1 - f * 0.96) ** 0.85; // steep taper to a point
+    const zc = 16 + f * hillH; // band height up the cone
+    const [bx, by] = iso.P(cu, cv, zc);
+    const ring: Pt[] = [];
+    for (let k = 0; k <= 18; k++) {
+      const a = (k / 18) * Math.PI * 2;
+      ring.push([bx + Math.cos(a) * r, by + Math.sin(a) * r * 0.5]);
+    }
+    if (prev) {
+      // fill the band (this ring's front arc + previous ring's front arc);
+      // gentle tonal drift up the cone (lighter near the sunlit top) rather
+      // than hard stripes, so it reads as foliage, not a spiral.
+      const band = [...ring, ...[...prev].reverse()];
+      iso.r.poly(band, lighten(PINE, f * 0.12));
+    } else {
+      iso.r.poly(ring, PINE);
+    }
+    prev = ring;
+  }
+  // dappled pine clumps scattered densely over the cone face (breaks the banding
+  // into foliage; front face only so the back stays a clean silhouette)
+  for (let i = 0; i < 60; i++) {
+    const f = 0.06 + 0.9 * frac(i * 1.7 + 3);
+    const r = halfW * (1 - f * 0.96) ** 0.85;
+    const [bx, by] = iso.P(cu, cv, 16 + f * hillH);
+    const a = frac(i * 2.13) * Math.PI * 2;
+    if (Math.sin(a) < -0.05) continue; // front face only
+    const rr = (1.6 + 1.4 * frac(i * 5.1)) * RES;
+    disc(iso, bx + Math.cos(a) * r * 0.78, by + Math.sin(a) * r * 0.4, rr, i % 3 === 0 ? PINE_D : i % 3 === 1 ? PINE : PINE_L);
+  }
+
+  // --- the carved seating BOWL + stage notched into the near (v1) face,
+  // partway up the cone (drawn last so it sits ON the green) ---
+  const bowlZ = 16 + hillH * 0.34;
+  const [bcx, bcy] = iso.P(cu, v1 - 0.6, bowlZ);
+  for (let r = 0; r < 7; r++) {
+    const rad = (0.12 + r * 0.05) * (u1 - u0) * (CELL_W / 2);
+    const lift = r * 5 * RES;
+    const seats: Pt[] = [];
+    for (let i = 0; i <= 20; i++) {
+      const a = Math.PI * 0.16 + Math.PI * 0.68 * (i / 20);
+      seats.push([bcx - Math.cos(a) * rad, bcy - lift - Math.sin(a) * rad * 0.42]);
+    }
+    // a thin filled band per tier so the bowl reads as carved stone, not wire
+    const lo = seats.map(([x, y]) => [x, y + 3.4 * RES] as Pt);
+    iso.r.poly([...seats, ...lo.reverse()], r % 2 ? lighten(ROCK, 0.08) : shaded(MARBLE_W, 0.04));
+    iso.r.polyline(seats, 1 * RES, alpha(INK, 0.4));
+  }
+  // the flat marble stage + a slim white canopy at the bowl foot
+  const srad = 0.1 * (u1 - u0) * (CELL_W / 2);
+  const stage: Pt[] = [];
+  for (let i = 0; i <= 16; i++) {
+    const a = Math.PI * (i / 16);
+    stage.push([bcx - Math.cos(a) * srad, bcy + Math.sin(a) * srad * 0.4]);
+  }
+  stage.push([bcx + srad, bcy]);
+  iso.r.poly(stage, lit(MARBLE_W, 0.08));
+  iso.r.polyline(stage, 1.2 * RES, alpha(INK, 0.5));
+  for (const sx of [-srad, srad]) iso.r.line([bcx + sx, bcy], [bcx + sx, bcy - 11 * RES], 1 * RES, MARBLE_L);
+  iso.r.line([bcx - srad, bcy - 11 * RES], [bcx + srad, bcy - 11 * RES], 1.4 * RES, MARBLE_L);
+  return iso.build();
+}
+
+// =====================================================================
+// NATIONAL HELLENIC RESEARCH FOUNDATION — Constantinidis's late-modernist
+// research slab on Vassileos Konstantinou (1958): a long horizontal building
+// with a deep concrete BRISE-SOLEIL grid of sun-fins over a glass curtain, a
+// recessed glazed ground floor and a flat roof. Crisp, gridded, modern. 3×3.
+// =====================================================================
+function modernResearchBlockTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 80 });
+  void seed;
+  const u0 = 0.24, u1 = 2.76, v0 = 0.7, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.22);
+  const bodyH = 56;
+  // recessed dark glazed ground floor
+  iso.box(u0 + 0.04, v0 + 0.04, u1 - 0.04, v1 - 0.04, 0, 14, shaded(GLASS_MUS, 0.3), { ink: false });
+  // the gridded slab on top
+  iso.box(u0, v0, u1, v1, 14, bodyH, CONCRETE, { topC: top(CONCRETE, 0.15), leftC: shaded(CONCRETE_D, 0.12) });
+  // the glass curtain behind the fins
+  iso.box(u0 + 0.02, v1 - 0.04, u1 - 0.02, v1, 18, bodyH - 4, alpha(GLASS_MUS, 0.85), { ink: false });
+  // the brise-soleil: a deep GRID of horizontal + vertical concrete fins on the front
+  const cols = 14, rows = 4;
+  for (let c = 0; c <= cols; c++) {
+    const uu = u0 + 0.06 + ((u1 - u0 - 0.12) * c) / cols;
+    iso.r.line(iso.P(uu, v1, 18), iso.P(uu, v1, bodyH - 4), 1.1 * RES, c % 2 ? CONCRETE : lit(CONCRETE, 0.06));
+  }
+  for (let rr = 0; rr <= rows; rr++) {
+    const z = 18 + ((bodyH - 22) * rr) / rows;
+    iso.r.line(iso.P(u0 + 0.06, v1, z), iso.P(u1 - 0.06, v1, z), 1.1 * RES, lit(CONCRETE, 0.04));
+  }
+  // right face: simpler vertical fins over glass
+  iso.box(u1 - 0.04, v0 + 0.02, u1, v1 - 0.02, 18, bodyH - 4, alpha(GLASS_MUS, 0.8), { ink: false });
+  iso.windowsRight(u1, v0 + 0.06, v1 - 0.06, 18, bodyH - 4, 8, alpha(GLASS_MUS, 0.4), CONCRETE);
+  // flat roof + parapet, a rooftop plant box
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, bodyH, bodyH + 4, lit(CONCRETE, 0.08), { topC: top(CONCRETE, 0.15) });
+  iso.box(u0 + 0.3, v0 + 0.2, u0 + 0.9, v0 + 0.5, bodyH + 4, bodyH + 9, shaded(CONCRETE_D, 0.08), { ink: false });
+  return iso.build();
+}
+
+// =====================================================================
+// ATHENS CONSERVATOIRE — Despotopoulos's rigorous Bauhaus-modern music school
+// (1969): a strict, low, flat-roofed exposed-concrete block on a podium, a
+// regular rhythm of deep square window-bays, utterly orthogonal — the modern-
+// movement counterpoint to the neoclassical trilogy. 3×3.
+// =====================================================================
+function conservatoireTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 70 });
+  void seed;
+  const u0 = 0.3, u1 = 2.7, v0 = 0.6, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.22);
+  // a low podium
+  iso.box(u0 - 0.06, v0 - 0.06, u1 + 0.06, v1 + 0.06, 0, 7, shaded(CONCRETE_D, 0.08), { ink: false });
+  const bz = 7, bodyH = 42;
+  iso.box(u0, v0, u1, v1, bz, bodyH, CONCRETE, {
+    topC: top(CONCRETE, 0.14), leftC: shaded(CONCRETE_D, 0.12), rightC: lit(CONCRETE, 0.05),
+  });
+  // a strict grid of deep recessed square window bays on both faces (dark, regular)
+  const colL = 9, rowH = 3;
+  for (let r = 0; r < rowH; r++) {
+    const z0 = bz + 6 + r * 11;
+    iso.windowsLeft(v1, u0 + 0.05, u1 - 0.05, z0, z0 + 7, colL, alpha(COLORS.glassDark, 0.82), shaded(CONCRETE_D, 0.06));
+  }
+  const colR = 7;
+  for (let r = 0; r < rowH; r++) {
+    const z0 = bz + 6 + r * 11;
+    iso.windowsRight(u1, v0 + 0.05, v1 - 0.05, z0, z0 + 7, colR, alpha(COLORS.glassDark, 0.78), shaded(CONCRETE_D, 0.06));
+  }
+  // a deep flat roof slab oversailing the walls (the modern-movement cap)
+  iso.box(u0 - 0.05, v0 - 0.05, u1 + 0.05, v1 + 0.05, bodyH, bodyH + 4, lit(CONCRETE, 0.08), { topC: top(CONCRETE, 0.16) });
+  return iso.build();
+}
+
 // =====================================================================
 // THE REGISTRY — placed Greek names → bespoke draw. Order matters (first match
 // wins); the marquee ancient monuments are listed before generic blocks so a
 // specific temple never falls through to the neoclassical workhorse.
 // =====================================================================
 export const CITY_HEROES: BespokeHero[] = [
+  // The Acropolis MUSEUM must be tested BEFORE the Parthenon: its name contains
+  // "Ακρόπολη" (which the Parthenon's broad match would otherwise eat), but it
+  // requires the word "Μουσείο", so the bare "Ακρόπολη" rock still hits parthenon.
+  {
+    city: 'athens', key: 'acropolis-museum',
+    match: /Μουσείο Ακρόπολης|Μουσείο Ακροπόλεως|Acropolis Museum|Νέο Μουσείο Ακρόπολης/i,
+    foot: [3, 3], seed: 185, draw: acropolisMuseumTile,
+    light: { kind: 'towerCrown', topZ: 90, halfW: 1.6 }, // the lit glass galleries
+  },
   // ---- THE ACROPOLIS + ancient monuments (marquee) ----
   {
     city: 'athens', key: 'parthenon',
@@ -2593,6 +3006,116 @@ export const CITY_HEROES: BespokeHero[] = [
     match: /Μουσείο Αυτοκινήτου|Motor Museum|Αυτοκινήτου/i,
     foot: [1, 1], seed: 184, draw: (s) => modernCultureCubeTile(s, hex('#b85a30')),
     light: { kind: 'towerCrown', topZ: 44, halfW: 0.7 },
+  },
+
+  // ===================================================================
+  // ROUND 3 — the final push to 100 (seeds 185+). Modern marquees, great
+  // mansions, City Hall, the Lycabettus stage, more ministries/churches/hotels
+  // and the Larissa/Peloponnese stations. SPECIFIC names; placed in named[].
+  // ===================================================================
+
+  // ---- modern marquees (bespoke draw); acropolis-museum is registered at the
+  // TOP of the array (before parthenon) so "Μουσείο Ακρόπολης" wins the museum,
+  // not the temple ----
+  {
+    city: 'athens', key: 'onassis-stegi',
+    match: /Στέγη.*Ωνάση|Ωνάσ.*Στέγη|Onassis Stegi|Στέγη Γραμμάτων/i,
+    foot: [2, 2], seed: 186, draw: onassisStegiTile,
+    light: { kind: 'towerCrown', topZ: 120, halfW: 1.2 }, // the marble lantern aglow
+  },
+  {
+    city: 'athens', key: 'national-hellenic-research-foundation',
+    match: /Εθνικό Ίδρυμα Ερευνών|Ελληνικό Ίδρυμα Ερευνών|National Hellenic Research|ΕΙΕ/i,
+    foot: [3, 3], seed: 187, draw: modernResearchBlockTile,
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 1.7 },
+  },
+  {
+    city: 'athens', key: 'athens-conservatoire',
+    match: /Ωδείο Αθηνών|Athens Conservatoire|Κρατικό Ωδείο/i,
+    foot: [3, 3], seed: 188, draw: conservatoireTile,
+    light: { kind: 'facadeFlood', topZ: 46, halfW: 1.6 },
+  },
+
+  // ---- great mansions + City Hall (bespoke draw) ----
+  {
+    city: 'athens', key: 'athens-city-hall',
+    match: /Δημαρχείο Αθηνών|Δημαρχιακό Μέγαρο|Athens City Hall/i,
+    foot: [2, 2], seed: 189, draw: cityHallTile,
+    light: { kind: 'facadeFlood', topZ: 62, halfW: 1.2 },
+  },
+  {
+    city: 'athens', key: 'duchess-of-plaisance-mansion',
+    match: /Δούκισσας Πλακεντίας|Βίλα Ιλίσσια|Villa Ilissia|Plaisance|Πλακεντίας/i,
+    foot: [2, 2], seed: 190, draw: villaIlissiaTile,
+    light: { kind: 'facadeFlood', topZ: 64, halfW: 1.2 },
+  },
+  {
+    city: 'athens', key: 'sarogleio-mansion',
+    match: /Σαρόγλειο|Μέγαρο Σαρόγλου|Sarogleio|Σαρόγλου/i,
+    foot: [2, 2], seed: 191, draw: baroqueMansionTile,
+    light: { kind: 'facadeFlood', topZ: 68, halfW: 1.2 },
+  },
+
+  // ---- the Lycabettus open-air theatre (bespoke draw) ----
+  {
+    city: 'athens', key: 'lycabettus-theatre',
+    match: /Θέατρο Λυκαβηττού|Λυκαβηττού Θέατρο|Lycabettus Theatre/i,
+    foot: [3, 3], seed: 192, draw: lycabettusTheatreTile,
+    light: { kind: 'stadiumFlood', topZ: 150, halfW: 1.3 },
+  },
+
+  // ---- the old railway stations (Ziller) — placed via the station workhorse ----
+  {
+    city: 'athens', key: 'larissa-station',
+    match: /Σταθμός Λαρίσης|Larissa Station|Σιδηροδρομικός Σταθμός Αθηνών/i,
+    foot: [2, 2], seed: 193, draw: railwayStationTile,
+    light: { kind: 'facadeFlood', topZ: 64, halfW: 1.4 },
+  },
+  {
+    city: 'athens', key: 'peloponnese-station',
+    match: /Πελοποννήσου.*Σταθμός|Σταθμός Πελοποννήσου|Peloponnese.*[Ss]tation/i,
+    foot: [2, 2], seed: 194, draw: railwayStationTile,
+    light: { kind: 'facadeFlood', topZ: 64, halfW: 1.4 },
+  },
+
+  // ---- more ministries / civic blocks (the marble workhorse, each placed) ----
+  {
+    city: 'athens', key: 'ministry-of-justice',
+    match: /Υπουργείο Δικαιοσύνης|Ministry of Justice|Θέμιδος Μέλαθρον|Themidos/i,
+    foot: [3, 3], seed: 195, draw: (s) => neoclassicalBlock(s, 3, { order: 'corinthian', head: 88 }),
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.5 },
+  },
+  {
+    city: 'athens', key: 'ministry-of-health',
+    match: /Υπουργείο Υγείας|Ministry of Health/i,
+    foot: [2, 2], seed: 196, draw: (s) => neoclassicalBlock(s, 2, { ochre: true, order: 'ionic' }),
+    light: { kind: 'facadeFlood', topZ: 50, halfW: 1.1 },
+  },
+  {
+    city: 'athens', key: 'national-printing-office',
+    match: /Εθνικό Τυπογραφείο|National Printing|Τυπογραφεί/i,
+    foot: [2, 2], seed: 197, draw: (s) => neoclassicalBlock(s, 2, { order: 'doric' }),
+    light: { kind: 'facadeFlood', topZ: 50, halfW: 1.1 },
+  },
+
+  // ---- mansions / hotels / churches rounding out the 100 ----
+  {
+    city: 'athens', key: 'athinogenis-mansion',
+    match: /Μέγαρο Αθηνογένη|Αθηνογένη|Athinogenis/i,
+    foot: [1, 1], seed: 198, draw: (s) => neoclassicalBlock(s, 1, { ochre: true, order: 'ionic', head: 72 }),
+    light: { kind: 'facadeFlood', topZ: 46, halfW: 0.7 },
+  },
+  {
+    city: 'athens', key: 'king-george-hotel',
+    match: /King George|Ξενοδοχείο King George|Μέγα Ξενοδοχείο Βασιλεύς Γεώργιος/i,
+    foot: [1, 1], seed: 199, draw: (s) => highriseTile(s, 11, COLORS.glassSunset),
+    light: { kind: 'towerCrown', topZ: 110, halfW: 0.5 },
+  },
+  {
+    city: 'athens', key: 'church-saint-george-lycabettus',
+    match: /Άγιος Γεώργιος Λυκαβηττού|Saint George.*Lycabettus|Άι Γιώργης/i,
+    foot: [1, 1], seed: 200, draw: (s) => byzantineChapelTile(s, true),
+    light: { kind: 'facadeFlood', topZ: 50, halfW: 0.5 },
   },
 
   // ---- the square statues + busts (broad catch, LAST so named buildings win) ----
