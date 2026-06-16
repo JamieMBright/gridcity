@@ -530,6 +530,10 @@ export class MapRenderer {
     this.city.addChild(this.roadVehicleLayer);
     this.city.addChild(this.bridgeTopLayer);
     this.city.addChild(this.structureLayer);
+    // dusk pockets darken each ENERGISED hero so its fairy lights pop — in the
+    // WORLD layer (normal blend, over the buildings) because the glow layer
+    // above is additive-only and cannot darken.
+    this.city.addChild(this.heroDuskG);
     // the air fleet flies over the buildings, under the pins/labels
     this.city.addChild(this.airLayer);
     this.world.addChild(this.city);
@@ -567,7 +571,6 @@ export class MapRenderer {
     this.heroDuskG.eventMode = 'none'; // normal blend (default) ⇒ it darkens
     this.glowWorld.addChild(this.bloomG);
     this.glowWorld.addChild(this.gleamG);
-    this.glowWorld.addChild(this.heroDuskG); // dusk pocket UNDER the bulbs
     this.glowWorld.addChild(this.heroLightsG);
     this.buildGleamHeroes();
     this.buildHeroLightAnchors();
