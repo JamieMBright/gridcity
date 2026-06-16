@@ -330,34 +330,6 @@ export function drawHeroLights(
   }
 }
 
-/** Draw a soft LOCAL DUSK POCKET behind each energised hero into a NORMAL-blend
- *  Graphics that sits UNDER the additive bulbs. Powering a hero deepens its own
- *  immediate backdrop toward night so its fairy lights POP — WITHOUT darkening
- *  the global day/night wash (the owner kept that light/cosy to avoid a
- *  "flashing" cycle, 2026-06-13). It scales with `glow` (gone by day, deepest at
- *  night) and hugs the silhouette so it reads as the building sitting in dusk,
- *  not a gloom blob over the district. */
-export function drawHeroDusk(g: Graphics, heroes: readonly HeroLight[], glow: number): void {
-  g.clear();
-  const lvl = Math.max(0, Math.min(1, glow));
-  if (lvl <= 0.05 || heroes.length === 0) return;
-  const a = 0.9 * lvl; // strongest at night, gone by day
-  for (const h of heroes) {
-    const span = Math.max(h.cy - h.topY, h.w);
-    const midY = h.cy - span * 0.42;
-    const rx = h.w * 1.25 + 4 * RES;
-    const ry = span * 0.6 + h.w * 0.3;
-    // soft concentric deep-navy pool (normal blend ⇒ it DARKENS the hero)
-    for (const [mul, am] of [
-      [1.0, 0.38],
-      [0.64, 0.7],
-      [0.34, 1],
-    ] as const) {
-      g.ellipse(h.cx, midY, rx * mul, ry * mul).fill({ color: 0xff00ff, alpha: a * am });
-    }
-  }
-}
-
 // --- THE EIFFEL TOWER: golden SPARKLE up the lattice (the 20:00 shimmer) -----
 // A twinkling field of warm-gold pinprick BULBS scattered over the silhouette,
 // each cycling out of phase, biased toward the wide base — exactly the real
