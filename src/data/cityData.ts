@@ -206,21 +206,46 @@ export function buildHeroTable(map: CityMap): void {
     const key = resolveBespokeKey(fabric, place.name);
     if (!key) continue; // no bespoke hero → keep its archetype landmark value
     const foot = footFor(fabric, key);
-    const index = table.length;
-    table.push({ key, foot });
-    place.heroKey = key;
-    const value = HERO_BASE + index;
+    const value = HERO_BASE + table.length;
     // stamp the W×H footprint, SW-anchored on (x, y): extend E (+x) and N (−y),
     // clipped to the map (off-map tiles are simply skipped).
+    //
+    // ADDITIVITY FOR CODE-DRAWN LONDON: the OSM pipeline stamps a placeholder
+    // archetype/marquee landmark under each hero name that the hero is meant to
+    // REPLACE, so for those fabrics the hero overwrites freely. London is
+    // code-drawn: its marquee icons (St Paul's, Parliament, the O2, Wembley,
+    // the Olympic venues …) are ALREADY hand-placed in the landmark raster by
+    // buildLondonMap's enum pass — the very same bespoke art, with reserved
+    // precincts (some reaching over the river) that the map's tests guard. So
+    // for `london` a hero must NOT clobber an existing enum landmark, nor stamp
+    // a water tile a marquee's precinct happens to span: it writes ONLY free
+    // (none) LAND / already-hero tiles. A marquee whose footprint is wholly
+    // enum+water therefore stamps nothing and stays a label that renders +
+    // lights via its enum placement, while the NEW London heroes (termini,
+    // museums, palaces, the South-Bank set, the City civics) sit on open ground
+    // and stamp in full. Other fabrics keep the original overwrite behaviour.
+    const guard = fabric === 'london';
+    const terrain = map.terrain;
     const [fw, fh] = foot;
+    let stamped = 0;
     for (let dx = 0; dx < fw; dx++) {
       for (let dy = 0; dy < fh; dy++) {
         const tx = place.x + dx;
         const ty = place.y - dy;
         if (tx < 0 || tx >= map.width || ty < 0 || ty >= map.height) continue;
-        landmark[ty * map.width + tx] = value;
+        const li = ty * map.width + tx;
+        if (guard) {
+          const cur = landmark[li] ?? 0;
+          if (cur > 0 && cur < HERO_BASE) continue; // keep London's enum icon
+          if (terrain[li] === TERRAIN.water) continue; // don't stamp the river
+        }
+        landmark[li] = value;
+        stamped++;
       }
     }
+    if (stamped === 0) continue; // nothing placed (London marquee on its enum) → no slot
+    table.push({ key, foot });
+    place.heroKey = key;
   }
   if (table.length > 0) map.heroTable = table;
 }

@@ -440,13 +440,19 @@ export function seedScenario(state: GameState, ctx: SimContext): void {
 
 // --- save / load -----------------------------------------------------------
 
-export const SAVE_VERSION = 13;
+export const SAVE_VERSION = 14;
 
 /** Guard for untrusted save payloads; lives beside SAVE_VERSION so the two
  *  can never drift apart again (a stale guard silently discarded saves). */
 export function isSaveData(d: unknown): d is SaveData {
   if (typeof d !== 'object' || d === null) return false;
   const v = (d as { v?: unknown }).v;
+  // v14: London PLACEMENT wiring — buildLondonMap now calls buildHeroTable, and
+  // ~30 new NAMED_PLACES place London's 41 bespoke registry heroes (the rail
+  // termini, the great museums, the palaces, the South-Bank set, the City
+  // civics) into the `landmark` raster as multi-tile HERO_BASE footprints
+  // (protected building-exclusion fabric). A v13 asset could sit on what is now
+  // a protected hero precinct, so v13 saves are retired here.
   // v13: landmark RESIZE pass (owner playtest, 2026-06-13) — the hero venues
   // grew from 1×1 dots to dominant multi-tile footprints: the Olympic Stadium
   // (3×3) and Wembley (2×2) in/near Stratford, the O2/Millennium Dome (3×3) on
@@ -475,11 +481,11 @@ export function isSaveData(d: unknown): d is SaveData {
   // network assets can sit on what is now water, carriageway or protected
   // fabric. (v9 re-laid streets on the tile-edge lattice; v8 moved the
   // whole geography; v7 the id scheme.)
-  return typeof v === 'number' && v >= 13 && v <= SAVE_VERSION;
+  return typeof v === 'number' && v >= 14 && v <= SAVE_VERSION;
 }
 
 export interface SaveData {
-  v: 13;
+  v: 14;
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;

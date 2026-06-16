@@ -36,6 +36,7 @@ import {
   lit,
   RES,
   shaded,
+  SHADOW,
   top,
 } from '../iso';
 import { COLORS } from '../palette';
@@ -746,6 +747,819 @@ function hotelParticulierTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 // =====================================================================
 
 // =====================================================================
+// ROUND 2 — the next batch of bespoke Paris heroes (placed-name targets from
+// src/data/cities/paris.ts that round 1 left on the archetype fabric). The W5
+// hero-table fix resolves a bespoke hero for EVERY named place (not only
+// landmark:true), so each of these renders the moment its `match` hits its
+// placed name. Distinctive silhouettes first (windmills, a circus rotunda, the
+// Ledoux toll-rotunda, museum drums, a Belle-Époque theatre…), then a small
+// FAMILY of distinct hôtel-particulier draws spread across the ~40 placed
+// hôtels so the Marais/Faubourg mansions read varied, not stamped.
+// =====================================================================
+
+const BRICKR = hex('#9c5640'); // Paris industrial red brick (Cirque, halles)
+const BRICKR_D = hex('#7c4232');
+const SAILW = hex('#d8cdb4'); // weathered windmill sail canvas / timber
+const CONCR = hex('#b8b2a4'); // raw board-marked concrete (memorial, modernist)
+const GLASSY = COLORS.glassSky;
+
+// =====================================================================
+// MOULIN (windmill) — a Montmartre guinguette windmill: a stout round/square
+// stone-and-timber tower-mill on a green mound, capped by a turning cap, with
+// the four great lattice SAILS (the croix) at a jaunty angle and a stage/
+// gallery hut at its foot. Serves Moulin de la Galette + Moulin de la Charité
+// (Radet). The sails ARE the silhouette. 2×2 with headroom. `gallery` adds the
+// raised dance-hall deck of the Galette. 2×2.
+// =====================================================================
+function moulinTile(seed: number, gallery: boolean): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 150 });
+  void seed;
+  const ST = hex('#cdbfa2');
+  const TIMB = hex('#6f4a33');
+  const u0 = 0.5, u1 = 1.5, v0 = 0.5, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // a small green hillock the mill sits on (Montmartre's butte)
+  iso.box(u0 - 0.34, v0 - 0.34, u1 + 0.34, v1 + 0.34, 0, 6, shaded(COLORS.grass, 0.1), { ink: false });
+  // an optional low timber gallery/dance-hall deck wrapping the foot (Galette)
+  if (gallery) {
+    iso.box(u0 - 0.28, v0 - 0.28, u1 + 0.28, v1 + 0.28, 6, 20, lighten(ST, 0.02));
+    iso.hip(u0 - 0.3, v0 - 0.3, u1 + 0.3, v1 + 0.3, 20, 8, SLATE);
+    // little lit windows of the guinguette
+    iso.windowsLeft(v1 + 0.28, u0 - 0.2, u1 + 0.2, 8, 17, 7, alpha(COLORS.glassLit, 0.7), TIMB);
+  }
+  // the tapering round mill body (drawn as a battered stone drum), tall enough
+  // to lift the sail-cross clear of the surrounding mansard fabric
+  const cx = (u0 + u1) / 2, cy = (v0 + v1) / 2;
+  const bz0 = gallery ? 18 : 6;
+  const bodyH = 88;
+  const [bx, byB] = iso.P(cx, cy + 0.3, 0);
+  const BR = 0.32 * (CELL_W / 2);
+  const drum = (z: number, s: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      pts.push([bx + Math.cos(a) * BR * s, byB - z * RES + Math.sin(a) * BR * s * 0.5]);
+    }
+    return pts;
+  };
+  // body wall as a tapered band (wide base → narrow top)
+  iso.r.poly([...drum(bz0, 1), ...drum(bodyH, 0.72).reverse()], ST, shaded(ST, 0.16));
+  iso.r.poly(drum(bodyH, 0.72), lit(ST, 0.04));
+  iso.r.polyline(drum(bz0, 1).slice(0, 13), INK_W * 0.7, INK);
+  // a couple of stone window slits + a door
+  for (const fz of [26, 50]) {
+    const [wx, wy] = [bx + BR * 0.5, byB - fz * RES + BR * 0.34];
+    iso.r.rect(wx - 1.4 * RES, wy - 3 * RES, wx + 1.4 * RES, wy + 1 * RES, alpha(COLORS.glassDark, 0.85));
+  }
+  // the turning cap (a domed timber bonnet)
+  const cap = (s: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 14; i++) {
+      const a = Math.PI * (i / 14);
+      pts.push([bx + Math.cos(a) * BR * 0.76 * s, byB - bodyH * RES - Math.sin(a) * 16 * RES * s]);
+    }
+    return pts;
+  };
+  iso.r.poly(cap(1), shaded(TIMB, 0.05), lit(TIMB, 0.08));
+  iso.r.polyline(cap(1), INK_W * 0.7, INK);
+  // ---- the four great SAILS: a bold cross of latticed canvas frames ----
+  const hubX = bx + BR * 0.4;
+  const hubY = byB - (bodyH - 4) * RES;
+  const SAIL = 42 * RES; // long arms — the cross must dominate the silhouette
+  const WIDTH = 8 * RES; // broad sail-cloth
+  const ang = 0.5; // jaunty tilt of the cross
+  for (let k = 0; k < 4; k++) {
+    const a = ang + (k * Math.PI) / 2;
+    const tx = hubX + Math.cos(a) * SAIL;
+    const ty = hubY + Math.sin(a) * SAIL;
+    const px = Math.cos(a + Math.PI / 2) * WIDTH;
+    const py = Math.sin(a + Math.PI / 2) * WIDTH;
+    // sail-cloth: a broad parallelogram on the leading side of the spar
+    iso.r.poly(
+      [[hubX, hubY], [tx, ty], [tx + px, ty + py], [hubX + px * 0.5, hubY + py * 0.5]],
+      alpha(SAILW, 0.9),
+      alpha(shaded(SAILW, 0.18), 0.9),
+    );
+    // the spar over the cloth (bold)
+    iso.r.line([hubX, hubY], [tx, ty], 2 * RES, TIMB);
+    // lattice ribs across the cloth
+    for (const t of [0.35, 0.6, 0.85]) {
+      iso.r.line(
+        [hubX + (tx - hubX) * t, hubY + (ty - hubY) * t],
+        [hubX + (tx - hubX) * t + px, hubY + (ty - hubY) * t + py],
+        0.7 * RES,
+        alpha(TIMB, 0.75),
+      );
+    }
+    iso.r.polyline([[hubX, hubY], [tx, ty], [tx + px, ty + py]], INK_W * 0.5, alpha(INK, 0.6));
+  }
+  // the central hub cap
+  iso.r.line([hubX - 2.4 * RES, hubY], [hubX + 2.4 * RES, hubY], 3.4 * RES, TIMB);
+  iso.glint([hubX, hubY], 1.8 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// CIRQUE D'HIVER — Napoleon-III permanent circus: a low 20-sided POLYGONAL
+// drum of cream stone with a shallow conical zinc roof, a pilastered ring, a
+// columned entrance portico under a pediment, and the little finial lantern at
+// the apex. The faceted polygon ring IS the read. 2×2.
+// =====================================================================
+function cirqueHiverTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 90 });
+  void seed;
+  const ST = hex('#ddd0b3');
+  const cx = 1.0, cy = 1.0;
+  iso.shadow(0.42, 0.46, 1.58, 1.54, 0.2, 0.22);
+  const [px, pyB] = iso.P(cx, cy, 0);
+  const R = 0.62 * (CELL_W / 2);
+  const N = 20;
+  const ringPts = (z: number, s: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= N; i++) {
+      const a = (i / N) * Math.PI * 2;
+      pts.push([px + Math.cos(a) * R * s, pyB - z * RES + Math.sin(a) * R * s * 0.5]);
+    }
+    return pts;
+  };
+  // the polygon wall band
+  iso.r.poly([...ringPts(0, 1), ...ringPts(34, 1).reverse()], ST, shaded(ST, 0.16));
+  // pilaster ticks around the visible front half + a window per bay
+  for (let i = 0; i <= N / 2; i++) {
+    const a = (i / N) * Math.PI * 2;
+    const wx = px + Math.cos(a) * R;
+    const wyT = pyB - 30 * RES + Math.sin(a) * R * 0.5;
+    const wyB = pyB - 6 * RES + Math.sin(a) * R * 0.5;
+    iso.r.line([wx, wyT], [wx, wyB], 0.7 * RES, alpha(INK, 0.5));
+    iso.r.rect(wx - 1.2 * RES, wyT + 2 * RES, wx + 1.2 * RES, wyB - 2 * RES, alpha(COLORS.glassDark, 0.8));
+  }
+  iso.r.polyline(ringPts(0, 1).slice(0, N / 2 + 2), INK_W * 0.7, INK);
+  iso.r.polyline(ringPts(34, 1), INK_W * 0.6, alpha(INK, 0.7), true);
+  // cornice band
+  iso.r.poly([...ringPts(34, 1.02), ...ringPts(38, 1.02).reverse()], lighten(ST, 0.08));
+  // shallow conical zinc roof
+  const apexY = pyB - 64 * RES;
+  const roofBase = ringPts(38, 0.98);
+  for (let i = 0; i < N; i++) {
+    const p0 = roofBase[i]!;
+    const p1 = roofBase[i + 1]!;
+    iso.r.poly([p0, p1, [px, apexY]], i < N / 2 ? lit(ZINC, 0.04) : shaded(ZINC, 0.06));
+  }
+  iso.r.polyline([roofBase[0]!, [px, apexY], roofBase[N / 2]!], INK_W * 0.5, alpha(INK, 0.6));
+  // apex finial lantern
+  finial(iso, px, apexY + 4 * RES, 7, GILT_HOT);
+  // entrance portico jutting toward the viewer
+  iso.box(cx - 0.2, cy + 0.5, cx + 0.2, cy + 0.66, 0, 26, lighten(ST, 0.03));
+  colonnade(iso, cy + 0.66, cx - 0.16, cx + 0.16, 4, 24, 4, COLORS.white);
+  pediment(iso, cy + 0.66, cx - 0.18, cx + 0.18, 26, 7, ST);
+  return iso.build();
+}
+
+// =====================================================================
+// ROTONDE DE LA VILLETTE — Ledoux's neoclassical toll-rotunda (a barrière of
+// the Mur des Fermiers généraux): a square stone block pierced by arcaded
+// loggias, carrying a tall CYLINDRICAL drum ringed with a colonnade, capped by
+// a low saucer dome. Severe, geometric, monumental. 2×2.
+// =====================================================================
+function rotondeVilletteTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 120 });
+  void seed;
+  const ST = hex('#d2c6ac');
+  const u0 = 0.42, u1 = 1.58, v0 = 0.46, v1 = 1.54;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // the square podium block
+  iso.box(u0, v0, u1, v1, 0, 40, ST);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 9, shaded(ST, 0.12), { ink: false });
+  // arcaded loggia — round-headed openings down the two visible faces
+  for (let i = 0; i < 4; i++) {
+    const u = u0 + 0.16 + i * 0.28;
+    const poly: Pt[] = [iso.P(u, v1, 8), iso.P(u, v1, 26)];
+    for (let j = 0; j <= 8; j++) {
+      const t = j / 8;
+      poly.push(iso.P(u + 0.18 * t, v1, 26 + Math.sin(t * Math.PI) * 8));
+    }
+    poly.push(iso.P(u + 0.18, v1, 26), iso.P(u + 0.18, v1, 8));
+    iso.r.poly(poly, alpha(COLORS.glassDark, 0.82));
+  }
+  for (let i = 0; i < 4; i++) {
+    const v = v0 + 0.16 + i * 0.28;
+    const poly: Pt[] = [iso.P(u1, v, 8), iso.P(u1, v, 26)];
+    for (let j = 0; j <= 8; j++) {
+      const t = j / 8;
+      poly.push(iso.P(u1, v + 0.18 * t, 26 + Math.sin(t * Math.PI) * 8));
+    }
+    poly.push(iso.P(u1, v + 0.18, 26), iso.P(u1, v + 0.18, 8));
+    iso.r.poly(poly, alpha(COLORS.glassDark, 0.7));
+  }
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 40, 45, lighten(ST, 0.07), { topC: top(ST, 0.3) });
+  // the tall cylindrical drum
+  const cx = (u0 + u1) / 2, cy = (v0 + v1) / 2;
+  const [dx, dyB] = iso.P(cx, cy + 0.34, 0);
+  const DR = 0.4 * (CELL_W / 2);
+  const dz0 = 45, dz1 = 98; // taller drum so the rotunda towers over the fabric
+  const drum = (z: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      pts.push([dx + Math.cos(a) * DR, dyB - z * RES + Math.sin(a) * DR * 0.5]);
+    }
+    return pts;
+  };
+  iso.r.poly([...drum(dz0), ...drum(dz1).reverse()], lighten(ST, 0.02), shaded(ST, 0.14));
+  // ring of columns around the visible front of the drum
+  for (let i = 0; i <= 12; i++) {
+    const a = (i / 12) * Math.PI;
+    const colx = dx + Math.cos(a) * DR;
+    const colyB = dyB - dz0 * RES + Math.sin(a) * DR * 0.5;
+    const colyT = dyB - dz1 * RES + Math.sin(a) * DR * 0.5;
+    iso.r.line([colx, colyT], [colx, colyB], 1.2 * RES, a < Math.PI * 0.45 ? lit(COLORS.white, 0.1) : COLORS.white);
+  }
+  iso.r.polyline(drum(dz1), INK_W * 0.6, alpha(INK, 0.7), true);
+  // a low saucer dome on top
+  domeAt(iso, cx, cy + 0.34, dz1, DR * 0.96, 0.55, LEADG, { ribs: 6 });
+  return iso.build();
+}
+
+// =====================================================================
+// MUSÉE GUIMET — Belle-Époque Asian-art museum: a stone Beaux-Arts block whose
+// signature is the great glazed ROTUNDA on the corner (a cylindrical library
+// drum with a domed glass roof) beside a colonnaded entrance. 2×2.
+// =====================================================================
+function museeGuimetTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 90 });
+  void seed;
+  const u0 = 0.4, u1 = 1.6, v0 = 0.46, v1 = 1.54;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // main stone wing
+  iso.box(u0, v0, u1 - 0.2, v1, 0, 44, LIME);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 9, shaded(LIME, 0.12), { ink: false });
+  iso.windowsLeft(v1, u0 + 0.08, u1 - 0.3, 14, 38, 6, alpha(COLORS.glassDark, 0.85), COLORS.white);
+  iso.gable(u0, v0, u1 - 0.2, v1, 44, 10, 'u', ZINC, LIME);
+  // entrance colonnade on the front
+  colonnade(iso, v1, u0 + 0.12, u1 - 0.42, 8, 40, 7, COLORS.white);
+  // the corner glazed rotunda (the Guimet read)
+  const cx = u1 - 0.18, cy = v0 + 0.4;
+  const [dx, dyB] = iso.P(cx, cy, 0);
+  const DR = 0.26 * (CELL_W / 2);
+  const drumZ = 52;
+  const drum = (z: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      pts.push([dx + Math.cos(a) * DR, dyB - z * RES + Math.sin(a) * DR * 0.5]);
+    }
+    return pts;
+  };
+  iso.r.poly([...drum(0), ...drum(drumZ).reverse()], lighten(LIME, 0.03), shaded(LIME, 0.14));
+  // tall round-headed glazing around the drum
+  for (let i = 0; i <= 12; i++) {
+    const a = (i / 12) * Math.PI;
+    const gx = dx + Math.cos(a) * DR * 0.96;
+    const gyB = dyB - 10 * RES + Math.sin(a) * DR * 0.5;
+    const gyT = dyB - (drumZ - 6) * RES + Math.sin(a) * DR * 0.5;
+    iso.r.line([gx, gyT], [gx, gyB], 1.4 * RES, alpha(GLASSY, 0.7));
+  }
+  iso.r.polyline(drum(drumZ), INK_W * 0.6, alpha(INK, 0.7), true);
+  // the glass cupola
+  domeAt(iso, cx, cy, drumZ, DR * 0.98, 0.9, GLASSY, { ribs: 7, bulb: true });
+  return iso.build();
+}
+
+// =====================================================================
+// THÉÂTRE (Belle-Époque / Art-Deco playhouse) — a slim stone music-hall front:
+// a glazed marquee canopy, a tall arched first-floor loggia window, a sculpted
+// attic and a little corner cupola. Serves Théâtre Daunou + Musée Grévin (both
+// boulevard show-fronts). `deco` flattens it to Art-Deco geometry. 2×2.
+// =====================================================================
+function theatreTile(seed: number, deco: boolean): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 130 });
+  void seed;
+  const ST = deco ? hex('#d9cdb6') : hex('#e0d6bd');
+  const u0 = 0.46, u1 = 1.54, v0 = 0.5, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  iso.box(u0, v0, u1, v1, 0, deco ? 66 : 60, ST);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 8, shaded(ST, 0.12), { ink: false });
+  // a glazed marquee canopy over the entrance
+  iso.box(u0 + 0.06, v1, u1 - 0.06, v1 + 0.12, 16, 19, COPPER, { ink: false });
+  iso.r.poly(
+    [iso.P(u0 + 0.06, v1 + 0.12, 16), iso.P(u1 - 0.06, v1 + 0.12, 16), iso.P(u1 - 0.06, v1 + 0.12, 8), iso.P(u0 + 0.06, v1 + 0.12, 8)],
+    alpha(COLORS.glassLit, 0.6),
+  );
+  // tall arched loggia windows on the first floor
+  for (let i = 0; i < 3; i++) {
+    const u = u0 + 0.18 + i * 0.32;
+    if (deco) {
+      iso.r.poly([iso.P(u, v1, 24), iso.P(u + 0.18, v1, 24), iso.P(u + 0.18, v1, 52), iso.P(u, v1, 52)], alpha(COLORS.glassLit, 0.55));
+    } else {
+      const poly: Pt[] = [iso.P(u, v1, 24), iso.P(u, v1, 46)];
+      for (let j = 0; j <= 8; j++) {
+        const t = j / 8;
+        poly.push(iso.P(u + 0.18 * t, v1, 46 + Math.sin(t * Math.PI) * 8));
+      }
+      poly.push(iso.P(u + 0.18, v1, 46), iso.P(u + 0.18, v1, 24));
+      iso.r.poly(poly, alpha(COLORS.glassLit, 0.55));
+    }
+  }
+  // sculpted attic / cornice
+  const bodyTop = deco ? 66 : 60;
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, bodyTop, bodyTop + 6, lighten(ST, 0.07), { topC: top(ST, 0.3) });
+  if (deco) {
+    // a stepped Art-Deco crown (a ziggurat tower over the corner)
+    iso.box(u0 + 0.2, v0 + 0.2, u1 - 0.2, v1 - 0.2, bodyTop + 6, bodyTop + 22, ST);
+    iso.box(u0 + 0.34, v0 + 0.34, u1 - 0.34, v1 - 0.34, bodyTop + 22, bodyTop + 34, lighten(ST, 0.05));
+    const ft = iso.P((u0 + u1) / 2, (v0 + v1) / 2, bodyTop + 34);
+    iso.r.line(ft, [ft[0], ft[1] - 6 * RES], 1.2 * RES, GILT_HOT);
+  } else {
+    // a tall corner cupola + a gilt finial group
+    const tu = u1 - 0.16, tv = v0 + 0.2;
+    iso.box(tu - 0.12, tv - 0.12, tu + 0.12, tv + 0.12, bodyTop + 6, bodyTop + 24, ST);
+    domeAt(iso, tu, tv, bodyTop + 24, 0.14 * (CELL_W / 2), 1.2, COPPER, { ribs: 4, bulb: true });
+    const ft = iso.P(u0 + 0.3, v1, bodyTop + 12);
+    iso.r.poly([[ft[0] - 3 * RES, ft[1] + 2 * RES], [ft[0] + 3 * RES, ft[1] + 2 * RES], [ft[0], ft[1] - 6 * RES]], GILT);
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// FONTAINE / monumental fountain-grotto — a Medici-style baroque grotto: a
+// rusticated stone aedicule (a tall round-arched niche between paired columns
+// under a pediment) with a basin of glowing water at its foot. Serves Fontaine
+// Médicis + Maison du Fontainier (the water-house). 1×1.
+// =====================================================================
+function fontaineTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 80 });
+  void seed;
+  const ST = hex('#c9bda2');
+  const u = 0.5, v = 0.5;
+  iso.shadow(0.18, 0.24, 0.82, 0.8, 0.18, 0.22);
+  // long basin of water in front
+  iso.box(u - 0.42, v + 0.04, u + 0.42, v + 0.42, 0, 4, alpha(COLORS.glassSky, 0.7), { ink: false });
+  iso.r.poly([iso.P(u - 0.42, v + 0.42, 4), iso.P(u + 0.42, v + 0.42, 4), iso.P(u + 0.42, v + 0.42, 0), iso.P(u - 0.42, v + 0.42, 0)], shaded(ST, 0.1));
+  // the rusticated aedicule wall
+  iso.box(u - 0.36, v - 0.36, u + 0.36, v + 0.04, 4, 44, ST);
+  // the tall round-arched central niche (dark grotto)
+  const poly: Pt[] = [iso.P(u - 0.16, v + 0.04, 8), iso.P(u - 0.16, v + 0.04, 30)];
+  for (let j = 0; j <= 10; j++) {
+    const t = j / 10;
+    poly.push(iso.P(u - 0.16 + 0.32 * t, v + 0.04, 30 + Math.sin(t * Math.PI) * 12));
+  }
+  poly.push(iso.P(u + 0.16, v + 0.04, 30), iso.P(u + 0.16, v + 0.04, 8));
+  iso.r.poly(poly, alpha(SHADOW, 0.5));
+  // paired flanking columns
+  for (const cu of [u - 0.26, u + 0.26]) {
+    iso.r.poly(
+      [iso.P(cu - 0.03, v + 0.04, 42), iso.P(cu + 0.03, v + 0.04, 42), iso.P(cu + 0.03, v + 0.04, 6), iso.P(cu - 0.03, v + 0.04, 6)],
+      COLORS.white,
+    );
+  }
+  // entablature + pediment
+  iso.box(u - 0.4, v - 0.4, u + 0.4, v + 0.06, 44, 49, lighten(ST, 0.08), { topC: top(ST, 0.3) });
+  pediment(iso, v + 0.06, u - 0.34, u + 0.34, 49, 11, ST);
+  iso.glint(iso.P(u, v + 0.3, 2), 2 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// MÉMORIAL DES MARTYRS DE LA DÉPORTATION — Pingusson's austere modern memorial
+// at the eastern tip of the Île de la Cité: a low raw-CONCRETE bastion set into
+// the ground, a narrow slit-stair descending between angular walls, a single
+// barred aperture to the river. Deliberately stark — the silhouette is a low,
+// sharp concrete prism, NOT a monument. 1×1.
+// =====================================================================
+function memorialTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 30 });
+  void seed;
+  const u = 0.5, v = 0.5;
+  iso.shadow(0.16, 0.2, 0.84, 0.84, 0.16, 0.24);
+  // a paved riverside terrace
+  iso.box(u - 0.44, v - 0.44, u + 0.44, v + 0.44, 0, 3, shaded(CONCR, 0.06), { ink: false });
+  // two low angular concrete walls flanking a sunken slit
+  iso.box(u - 0.36, v - 0.3, u - 0.06, v + 0.36, 3, 22, CONCR);
+  iso.box(u + 0.06, v - 0.3, u + 0.36, v + 0.36, 3, 22, lighten(CONCR, 0.03));
+  // the descending stair-slit between them (dark)
+  iso.r.poly([iso.P(u - 0.06, v + 0.36, 3), iso.P(u + 0.06, v + 0.36, 3), iso.P(u + 0.06, v - 0.3, 14), iso.P(u - 0.06, v - 0.3, 14)], alpha(SHADOW, 0.55));
+  // a single barred aperture facing the viewer (the cell window to the Seine)
+  const [wx, wy] = iso.P(u + 0.36, v + 0.06, 14);
+  iso.r.rect(wx - 2 * RES, wy - 5 * RES, wx + 2 * RES, wy - 1 * RES, alpha(SHADOW, 0.6));
+  for (const bx of [-1, 0, 1] as const) {
+    iso.r.line([wx + bx * RES, wy - 5 * RES], [wx + bx * RES, wy - 1 * RES], 0.5 * RES, alpha(INK, 0.6));
+  }
+  // a thin bronze inscription band
+  iso.r.line(iso.P(u - 0.34, v + 0.36, 18), iso.P(u + 0.34, v + 0.36, 18), 1 * RES, GILT);
+  return iso.build();
+}
+
+// =====================================================================
+// PYRAMIDE (small glass pyramid) — a freestanding modern glass pyramid pavilion
+// (a sibling of the Louvre's, placed in the east as its own landmark): a clean
+// glazed tetrahedron of glowing lattice glass on a dark granite base, smaller
+// and slimmer than the Louvre court. 1×1.
+// =====================================================================
+function pyramidePavilionTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 70 });
+  void seed;
+  const u = 0.5, v = 0.5;
+  iso.shadow(0.2, 0.24, 0.8, 0.8, 0.2, 0.24);
+  // granite plaza base
+  iso.box(u - 0.42, v - 0.42, u + 0.42, v + 0.42, 0, 5, shaded(COLORS.steel, 0.1), { ink: false });
+  // the glass pyramid
+  const apex = iso.P(u, v, 56);
+  const c0 = iso.P(u - 0.34, v + 0.34, 5); // front
+  const c1 = iso.P(u + 0.34, v + 0.34, 5);
+  const c2 = iso.P(u + 0.34, v - 0.34, 5);
+  const c3 = iso.P(u - 0.34, v - 0.34, 5);
+  iso.r.poly([c0, c1, apex], alpha(lighten(GLASSY, 0.08), 0.9)); // SE lit
+  iso.r.poly([c1, c2, apex], alpha(GLASSY, 0.82)); // E
+  iso.r.poly([c3, c0, apex], alpha(shaded(GLASSY, 0.06), 0.85)); // SW shade
+  // lattice mullions
+  for (let i = 1; i < 6; i++) {
+    const t = i / 6;
+    iso.r.line([c0[0] + (apex[0] - c0[0]) * t, c0[1] + (apex[1] - c0[1]) * t], [c1[0] + (apex[0] - c1[0]) * t, c1[1] + (apex[1] - c1[1]) * t], 0.5 * RES, alpha(COLORS.white, 0.5));
+    iso.r.line([c1[0] + (apex[0] - c1[0]) * t, c1[1] + (apex[1] - c1[1]) * t], [c2[0] + (apex[0] - c2[0]) * t, c2[1] + (apex[1] - c2[1]) * t], 0.5 * RES, alpha(COLORS.white, 0.4));
+  }
+  iso.r.polyline([c3, c0, c1, c2], INK_W * 0.6, alpha(INK, 0.7));
+  iso.r.line(c0, apex, INK_W * 0.7, alpha(INK, 0.8));
+  iso.r.line(c1, apex, INK_W * 0.6, alpha(INK, 0.7));
+  iso.glint([apex[0], apex[1] + 6 * RES], 2.4 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// HALLE INDUSTRIELLE — a 19th-C iron-and-brick works hall (the Manufacture des
+// œillets / Bercy wine warehouses / artist-studio sheds): a long low red-brick
+// range with tall round-arched windows, a saw-tooth or twin-gable glazed roof
+// and a brick chimney/water-tower stub. `chimney` adds the stack. 3×3.
+// =====================================================================
+function halleIndustrielleTile(seed: number, chimney: boolean): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 90 });
+  void seed;
+  const u0 = 0.4, u1 = 2.6, v0 = 0.5, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // the long brick range
+  iso.box(u0, v0, u1, v1, 0, 34, BRICKR);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 8, BRICKR_D, { ink: false });
+  // tall round-arched windows down the front
+  for (let i = 0; i < 9; i++) {
+    const u = u0 + 0.18 + i * 0.26;
+    const poly: Pt[] = [iso.P(u, v1, 6), iso.P(u, v1, 22)];
+    for (let j = 0; j <= 6; j++) {
+      const t = j / 6;
+      poly.push(iso.P(u + 0.16 * t, v1, 22 + Math.sin(t * Math.PI) * 6));
+    }
+    poly.push(iso.P(u + 0.16, v1, 22), iso.P(u + 0.16, v1, 6));
+    iso.r.poly(poly, alpha(COLORS.glassLit, 0.55));
+  }
+  // a brick string-course / cornice
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 34, 38, lighten(BRICKR, 0.06), { ink: false });
+  // twin glazed monitor roofs running the length
+  for (const vc of [v0 + 0.55, v1 - 0.95] as const) {
+    iso.box(u0 + 0.16, vc, u1 - 0.16, vc + 0.4, 38, 48, shaded(GLASSY, 0.06), { ink: false });
+    for (let i = 0; i <= 12; i++) {
+      const u = u0 + 0.16 + ((u1 - u0 - 0.32) * i) / 12;
+      const [bx, by] = iso.P(u, vc + 0.2, 48);
+      iso.r.line([bx, by], [bx, by - 8 * RES], 0.7 * RES, i % 3 === 0 ? alpha(COLORS.glassLit, 0.7) : alpha(GLASSY, 0.85));
+    }
+    iso.gable(u0 + 0.16, vc, u1 - 0.16, vc + 0.4, 48, 6, 'u', SLATE, BRICKR);
+  }
+  if (chimney) {
+    // a square brick chimney/water-tower stub at the rear corner
+    const cu = u0 + 0.3, cv = v0 + 0.3;
+    iso.box(cu - 0.12, cv - 0.12, cu + 0.12, cv + 0.12, 0, 84, BRICKR);
+    iso.box(cu - 0.14, cv - 0.14, cu + 0.14, cv + 0.14, 84, 90, BRICKR_D, { ink: false });
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// BARRIÈRE / toll-gate pavilion — a pair of monumental Doric columns or a small
+// rusticated toll-house flanking the old customs road (Barrière du Trône): two
+// tall stone columns on plinths carrying statues, with a low guard-pavilion
+// between. 1×1. (The Colonnes du Trône echo.)
+// =====================================================================
+function barriereTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 160 });
+  void seed;
+  const ST = hex('#cdc1a6');
+  const u = 0.5, v = 0.5;
+  iso.shadow(0.16, 0.22, 0.84, 0.84, 0.18, 0.22);
+  // low guard pavilion
+  iso.box(u - 0.22, v - 0.22, u + 0.22, v + 0.22, 0, 18, ST);
+  iso.hip(u - 0.24, v - 0.24, u + 0.24, v + 0.24, 18, 8, SLATE);
+  // two tall Doric columns (in front-left and back-right)
+  for (const [cu, cv] of [[u - 0.3, v + 0.28], [u + 0.3, v - 0.28]] as const) {
+    iso.box(cu - 0.06, cv - 0.06, cu + 0.06, cv + 0.06, 0, 6, lighten(ST, 0.06)); // plinth
+    const shaftB = iso.P(cu, cv, 6);
+    const shaftT = iso.P(cu, cv, 96);
+    iso.r.line([shaftB[0], shaftB[1]], [shaftT[0], shaftT[1]], 3 * RES, lit(COLORS.white, 0.04));
+    iso.r.line([shaftB[0] - 1.5 * RES, shaftB[1]], [shaftT[0] - 1.5 * RES, shaftT[1]], 0.6 * RES, alpha(INK, 0.4));
+    // capital
+    iso.r.rect(shaftT[0] - 3 * RES, shaftT[1] - 3 * RES, shaftT[0] + 3 * RES, shaftT[1], lighten(ST, 0.08));
+    // a small statue on top
+    iso.r.poly([[shaftT[0] - 2 * RES, shaftT[1] - 3 * RES], [shaftT[0] + 2 * RES, shaftT[1] - 3 * RES], [shaftT[0] + 1.4 * RES, shaftT[1] - 12 * RES], [shaftT[0] - 1.4 * RES, shaftT[1] - 12 * RES]], COPPER);
+    iso.glint([shaftT[0], shaftT[1] - 8 * RES], 1.4 * RES);
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// MAISON MODERNE — a 20th-C modern-movement landmark house: a flat-roofed white
+// volume on slender pilotis with ribbon windows and a roof terrace (Le
+// Corbusier idiom — Maison Planeix), OR a glass-and-steel curtain-wall slab
+// (Prouvé's Maison du Peuple). `slab` picks the metal-curtain version. 2×2.
+// =====================================================================
+function maisonModerneTile(seed: number, slab: boolean): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 70 });
+  void seed;
+  const u0 = 0.46, u1 = 1.54, v0 = 0.5, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.18, 0.22);
+  if (slab) {
+    // a steel-and-glass curtain-wall block (Maison du Peuple)
+    iso.box(u0, v0, u1, v1, 0, 56, COLORS.steel);
+    // glazed grid on the front
+    iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, 8, 50, 8, alpha(COLORS.glassLit, 0.6), COLORS.steel);
+    iso.windowsRight(u1, v0 + 0.06, v1 - 0.06, 8, 50, 8, alpha(GLASSY, 0.55), COLORS.steel);
+    iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 56, 60, lighten(COLORS.steel, 0.08), { topC: top(COLORS.steel, 0.2) });
+  } else {
+    // a white modernist villa on pilotis (Maison Planeix)
+    const WHT = hex('#e6e2d6');
+    // pilotis (the lifted ground floor)
+    for (const cu of [u0 + 0.08, (u0 + u1) / 2, u1 - 0.08]) {
+      iso.box(cu - 0.03, v1 - 0.06, cu + 0.03, v1, 0, 14, shaded(WHT, 0.2));
+    }
+    // the main floating white box
+    iso.box(u0, v0, u1, v1, 14, 48, WHT);
+    iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 14, 16, shaded(WHT, 0.14), { ink: false });
+    // a long ribbon window band
+    iso.r.poly([iso.P(u0 + 0.08, v1, 26), iso.P(u1 - 0.08, v1, 26), iso.P(u1 - 0.08, v1, 38), iso.P(u0 + 0.08, v1, 38)], alpha(COLORS.glassDark, 0.85));
+    // roof terrace parapet + a curved stair-bulkhead
+    iso.box(u0, v0, u1, v1, 48, 51, lighten(WHT, 0.05), { ink: false });
+    domeAt(iso, u0 + 0.4, v0 + 0.4, 51, 0.16 * (CELL_W / 2), 0.7, WHT);
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// STATUE ÉQUESTRE — a bronze equestrian monument on a tall stone plinth (the
+// Henri IV statue on the Pont Neuf): a verdigris horse-and-rider raised high on
+// an ashlar pedestal in a little plaza. 1×1.
+// =====================================================================
+function equestrianTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 60 });
+  void seed;
+  const ST = hex('#cabfa6');
+  const u = 0.5, v = 0.5;
+  iso.shadow(0.28, 0.28, 0.72, 0.72, 0.2, 0.24);
+  // plaza
+  iso.box(u - 0.4, v - 0.4, u + 0.4, v + 0.4, 0, 3, shaded(ST, 0.08), { ink: false });
+  // the tall pedestal
+  iso.box(u - 0.18, v - 0.14, u + 0.18, v + 0.14, 3, 40, ST);
+  iso.r.line(iso.P(u - 0.16, v + 0.14, 22), iso.P(u + 0.16, v + 0.14, 22), 0.8 * RES, alpha(INK, 0.4));
+  iso.box(u - 0.21, v - 0.17, u + 0.21, v + 0.17, 40, 44, lighten(ST, 0.08), { topC: top(ST, 0.3) });
+  // ---- the bronze horse + rider on top ----
+  const z = 44;
+  const P = (du: number, dv: number, dz: number): Pt => iso.P(u + du, v + dv, z + dz);
+  const BR = lit(COPPER, 0.12), BRD = shaded(COPPER, 0.08);
+  // horse body barrel
+  iso.r.poly([P(-0.1, 0.04, 6), P(0.1, 0.04, 6), P(0.12, -0.02, 18), P(-0.08, -0.02, 16)], BRD, BR);
+  // four legs
+  for (const du of [-0.08, -0.02, 0.04, 0.1]) iso.r.line(P(du, 0.02, 0), P(du, 0.02, 7), 1.2 * RES, BRD);
+  // neck + head raised front-right, with a muzzle jutting forward
+  const head = P(0.2, -0.02, 26);
+  iso.r.poly([P(0.1, 0.0, 14), P(0.16, -0.02, 22), head, P(0.14, 0.0, 16)], BR);
+  iso.r.poly([head, [head[0] + 3 * RES, head[1] + 1 * RES], [head[0] + 1.5 * RES, head[1] + 4 * RES]], BRD);
+  // the rider on the saddle
+  const riderTop = P(0.0, 0.0, 30);
+  iso.r.line(P(0.0, 0.0, 18), riderTop, 1.4 * RES, BRD);
+  iso.r.poly([[riderTop[0] - 1.6 * RES, riderTop[1]], [riderTop[0] + 1.6 * RES, riderTop[1]], [riderTop[0], riderTop[1] - 5 * RES]], BR);
+  iso.glint([P(0.04, 0, 24)[0], P(0.04, 0, 24)[1]], 1.6 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// REGARD (well-house) — a tiny stone aqueduct inspection-house of the old Pré-
+// Saint-Gervais/Belleville water network: a small square ashlar hut with a
+// pyramidal stone roof and an iron door. Modest 1×1 — a humble historic
+// landmark, drawn small and characterful. Serves the several "Regard …". 1×1.
+// =====================================================================
+function regardTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 40 });
+  void seed;
+  const ST = hex('#c6bca3');
+  const u = 0.5, v = 0.5;
+  iso.shadow(0.3, 0.3, 0.7, 0.72, 0.16, 0.2);
+  // grass apron
+  iso.box(u - 0.4, v - 0.4, u + 0.4, v + 0.4, 0, 3, shaded(COLORS.grass, 0.1), { ink: false });
+  // the little square hut
+  iso.box(u - 0.24, v - 0.24, u + 0.24, v + 0.24, 3, 26, ST);
+  // a low arched iron door on the front
+  const poly: Pt[] = [iso.P(u - 0.1, v + 0.24, 5), iso.P(u - 0.1, v + 0.24, 16)];
+  for (let j = 0; j <= 6; j++) {
+    const t = j / 6;
+    poly.push(iso.P(u - 0.1 + 0.2 * t, v + 0.24, 16 + Math.sin(t * Math.PI) * 5));
+  }
+  poly.push(iso.P(u + 0.1, v + 0.24, 16), iso.P(u + 0.1, v + 0.24, 5));
+  iso.r.poly(poly, alpha(SLATE, 0.85));
+  // a steep pyramidal stone roof + ball finial
+  iso.hip(u - 0.26, v - 0.26, u + 0.26, v + 0.26, 26, 16, shaded(ST, 0.08));
+  const ft = iso.P(u, v, 42);
+  iso.r.line(ft, [ft[0], ft[1] - 3 * RES], 1 * RES, lighten(ST, 0.1));
+  return iso.build();
+}
+
+// =====================================================================
+// HÔTEL PARTICULIER variants — a small FAMILY so the ~40 placed Paris mansions
+// read as DISTINCT buildings, not one stamped block. All share the corps-de-
+// logis + cour d'honneur idea, but differ in massing/roof/material:
+//   0 'court'   — classical entre cour et jardin (the default round-1 shape,
+//                 kept via hotelParticulierTile for Pavillon de Vendôme)
+//   1 'block'   — a deep urban Faubourg block, tall mansard, balconied front
+//   2 'marais'  — a Marais hôtel: brick-and-stone (chaînage), steep slate, a
+//                 round corner stair-tourelle (Sully/Marle idiom)
+//   3 'rococo'  — a Rococo garden front: a curved central avant-corps bay + a
+//                 carved cartouche pediment (Soubise/Biron idiom)
+// One function, variant-switched, each visibly different in silhouette. 2×2.
+// =====================================================================
+function hotelVariantTile(seed: number, variant: 0 | 1 | 2 | 3): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 80 });
+  void seed;
+  const u0 = 0.38, u1 = 1.62, v0 = 0.42, v1 = 1.58;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  const STONE_BR = hex('#d6cdb6'); // brick-pink-cream for the marais variant body
+  if (variant === 1) {
+    // deep Faubourg block, tall zinc mansard, balconied piano nobile
+    iso.box(u0, v0, u1, v1, 0, 52, LIME);
+    iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 10, shaded(LIME, 0.12), { ink: false });
+    iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 14, 30, 7, alpha(COLORS.glassDark, 0.85), COLORS.white);
+    iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 34, 48, 7, alpha(COLORS.glassDark, 0.85), COLORS.white);
+    // a continuous wrought balcony at the piano nobile
+    iso.r.line(iso.P(u0 + 0.06, v1, 32), iso.P(u1 - 0.06, v1, 32), 1 * RES, alpha(INK, 0.5));
+    iso.gable(u0, v0, u1, v1, 52, 16, 'u', ZINC, LIME);
+    // dormers in the mansard
+    for (const du of [u0 + 0.3, (u0 + u1) / 2, u1 - 0.3]) {
+      const d = iso.P(du, v1, 58);
+      iso.r.poly([[d[0] - 2.4 * RES, d[1]], [d[0] + 2.4 * RES, d[1]], [d[0] + 2.4 * RES, d[1] - 6 * RES], [d[0], d[1] - 9 * RES], [d[0] - 2.4 * RES, d[1] - 6 * RES]], lighten(LIME, 0.05));
+    }
+  } else if (variant === 2) {
+    // Marais hôtel: brick-and-stone, steep slate, corner round stair-tourelle
+    iso.box(u0, v0, u1, v1, 0, 40, STONE_BR);
+    iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 8, shaded(STONE_BR, 0.12), { ink: false });
+    // stone quoin chaining at the corners (vertical light bands)
+    for (const cu of [u0 + 0.02, u1 - 0.06]) {
+      iso.r.poly([iso.P(cu, v1, 8), iso.P(cu + 0.05, v1, 8), iso.P(cu + 0.05, v1, 40), iso.P(cu, v1, 40)], lighten(LIME, 0.06));
+    }
+    iso.windowsLeft(v1, u0 + 0.12, u1 - 0.12, 12, 34, 6, alpha(COLORS.glassDark, 0.85), COLORS.white);
+    iso.gable(u0, v0, u1, v1, 40, 24, 'u', SLATE, STONE_BR);
+    // the round corner stair-tourelle with a tall conical roof
+    const cu = u1 - 0.14, cv = v1 - 0.14;
+    iso.box(cu - 0.12, cv - 0.12, cu + 0.12, cv + 0.12, 0, 54, STONE_BR);
+    const apex = iso.P(cu, cv, 86);
+    const c0 = iso.P(cu - 0.12, cv + 0.12, 54);
+    const c1 = iso.P(cu + 0.12, cv + 0.12, 54);
+    const c2 = iso.P(cu + 0.12, cv - 0.12, 54);
+    iso.r.poly([c0, c1, apex], shaded(SLATE, 0.06));
+    iso.r.poly([c1, c2, apex], lit(SLATE, 0.06));
+    iso.r.polyline([c0, apex, c2], INK_W * 0.6, INK);
+    iso.r.line(apex, [apex[0], apex[1] - 4 * RES], 0.9 * RES, GILT);
+  } else if (variant === 3) {
+    // Rococo garden front: a curved central avant-corps bay + carved pediment
+    iso.box(u0, v0, u1, v1, 0, 44, LIME);
+    iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 9, shaded(LIME, 0.12), { ink: false });
+    iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 12, 36, 7, alpha(COLORS.glassDark, 0.85), COLORS.white);
+    iso.gable(u0, v0, u1, v1, 44, 12, 'u', ZINC, LIME);
+    // the bowed central avant-corps (a shallow curved bay pushing toward viewer)
+    const cx = (u0 + u1) / 2;
+    const [bx, byB] = iso.P(cx, v1, 0);
+    const BR = 0.28 * (CELL_W / 2);
+    const bay = (z: number): Pt[] => {
+      const pts: Pt[] = [];
+      for (let i = 0; i <= 10; i++) {
+        const a = Math.PI * (0.1 + 0.8 * (i / 10));
+        pts.push([bx + Math.cos(a) * BR, byB - z * RES + Math.sin(a) * BR * 0.32]);
+      }
+      return pts;
+    };
+    iso.r.poly([...bay(6), ...bay(46).reverse()], lighten(LIME, 0.04), shaded(LIME, 0.1));
+    iso.r.polyline(bay(46), INK_W * 0.5, alpha(INK, 0.6));
+    // carved cartouche pediment crowning the bay
+    pediment(iso, v1, cx - 0.22, cx + 0.22, 46, 12, LIME);
+    iso.glint(iso.P(cx, v1, 50), 2 * RES);
+  } else {
+    // 'court' — delegate to the round-1 classical entre-cour-et-jardin shape
+    return hotelParticulierTile(seed);
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// PAGODE (Maison Loo) — the startling red Chinese PAGODA on the rue de
+// Courcelles (C.T. Loo's pagoda, 1926): a stack of two-or-three diminishing
+// tiers each with an up-curled (sweeping-eave) tiled roof in vermilion-and-gold
+// over a deep-red lacquer body, crowned by a finial. A genuine Paris oddity —
+// bespoke. 2×2.
+// =====================================================================
+function pagodeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 120 });
+  void seed;
+  const REDLAC = hex('#a83a2e'); // Chinese-red lacquer wall
+  const ROOFT = hex('#c2462f'); // vermilion tile
+  const u0 = 0.5, u1 = 1.5, v0 = 0.5, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // an up-curled tiered roof at height z over a footprint inset s
+  const tier = (s: number, z: number, rise: number): void => {
+    const a0 = u0 + s, a1 = u1 - s, b0 = v0 + s, b1 = v1 - s;
+    const am = (a0 + a1) / 2, bm = (b0 + b1) / 2;
+    // four roof planes meeting at the apex, eaves flicked UP at the corners
+    const cFL = iso.P(a0 - 0.06, b1 + 0.06, z + rise * 0.18); // flicked corners
+    const cFR = iso.P(a1 + 0.06, b1 + 0.06, z + rise * 0.18);
+    const cBR = iso.P(a1 + 0.06, b0 - 0.06, z + rise * 0.18);
+    const cBL = iso.P(a0 - 0.06, b0 - 0.06, z + rise * 0.18);
+    const apex = iso.P(am, bm, z + rise);
+    iso.r.poly([cBL, cFL, apex], shaded(ROOFT, 0.06)); // left
+    iso.r.poly([cFL, cFR, apex], lit(ROOFT, 0.05)); // front-left lit
+    iso.r.poly([cFR, cBR, apex], lit(ROOFT, 0.1)); // right
+    iso.r.polyline([cFL, cFR, cBR], INK_W * 0.6, INK);
+    iso.r.polyline([cBL, cFL, apex], INK_W * 0.5, alpha(INK, 0.7));
+    iso.r.line([cFR[0], cFR[1]], [apex[0], apex[1]], INK_W * 0.5, alpha(INK, 0.7));
+    // a gilt ridge accent along the front eave
+    iso.r.line(cFL, cFR, 1 * RES, GILT_HOT);
+  };
+  // ground tier body
+  iso.box(u0, v0, u1, v1, 0, 30, REDLAC);
+  // lattice shop-front windows
+  iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 8, 26, 5, alpha(GILT, 0.5), hex('#7c2a22'));
+  tier(0.0, 30, 16);
+  // middle tier (inset)
+  iso.box(u0 + 0.16, v0 + 0.16, u1 - 0.16, v1 - 0.16, 38, 60, REDLAC);
+  iso.windowsLeft(v1 - 0.16, u0 + 0.22, u1 - 0.22, 44, 56, 4, alpha(GILT, 0.5), hex('#7c2a22'));
+  tier(0.16, 60, 14);
+  // top tier (smaller) + finial
+  iso.box(u0 + 0.32, v0 + 0.32, u1 - 0.32, v1 - 0.32, 66, 84, REDLAC);
+  tier(0.32, 84, 12);
+  const ft = iso.P((u0 + u1) / 2, (v0 + v1) / 2, 96);
+  iso.r.line(ft, [ft[0], ft[1] - 8 * RES], 1.4 * RES, GILT_HOT);
+  iso.r.line([ft[0] - 2 * RES, ft[1] - 5 * RES], [ft[0] + 2 * RES, ft[1] - 5 * RES], 1 * RES, GILT_HOT);
+  iso.glint([ft[0], ft[1] - 6 * RES], 1.8 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// ABBAYE (small medieval abbey/church) — a modest Romanesque abbey: a stone
+// nave with a steep roof, small round-arched windows, an apse and a squat
+// crossing bell-tower with a pyramidal cap. Serves Abbaye de Saint-Maur. 2×2.
+// =====================================================================
+function abbayeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 120 });
+  void seed;
+  const ST = hex('#cabfa6'); // pale ashlar
+  const ROOF = hex('#6a5746');
+  const u0 = 0.46, u1 = 1.54, v0 = 0.5, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // the long nave
+  iso.box(u0, v0 + 0.2, u1, v1, 0, 36, ST);
+  iso.gable(u0, v0 + 0.2, u1, v1, 36, 22, 'u', ROOF, ST);
+  // small round-arched windows down the nave flank
+  for (let i = 0; i < 5; i++) {
+    const u = u0 + 0.12 + i * 0.2;
+    const poly: Pt[] = [iso.P(u, v1, 10), iso.P(u, v1, 22)];
+    for (let j = 0; j <= 5; j++) {
+      const t = j / 5;
+      poly.push(iso.P(u + 0.08 * t, v1, 22 + Math.sin(t * Math.PI) * 4));
+    }
+    poly.push(iso.P(u + 0.08, v1, 22), iso.P(u + 0.08, v1, 10));
+    iso.r.poly(poly, alpha(COLORS.glassDark, 0.85));
+  }
+  // a rounded apse at the rear (a half-drum)
+  const [ax, ayB] = iso.P((u0 + u1) / 2, v0 + 0.2, 0);
+  const AR = 0.3 * (CELL_W / 2);
+  const apse = (z: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 12; i++) {
+      const a = Math.PI + (i / 12) * Math.PI;
+      pts.push([ax + Math.cos(a) * AR, ayB - z * RES + Math.sin(a) * AR * 0.5]);
+    }
+    return pts;
+  };
+  iso.r.poly([...apse(0), ...apse(30).reverse()], ST, shaded(ST, 0.14));
+  // the squat crossing bell-tower with a pyramidal cap
+  const tu = u1 - 0.22, tv = v0 + 0.42;
+  iso.box(tu - 0.16, tv - 0.16, tu + 0.16, tv + 0.16, 0, 58, ST);
+  // belfry openings
+  for (const fz of [44]) {
+    const [wx, wy] = iso.P(tu, tv + 0.16, fz);
+    iso.r.rect(wx - 1.4 * RES, wy - 6 * RES, wx + 1.4 * RES, wy, alpha(SHADOW, 0.6));
+  }
+  const apex = iso.P(tu, tv, 84);
+  const c0 = iso.P(tu - 0.16, tv + 0.16, 58);
+  const c1 = iso.P(tu + 0.16, tv + 0.16, 58);
+  const c2 = iso.P(tu + 0.16, tv - 0.16, 58);
+  iso.r.poly([c0, c1, apex], shaded(ROOF, 0.06));
+  iso.r.poly([c1, c2, apex], lit(ROOF, 0.06));
+  iso.r.polyline([c0, apex, c2], INK_W * 0.6, INK);
+  iso.r.line(apex, [apex[0], apex[1] - 4 * RES], 0.9 * RES, GILT);
+  return iso.build();
+}
+
+// =====================================================================
 // REGISTRY
 // =====================================================================
 export const CITY_HEROES: BespokeHero[] = [
@@ -1039,5 +1853,550 @@ export const CITY_HEROES: BespokeHero[] = [
     seed: 932,
     draw: (seed) => hotelParticulierTile(seed),
     light: { kind: 'genericGlow', topZ: 44, halfW: 1.0 },
+  },
+
+  // =====================================================================
+  // ROUND 2 — distinctive bespoke landmarks (placed names, now live via W5).
+  // =====================================================================
+  {
+    city: 'paris',
+    key: 'moulin-de-la-galette',
+    match: /Moulin de la Galette/i,
+    foot: [2, 2],
+    seed: 940,
+    draw: (seed) => moulinTile(seed, true),
+    light: { kind: 'aerialBeacon', topZ: 96, halfW: 0.9 }, // lit cap + turning sails
+  },
+  {
+    city: 'paris',
+    key: 'moulin-de-la-charite',
+    match: /Moulin de la Charit[ée]/i,
+    foot: [2, 2],
+    seed: 941,
+    draw: (seed) => moulinTile(seed, false),
+    light: { kind: 'aerialBeacon', topZ: 96, halfW: 0.9 },
+  },
+  {
+    city: 'paris',
+    key: 'cirque-d-hiver',
+    match: /Cirque d'Hiver/i,
+    foot: [2, 2],
+    seed: 942,
+    draw: (seed) => cirqueHiverTile(seed),
+    light: { kind: 'stadiumFlood', topZ: 64, halfW: 1.2 }, // a lit big-top ring
+  },
+  {
+    city: 'paris',
+    key: 'rotonde-de-la-villette',
+    match: /Rotonde de la Villette/i,
+    foot: [2, 2],
+    seed: 943,
+    draw: (seed) => rotondeVilletteTile(seed),
+    light: { kind: 'facadeFlood', topZ: 96, halfW: 1.1 },
+  },
+  {
+    city: 'paris',
+    key: 'musee-guimet',
+    match: /Mus[ée]e Guimet/i,
+    foot: [2, 2],
+    seed: 944,
+    draw: (seed) => museeGuimetTile(seed),
+    light: { kind: 'facadeFlood', topZ: 78, halfW: 1.1 },
+  },
+  {
+    city: 'paris',
+    key: 'theatre-daunou',
+    match: /Th[ée][âa]tre Daunou/i,
+    foot: [2, 2],
+    seed: 945,
+    draw: (seed) => theatreTile(seed, true),
+    light: { kind: 'facadeFlood', topZ: 78, halfW: 1.0 }, // a glowing Deco marquee
+  },
+  {
+    city: 'paris',
+    key: 'musee-grevin',
+    match: /Mus[ée]e Gr[ée]vin/i,
+    foot: [2, 2],
+    seed: 946,
+    draw: (seed) => theatreTile(seed, false),
+    light: { kind: 'facadeFlood', topZ: 80, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'fontaine-medicis',
+    match: /Fontaine M[ée]dicis/i,
+    foot: [1, 1],
+    seed: 947,
+    draw: (seed) => fontaineTile(seed),
+    light: { kind: 'genericGlow', topZ: 50, halfW: 0.7 }, // lit basin + grotto glow
+  },
+  {
+    city: 'paris',
+    key: 'maison-du-fontainier',
+    match: /Maison du Fontainier/i,
+    foot: [1, 1],
+    seed: 948,
+    draw: (seed) => fontaineTile(seed),
+    light: { kind: 'genericGlow', topZ: 50, halfW: 0.7 },
+  },
+  {
+    city: 'paris',
+    key: 'memorial-deportation',
+    match: /M[ée]morial des Martyrs de la D[ée]portation/i,
+    foot: [1, 1],
+    seed: 949,
+    draw: (seed) => memorialTile(seed),
+    light: { kind: 'genericGlow', topZ: 22, halfW: 0.7 }, // a single solemn glow
+  },
+  {
+    city: 'paris',
+    key: 'pyramide-de-bercy',
+    match: /^Pyramide$/i,
+    foot: [1, 1],
+    seed: 950,
+    draw: (seed) => pyramidePavilionTile(seed),
+    light: { kind: 'spireBeacon', topZ: 56, halfW: 0.6 }, // cool glass + tip glint
+  },
+  {
+    city: 'paris',
+    key: 'manufacture-des-oeillets',
+    match: /Manufacture des (?:œillets|oeillets)/i, // ligature or ascii spelling
+    foot: [3, 3],
+    seed: 951,
+    draw: (seed) => halleIndustrielleTile(seed, true),
+    light: { kind: 'genericGlow', topZ: 48, halfW: 1.4 },
+  },
+  {
+    city: 'paris',
+    key: 'chais-de-bercy',
+    match: /Chais et Entrep[ôo]ts de Bercy/i,
+    foot: [3, 3],
+    seed: 952,
+    draw: (seed) => halleIndustrielleTile(seed, false),
+    light: { kind: 'genericGlow', topZ: 48, halfW: 1.4 },
+  },
+  {
+    city: 'paris',
+    key: 'la-ville-a-des-arts',
+    match: /La Ville A des Arts/i,
+    foot: [3, 3],
+    seed: 954,
+    draw: (seed) => halleIndustrielleTile(seed, false),
+    light: { kind: 'genericGlow', topZ: 48, halfW: 1.3 },
+  },
+  {
+    city: 'paris',
+    key: 'barriere-du-trone',
+    match: /Barri[èe]re du Tr[ôo]ne/i,
+    foot: [1, 1],
+    seed: 955,
+    draw: (seed) => barriereTile(seed),
+    light: { kind: 'aerialBeacon', topZ: 100, halfW: 0.4 }, // lit column statues
+  },
+  {
+    city: 'paris',
+    key: 'maison-planeix',
+    match: /Maison Planeix/i,
+    foot: [2, 2],
+    seed: 956,
+    draw: (seed) => maisonModerneTile(seed, false),
+    light: { kind: 'towerCrown', topZ: 51, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'maison-du-peuple',
+    match: /Maison du Peuple/i,
+    foot: [2, 2],
+    seed: 957,
+    draw: (seed) => maisonModerneTile(seed, true),
+    light: { kind: 'towerCrown', topZ: 60, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'henri-iv',
+    match: /^Henri IV$/i,
+    foot: [1, 1],
+    seed: 958,
+    draw: (seed) => equestrianTile(seed),
+    light: { kind: 'genericGlow', topZ: 74, halfW: 0.5 }, // a floodlit bronze
+  },
+  // the old water-network well-houses (the several "Regard …")
+  {
+    city: 'paris',
+    key: 'regard-saint-martin',
+    match: /Regard Saint-Martin/i,
+    foot: [1, 1],
+    seed: 959,
+    draw: (seed) => regardTile(seed),
+    light: { kind: 'genericGlow', topZ: 42, halfW: 0.5 },
+  },
+  {
+    city: 'paris',
+    key: 'regard-de-la-prise-des-eaux',
+    match: /Regard de la Prise des Eaux/i,
+    foot: [1, 1],
+    seed: 960,
+    draw: (seed) => regardTile(seed),
+    light: { kind: 'genericGlow', topZ: 42, halfW: 0.5 },
+  },
+  {
+    city: 'paris',
+    key: 'regard-des-maussins',
+    match: /Regard des Maussins/i,
+    foot: [1, 1],
+    seed: 961,
+    draw: (seed) => regardTile(seed),
+    light: { kind: 'genericGlow', topZ: 42, halfW: 0.5 },
+  },
+
+  // =====================================================================
+  // ROUND 2 — the hôtel-particulier FAMILY (variant-switched, spread across the
+  // placed Marais/Faubourg mansions so they read distinct). variant: 1 block,
+  // 2 marais (tourelle), 3 rococo (bowed avant-corps). The default 'court'
+  // shape (round-1 hotelParticulierTile) is kept for Pavillon de Vendôme above.
+  // =====================================================================
+  {
+    // Hôtel des Chardons — Art-Nouveau apartment-hôtel (the rococo/ornate bay
+    // reads its sinuous façade); placed as "Les Chardons".
+    city: 'paris',
+    key: 'les-chardons',
+    match: /Les Chardons/i,
+    foot: [2, 2],
+    seed: 970,
+    draw: (seed) => hotelVariantTile(seed, 3),
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-biron',
+    match: /H[ôo]tel Biron/i,
+    foot: [2, 2],
+    seed: 971,
+    draw: (seed) => hotelVariantTile(seed, 3),
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.0 },
+  },
+  {
+    // a Marais hôtel (Hôtel de Marle / de Sully idiom) — brick-and-stone with a
+    // corner stair-tourelle.
+    city: 'paris',
+    key: 'hotel-de-marle',
+    match: /H[ôo]tel de Marle/i,
+    foot: [2, 2],
+    seed: 1013,
+    draw: (seed) => hotelVariantTile(seed, 2),
+    light: { kind: 'facadeFlood', topZ: 86, halfW: 1.0 },
+  },
+  {
+    // a Faubourg-Saint-Antoine craft courtyard (entre cour et jardin) — the
+    // classical court hôtel; placed as "Cour de l'Etoile d'Or".
+    city: 'paris',
+    key: 'cour-de-l-etoile-d-or',
+    match: /Cour de l'[ÉE]toile d'Or/i,
+    foot: [2, 2],
+    seed: 972,
+    draw: (seed) => hotelVariantTile(seed, 0),
+    light: { kind: 'facadeFlood', topZ: 48, halfW: 1.0 },
+  },
+  {
+    // the parish presbytery — a modest classical court house.
+    city: 'paris',
+    key: 'presbytere',
+    match: /^Presbyt[èe]re$/i,
+    foot: [2, 2],
+    seed: 973,
+    draw: (seed) => hotelVariantTile(seed, 0),
+    light: { kind: 'facadeFlood', topZ: 48, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-de-beauharnais',
+    match: /H[ôo]tel de Beauharnais/i,
+    foot: [2, 2],
+    seed: 974,
+    draw: (seed) => hotelVariantTile(seed, 1),
+    light: { kind: 'facadeFlood', topZ: 58, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-de-massa',
+    match: /H[ôo]tel de Massa/i,
+    foot: [2, 2],
+    seed: 975,
+    draw: (seed) => hotelVariantTile(seed, 3),
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-de-la-marine',
+    match: /H[ôo]tel de la Marine/i,
+    foot: [2, 2],
+    seed: 976,
+    draw: (seed) => hotelVariantTile(seed, 1),
+    light: { kind: 'facadeFlood', topZ: 58, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-lutetia',
+    match: /H[ôo]tel Lut[ée]tia/i,
+    foot: [2, 2],
+    seed: 977,
+    draw: (seed) => hotelVariantTile(seed, 1),
+    light: { kind: 'facadeFlood', topZ: 58, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-de-cassini',
+    match: /H[ôo]tel de Cassini/i,
+    foot: [2, 2],
+    seed: 978,
+    draw: (seed) => hotelVariantTile(seed, 3),
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-de-clermont',
+    match: /H[ôo]tel de Clermont/i,
+    foot: [2, 2],
+    seed: 979,
+    draw: (seed) => hotelVariantTile(seed, 1),
+    light: { kind: 'facadeFlood', topZ: 58, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-de-chaulnes',
+    match: /H[ôo]tel de Chaulnes/i,
+    foot: [2, 2],
+    seed: 980,
+    draw: (seed) => hotelVariantTile(seed, 2),
+    light: { kind: 'facadeFlood', topZ: 86, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-de-broglie',
+    match: /H[ôo]tel de Broglie/i,
+    foot: [2, 2],
+    seed: 981,
+    draw: (seed) => hotelVariantTile(seed, 1),
+    light: { kind: 'facadeFlood', topZ: 58, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-de-marigny',
+    match: /H[ôo]tel de Marigny/i,
+    foot: [2, 2],
+    seed: 982,
+    draw: (seed) => hotelVariantTile(seed, 1),
+    light: { kind: 'facadeFlood', topZ: 58, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-de-seignelay',
+    match: /H[ôo]tel de Seignelay/i,
+    foot: [2, 2],
+    seed: 983,
+    draw: (seed) => hotelVariantTile(seed, 1),
+    light: { kind: 'facadeFlood', topZ: 58, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-de-beauffremont',
+    match: /H[ôo]tel de Beauffremont/i,
+    foot: [2, 2],
+    seed: 984,
+    draw: (seed) => hotelVariantTile(seed, 3),
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-de-choiseul-praslin',
+    match: /H[ôo]tel de Choiseul-Praslin/i,
+    foot: [2, 2],
+    seed: 985,
+    draw: (seed) => hotelVariantTile(seed, 1),
+    light: { kind: 'facadeFlood', topZ: 58, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-salomon-de-rothschild',
+    match: /H[ôo]tel Salomon de Rothschild/i,
+    foot: [2, 2],
+    seed: 986,
+    draw: (seed) => hotelVariantTile(seed, 3),
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-de-comans-d-astry',
+    match: /H[ôo]tel de Comans d'Astry/i,
+    foot: [2, 2],
+    seed: 987,
+    draw: (seed) => hotelVariantTile(seed, 2),
+    light: { kind: 'facadeFlood', topZ: 86, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-de-rosambo',
+    match: /H[ôo]tel de Rosambo/i,
+    foot: [2, 2],
+    seed: 988,
+    draw: (seed) => hotelVariantTile(seed, 1),
+    light: { kind: 'facadeFlood', topZ: 58, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-de-fontpertuis',
+    match: /H[ôo]tel de Fontpertuis/i,
+    foot: [2, 2],
+    seed: 989,
+    draw: (seed) => hotelVariantTile(seed, 3),
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-de-montbrun',
+    match: /H[ôo]tel de Montbrun/i,
+    foot: [2, 2],
+    seed: 990,
+    draw: (seed) => hotelVariantTile(seed, 1),
+    light: { kind: 'facadeFlood', topZ: 58, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-de-montalivet',
+    match: /H[ôo]tel de Montalivet/i,
+    foot: [2, 2],
+    seed: 991,
+    draw: (seed) => hotelVariantTile(seed, 1),
+    light: { kind: 'facadeFlood', topZ: 58, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-d-asfeldt',
+    match: /H[ôo]tel d'Asfeldt/i,
+    foot: [2, 2],
+    seed: 992,
+    draw: (seed) => hotelVariantTile(seed, 2),
+    light: { kind: 'facadeFlood', topZ: 86, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-crozat',
+    match: /H[ôo]tel Crozat/i,
+    foot: [2, 2],
+    seed: 993,
+    draw: (seed) => hotelVariantTile(seed, 3),
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-colbert',
+    match: /H[ôo]tel Colbert/i,
+    foot: [2, 2],
+    seed: 994,
+    draw: (seed) => hotelVariantTile(seed, 1),
+    light: { kind: 'facadeFlood', topZ: 58, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-mansart',
+    match: /H[ôo]tel Mansart/i,
+    foot: [2, 2],
+    seed: 995,
+    draw: (seed) => hotelVariantTile(seed, 1),
+    light: { kind: 'facadeFlood', topZ: 58, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-walewska',
+    match: /H[ôo]tel Walewska/i,
+    foot: [2, 2],
+    seed: 996,
+    draw: (seed) => hotelVariantTile(seed, 3),
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-lebrun',
+    match: /H[ôo]tel Lebrun/i,
+    foot: [2, 2],
+    seed: 997,
+    draw: (seed) => hotelVariantTile(seed, 1),
+    light: { kind: 'facadeFlood', topZ: 58, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-moreau',
+    match: /H[ôo]tel Moreau/i,
+    foot: [2, 2],
+    seed: 998,
+    draw: (seed) => hotelVariantTile(seed, 2),
+    light: { kind: 'facadeFlood', topZ: 86, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-bony',
+    match: /H[ôo]tel Bony/i,
+    foot: [2, 2],
+    seed: 999,
+    draw: (seed) => hotelVariantTile(seed, 1),
+    light: { kind: 'facadeFlood', topZ: 58, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-mezzara',
+    match: /H[ôo]tel Mezzara/i,
+    foot: [2, 2],
+    seed: 1000,
+    draw: (seed) => hotelVariantTile(seed, 3),
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-elysees-ceramic',
+    match: /H[ôo]tel Elys[ée]es C[ée]ramic/i,
+    foot: [2, 2],
+    seed: 1001,
+    draw: (seed) => hotelVariantTile(seed, 1),
+    light: { kind: 'facadeFlood', topZ: 58, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-de-montmorin',
+    match: /H[ôo]tel de Montmorin/i,
+    foot: [2, 2],
+    seed: 1002,
+    draw: (seed) => hotelVariantTile(seed, 2),
+    light: { kind: 'facadeFlood', topZ: 86, halfW: 1.0 },
+  },
+
+  // ---- the last distinctive placed oddities ----
+  {
+    // La Pagode / Maison Loo — the red Chinese pagoda on rue de Courcelles.
+    city: 'paris',
+    key: 'maison-de-loo',
+    match: /Maison de Loo/i,
+    foot: [2, 2],
+    seed: 1010,
+    draw: (seed) => pagodeTile(seed),
+    light: { kind: 'aerialBeacon', topZ: 96, halfW: 1.0 }, // gilt-ridge glow + finial
+  },
+  {
+    // Adolf Loos's house for Tristan Tzara — austere modern-movement villa.
+    city: 'paris',
+    key: 'maison-de-tristan-tzara',
+    match: /Maison de Tristan Tzara/i,
+    foot: [2, 2],
+    seed: 1011,
+    draw: (seed) => maisonModerneTile(seed, false),
+    light: { kind: 'towerCrown', topZ: 51, halfW: 1.0 },
+  },
+  {
+    city: 'paris',
+    key: 'abbaye-de-saint-maur',
+    match: /Abbaye de Saint-Maur/i,
+    foot: [2, 2],
+    seed: 1012,
+    draw: (seed) => abbayeTile(seed),
+    light: { kind: 'facadeFlood', topZ: 84, halfW: 1.0 },
   },
 ];

@@ -75,7 +75,11 @@ describe('hero registry — name resolution', () => {
   });
 
   it('a non-hero name resolves to nothing (keeps its archetype landmark)', () => {
-    expect(resolveBespokeKey('paris', 'Hôtel Lebrun')).toBeUndefined();
+    // Use names that are NOT placed in the Paris artifact and match no hero
+    // regex. (Round 2 made every PLACED Paris named place a hero — incl. the
+    // hôtels particuliers like "Hôtel Lebrun" — so a non-hero example must be a
+    // name that does not appear in the map at all.)
+    expect(resolveBespokeKey('paris', 'Hôtel de Nulle Part')).toBeUndefined();
     expect(resolveBespokeKey('paris', 'Quartier de Belleville')).toBeUndefined();
   });
 
