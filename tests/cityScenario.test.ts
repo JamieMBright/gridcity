@@ -45,7 +45,7 @@ describe('CityScenario v2 resolves to London by default', () => {
     for (const s of CITY_SCENARIOS) {
       expect(resolveProfile(s)).toEqual(LONDON_PROFILE);
     }
-    // the roster: London + Paris (playable cities) + the 5 tutorial missions
+    // the roster: the 12 playable cities + the 6 tutorial missions
     expect(CITY_SCENARIOS.map((s) => s.id)).toEqual([
       'london',
       'paris',
@@ -64,6 +64,7 @@ describe('CityScenario v2 resolves to London by default', () => {
       'm3-storm',
       'm4-inbox',
       'm5-bill',
+      'm6-sun-store',
     ]);
   });
 
