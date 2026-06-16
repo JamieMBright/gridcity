@@ -12,6 +12,7 @@ import {
   warningLevel,
   type StormForecastRow,
 } from '../src/ui/SevereWeatherAlert';
+import { WARN_WORD, windKmh } from '../src/ui/weatherFormat';
 
 const NOW = 100_000;
 
@@ -127,5 +128,33 @@ describe('formatEta', () => {
     expect(formatEta(5 * 60 + 20)).toBe('5h 20m');
     expect(formatEta(45)).toBe('45m');
     expect(formatEta(-10)).toBe('0m');
+  });
+});
+
+describe('windKmh (live sustained windspeed, real units)', () => {
+  it('maps the regime envelopes to realistic Beaufort km/h, monotonic & clamped', () => {
+    // regime means (powerProfile.ts): calm-cold 0.1, mild 0.45, windy-wet
+    // 0.66, storm 0.92 — should read as light → moderate → near-gale → storm
+    expect(windKmh(0.1)).toBeLessThan(20); // light air/breeze
+    expect(windKmh(0.45)).toBeGreaterThan(30); // moderate breeze
+    expect(windKmh(0.45)).toBeLessThan(50);
+    expect(windKmh(0.66)).toBeGreaterThan(45); // near gale
+    expect(windKmh(0.92)).toBeGreaterThan(70); // violent storm sustained
+    // monotonic increasing
+    expect(windKmh(0.7)).toBeGreaterThan(windKmh(0.4));
+    // sustained reads BELOW the peak gust at the same intensity
+    expect(windKmh(0.92)).toBeLessThan(gustKmh(0.92));
+    // clamped to a sane band
+    expect(windKmh(-1)).toBeGreaterThanOrEqual(3);
+    expect(windKmh(2)).toBeLessThanOrEqual(130);
+  });
+});
+
+describe('WARN_WORD (compact Met labels)', () => {
+  it('gives a short word per level matching WARN_STYLE', () => {
+    for (const lvl of ['yellow', 'amber', 'red'] as const) {
+      expect(WARN_WORD[lvl]).toBe(lvl.toUpperCase());
+      expect(WARN_STYLE[lvl].label).toContain(WARN_WORD[lvl]);
+    }
   });
 });
