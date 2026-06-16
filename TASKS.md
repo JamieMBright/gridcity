@@ -24,10 +24,15 @@ parallelisable waves; the main session keeps the keep-alive drumbeat + integrate
 - ✅ W2b Off-atlas hero textures — DONE, e2e-green, pushed (eab9bd4): removes the 4096
   sheet ceiling (heroes ride own cached textures) → 100 bespoke heroes/city now POSSIBLE.
 - ✅ Scaffold — DONE, pushed (aa12730): all 12 hero modules registered (collision-free fan-out).
-- 🔄 Hero fan-out BATCH 1 IN PROGRESS (4 parallel Opus subagents, round 1 ≈30-40 each):
-  London, Paris, Cairo (+Giza Sound-&-Light), New York. Gated + committed per city as
-  they land; then BATCH 2 (Sydney/HK/Berlin/Shanghai/Cape Town/Athens/Pune/NE), then
-  further rounds to reach ~100 bespoke/city. Marathon — runs as long as it takes.
+- ✅ Hero fan-out BATCH 1 LANDED, pushed (4e9f91f): London 41, Paris 30, Cairo 38
+  (+Giza Sound-&-Light), New York 38 = 147 bespoke heroes. + placement-gap fix
+  (any researched hero now places, not just OSM-flagged landmarks).
+- 🔄 BATCH 2 IN PROGRESS: London PLACEMENT wiring (so London's 41 render in-game +
+  SAVE_VERSION bump), Paris ROUND 2 (→~70), Sydney R1, Berlin R1.
+- ⏭ NEXT: Cairo/NYC R2; HK/Shanghai/Cape Town/Athens/Pune/NE R1; then further rounds
+  to ~100 bespoke/city (research is DONE — 99-100/city; drawing is multi-round for
+  QUALITY: ~30-40 genuinely-good sprites per subagent run, re-launched until 100).
+  Marathon — runs as long as it takes. Doctrine metric (vitest) climbs each round.
 
 - **W1 — Unified perimeter HUD** (IN PROGRESS, subagent): one wraparound chrome,
   dedicated non-overlapping zones, desktop + phone-landscape. (TASKS §UNIFIED PERIMETER HUD)
