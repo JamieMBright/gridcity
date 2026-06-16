@@ -48,12 +48,22 @@ parallelisable waves; the main session keeps the keep-alive drumbeat + integrate
   (London 100, Paris 105, Sydney 103, HK 103, Cairo 90, NE 89, Athens 84, NYC 79, Shanghai 76,
   Cape Town 72, Berlin 71, Pune 31). Full e2e validating (London is default city + changed).
 - ✅ MILESTONE e2e GREEN (56 passed, 0 fail, 16.3m) — London-100 (default city) + SAVE_VERSION 16 play cleanly.
-- 🔄 BATCH 7 IN PROGRESS (toward 100, combined draw+enrich): Berlin (Fernsehturm/Tempelhof/
-  Olympiastadion), Shanghai (Bund banks/Pudong towers), NYC (One WTC/Statue/Brooklyn
-  Bridge/Grand Central), Cape Town (Stadium/City Hall/Clock Tower). Agents edit heroes/<city>.ts
-  + data/cities/<city>.ts named[]. Gate each (tsc/eslint/vitest/build + London md5 064ba58) + commit.
-- ⏭ AFTER: finish Cairo 90/NE 89/Athens 84 → 100 (small draw+enrich rounds). Pune ≈capped ~33.
-  Then: per-hero night light-show in-game verification; the playtest re-raise (W7); operating models (W8).
+- ✅ BATCH 7 LANDED (61b9def): Berlin 100, NYC 96, Shanghai 92, Cape Town 88 (drew+enriched
+  the famous-absent: Fernsehturm/Tempelhof, One WTC/Statue/Brooklyn Bridge, Bund banks/Pudong
+  towers, Cape Town Stadium/City Hall). → **1081/1200 across 12 cities; FIVE at 100**
+  (London 100, Paris 105, Sydney 103, HK 103, Berlin 100); NYC 96, Shanghai 92, Cairo 90,
+  NE 89, Cape Town 88 (≈capped — rest are statues), Athens 84, Pune 31 (≈capped ~33).
+- ⏭ NEXT (Batch 8 — finish to 100): NYC 96→100, Shanghai 92→100, Cairo 90→100, NE 89→100,
+  Athens 84→100 (small draw+enrich rounds, each ~4-16 more). Cape Town + Pune are at their
+  realistic building ceilings (owner-allowed fewer). After that the 100/city doctrine is
+  essentially MET for every city with ≥100 notable buildings.
+- ⏭ THEN the rest of the backlog: per-hero night light-show in-game verification (W6);
+  PLAYTEST RE-RAISE (W7: tutorials/vans/storms/auth); per-country operating models (W8);
+  per-city polish (W9: Cairo Giza-desert terrain, thin-river glint); economy/RAV (W10).
+- RECOVERY NOTE: container restarts/idle-reclaims kill in-container subagents; mitigated by
+  committing+pushing every batch (restarts only cost recoverable in-flight work — re-launch
+  on wake). No server-side cron (CronCreate/ScheduleWakeup/send_later) in this session's
+  allowlist; owner /loop in the UI is the only reclaim-proof heartbeat.
 - KEY LEARNINGS: (1) the placement-gap fix already renders every drawn hero whose name is
   in named[]; the only gap is famous landmarks ABSENT from the OSM named[] (drawn but
   unplaced) → fix = add them to src/data/cities/<city>.ts named[] (enrichment). (2) Dense
