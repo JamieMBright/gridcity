@@ -22,6 +22,9 @@ import {
   M4_TOWN,
   M5_TOWN,
   M5_WIND,
+  M6_BATTERY,
+  M6_SOLAR,
+  M6_VILLAGE,
 } from '../../data/missions';
 import { getScenario } from '../../data/cityRegistry';
 import { lineBranchId, type PlacedAsset } from '../assets';
@@ -72,10 +75,13 @@ export function missionView(state: GameState, out: TickOutputs, totalCustomers: 
 }
 
 /** UI-side state the guided steps may read (things that never reach the
- *  sim: ran-a-study count, the headroom overlay toggle). */
+ *  sim: ran-a-study count, the headroom overlay toggle, whether the bill
+ *  panel has been opened this session). */
 export interface MissionUiView {
   studies: number;
   headroom: boolean;
+  /** The bill panel has been opened at least once (mission 5 step gate). */
+  billSeen: boolean;
 }
 
 /** Progressive-disclosure unlocks (game-design-core: reveal a mechanic
@@ -92,8 +98,20 @@ export type Unlock = string;
 
 export interface MissionStep {
   text: string;
-  /** Auto-advance condition; omit for a manual "next". */
+  /** Step GOAL predicate. When present this step is GATED: the "next"
+   *  button stays disabled until this returns true (so the player must
+   *  actually DO the thing before moving on). Omit for a pure concept
+   *  step, which the player can advance freely with "continue". */
   done?: (s: SimSnapshot, ui: MissionUiView) => boolean;
+  /** A one-line imperative goal shown as a live checklist row under the
+   *  lesson text (○ while pending, ✓ when `done` is met). Pair with
+   *  `done`; omit on pure concept steps. */
+  objective?: string;
+  /** When true, a GATED step auto-advances the moment its goal is met
+   *  (no click needed) — used only where stopping to click "next" would
+   *  break the flow (e.g. watching a tender land). Most gated steps leave
+   *  this off so the player reads the takeaway, then clicks on. */
+  auto?: boolean;
   /** Tools / HUD surfaces this step ADDS (cumulative — see Unlock). */
   unlocks?: Unlock[];
   /** Camera glides to centre this tile when the step opens (clamped to
@@ -297,17 +315,19 @@ export const MISSIONS: Mission[] = [
     steps: [
       {
         text:
-          'Alderbrook has never had mains power. Your whole job in one village: ' +
-          'generation → wire → substation → lit homes. Drag to pan, scroll to zoom.',
+          'Welcome. Alderbrook has never had mains power, and that is your whole job in ' +
+          'one village: GENERATION → WIRE → SUBSTATION → lit homes. Read each note, do ' +
+          'what it asks, then the “next” button lights up. Drag to pan, scroll to zoom.',
         focus: M1_VILLAGE,
       },
       {
         text:
-          'You are a network operator, not a power company. Normally developers apply to ' +
-          'connect wherever they like — but for this build the Regulator lets you DESIGNATE ' +
-          'sites for optimal generation (developers may still apply elsewhere too). Pick ' +
-          'ONSHORE WIND and click open land on the breezy western ridge (the map shades green ' +
-          'where it can go). That opens a tender.',
+          'You are the network OPERATOR, not a power company — you do not build plant, you ' +
+          'connect it. Normally developers apply to connect where they like; here the ' +
+          'Regulator lets you DESIGNATE the best sites. Pick ONSHORE WIND from the build ' +
+          'rail and click the breezy western ridge (the map shades green where it can go). ' +
+          'That opens a tender — your invitation for developers to bid to build it.',
+        objective: 'Designate an onshore-wind site on the ridge',
         done: (s) => s.inbox.tenders.length > 0,
         unlocks: ['gen:windOnshore'],
         focus: M1_WIND,
@@ -315,11 +335,22 @@ export const MISSIONS: Mission[] = [
       },
       {
         text:
-          'Developers are pricing the site — run time forward (▶▶▶) and watch the INBOX. ' +
-          'Each bid builds the same turbines but quotes two prices: the energy £/MWh goes on ' +
-          "customers' energy bill, and the curtail £ is what you'd owe to switch them off — " +
-          'lower is better on both. AWARD the best bid: the turbines appear, spinning and waiting ' +
-          'for your wires.',
+          'Developers are pricing your site now. Run time forward with ▶▶▶ and watch the ' +
+          'INBOX fill with bids. (This step finishes itself the moment the first bid lands.)',
+        objective: 'Let time run until a developer bids',
+        done: (s) => s.inbox.tenders.some((t) => (t.bids?.length ?? 0) > 0),
+        auto: true,
+        unlocks: ['hud:inbox'],
+        focus: M1_WIND,
+        spot: 'inbox',
+      },
+      {
+        text:
+          'Read a BID before you award it. Every bid builds the SAME turbines but quotes two ' +
+          'prices: the ENERGY £/MWh lands on customers’ energy bill, and the CURTAIL £ is what ' +
+          'you would owe to switch them off — lower is better on BOTH. Open the inbox tender ' +
+          'and AWARD the best bid; the turbines appear, spinning, waiting for your wires.',
+        objective: 'Award a bid to build the wind farm',
         done: (s) => s.inbox.tenders.some((t) => t.status === 'awarded'),
         unlocks: ['hud:inbox'],
         spot: 'inbox',
@@ -329,14 +360,15 @@ export const MISSIONS: Mission[] = [
           'A quick primer before you wire homes. Power travels at HIGH voltage and is stepped ' +
           'DOWN near where it is used, through SUBSTATIONS: a Bulk Supply Point (400/132 kV) ' +
           'feeds a Grid substation (132/33 kV), which feeds a DISTRIBUTION substation ' +
-          '(33 kV → the low voltage in your sockets). Tiny Alderbrook only needs that last ' +
-          'one.',
+          '(33 kV → the low voltage in your sockets). Tiny Alderbrook only needs that last one.',
         focus: M1_VILLAGE,
       },
       {
         text:
-          'Homes connect through a DISTRIBUTION SUBSTATION (33 kV/LV). Place one among ' +
-          'the village houses — its service ring must cover them.',
+          'Homes connect through a DISTRIBUTION SUBSTATION (33 kV → LV). Pick it from the rail ' +
+          'and place one among the village houses so its service RING (the circle that appears) ' +
+          'covers them.',
+        objective: 'Place a distribution substation by the houses',
         done: (s) => s.assets.some((a) => a.kind === 'sub' && a.sub === 'dist' && !a.idno),
         unlocks: ['sub:dist'],
         focus: M1_VILLAGE,
@@ -348,14 +380,20 @@ export const MISSIONS: Mission[] = [
           'to your substation. Pick the 33 KV LINE, click the wind farm, then click the ' +
           'substation — wooden poles march the route and power starts to flow. The line tool ' +
           'stays armed for the next run; press Esc (or click the same point twice) to stop.',
+        objective: 'Run a 33 kV line from the farm to the substation',
         done: (s) => hasLine(s, 33) && s.stats.servedCustomers > 0,
         unlocks: ['line:33'],
+        focus: M1_VILLAGE,
         spot: 'line:33',
       },
       {
         text:
-          'The village is waking up. Light EVERY home — church and outlying cottages ' +
-          'included — to complete First Light.',
+          'The village is waking up. Light EVERY home — church and outlying cottages included — ' +
+          'then press FINISH TUTORIAL to complete First Light.',
+        objective: 'Light every home in Alderbrook',
+        done: (s) =>
+          s.stats.totalCustomers > 0 && s.stats.servedCustomers >= s.stats.totalCustomers,
+        focus: M1_VILLAGE,
       },
     ],
     win: allServed,
@@ -368,14 +406,15 @@ export const MISSIONS: Mission[] = [
     steps: [
       {
         text:
-          'Saltmarsh: the village is here, the wind is 40 km east, OFFSHORE. ' +
-          'Distance is what voltage is for — this is the step-up lesson.',
+          'Saltmarsh: the village is here, but the wind is 40 km east, OFFSHORE. Distance is ' +
+          'what voltage is for — this is the step-up lesson.',
         focus: M2_VILLAGE,
       },
       {
         text:
-          'Designate OFFSHORE WIND on the surveyed estuary zone in the far east ' +
-          '(only those tiles shade green), then award a bid from the INBOX (▶▶▶ helps).',
+          'Designate OFFSHORE WIND on the surveyed estuary zone in the far east (only those ' +
+          'tiles shade green), then run time forward and AWARD a bid from the INBOX.',
+        objective: 'Designate offshore wind and award a bid',
         done: (s) => s.inbox.tenders.some((t) => t.status === 'awarded'),
         unlocks: ['gen:windOffshore', 'hud:inbox'],
         focus: M2_WINDSITE,
@@ -383,31 +422,44 @@ export const MISSIONS: Mission[] = [
       },
       {
         text:
-          'Offshore wind lands at 132 kV — inspect the turbines to see their connection ' +
-          'voltage. That is too high for a 33 kV line, and every line needs a matching BAY at ' +
-          'both ends. Place a GRID SUBSTATION (132/33 kV) beside the village: it owns both ' +
-          'bays and steps the voltage down to 33 kV.',
+          'Offshore wind lands at 132 kV — INSPECT the turbines to see their connection voltage. ' +
+          'That is too high for a 33 kV line, and every line needs a matching BAY at both ends. ' +
+          'Place a GRID SUBSTATION (132/33 kV) beside the village: it owns both bays and steps ' +
+          'the voltage down to 33 kV.',
+        objective: 'Place a grid substation by the village',
         done: (s) => s.assets.some((a) => a.kind === 'sub' && a.sub === 'grid' && !a.idno),
         unlocks: ['sub:grid'],
         focus: M2_VILLAGE,
         spot: 'sub:grid',
       },
       {
-        text: 'Run the 132 KV LINE from the wind farm to the grid substation — big pylons this time.',
+        text:
+          'Run the 132 KV LINE from the wind farm to the grid substation — bigger steel pylons ' +
+          'this time, sized for the higher voltage.',
+        objective: 'Run a 132 kV line to the grid substation',
         done: (s) => hasLine(s, 132),
         unlocks: ['line:132'],
         spot: 'line:132',
       },
       {
         text:
-          'Finish locally: DISTRIBUTION SUBSTATION among the homes, 33 KV LINE from the ' +
-          'grid substation to it. 132 kV travels, 33 kV delivers.',
+          'Finish locally: a DISTRIBUTION SUBSTATION among the homes, and a 33 KV LINE from the ' +
+          'grid substation to it. 132 kV travels; 33 kV delivers.',
+        objective: 'Add a dist substation + 33 kV line to the homes',
         done: (s) => s.stats.servedCustomers > 0,
         unlocks: ['sub:dist', 'line:33'],
         focus: M2_VILLAGE,
         spot: 'sub:dist',
       },
-      { text: 'Light every home via the 132 kV link to complete Step Up.' },
+      {
+        text: 'Light every home via the 132 kV link, then FINISH TUTORIAL to complete Step Up.',
+        objective: 'Light every home from the offshore farm',
+        done: (v) =>
+          v.stats.totalCustomers > 0 &&
+          v.stats.servedCustomers >= v.stats.totalCustomers &&
+          hasLine(v, 132),
+        focus: M2_VILLAGE,
+      },
     ],
     win: (v) => allServed(v) && v.assets.some((a) => a.kind === 'line' && a.level === 132),
     winText:
@@ -421,15 +473,16 @@ export const MISSIONS: Mission[] = [
     steps: [
       {
         text:
-          "Thornwood Vale's supply runs through ten miles of woodland. Trees and overhead " +
-          'lines are old enemies, and a storm is forming out in the Atlantic — time to get ' +
-          'ready.',
+          'Thornwood Vale is already wired — plant, substation and a 33 kV line that runs ' +
+          'through ten miles of woodland. Trees and overhead lines are old enemies, and a storm ' +
+          'is forming in the Atlantic. This lesson is about being READY for weather.',
         focus: M3_TOWN,
       },
       {
         text:
-          'Faults need crews and crews need a home: build a FIELD DEPOT near the line. ' +
-          'Your two vans appear there the moment it exists.',
+          'Faults need crews, and crews need a home. Build a FIELD DEPOT near the line — your ' +
+          'two repair vans appear there the moment it exists.',
+        objective: 'Build a field depot near the line',
         done: (s) => s.assets.some((a) => a.kind === 'depot'),
         unlocks: ['depot'],
         focus: { x: 18, y: 11 },
@@ -437,20 +490,35 @@ export const MISSIONS: Mission[] = [
       },
       {
         text:
-          'Open the FLEET panel and set a VEGETATION programme — reactive at least. ' +
-          'Untrimmed woodland is where storm faults breed.',
+          'Prevention beats repair. Open the FLEET panel and set a VEGETATION programme ' +
+          '(reactive at least) — untrimmed woodland is where storm faults breed. Two reliability ' +
+          'measures matter here: CI (how MANY customers are interrupted) and CML (how LONG, in ' +
+          'customer-minutes lost). Both are scored.',
+        objective: 'Set a vegetation programme in the Fleet panel',
         done: (s) => s.fleet.vegPolicy > 0,
         unlocks: ['hud:fleet'],
         spot: 'hud:fleet',
       },
       {
         text:
-          'Storm Aldgate is about to land. Ride it out: when the woodland line comes down, ' +
-          'watch a van race out and restore it (the ⇥ skip buttons pass the waiting).',
+          'Storm Aldgate is about to land. Ride it out: when the woodland line comes down, watch ' +
+          'a van race out from the depot and restore it. The ⇥ skip buttons pass the waiting.',
+        objective: 'Survive the storm and restore the downed line',
         done: (s) =>
           s.simTimeMin > M3_FAULT_MIN && s.branches.every((b) => b.outMin === undefined),
+        focus: M3_TOWN,
       },
-      { text: 'Get every customer back on supply to complete Keeping the Lights On.' },
+      {
+        text:
+          'Every customer is back on supply. Press FINISH TUTORIAL to complete Keeping the ' +
+          'Lights On.',
+        objective: 'Get every customer back on supply',
+        // the worker latches missionComplete at the full win (depot present +
+        // fault fired + all lines in service + all served), so gate finish on
+        // it — exactly the condition that makes the lesson winnable.
+        done: (s) => s.missionComplete === true,
+        focus: M3_TOWN,
+      },
     ],
     win: (v) =>
       v.assets.some((a) => a.kind === 'depot') &&
@@ -458,7 +526,7 @@ export const MISSIONS: Mission[] = [
       allInService(v) &&
       allServed(v),
     winText:
-      'Storm ridden, line repaired, lights back on. Depots, vans and vegetation budgets are how a network survives weather.',
+      'Storm ridden, line repaired, lights back on. Depots, vans and vegetation budgets are how a network survives weather — and how you keep CI and CML down.',
   }),
 
   mission('m4-inbox', {
@@ -487,14 +555,17 @@ export const MISSIONS: Mission[] = [
     steps: [
       {
         text:
-          'Watermead is served and quiet — until the INBOX pings: Eastbox Compute want ' +
-          '12 MW on the far side of the parish. Connections are the day job.',
+          'Watermead is served and quiet — until the INBOX pings. Eastbox Compute, a data ' +
+          'centre, want 12 MW on the far side of the parish. New connections are the day job, ' +
+          'and the network is PAID to build them out — they are revenue, not a penalty.',
         focus: M4_TOWN,
       },
       {
         text:
-          'Never promise blind. Open the INBOX and RUN A CONNECTION STUDY on the ' +
-          'application — it tells you what the network can host before you sign.',
+          'Never promise blind. Open the INBOX and RUN A CONNECTION STUDY on the application — ' +
+          'it tells you what the network can host, and what reinforcement a “yes” would need, ' +
+          'before you sign anything.',
+        objective: 'Run a connection study on the application',
         done: (_s, ui) => ui.studies > 0,
         unlocks: ['hud:study'],
         focus: M4_APPLICANT,
@@ -503,22 +574,37 @@ export const MISSIONS: Mission[] = [
       {
         text:
           'Now answer. FIRM = full access, and you pay constraint compensation whenever you ' +
-          'curtail them. FLEXIBLE = you may curtail freely — that was the deal. ' +
-          'Either works here; big loads usually want firm.',
+          'curtail them. FLEXIBLE = you may curtail freely (cheaper for you, agreed up front). ' +
+          'Either works here; big steady loads usually want firm.',
+        objective: 'Offer the connection (firm or flexible)',
         done: (s) => s.inbox.applications.some((a) => a.status === 'firm' || a.status === 'flex'),
+        focus: M4_APPLICANT,
         spot: 'inbox',
       },
       {
         text:
-          'They build their kit; you owe them WIRES by the deadline (late = liquidated ' +
-          'damages). Place a DISTRIBUTION SUBSTATION whose ring covers their site and run ' +
-          '33 kV back to your network — without overloading anything.',
+          'They build their kit; you owe them WIRES by the deadline (late = liquidated damages, ' +
+          'and an on-time connection means a happy customer — 100% satisfaction). Place a ' +
+          'DISTRIBUTION SUBSTATION whose ring covers their site and run 33 kV back to your ' +
+          'network — without overloading anything.',
+        objective: 'Connect Eastbox: substation + 33 kV, no overloads',
         done: (s) => s.inbox.applications.some((a) => a.status === 'connected'),
         unlocks: ['sub:dist', 'line:33', 'hud:headroom'],
         focus: M4_APPLICANT,
         spot: 'sub:dist',
       },
-      { text: 'Keep the whole parish on supply with no overloads to complete The Inbox.' },
+      {
+        text:
+          'Eastbox is live. Keep the WHOLE parish on supply with nothing running hot, then ' +
+          'FINISH TUTORIAL to complete The Inbox.',
+        objective: 'Whole parish served, no overloads',
+        done: (s) =>
+          s.inbox.applications.some((a) => a.status === 'connected') &&
+          s.branches.every((b) => Math.abs(b.flowMW) <= b.ratingMW + 1e-6) &&
+          s.stats.totalCustomers > 0 &&
+          s.stats.servedCustomers >= s.stats.totalCustomers,
+        focus: M4_TOWN,
+      },
     ],
     win: (v) =>
       v.applications.some((a) => a.status === 'connected') && noOverload(v) && allServed(v),
@@ -534,26 +620,36 @@ export const MISSIONS: Mission[] = [
         text:
           'Pennyford reads its bills line by line. The network operator can elect any solution ' +
           'they see fit within the allowances set by The Regulator — but every pound lands on ' +
-          `customer bills. Serve the whole town with network charges at or under £${M5_DUOS_TARGET} ` +
-          'per household per year.',
+          `customer bills. The goal: serve the whole town with network charges at or under ` +
+          `£${M5_DUOS_TARGET} per household per year.`,
         focus: M5_TOWN,
       },
       {
         text:
           'The BILL panel is the scoreboard: capex annuities, O&M, fleet, energy. The ' +
-          '"network £/home" line is yours to control. Glance at it now — then keep it honest.',
+          '“network £/home” line is yours to control — that is what you are graded on. Open it ' +
+          'and have a look before you build.',
+        objective: 'Open the bill panel',
+        done: (_s, ui) => ui.billSeen,
+        unlocks: ['hud:bill'],
         spot: 'bill',
       },
       {
-        text: 'Toggle HEADROOM (▦ / H) to see spare capacity per corridor. Right-sized kit is cheap kit.',
+        text:
+          'Toggle HEADROOM (▦ / H) to colour each corridor by spare capacity — green is roomy, ' +
+          'red is tight. Right-sized kit is cheap kit, so build to the load, not above it.',
+        objective: 'Turn on the headroom overlay',
         done: (_s, ui) => ui.headroom,
         unlocks: ['hud:headroom'],
         spot: 'hud:headroom',
       },
       {
         text:
-          'Build lean: wind tender on the ridge NEXT DOOR, one distribution substation in ' +
-          'town, short 33 kV runs. No grid substations, no gold-plate — the town is small.',
+          'Build LEAN: a wind tender on the ridge NEXT DOOR, one distribution substation in ' +
+          'town, short 33 kV runs. No grid substations, no gold-plate — the town is small. ' +
+          'Tip: you can SCROLL on a substation while placing it to size its catchment to cover ' +
+          'the whole town in one hit.',
+        objective: 'Serve the whole town',
         done: (s) =>
           s.stats.totalCustomers > 0 && s.stats.servedCustomers >= s.stats.totalCustomers,
         unlocks: ['gen:windOnshore', 'sub:dist', 'line:33'],
@@ -561,8 +657,13 @@ export const MISSIONS: Mission[] = [
         spot: 'gen:windOnshore',
       },
       {
-        text: `Hold it there: every home served AND network £/home ≤ £${M5_DUOS_TARGET}. Demolish anything gold-plated — refunds are instant.`,
+        text:
+          `Now hit the target: every home served AND network £/home ≤ £${M5_DUOS_TARGET}. Watch ` +
+          'the bill panel; DEMOLISH anything gold-plated (refunds are instant). When the figure ' +
+          'is under target, press FINISH TUTORIAL.',
+        objective: `Get network £/home to £${M5_DUOS_TARGET} or under`,
         done: (s) => s.missionComplete === true,
+        spot: 'bill',
       },
     ],
     win: (v) =>
@@ -571,6 +672,73 @@ export const MISSIONS: Mission[] = [
       v.bill.perCustomerDuosYr <= M5_DUOS_TARGET,
     winText:
       `Pennyford is lit for £${M5_DUOS_TARGET} a home or less. That discipline — service per pound — is what the RIIO report cards grade you on in the big city.`,
+  }),
+
+  mission('m6-sun-store', {
+    flexTenders: true,
+    baseUnlocks: ['hud:inbox'],
+    steps: [
+      {
+        text:
+          'Sunningmead wants to go solar. But solar only generates by DAY — so the new idea ' +
+          'this lesson is STORAGE: a battery that soaks up the midday surplus and gives it back ' +
+          'after sunset. Solar to make it, a battery to keep the lights on at night.',
+        focus: M6_VILLAGE,
+      },
+      {
+        text:
+          'Designate a SOLAR FARM on the wide-open south field (it shades green), then run time ' +
+          'forward and AWARD a bid — same tender flow as wind.',
+        objective: 'Designate a solar farm and award a bid',
+        done: (s) =>
+          s.inbox.tenders.some((t) => t.status === 'awarded') &&
+          s.assets.some((a) => a.kind === 'gen' && a.gen === 'solarFarm'),
+        unlocks: ['gen:solarFarm', 'hud:inbox'],
+        focus: M6_SOLAR,
+        spot: 'gen:solarFarm',
+      },
+      {
+        text:
+          'Add a BATTERY beside the field. It charges when solar is plentiful and cheap, and ' +
+          'discharges into the evening peak — firming intermittent solar into round-the-clock ' +
+          'supply. Designate one and award the bid.',
+        objective: 'Add a battery and award the bid',
+        done: (s) => s.assets.some((a) => a.kind === 'gen' && a.gen === 'battery'),
+        unlocks: ['gen:battery'],
+        focus: M6_BATTERY,
+        spot: 'gen:battery',
+      },
+      {
+        text:
+          'Wire it together: a DISTRIBUTION SUBSTATION in the village, and 33 kV LINES tying the ' +
+          'solar farm and the battery to it. Both connect at 33 kV, so no grid substation needed.',
+        objective: 'Wire solar + battery to a village substation',
+        done: (s) => hasLine(s, 33) && s.assets.some((a) => a.kind === 'sub' && a.sub === 'dist'),
+        unlocks: ['sub:dist', 'line:33'],
+        focus: M6_VILLAGE,
+        spot: 'sub:dist',
+      },
+      {
+        text:
+          'Light the village from sun and store. With every home served, press FINISH TUTORIAL ' +
+          'to complete Sun & Store.',
+        objective: 'Light Sunningmead from solar + battery',
+        // mirror the win exactly (served + both solar and battery present) so
+        // finishing the strip implies the lesson was genuinely won.
+        done: (s) =>
+          s.stats.totalCustomers > 0 &&
+          s.stats.servedCustomers >= s.stats.totalCustomers &&
+          s.assets.some((a) => a.kind === 'gen' && a.gen === 'solarFarm') &&
+          s.assets.some((a) => a.kind === 'gen' && a.gen === 'battery'),
+        focus: M6_VILLAGE,
+      },
+    ],
+    win: (v) =>
+      allServed(v) &&
+      v.assets.some((a) => a.kind === 'gen' && a.gen === 'solarFarm') &&
+      v.assets.some((a) => a.kind === 'gen' && a.gen === 'battery'),
+    winText:
+      'Sunningmead runs on sunshine by day and stored sunshine by night. Intermittent generation plus storage is how a modern, low-carbon grid keeps the lights on around the clock.',
   }),
 ];
 
@@ -622,4 +790,5 @@ export const MISSION_SITES = {
   m2: { windsite: M2_WINDSITE },
   m4: { applicant: M4_APPLICANT },
   m5: { wind: M5_WIND },
+  m6: { solar: M6_SOLAR, battery: M6_BATTERY, village: M6_VILLAGE },
 } as const;

@@ -277,3 +277,38 @@ export function buildBillMap(): CityMap {
   paintWater(map, 34, 20, 39, 25);
   return finalize(map, 0xa1de05);
 }
+
+// --- mission 6: Sun & Store --------------------------------------------------
+// A sunny village with a wide-open south field. Solar generates only by
+// day; a battery stores the surplus and discharges after sunset — so the
+// lesson is solar + storage keeping a town lit around the clock.
+
+export const M6_VILLAGE = { x: 9, y: 12 } as const;
+/** The open south field where the solar farm goes (steps + e2e aim here). */
+export const M6_SOLAR = { x: 26, y: 17 } as const;
+/** Where the battery sits, between the solar field and the village. */
+export const M6_BATTERY = { x: 22, y: 14 } as const;
+
+export function buildSunStoreMap(): CityMap {
+  const map = blankMap(40, 26, {
+    id: 0,
+    name: 'Sunningmead',
+    affluence: 0.5,
+    ambition: 0.6,
+    blurb: 'Long days, a south-facing field, and a village that wants to go solar.',
+  });
+  paintZone(map, 7, 10, 11, 14, ZONE.suburb);
+  cottages(map, [
+    [6, 9],
+    [6, 14],
+    [12, 9],
+    [12, 15],
+    [9, 16],
+    [8, 7],
+  ]);
+  church(map, 9, 8);
+  paintTrees(map, 16, 3, 20, 7); // a copse to the north
+  paintWater(map, 14, 21, 19, 24); // a pond, south-west
+  // the wide-open, unshaded south field reads as the natural solar site
+  return finalize(map, 0xa1de06);
+}

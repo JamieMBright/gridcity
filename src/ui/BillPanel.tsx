@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from '../app/store';
 import { requestBillDetail, sendCommand } from '../app/workerBridge';
 import type { BillDetailLine, BillDetailRow } from '../sim/protocol';
@@ -130,6 +130,13 @@ export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   const setSelected = useAppStore((s) => s.setSelected);
   const [open, setOpen] = useState<BillDetailLine | undefined>(undefined);
   const [trendOpen, setTrendOpen] = useState(false);
+  // mark the bill as seen the moment this panel is mounted/visible — the
+  // mission-5 "open the bill" step gates on it (works on both desktop,
+  // where the panel docks in the rail, and mobile, where it's a sheet).
+  const setBillSeen = useAppStore((s) => s.setBillSeen);
+  useEffect(() => {
+    setBillSeen(true);
+  }, [setBillSeen]);
   if (!snapshot) return null;
   const b = snapshot.bill;
   const st = snapshot.stats;

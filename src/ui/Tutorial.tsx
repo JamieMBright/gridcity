@@ -1,9 +1,12 @@
 // The campaign missions' guided step strip + victory card. The campaign
 // IS the tutorial now — the old standalone London step strip is retired
-// (sandbox new game starts clean; the start menu's "tutorial" launches
-// mission 1). Each step auto-advances when the sim shows it's done, or
-// waits for "next"; skippable at any point. A refused siting click shows
-// its reason loudly right under the strip.
+// (sandbox new game starts clean; the start menu's "tutorials" opens the
+// lessons page). STEP-GATING: a step with a `done` predicate keeps its
+// next/finish button DISABLED until the goal is met (with a live ○→✓
+// objective row), so the player must actually do each thing before moving
+// on; concept steps (no goal) advance freely with "continue". The victory
+// card shows ONLY on "finish tutorial", never the instant the win latches.
+// A refused siting click shows its reason loudly right under the strip.
 
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../app/store';
@@ -52,8 +55,8 @@ function StepStrip({
 }) {
   const step = useAppStore((s) => s.tutorialStep);
   const setStep = useAppStore((s) => s.setTutorialStep);
-  const setLessonsOpen = useAppStore((s) => s.setLessonsOpen);
-  const setMenuOpen = useAppStore((s) => s.setMenuOpen);
+  const setTutorialDone = useAppStore((s) => s.setTutorialDone);
+  const scenarioId = useAppStore((s) => s.scenarioId);
   // loud refusals: a siting click the sim rejects sets this toast — we
   // surface the reason prominently right under the strip, not just as the
   // small corner toast that's easy to miss mid-lesson.
@@ -64,27 +67,39 @@ function StepStrip({
 
   const current = step !== undefined ? steps[step] : undefined;
 
+  // STEP GATING: a step with a `done` predicate is GATED — its goal must be
+  // met before the player can move on. A step without one is a pure concept
+  // step (freely advanceable). `goalMet` drives both the auto-advance and
+  // whether the next/finish button is enabled.
+  const goalMet =
+    current?.done && snapshot ? current.done(snapshot, ui) : current ? !current.done : false;
+
   useEffect(() => {
-    if (step === undefined || !snapshot || !current?.done) return;
-    if (current.done(snapshot, ui)) {
-      setStep(step + 1 < steps.length ? step + 1 : undefined);
-    }
-  }, [snapshot, step, current, setStep, steps.length, ui]);
+    // auto-advance is now OPT-IN (step.auto): only a few steps skip the
+    // "read the takeaway, then click on" beat (e.g. watching a bid land).
+    // Every other gated step waits for the player to press next once its
+    // goal is met — so the lesson copy is always read.
+    if (step === undefined || !current?.auto) return;
+    if (goalMet) setStep(step + 1 < steps.length ? step + 1 : undefined);
+  }, [goalMet, step, current, setStep, steps.length]);
 
   // guided-play spotlight: ring the step's target control (measured live
   // so it follows whichever layout is mounted). Pure-visual — clicks pass
-  // through, so the player can still act freely.
-  const spotRect = useSpotlightRect(minimized ? undefined : current?.spot);
+  // through, so the player can still act freely. Once the goal is met the
+  // spotlight drops (the eye should move to the next/finish button).
+  const spotRect = useSpotlightRect(minimized || goalMet ? undefined : current?.spot);
 
   if (step === undefined || !current) return null;
   const last = step === steps.length - 1;
+  const gated = current.done !== undefined;
 
-  // end the tutorial outright (the no-skip rule keeps this off mid-lesson;
-  // it appears only as the explicit "finish" on the final tile).
+  // finish the lesson: clear the step strip and RAISE the victory card
+  // (gated on tutorialDone so the card appears ONLY here, never the instant
+  // the objective is met — owner). The card itself offers next-mission /
+  // lessons / keep-playing.
   const finish = (): void => {
     setStep(undefined);
-    setLessonsOpen(true);
-    setMenuOpen(true);
+    setTutorialDone(scenarioId);
   };
 
   if (minimized) {
@@ -99,8 +114,8 @@ function StepStrip({
           left: '50%',
           transform: 'translateX(-50%)',
           padding: '6px 14px',
-          border: `1px solid ${theme.orange}`,
-          color: theme.orange,
+          border: `1px solid ${goalMet && gated ? theme.ok : theme.orange}`,
+          color: goalMet && gated ? theme.ok : theme.orange,
           fontFamily: theme.font,
           fontSize: 12,
           fontWeight: 700,
@@ -108,7 +123,8 @@ function StepStrip({
           zIndex: 7,
         }}
       >
-        📖 lesson {step + 1}/{steps.length} — tap to show
+        {goalMet && gated ? '✓' : '📖'} lesson {step + 1}/{steps.length}
+        {goalMet && gated ? ' — done, tap to continue' : ' — tap to show'}
       </button>
     );
   }
@@ -124,8 +140,13 @@ function StepStrip({
           left: '50%',
           transform: 'translateX(-50%)',
           width: 'min(440px, 94vw)',
-          maxHeight: '46vh',
-          overflowY: 'auto',
+          // flex column: the LESSON TEXT scrolls, but the header at the top
+          // and the objective + nav buttons at the bottom stay PINNED — so on
+          // a short phone-landscape the gate (objective row + next button) is
+          // always visible without scrolling (a real bug at 46vh before).
+          maxHeight: '64vh',
+          display: 'flex',
+          flexDirection: 'column',
           padding: '12px 16px',
           border: `1px solid ${theme.orange}`,
           boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
@@ -142,6 +163,7 @@ function StepStrip({
             justifyContent: 'space-between',
             alignItems: 'center',
             pointerEvents: 'auto',
+            flexShrink: 0,
           }}
         >
           <div style={{ color: theme.orange, fontSize: 10, letterSpacing: '0.12em' }}>
@@ -163,7 +185,71 @@ function StepStrip({
             ▁
           </button>
         </div>
-        <div style={{ fontSize: 13.5, lineHeight: 1.55, marginTop: 5 }}>{current.text}</div>
+        {/* progress dots: a quick read of where you are in the lesson, the
+            done steps filled, the current one ringed */}
+        <div style={{ display: 'flex', gap: 4, marginTop: 6, flexShrink: 0 }}>
+          {steps.map((_, i) => (
+            <span
+              key={i}
+              style={{
+                width: i === step ? 14 : 7,
+                height: 7,
+                borderRadius: 4,
+                background:
+                  i < step ? theme.ok : i === step ? theme.orange : 'rgba(141,151,180,0.3)',
+                transition: 'all 160ms ease',
+              }}
+            />
+          ))}
+        </div>
+        {/* the lesson PROSE is the only part that scrolls; the gate below
+            stays pinned so it's always reachable on a short screen */}
+        <div
+          style={{
+            fontSize: 13.5,
+            lineHeight: 1.55,
+            marginTop: 8,
+            overflowY: 'auto',
+            minHeight: 0,
+            flexShrink: 1,
+          }}
+        >
+          {current.text}
+        </div>
+        {/* OBJECTIVE row: the concrete goal that gates this step. ○ while
+            pending → ✓ when done, so the player always knows exactly what
+            unlocks "next". Concept steps (no goal) show nothing here. */}
+        {current.objective && (
+          <div
+            style={{
+              marginTop: 9,
+              padding: '6px 10px',
+              borderRadius: 6,
+              display: 'flex',
+              gap: 8,
+              alignItems: 'baseline',
+              flexShrink: 0,
+              background: goalMet ? 'rgba(123,196,127,0.14)' : 'rgba(255,162,56,0.10)',
+              border: `1px solid ${goalMet ? theme.ok : theme.orange}`,
+            }}
+          >
+            <span style={{ color: goalMet ? theme.ok : theme.orange, fontWeight: 800 }}>
+              {goalMet ? '✓' : '○'}
+            </span>
+            <span
+              style={{
+                fontSize: 12.5,
+                lineHeight: 1.4,
+                color: goalMet ? theme.ok : theme.offWhite,
+                textDecoration: goalMet ? 'line-through' : 'none',
+                fontWeight: 600,
+              }}
+            >
+              {current.objective}
+              {goalMet ? ' — done!' : ''}
+            </span>
+          </div>
+        )}
         {toast && (
           <div
             role="alert"
@@ -182,6 +268,13 @@ function StepStrip({
             ⚠ can’t do that here — {toast}
           </div>
         )}
+        {/* a gentle hint while a gated goal is still pending, so the
+            disabled button never feels broken */}
+        {gated && !goalMet && (
+          <div style={{ marginTop: 8, fontSize: 11, color: theme.slate, fontStyle: 'italic' }}>
+            do the step above to continue
+          </div>
+        )}
         <div
           style={{
             display: 'flex',
@@ -189,10 +282,14 @@ function StepStrip({
             marginTop: 10,
             alignItems: 'center',
             pointerEvents: 'auto',
+            flexShrink: 0,
           }}
         >
           {/* step navigation — back/forward only; there is NO "skip the
-              whole tutorial" escape (owner: the tutorial IS the content) */}
+              whole tutorial" escape (owner: the tutorial IS the content).
+              FORWARD is GATED: a step with a goal stays locked until the
+              goal is met (owner: "don't allow next until the GOAL is
+              achieved"). Concept steps (no goal) advance freely. */}
           <button
             onClick={() => setStep(Math.max(0, step - 1))}
             disabled={step === 0}
@@ -202,12 +299,23 @@ function StepStrip({
             ◂ back
           </button>
           {last ? (
-            <button onClick={finish} style={btnStyle}>
+            <button
+              onClick={finish}
+              disabled={!goalMet}
+              style={{ ...btnStyle, opacity: goalMet ? 1 : 0.45, cursor: goalMet ? 'pointer' : 'not-allowed' }}
+              title={goalMet ? 'Finish the tutorial' : 'Complete the goal to finish'}
+              data-spot="tutorial:finish"
+            >
               finish tutorial ✓
             </button>
           ) : (
-            <button onClick={() => setStep(step + 1)} style={btnStyle} title="Next step">
-              next ▸
+            <button
+              onClick={() => setStep(step + 1)}
+              disabled={!goalMet}
+              style={{ ...btnStyle, opacity: goalMet ? 1 : 0.45, cursor: goalMet ? 'pointer' : 'not-allowed' }}
+              title={goalMet ? 'Next step' : 'Complete the goal to continue'}
+            >
+              {gated ? 'next ▸' : 'continue ▸'}
             </button>
           )}
         </div>
@@ -216,16 +324,18 @@ function StepStrip({
   );
 }
 
-/** Mission accomplished: name, the win line, and where to next. */
+/** Mission accomplished: name, the win line, and where to next. Shown ONLY
+ *  once the player clicks "finish tutorial" on the last step (tutorialDone),
+ *  never the instant the objective latches (owner). */
 function MissionVictory({ scenarioId }: { scenarioId: string }) {
-  const snapshot = useAppStore((s) => s.snapshot);
+  const tutorialDone = useAppStore((s) => s.tutorialDone);
+  const setTutorialDone = useAppStore((s) => s.setTutorialDone);
   const setMenuOpen = useAppStore((s) => s.setMenuOpen);
   const setLessonsOpen = useAppStore((s) => s.setLessonsOpen);
   const setTutorialStep = useAppStore((s) => s.setTutorialStep);
-  const [dismissedFor, setDismissedFor] = useState<string | undefined>(undefined);
 
   const mission = missionOf(scenarioId);
-  if (!mission || !snapshot?.missionComplete || dismissedFor === scenarioId) return null;
+  if (!mission || tutorialDone !== scenarioId) return null;
   const next = nextMission(scenarioId);
 
   return (
@@ -285,6 +395,7 @@ function MissionVictory({ scenarioId }: { scenarioId: string }) {
             <button
               style={{ ...btnStyle, padding: '7px 18px' }}
               onClick={() => {
+                setTutorialDone(undefined);
                 startMission(next.id);
                 setTutorialStep(0);
               }}
@@ -295,6 +406,7 @@ function MissionVictory({ scenarioId }: { scenarioId: string }) {
           <button
             style={{ ...ghostBtnStyle, padding: '7px 14px', color: theme.offWhite }}
             onClick={() => {
+              setTutorialDone(undefined);
               setLessonsOpen(true);
               setMenuOpen(true);
             }}
@@ -303,7 +415,7 @@ function MissionVictory({ scenarioId }: { scenarioId: string }) {
           </button>
           <button
             style={{ ...ghostBtnStyle, padding: '7px 14px' }}
-            onClick={() => setDismissedFor(scenarioId)}
+            onClick={() => setTutorialDone(undefined)}
           >
             keep playing
           </button>
@@ -319,6 +431,7 @@ export function Tutorial() {
   const scenarioId = useAppStore((s) => s.scenarioId);
   const studies = useAppStore((s) => Object.keys(s.studies).length);
   const headroom = useAppStore((s) => s.headroom);
+  const billSeen = useAppStore((s) => s.billSeen);
 
   if (menuOpen) return null;
   // the campaign IS the tutorial: the step strip only ever runs on a
@@ -332,7 +445,7 @@ export function Tutorial() {
         steps={mission.steps}
         header={`MISSION · ${mission.name.toUpperCase()} · STEP`}
         snapshot={snapshot}
-        ui={{ studies, headroom }}
+        ui={{ studies, headroom, billSeen }}
       />
       <MissionVictory scenarioId={scenarioId} />
     </>

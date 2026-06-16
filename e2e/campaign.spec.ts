@@ -56,13 +56,15 @@ async function tapTile(page: Page, tile: { x: number; y: number }): Promise<void
   expect(tapped).toBe(true);
 }
 
-/** Menu → "tutorials" opens the LESSONS PAGE → click First Light to launch
- *  campaign mission 1, then wait for it. */
+/** Menu → "tutorials" opens the LESSONS PAGE → expand First Light → click
+ *  "start lesson" to launch campaign mission 1, then wait for it. */
 async function startTutorial(page: Page): Promise<void> {
   await waitReady(page);
   await clickButton(page, 'tutorials');
   await expect.poll(() => store<boolean>(page, '(s) => s.lessonsOpen')).toBe(true);
+  // the lesson card now expands to show its curriculum, then "start lesson"
   await clickButton(page, /1\. First Light/);
+  await clickButton(page, /start lesson/);
   await expect.poll(() => store<boolean>(page, '(s) => s.menuOpen')).toBe(false);
   await expect
     .poll(() => store<string>(page, '(s) => s.snapshot?.scenarioId'), { timeout: 20_000 })
@@ -105,9 +107,9 @@ test.describe('campaign tutorial — real UI path at phone-landscape', () => {
 
     await pause(page);
 
-    // advance to step 2 (designate wind). The auto-steps need the tender,
-    // so nudge the strip forward to the wind step first.
-    await clickButton(page, 'next'); // intro → designate-wind step
+    // advance past the intro (a concept step → freely-advanceable "continue")
+    // to the designate-wind step.
+    await clickButton(page, 'continue'); // intro → designate-wind step
 
     // PROGRESSIVE DISCLOSURE: at the wind step the build rail shows ONLY
     // the unlocked onshore-wind tool (plus always-on inspect). Gas/grid
@@ -165,6 +167,21 @@ test.describe('campaign tutorial — real UI path at phone-landscape', () => {
         timeout: 30_000,
       })
       .toBe(true);
+
+    // STEP-GATING: the victory card must NOT appear the instant the objective
+    // latches — only when the player presses "finish tutorial" on the last
+    // step (owner). So with the goal met but the strip not yet finished, the
+    // card is absent.
+    await expect(page.getByText('MISSION COMPLETE', { exact: true })).toHaveCount(0);
+
+    // jump the strip to its final step (every earlier goal is met, so this is
+    // legitimate) and finish — NOW the card appears.
+    await page.evaluate(() => {
+      const st = window.__ec?.getState();
+      const last = (st?.snapshot?.scenarioId ?? '') === 'm1-first-light' ? 7 : 0;
+      st?.setTutorialStep(last);
+    });
+    await clickButton(page, /finish tutorial/);
 
     // the victory card + the campaign record that unlocks mission 2
     await expect(page.getByText('MISSION COMPLETE', { exact: true })).toBeVisible();
@@ -229,45 +246,70 @@ test.describe('HUD coach-mark tour', () => {
   });
 });
 
-test.describe('mission screenshots (SHOTS=1)', () => {
-  test.skip(!process.env.SHOTS, 'screenshot helper — run with SHOTS=1');
+// --- W7e design-gate screenshots (SHOTS=1) ----------------------------------
+// Capture the OVERHAULED tutorial flow on desktop AND phone-landscape: the
+// lessons page (expanded curriculum), the gated step strip with its objective
+// PENDING then DONE (the headline change), and the victory card on finish.
 
-  test('mission 1 on mission start, desktop viewport', async ({ page }) => {
-    test.setTimeout(120_000);
-    await waitReady(page);
-    await clickButton(page, 'tutorial');
-    await expect
-      .poll(() => store<string>(page, '(s) => s.snapshot?.scenarioId'), { timeout: 20_000 })
-      .toBe(M1);
-    await page.waitForTimeout(1200);
-    await page.screenshot({ path: 'preview/mission1-desktop.png' });
+/** Open the lessons page and expand the First Light card. */
+async function openLessons(page: Page): Promise<void> {
+  await waitReady(page);
+  await clickButton(page, 'tutorials');
+  await expect.poll(() => store<boolean>(page, '(s) => s.lessonsOpen')).toBe(true);
+  await clickButton(page, /1\. First Light/); // expand its curriculum
+  await page.waitForTimeout(300);
+}
+
+/** Drive into mission 1 and pan the camera so the strip + map both read. */
+async function intoMission1(page: Page): Promise<void> {
+  await startTutorial(page);
+  await expect(page.getByText(/FIRST LIGHT/)).toBeVisible();
+  await page.waitForTimeout(1000);
+}
+
+for (const variant of [
+  { tag: 'desktop', use: {} },
+  { tag: 'mobile', use: { viewport: PHONE, hasTouch: true } },
+] as const) {
+  test.describe(`W7e tutorial shots — ${variant.tag} (SHOTS=1)`, () => {
+    test.skip(!process.env.SHOTS, 'screenshot helper — run with SHOTS=1');
+    test.use(variant.use);
+
+    test('lessons page with an expanded curriculum', async ({ page }) => {
+      test.setTimeout(120_000);
+      await openLessons(page);
+      await expect(page.getByText(/What you'll do, step by step/)).toBeVisible();
+      await page.screenshot({ path: `preview/w7e-lessons-${variant.tag}.png` });
+    });
+
+    test('the gated step strip — objective PENDING', async ({ page }) => {
+      test.setTimeout(120_000);
+      await intoMission1(page);
+      // advance to the designate-wind step: its objective is unmet, so the
+      // "next" button is disabled and the objective row shows ○ pending.
+      await clickButton(page, 'continue');
+      await expect(page.getByText(/Designate an onshore-wind site/)).toBeVisible();
+      await expect(page.getByRole('button', { name: /next/ })).toBeDisabled();
+      await page.waitForTimeout(400);
+      await page.screenshot({ path: `preview/w7e-step-pending-${variant.tag}.png` });
+    });
+
+    test('the gated step strip — objective DONE, next unlocked', async ({ page }) => {
+      test.setTimeout(120_000);
+      await intoMission1(page);
+      await clickButton(page, 'continue');
+      // arm onshore wind + tap the ridge → the tender opens → objective met
+      await page.getByRole('button', { name: 'Onshore wind' }).dispatchEvent('click');
+      await tapTile(page, WIND);
+      await expect
+        .poll(() => store<number>(page, '(s) => s.snapshot.inbox.tenders.length'), {
+          timeout: 15_000,
+        })
+        .toBe(1);
+      // the objective ticks ✓ and the next button enables
+      await expect(page.getByRole('button', { name: /next/ })).toBeEnabled();
+      await page.waitForTimeout(500);
+      await page.screenshot({ path: `preview/w7e-step-done-${variant.tag}.png` });
+    });
   });
-
-  test('the HUD tour overlay, desktop', async ({ page }) => {
-    test.setTimeout(120_000);
-    await waitReady(page);
-    await page.evaluate(() => localStorage.removeItem('ec-hud-tour-v1'));
-    await clickButton(page, 'tour the controls');
-    const skip = page.getByRole('button', { name: 'skip', exact: true });
-    if ((await skip.count()) > 0) {
-      await skip.dispatchEvent('click');
-      const rebuild = page.getByRole('button', { name: 'rebuild it' });
-      if ((await rebuild.count()) > 0) await rebuild.dispatchEvent('click');
-    }
-    await expect(page.getByText(/TOUR · 1\//)).toBeVisible();
-    await page.waitForTimeout(600);
-    await page.screenshot({ path: 'preview/hud-tour-desktop.png' });
-  });
-});
-
-test.describe('mission screenshots, phone landscape (SHOTS=1)', () => {
-  test.skip(!process.env.SHOTS, 'screenshot helper — run with SHOTS=1');
-  test.use({ viewport: PHONE, hasTouch: true });
-
-  test('mission 1 on mission start at 844x390', async ({ page }) => {
-    test.setTimeout(120_000);
-    await startTutorial(page);
-    await page.waitForTimeout(1200);
-    await page.screenshot({ path: 'preview/mission1-mobile.png' });
-  });
-});
+}

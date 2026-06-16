@@ -56,8 +56,9 @@ test.describe('start menu, tutorial, KPI dashboard', () => {
     // "tutorials" opens the LESSONS PAGE (the campaign IS the tutorial)
     await clickButton(page, 'tutorials');
     await expect.poll(() => store<boolean>(page, '(s) => s.lessonsOpen')).toBe(true);
-    // launch the first lesson — the menu closes straight into First Light
+    // tap the lesson to reveal its curriculum, then "start lesson" launches it
     await clickButton(page, /1\. First Light/);
+    await clickButton(page, /start lesson/);
     await expect.poll(() => store<boolean>(page, '(s) => s.menuOpen')).toBe(false);
     await expect
       .poll(() => store<string>(page, '(s) => s.snapshot?.scenarioId'), { timeout: 20_000 })
