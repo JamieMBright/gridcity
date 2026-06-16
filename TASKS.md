@@ -12,6 +12,53 @@
 
 ## Open
 
+### 🌊 WAVE PLAN (owner, 2026-06-16: "Analyse tasks into waves of work that make a sensible PR, and use sub agents to action them.")
+The whole open backlog, sequenced into waves. Branch is `claude/serene-edison-h6tebf`
+(one feature branch, owner-mandated) so each wave lands as a self-contained,
+design-gated, green commit (≈ a sensible sub-PR). Subagents (Opus) action the
+parallelisable waves; the main session keeps the keep-alive drumbeat + integrates.
+
+- **W1 — Unified perimeter HUD** (IN PROGRESS, subagent): one wraparound chrome,
+  dedicated non-overlapping zones, desktop + phone-landscape. (TASKS §UNIFIED PERIMETER HUD)
+- **W2 — Hero SPINE (enabler, blocks W3+):** break the 255-value landmark-raster
+  ceiling. A per-city bespoke-hero REGISTRY (string keys, own file per city →
+  collision-free parallel work) + heroes carried as a placed LIST with a
+  `heroKey` re-resolved at runtime from the stored name (no artifact regen) +
+  atlas bakes each registered hero + renderer draws heroes from the list with
+  their bespoke light + a TEST that COUNTS bespoke heroes/city (makes the
+  doctrine measurable). London migrated onto the path (owner wants London
+  transformed; SAVE_VERSION bumped if footprints move).
+- **W2b — Hero TEXTURE CAPACITY (enabler, blocks W3+; owner-surfaced feasibility
+  constraint):** the shared sprite atlas is a SINGLE 4096×4096 sheet (hard `throw`
+  on overflow) already at ~3950px — it physically CANNOT hold 100 bespoke sprites
+  per city. Fix: bespoke heroes (sparse, ≤100, static) render as their OWN cached
+  textures (baked by art-fingerprint key, drawn as Sprites at the tile anchor with
+  headroom), NOT as shared-atlas frames. Removes the 4096 ceiling for heroes
+  entirely, leaves the shared tile atlas byte-identical (London safe), and is
+  lighter on mobile memory than a 2nd 4096 sheet (only PLACED heroes bake). The
+  W2 registry/heroTable/placement is reused as-is; only the bake+draw layer
+  changes. Without this, the 100-hero waves overflow the atlas and throw.
+- **W3 — LONDON → 100 bespoke heroes** (subagent, from docs/heroes/london/100):
+  bespoke iso sprite + bespoke night electrification light each, all placed,
+  per-hero sizing (the Shard towers, Heathrow is a monster). Owner must-have.
+- **W4 — PARIS → 100 bespoke heroes** (subagent, docs/heroes/paris/100): same. Owner must-have.
+- **W5 — the other 10 cities → bespoke heroes + lighting** (parallel subagents,
+  batched): NYC, Sydney, HK, Berlin, Shanghai, Cape Town, Cairo, Athens; +
+  Pune & NE England (need docs/heroes/ first). 100/city is the standard;
+  reduce only where a city genuinely has fewer iconic structures (owner allowed).
+- **W6 — Giza gameplay + per-hero light-show polish:** energisable Sound-&-Light
+  LOAD at Giza; verify every hero's electrification animation is bespoke + gated.
+- **W7 — PLAYTEST RE-RAISE** (own sub-waves, each a commit):
+  W7a Auth/settings/menu (Enter-to-sign-in, distinct tab filters, change-password,
+  bolt icon, end-to-end login). W7b Vans on the map. W7c Turbine footprint bug +
+  wind-farm icon + capacity picker. W7d Severe-weather v2 (7-day notice, Met
+  Office colours, km/h gusts, system-prepare levers). W7e Tutorials 1-5 overhaul
+  + structure (campaign→tutorial, lessons page, step-gating, more lessons).
+- **W8 — Per-country operating models** (FR/AU/HK/BR seams part 2b + tender flows).
+- **W9 — Per-city polish** (thin-river water glint Cairo/Pune/NE; NE Alnwick framing).
+- **W10 — Economy depth:** RAV/revenue/incentives; favour-login progression gating;
+  reusable CitySpec template.
+
 ### 🌍 CITY PICKER — PLAYABLE MULTI-CITY (owner, 2026-06-15) — DONE (pending parent design-gate + push)
 "When you press New Game, offer the cities to play. Selecting a map can be
 open to all for now so I can test. Consider how saved game state will handle
@@ -382,7 +429,7 @@ fault icon but NO van)**
 - [ ] Map overlay interrupts the finance/bill panel (was done — verify).
 - [ ] HUD panes overlap — can't upgrade the substation, messages in the way (was
       "done" but owner 2026-06-15 14:xx still sees overlap, with a screenshot).
-- [ ] **UNIFIED PERIMETER HUD (owner, 2026-06-15, screenshot — the floating
+- [~] **UNIFIED PERIMETER HUD (owner, 2026-06-15, screenshot — the floating
       windows still overlap each other + the bill panel).** Stop using separate
       floating windows. Design ONE wraparound chrome that frames the screen
       PERIMETER with DEDICATED, non-overlapping zones for each region — build
@@ -390,6 +437,24 @@ fault icon but NO van)**
       covers the map or another panel. Use the game-ui-design / frontend-design
       skills; design-gate on desktop AND phone-landscape. This supersedes the
       piecemeal z-order fixes.
+      IN PROGRESS (subagent, 2026-06-16 — branch claude/serene-edison-h6tebf):
+      - APPROACH: a single `HudFrame` (src/ui/HudFrame.tsx) CSS-GRID perimeter
+        that overlays the full-screen map. Grid = `[L] [centre] [R]` columns ×
+        `[top] [middle] [bottom]` rows. The CENTRE cell is empty + pointer-
+        transparent (map stays inset:0 underneath, fully visible/interactive —
+        London render byte-identical, HUD is pure DOM/CSS). The four edge tracks
+        are flex containers; each existing panel becomes a flex CHILD of its
+        track with `min-height:0` + inner scroll, so a panel can only ever grow
+        WITHIN its track and scrolls when full — overlap is structurally
+        impossible (no abs-positioned siblings fighting bottom/top offsets).
+      - ZONES: LEFT rail = BuildPalette (tools). RIGHT rail = InfoPanel(pinned)
+        / InboxPanel / BillPanel stacked in dedicated sub-zones, each scroll-
+        contained + flex-shrinkable. TOP bar = wordmark + search + ticker +
+        market + RIIO/netzero/company. BOTTOM bar = clock/speed/skip/undo +
+        toggles + status + goal. FleetPanel docks under the left rail. Minimap
+        + bookmarks pinned to corners INSIDE the frame gaps.
+      - GUARDRAILS kept: every control's text/role/data-testid unchanged so the
+        e2e + functionality are untouched (only the layout containers change).
 - [ ] Substation MVA size scrollable / +- when BUILDING (not just when reinforcing).
 
 ### 🛠 OSM PIPELINE BUILD (fresh env w/ egress, 2026-06-14 ~14:50) — IN PROGRESS
