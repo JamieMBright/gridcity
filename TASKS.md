@@ -34,7 +34,13 @@ parallelisable waves; the main session keeps the keep-alive drumbeat + integrate
   → **616/1200 bespoke heroes across ALL 12 cities** (london 41, paris 88, newyork 79,
   cairo 90, sydney 32, berlin 35, shanghai 40, hongkong 38, capetown 38, athens 37,
   pune 31, northeast 67). Every city renders bespoke heroes; all gates green; London byte-identical.
-- 🔄 BATCH 4 IN PROGRESS: Round-2 draws for the 4 lowest cities (Sydney, Athens, Cape Town, Hong Kong).
+- ✅ BATCH 4 LANDED (5ca36b5): Sydney 70, Athens 84, Cape Town 72, Hong Kong 103.
+  → **800/1200 across 12 cities** (HK 103, Cairo 90, Paris 88, Athens 84, NYC 79,
+  Cape Town 72, Sydney 70, NE 67, London 41, Shanghai 40, Berlin 35, Pune 31).
+- 🔄 BATCH 5 IN PROGRESS: London R2 (draw + place in NAMED_PLACES + SAVE_VERSION 14→15),
+  Berlin R2, Shanghai R2 (draws), + NYC ENRICHMENT PILOT (place famous-missing Empire
+  State/Chrysler/Statue/Brooklyn Bridge in newyork.ts named[]). If the pilot works,
+  scale enrichment to all near-cap cities (Paris/Cairo/HK/Athens/NYC) to reach the famous 100.
 - ⏭ NEXT: round-2 draws for London/Berlin/Shanghai; then the NAMED-LIST ENRICHMENT
   wave — the famous marquees (Tyne Bridge/Angel/Durham, Empire State-class, HSBC/IFC,
   Fernsehturm, Cairo Tower, Panthéon, QVB…) are AUTHORED + wired but absent from the OSM
