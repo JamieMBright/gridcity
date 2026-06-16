@@ -131,6 +131,21 @@ function parcelOf(x: number, y: number): number {
   return Math.abs(((x >> 2) * 73856093) ^ ((y >> 2) * 19349663));
 }
 
+/** The Giza plateau — Cairo's SW desert corner where the Pyramids + the Great
+ *  Sphinx stand. The OSM source tags this open archaeological zone as PARK, and
+ *  the park/countryside renderers dress it with VIVID green palm trees (Cairo's
+ *  `treeGreen` stays jungle-green so the irrigated Nile reads lush) — which left
+ *  the monuments standing in a grove instead of open sand (owner, 2026-06-16:
+ *  "the Pyramids render on GREEN TREES, but Giza is open DESERT"). This guard
+ *  flags the plateau west of the Nile (the river, which returns early, is the
+ *  natural eastern edge) so the ground reads as bare tawny sand and NO
+ *  vegetation/built structure is dressed over it — the bespoke pyramid/Sphinx
+ *  heroes (each on its own `sandApron`) then sit on open desert, as they should.
+ *  Cairo-only and bounded to the corner, so no other city/quarter is touched. */
+function isGizaDesert(map: CityMap, x: number, y: number): boolean {
+  return (map.fabric ?? 'london') === 'cairo' && x <= 33 && y >= 147;
+}
+
 /** The flat ground sprite under everything — ALWAYS returns a sprite. */
 export function groundSpriteFor(map: CityMap, x: number, y: number): string {
   const i = y * map.width + x;
@@ -141,6 +156,9 @@ export function groundSpriteFor(map: CityMap, x: number, y: number): string {
   if (terrain === TERRAIN.water) return `water_${landMask(map, x, y)}`;
   if (((map.flags?.[i] ?? 0) & FLAG_RUNWAY) !== 0) return 'ground_runway';
   if (terrain === TERRAIN.hill) return 'ground_moor';
+  // Giza plateau: bare tawny desert sand (Cairo's `field` is sandy ochre), so
+  // the park/lawn dressing never paints a green carpet under the monuments.
+  if (isGizaDesert(map, x, y)) return `ground_field_${v % 2}`;
 
   switch (zone) {
     case ZONE.urbanCore:
@@ -290,6 +308,11 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
   if (rc === RC.street || rc >= RC.arterial) return undefined;
 
   if (terrain === TERRAIN.water) return undefined;
+  // Giza plateau: open desert. Bespoke pyramid/Sphinx heroes were already
+  // emitted above (lmRaw >= HERO_BASE); every remaining non-hero tile here is
+  // bare sand — suppress the park palms, countryside copses and town fabric the
+  // PARK/suburb zoning would otherwise dress, so the monuments stand alone.
+  if (isGizaDesert(map, x, y)) return undefined;
   if (terrain === TERRAIN.hill) return `hill_${v % 2}`;
   if (terrain === TERRAIN.trees) return `trees_${v % 3}`;
 

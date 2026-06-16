@@ -1746,6 +1746,422 @@ function almshouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 }
 
 // =====================================================================
+// SEVEN STORIES — the National Centre for Children's Books, in a tall converted
+// Victorian Ouseburn flour WAREHOUSE: a slim, very tall red-brick warehouse
+// block of seven floors (the name), small regular windows up the gable end, a
+// hoist gantry on the canalside face, and bright banners hung down it. Slim +
+// tall (it stands head-and-shoulders over the Ouseburn). 1×1, towering.
+// =====================================================================
+function sevenStoriesTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 130 });
+  void seed;
+  const u0 = 0.2, u1 = 0.82, v0 = 0.2, v1 = 0.82;
+  const BR = hex('#9a5340'); // Ouseburn warehouse red brick
+  const H = 104;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  iso.box(u0, v0, u1, v1, 0, H, BR);
+  // seven floors of small regular windows on the long (left) face
+  for (let f = 0; f < 7; f++) {
+    const z = 8 + f * 13;
+    iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, z, z + 7, 3, alpha(COLORS.glassDark, 0.82), SAND_L);
+  }
+  // a tall colourful banner hung down the brick (the centre's branding)
+  for (const [bu, col] of [[u0 + 0.16, hex('#d8743a')], [u0 + 0.34, hex('#4f86a8')]] as const) {
+    iso.r.poly([iso.P(bu, v1, 18), iso.P(bu + 0.08, v1, 18), iso.P(bu + 0.08, v1, H - 6), iso.P(bu, v1, H - 6)], alpha(col, 0.92));
+  }
+  // brick string-courses
+  for (const z of [7, 7 + 13 * 3, 7 + 13 * 6] as const) iso.r.line(iso.P(u0, v1, z), iso.P(u1, v1, z), 0.6 * RES, alpha(shaded(BR, 0.14), 0.7));
+  // a flat parapet + a loading hoist gantry projecting from the gable top
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, H, H + 4, lighten(BR, 0.05), { ink: false });
+  const [hx, hy] = iso.P(u1, (v0 + v1) / 2, H);
+  iso.r.line([hx, hy], [hx + 7 * RES, hy - 5 * RES], 1.4 * RES, SLATE);
+  iso.r.line([hx + 7 * RES, hy - 5 * RES], [hx + 7 * RES, hy + 4 * RES], 0.8 * RES, alpha(SLATE, 0.8)); // hoist rope
+  return iso.build();
+}
+
+// =====================================================================
+// GEORGE STEPHENSON'S BIRTHPLACE — the tiny National-Trust stone COTTAGE at
+// Wylam where "the Father of Railways" was born: a low, single-storey rubble-
+// stone cottage with a heavy stone-slate roof, a single end chimney, small
+// windows, set by the old waggonway. Humble but a national shrine — kept small,
+// raised a touch so it still reads as a hero. 1×1.
+// =====================================================================
+function stephensonsBirthplaceTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 60 });
+  void seed;
+  const u0 = 0.14, u1 = 0.86, v0 = 0.34, v1 = 0.84;
+  const STONE = hex('#b9ad92'); // Tyne-valley rubble stone
+  iso.shadow(u0 - 0.04, v0, u1 + 0.04, v1 + 0.06, 0.22, 0.22);
+  // a sliver of grass + the waggonway rail in front
+  iso.box(u0 - 0.04, v1, u1 + 0.04, v1 + 0.12, 0, 2, shaded(GREEN, 0.06), { ink: false });
+  iso.r.line(iso.P(u0, v1 + 0.08, 2), iso.P(u1, v1 + 0.08, 2), 0.8 * RES, alpha(STEEL_D, 0.7));
+  // the low cottage body
+  iso.box(u0, v0, u1, v1, 0, 22, STONE);
+  iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, 8, 15, 2, alpha(COLORS.glassLit, 0.7), SAND_L);
+  // a low door
+  iso.box(u0 + 0.3, v1 - 0.02, u0 + 0.42, v1, 0, 14, hex('#5c4633'), { ink: false });
+  // heavy stone-slate gable roof (ridge along u) + an end chimney
+  iso.gable(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 22, 13, 'u', SLATE, STONE);
+  iso.box(u0 + 0.04, (v0 + v1) / 2 - 0.05, u0 + 0.16, (v0 + v1) / 2 + 0.05, 30, 42, hex('#7e6750'));
+  return iso.build();
+}
+
+// =====================================================================
+// CHERRYBURN — Thomas Bewick's birthplace farm above the Tyne: a small
+// whitewashed Northumbrian FARMSTEAD — the low white cottage with a stone-slate
+// roof set at right angles to a darker rubble-stone BYRE/barn range, a couple of
+// chimneys, all in a green hill clearing. The white-against-green farm cluster
+// is the read. 2×2 (it sprawls low).
+// =====================================================================
+function cherryburnTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 60 });
+  void seed;
+  const WHITE = hex('#e6e0d2'); // limewashed farmhouse
+  const RUBBLE = hex('#a99d82'); // darker stone byre
+  iso.shadow(0.34, 0.4, 1.66, 1.62, 0.22, 0.22);
+  // the green farm clearing
+  iso.box(0.28, 0.34, 1.72, 1.7, 0, 4, shaded(GREEN, 0.06), { ink: false });
+  // the darker rubble-stone byre/barn range along the back (ridge along v)
+  iso.box(0.42, 0.42, 0.86, 1.5, 4, 30, RUBBLE);
+  iso.gable(0.4, 0.42, 0.88, 1.5, 30, 11, 'v', SLATE, RUBBLE);
+  // a barn door + slit vents on the byre
+  iso.box(0.86, 0.6, 0.88, 0.86, 4, 22, hex('#4f3f2e'), { ink: false });
+  // the white limewashed farmhouse set at right angles in front-right
+  iso.box(0.92, 0.96, 1.6, 1.46, 4, 28, WHITE);
+  iso.windowsLeft(1.46, 1.0, 1.54, 12, 20, 3, alpha(COLORS.glassLit, 0.72), undefined);
+  iso.box(1.18, 1.44, 1.3, 1.46, 4, 18, hex('#5c4633'), { ink: false }); // door
+  iso.gable(0.9, 0.94, 1.62, 1.48, 28, 12, 'u', SLATE, WHITE);
+  // two chimneys
+  iso.box(0.5, 0.5, 0.6, 0.6, 38, 50, hex('#8a6f5a'));
+  iso.box(1.46, 1.0, 1.56, 1.1, 36, 48, hex('#8a6f5a'));
+  return iso.build();
+}
+
+// =====================================================================
+// JARROW HALL (BEDE MUSEUM) — celebrating the Venerable Bede: a trim Georgian
+// brick HALL (symmetrical three-bay, hipped roof, central pedimented door) sat
+// beside a low modern museum range with a monastic feel — a slim Anglo-Saxon
+// stone bell-tower hint rising at the join (a nod to St Paul's, Jarrow). 2×2.
+// =====================================================================
+function jarrowHallTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 100 });
+  void seed;
+  const u0 = 0.34, u1 = 1.66, v0 = 0.42, v1 = 1.58;
+  const BR = hex('#a06b4f'); // warm Georgian brick
+  const STONE = hex('#c4b896');
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // the low modern museum range across the back-left
+  iso.box(u0, v0 + 0.1, u0 + 0.7, v1, 0, 26, shaded(STONE, 0.04));
+  iso.windowsLeft(v1, u0 + 0.06, u0 + 0.64, 8, 18, 4, alpha(COLORS.glassLit, 0.65), undefined);
+  // the trim Georgian brick hall, front-right (symmetrical, three bays)
+  iso.box(u0 + 0.74, v0 + 0.2, u1, v1, 0, 40, BR);
+  for (const zr of [12, 28] as const) iso.windowsLeft(v1, u0 + 0.82, u1 - 0.06, zr, zr + 9, 3, alpha(COLORS.glassDark, 0.84), SAND_L);
+  // central pedimented stone door
+  const du = (u0 + 0.74 + u1) / 2;
+  iso.box(du - 0.07, v1 - 0.04, du + 0.07, v1, 0, 18, lighten(STONE, 0.04));
+  pediment(iso, v1, du - 0.09, du + 0.09, 18, 4, STONE);
+  iso.hip(u0 + 0.72, v0 + 0.18, u1 + 0.02, v1 + 0.02, 40, 12, SLATE);
+  // the slim Anglo-Saxon stone bell-tower at the join (Bede's monastery nod)
+  const tu = u0 + 0.72, tv = v0 + 0.36, hw = 0.11;
+  iso.box(tu - hw, tv - hw, tu + hw, tv + hw, 0, 70, STONE);
+  // a tiny twin Saxon belfry opening + a pyramidal cap
+  iso.r.poly([iso.P(tu - 0.05, tv + hw, 52), iso.P(tu + 0.05, tv + hw, 52), iso.P(tu + 0.05, tv + hw, 62), iso.P(tu - 0.05, tv + hw, 62)], alpha(COLORS.glassDark, 0.8));
+  iso.r.line(iso.P(tu, tv + hw, 52), iso.P(tu, tv + hw, 62), 0.6 * RES, alpha(STONE, 0.8));
+  iso.hip(tu - hw - 0.02, tv - hw - 0.02, tu + hw + 0.02, tv + hw + 0.02, 70, 12, SLATE);
+  return iso.build();
+}
+
+// =====================================================================
+// SEGEDUNUM ROMAN FORT & MUSEUM — Wallsend, the eastern end of Hadrian's Wall:
+// the signature is the tall steel-and-glass VIEWING TOWER overlooking the
+// excavated fort outline, beside a low museum hall and a reconstructed length of
+// Roman wall with its V-ditch. The slim tower + the wall on the ground is the
+// read. 1×1, drawn wide; the tower spikes up.
+// =====================================================================
+function segedunumTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 150 });
+  void seed;
+  const u0 = 0.14, u1 = 0.86, v0 = 0.16, v1 = 0.86;
+  const STONE = hex('#b6aa8e'); // Roman wall stone
+  const GLASS = hex('#9fb2bd');
+  iso.shadow(u0, v0, u1, v1, 0.18, 0.22);
+  // the excavated turf platform with the pale outline of fort walls
+  iso.box(u0, v0, u1, v1, 0, 5, shaded(GREEN, 0.05), { ink: false });
+  for (const [a, b] of [[[u0 + 0.08, v0 + 0.08], [u1 - 0.3, v0 + 0.08]], [[u1 - 0.3, v0 + 0.08], [u1 - 0.3, v1 - 0.3]]] as const) {
+    iso.r.line(iso.P(a[0], a[1], 5), iso.P(b[0], b[1], 5), 1.4 * RES, alpha(STONE, 0.75));
+  }
+  // a reconstructed length of Hadrian's Wall along the near edge
+  iso.box(u0 + 0.06, v1 - 0.1, u1 - 0.32, v1, 5, 17, STONE);
+  // the low museum hall (back-left)
+  iso.box(u0 + 0.04, v0 + 0.06, u0 + 0.34, v0 + 0.5, 5, 22, shaded(STONE, 0.04));
+  // the tall steel-and-glass VIEWING TOWER (the signature), front-right
+  const tu = u1 - 0.16, tv = v1 - 0.18, hw = 0.12;
+  const towZ = 122;
+  iso.box(tu - hw, tv - hw, tu + hw, tv + hw, 5, towZ, alpha(GLASS, 0.9));
+  // floor mullions + a corner steel mast
+  for (let z = 16; z < towZ - 6; z += 12) iso.r.line(iso.P(tu - hw, tv + hw, z), iso.P(tu + hw, tv + hw, z), 0.4 * RES, alpha(COLORS.white, 0.4));
+  iso.r.line(iso.P(tu + hw, tv - hw, 5), iso.P(tu + hw, tv - hw, towZ + 14), 1 * RES, STEEL_D);
+  // the glazed observation cap with an overhanging flat roof
+  iso.box(tu - hw - 0.03, tv - hw - 0.03, tu + hw + 0.03, tv + hw + 0.03, towZ, towZ + 8, STEEL);
+  iso.box(tu - hw + 0.02, tv - hw + 0.02, tu + hw - 0.02, tv + hw - 0.02, towZ - 14, towZ, alpha(COLORS.glassLit, 0.7), { ink: false });
+  return iso.build();
+}
+
+// =====================================================================
+// STEPHENSON RAILWAY MUSEUM — North Shields engine shed: a long low industrial
+// SHED in pale corrugated-and-brick with a shallow-pitched roof and a big
+// arch-headed locomotive doorway, a black STEAM ENGINE with a tall chimney
+// standing out front on a length of rail, a water tower at one end. The engine
+// + shed is the read. 2×2 (drawn long).
+// =====================================================================
+function stephensonRailwayMuseumTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 80 });
+  void seed;
+  const u0 = 0.3, u1 = 1.7, v0 = 0.5, v1 = 1.6;
+  const SHED = hex('#9aa0a3'); // corrugated grey shed
+  const BR = hex('#9c6450');
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // the long shed with brick gable ends + a shallow pitched roof (ridge along u)
+  iso.box(u0, v0, u1, v1, 0, 34, SHED);
+  iso.box(u0 - 0.02, v0 - 0.02, u0 + 0.12, v1 + 0.02, 0, 34, BR); // brick end
+  iso.box(u1 - 0.12, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 34, BR); // brick end
+  iso.gable(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 34, 12, 'u', SLATE, SHED);
+  // corrugation lines on the shed wall + a big arch-headed engine doorway
+  for (let i = 1; i < 10; i++) { const u = u0 + (u1 - u0) * (i / 10); iso.r.line(iso.P(u, v1, 4), iso.P(u, v1, 32), 0.35 * RES, alpha(shaded(SHED, 0.12), 0.5)); }
+  const du = (u0 + u1) / 2;
+  const poly: Pt[] = [iso.P(du - 0.16, v1, 4), iso.P(du - 0.16, v1, 22)];
+  for (let j = 0; j <= 6; j++) { const t = j / 6; poly.push(iso.P(du - 0.16 + 0.32 * t, v1, 22 + Math.sin(t * Math.PI) * 7)); }
+  poly.push(iso.P(du + 0.16, v1, 22), iso.P(du + 0.16, v1, 4));
+  iso.r.poly(poly, alpha(COLORS.glassDark, 0.82));
+  // a water tower at the far end
+  iso.box(u0 + 0.02, v0 + 0.04, u0 + 0.18, v0 + 0.2, 34, 56, shaded(BR, 0.04));
+  iso.box(u0 - 0.01, v0 + 0.01, u0 + 0.21, v0 + 0.23, 56, 64, hex('#5d6975'));
+  // the black STEAM ENGINE standing out front on a length of rail
+  const eu0 = du - 0.26, eu1 = du + 0.1, ev = v1 + 0.18;
+  iso.r.line(iso.P(u0 + 0.1, v1 + 0.24, 2), iso.P(u1 - 0.1, v1 + 0.24, 2), 0.7 * RES, alpha(STEEL_D, 0.7)); // rail
+  iso.box(eu0, ev - 0.05, eu1, ev + 0.05, 2, 18, hex('#33373c')); // boiler block
+  iso.r.poly(circlePts(...isoXY(iso, eu0 + 0.02, ev, 18), 4 * RES), hex('#2a2d31')); // smokebox door end
+  iso.box(eu1 - 0.06, ev - 0.06, eu1, ev + 0.06, 2, 24, hex('#3c4045')); // cab
+  iso.box(eu0 + 0.02, ev - 0.03, eu0 + 0.08, ev + 0.03, 18, 30, hex('#2a2d31')); // chimney
+  iso.glint(iso.P(eu0 + 0.05, ev, 31), 1.4 * RES); // steam wisp
+  return iso.build();
+}
+
+// =====================================================================
+// CORBRIDGE ROMAN TOWN (Coria) — the Roman supply town on Dere Street: low
+// excavated STONE FOUNDATIONS laid out in a grid, a pair of standing GRANARY
+// (horreum) walls with their ventilation slots and buttresses, a couple of
+// re-erected COLUMNS, and a fragment of paved road — all sober grey stone on
+// turf. The ruined grid + standing fragments is the read. 2×2, low.
+// =====================================================================
+function corbridgeRomanTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 70 });
+  void seed;
+  const STONE = hex('#b3a988');
+  const STONE_D = hex('#928868');
+  iso.shadow(0.32, 0.4, 1.66, 1.62, 0.2, 0.22);
+  // the turf the town is excavated into
+  iso.box(0.28, 0.34, 1.72, 1.7, 0, 4, shaded(GREEN, 0.06), { ink: false });
+  // a fragment of the paved Roman road (Dere Street) running through
+  iso.r.poly([iso.P(0.34, 0.9, 5), iso.P(1.66, 0.74, 5), iso.P(1.66, 0.92, 5), iso.P(0.34, 1.08, 5)], alpha(STONE_D, 0.7));
+  // a grid of low excavated foundation walls (knee-high stone footings)
+  for (const [cu, cv] of [[0.5, 1.2], [0.9, 1.3], [1.3, 1.2]] as const) {
+    iso.box(cu - 0.14, cv - 0.12, cu + 0.14, cv + 0.12, 4, 9, STONE, { ink: false });
+    iso.r.line(iso.P(cu, cv - 0.12, 9), iso.P(cu, cv + 0.12, 9), 0.4 * RES, alpha(STONE_D, 0.6));
+  }
+  // the two standing GRANARY walls — taller, buttressed, with vent slots
+  for (const gu of [0.7, 1.12] as const) {
+    iso.box(gu - 0.1, 0.5, gu + 0.1, 0.74, 4, 34, STONE);
+    // raised-floor ventilation slots along the base
+    for (const z of [10, 18] as const) iso.r.line(iso.P(gu - 0.08, 0.74, z), iso.P(gu + 0.08, 0.74, z), 0.8 * RES, alpha(STONE_D, 0.7));
+    // sloped buttress at the corner
+    iso.r.poly([iso.P(gu + 0.1, 0.62, 4), iso.P(gu + 0.16, 0.62, 4), iso.P(gu + 0.1, 0.62, 24)], shaded(STONE, 0.06));
+  }
+  // a pair of re-erected stone columns by the road
+  for (const xu of [1.42, 1.54] as const) {
+    iso.box(xu - 0.03, 1.0, xu + 0.03, 1.06, 5, 30, lighten(STONE, 0.04));
+    const [cx, cy] = iso.P(xu, 1.03, 30);
+    iso.r.rect(cx - 2 * RES, cy - 3 * RES, cx + 2 * RES, cy, lighten(STONE, 0.06)); // capital
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// CLIFFORD'S FORT — the 17th-c. coastal artillery fort guarding the Tyne mouth
+// at North Shields: a long LOW stone rampart wall hard against the river with a
+// row of GUN EMBRASURES and cannon, a small gabled guardhouse/magazine block,
+// all weathered grey stone on the quay. The long low gun-wall is the read. 2×2.
+// =====================================================================
+function cliffordsFortTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 50 });
+  void seed;
+  const u0 = 0.3, u1 = 1.7, v0 = 0.5, v1 = 1.6;
+  const STONE = hex('#a99e84');
+  iso.shadow(u0, v0, u1, v1, 0.18, 0.22);
+  // a strip of river water along the far edge
+  iso.box(u0 - 0.06, v0 - 0.1, u1 + 0.06, v0, -4, 2, shaded(SEA, 0.08), { ink: false });
+  // the long low stone rampart wall facing the river
+  iso.box(u0, v0 + 0.2, u1, v1, 0, 22, STONE);
+  // a sloping earth glacis / battered base
+  iso.r.poly([iso.P(u0, v1, 0), iso.P(u1, v1, 0), iso.P(u1, v1 - 0.1, 14), iso.P(u0, v1 - 0.1, 14)], shaded(STONE, 0.1));
+  // a row of gun embrasures (crenel notches) + stub cannon barrels poking out
+  iso.box(u0 - 0.02, v0 + 0.18, u1 + 0.02, v0 + 0.24, 22, 28, lighten(STONE, 0.04), { ink: false });
+  for (let i = 0; i < 6; i++) {
+    const u = u0 + 0.12 + i * 0.24;
+    const [gx, gy] = iso.P(u, v0 + 0.2, 24);
+    iso.r.rect(gx - 1.6 * RES, gy - 5 * RES, gx + 1.6 * RES, gy - 1 * RES, alpha(SLATE, 0.5)); // embrasure gap
+    iso.r.line([gx, gy - 2 * RES], [gx - 4 * RES, gy - 1 * RES], 1.2 * RES, hex('#33373c')); // cannon barrel
+  }
+  // a small gabled guardhouse / magazine block behind
+  iso.box(u1 - 0.4, v1 - 0.42, u1 - 0.06, v1 - 0.06, 0, 26, lighten(STONE, 0.02));
+  iso.gable(u1 - 0.42, v1 - 0.44, u1 - 0.04, v1 - 0.04, 26, 9, 'u', SLATE, STONE);
+  return iso.build();
+}
+
+// =====================================================================
+// PATH HEAD WATERMILL — a restored working CORN MILL near Blaydon: a stout
+// stone-and-brick mill building with a steep pantile roof, set over a leat, with
+// a big timber overshot WATER WHEEL on its gable end and a small kiln cowl. The
+// turning wheel on the stone gable is the read. 1×1, drawn broad.
+// =====================================================================
+function pathHeadWatermillTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 70 });
+  void seed;
+  const u0 = 0.16, u1 = 0.82, v0 = 0.2, v1 = 0.82;
+  const STONE = hex('#b0a488');
+  const PANTILE = hex('#9d5b3e'); // warm pantile roof
+  iso.shadow(u0 - 0.06, v0, u1 + 0.06, v1 + 0.04, 0.2, 0.22);
+  // the mill leat (a sliver of water down the right side)
+  iso.box(u1, v0 + 0.1, u1 + 0.14, v1, -3, 1, shaded(SEA, 0.06), { ink: false });
+  // the stout mill body
+  iso.box(u0, v0, u1, v1, 0, 32, STONE);
+  iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 10, 18, 3, alpha(COLORS.glassDark, 0.8), SAND_L);
+  iso.box(u0 + 0.28, v1 - 0.02, u0 + 0.4, v1, 0, 16, hex('#5c4633'), { ink: false }); // door
+  // steep pantile roof (ridge along u) + a little kiln cowl
+  iso.gable(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 32, 16, 'u', PANTILE, STONE);
+  const [kx, kyB] = iso.P(u0 + 0.2, v0 + 0.2, 48);
+  iso.r.poly(circlePts(kx, kyB - 4 * RES, 3 * RES, 2 * RES), hex('#6a5240')); // conical kiln cowl
+  // the big timber overshot WATER WHEEL on the right gable end (u1 face)
+  const [wx, wy] = iso.P(u1 + 0.02, v0 + 0.42, 16);
+  const R = 13 * RES;
+  iso.r.poly(circlePts(wx, wy, R, R), alpha(hex('#6f5640'), 0.95));
+  iso.r.poly(circlePts(wx, wy, R * 0.66, R * 0.66), STONE);
+  for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; iso.r.line([wx, wy], [wx + Math.cos(a) * R, wy + Math.sin(a) * R], 0.5 * RES, alpha(hex('#4f3f2e'), 0.8)); }
+  iso.r.polyline(circlePts(wx, wy, R, R), INK_W * 0.6, INK, true);
+  return iso.build();
+}
+
+// =====================================================================
+// HEXHAM OLD GAOL — reputedly England's first purpose-built PRISON (1333): a
+// tall, stark, near-windowless square stone TOWER-KEEP with a battered base, a
+// few tiny barred slit windows high up, a corbelled parapet and a small forebuilding
+// stair turret. Grim and vertical. 1×1, towering.
+// =====================================================================
+function hexhamGaolTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 110 });
+  void seed;
+  const u = 0.5, v = 0.52, hw = 0.28;
+  const STONE = hex('#a89d82'); // grim weathered gaol stone
+  const H = 96;
+  iso.shadow(u - hw - 0.04, v - hw, u + hw + 0.04, v + hw + 0.08, 0.26, 0.24);
+  // a battered (sloping) base
+  iso.r.poly([iso.P(u - hw - 0.05, v + hw + 0.05, 0), iso.P(u + hw + 0.05, v + hw + 0.05, 0), iso.P(u + hw, v + hw, 18), iso.P(u - hw, v + hw, 18)], shaded(STONE, 0.12));
+  // the tall stark tower body
+  iso.box(u - hw, v - hw, u + hw, v + hw, 0, H, STONE);
+  // a very few tiny barred slit windows high up
+  for (const [pu, pz] of [[u - 0.1, 56], [u + 0.08, 74], [u - 0.02, 40]] as const) {
+    const [sx, sy] = iso.P(pu, v + hw, pz);
+    iso.r.rect(sx - 0.8 * RES, sy - 6 * RES, sx + 0.8 * RES, sy, alpha(SLATE, 0.75));
+  }
+  // a small forebuilding stair turret clasping one corner, a touch taller
+  iso.box(u - hw, v + hw - 0.06, u - hw + 0.12, v + hw + 0.06, 0, H + 12, lighten(STONE, 0.02));
+  // a corbelled / machicolated parapet crown
+  iso.box(u - hw - 0.03, v - hw - 0.03, u + hw + 0.03, v + hw + 0.03, H, H + 6, lighten(STONE, 0.05), { ink: false });
+  battlementSquareStone(iso, u, hw, v, H + 1, STONE);
+  return iso.build();
+}
+
+// =====================================================================
+// DERWENTCOTE STEEL FURNACE — the oldest surviving cementation steel furnace
+// (c.1730) in the Derwent valley: the signature is the tall tapering CONICAL
+// stone-and-brick furnace chimney rising from a squat square base, flanked by
+// low stone working-shed ranges where the chests were charged. The big stone
+// cone is the read. 1×1, the cone spikes up.
+// =====================================================================
+function derwentcoteFurnaceTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 130 });
+  void seed;
+  const u = 0.5, v = 0.54;
+  const STONE = hex('#9b8f74'); // sooted furnace stone
+  const STONE_L = hex('#b3a888');
+  iso.shadow(u - 0.34, v - 0.2, u + 0.34, v + 0.3, 0.24, 0.24);
+  // low stone working-shed ranges flanking the furnace base
+  iso.box(u - 0.36, v + 0.04, u - 0.12, v + 0.3, 0, 20, STONE);
+  iso.gable(u - 0.38, v + 0.02, u - 0.1, v + 0.32, 20, 7, 'v', SLATE, STONE);
+  iso.box(u + 0.12, v + 0.04, u + 0.36, v + 0.3, 0, 20, lit(STONE, 0.04));
+  iso.gable(u + 0.1, v + 0.02, u + 0.38, v + 0.32, 20, 7, 'v', SLATE, STONE);
+  // the squat square furnace base
+  iso.box(u - 0.18, v - 0.06, u + 0.18, v + 0.18, 0, 32, STONE_L);
+  // a low arched charging opening at the base
+  const poly: Pt[] = [iso.P(u - 0.08, v + 0.18, 4), iso.P(u - 0.08, v + 0.18, 12)];
+  for (let j = 0; j <= 5; j++) { const t = j / 5; poly.push(iso.P(u - 0.08 + 0.16 * t, v + 0.18, 12 + Math.sin(t * Math.PI) * 4)); }
+  poly.push(iso.P(u + 0.08, v + 0.18, 12), iso.P(u + 0.08, v + 0.18, 4));
+  iso.r.poly(poly, alpha(hex('#2a2522'), 0.85));
+  // the tall tapering CONICAL furnace chimney (a stack of narrowing rings)
+  const segs = 8;
+  const z0 = 32, top1 = 116;
+  for (let i = 0; i < segs; i++) {
+    const za = z0 + (top1 - z0) * (i / segs);
+    const zb = z0 + (top1 - z0) * ((i + 1) / segs);
+    const hw = 0.17 - 0.13 * (i / segs);
+    iso.box(u - hw, v - hw + 0.04, u + hw, v + hw + 0.04, za, zb, i % 2 ? STONE : lighten(STONE, 0.03));
+  }
+  // a wisp of heat-shimmer at the cone tip
+  iso.glint(iso.P(u, v + 0.04, top1 + 4), 1.6 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// NORTH EAST LAND, SEA & AIR MUSEUMS — the regional aviation museum on the old
+// RAF Usworth airfield (Washington): a big curved-roof aircraft HANGAR in pale
+// corrugated cladding with a wide sliding-door front, an AIRCRAFT with swept
+// wings + tailfin parked on the apron out front, and a small control-tower cabin.
+// The hangar + parked jet is the read. 2×2 (drawn broad).
+// =====================================================================
+function airMuseumTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 70 });
+  void seed;
+  const u0 = 0.3, u1 = 1.7, v0 = 0.46, v1 = 1.5;
+  const CLAD = hex('#aeb3b6'); // pale corrugated hangar cladding
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // the apron
+  iso.box(u0 - 0.04, v1 - 0.02, u1 + 0.04, v1 + 0.16, 0, 2, shaded(hex('#8f8d86'), 0.06), { ink: false });
+  // the hangar body with a curved (barrel) roof
+  iso.box(u0, v0 + 0.2, u1, v1, 0, 30, CLAD);
+  const cx = (u0 + u1) / 2;
+  for (let s = -6; s <= 6; s++) {
+    const f = s / 6;
+    const u = cx + f * (u1 - u0) * 0.5;
+    const z = 30 + 18 * Math.sqrt(Math.max(0, 1 - f * f));
+    iso.r.line(iso.P(u, v0 + 0.22, z), iso.P(u, v1, z - 2), 1.3 * RES, f < 0 ? lit(CLAD, 0.05) : shaded(CLAD, 0.06));
+  }
+  // the wide sliding-door front with a tall slot opening
+  for (let i = 1; i < 8; i++) { const u = u0 + (u1 - u0) * (i / 8); iso.r.line(iso.P(u, v1, 4), iso.P(u, v1, 28), 0.4 * RES, alpha(shaded(CLAD, 0.12), 0.5)); }
+  iso.box(cx - 0.16, v1 - 0.02, cx + 0.16, v1, 4, 26, alpha(COLORS.glassDark, 0.7), { ink: false });
+  // a small control-tower cabin at one corner
+  iso.box(u0 + 0.02, v0 + 0.04, u0 + 0.16, v0 + 0.18, 0, 34, shaded(CLAD, 0.04));
+  iso.box(u0, v0 + 0.02, u0 + 0.18, v0 + 0.2, 34, 40, alpha(COLORS.glassLit, 0.7));
+  // the parked AIRCRAFT out front on the apron — fuselage, swept wings, tailfin
+  const au = cx, av = v1 + 0.08;
+  iso.box(au - 0.22, av - 0.025, au + 0.18, av + 0.025, 2, 7, hex('#5c6166')); // fuselage
+  iso.r.poly([iso.P(au - 0.16, av, 5), iso.P(au + 0.04, av, 5), iso.P(au - 0.06, av + 0.18, 4), iso.P(au - 0.18, av + 0.16, 4)], lit(hex('#5c6166'), 0.06)); // wing
+  iso.r.poly([iso.P(au - 0.16, av, 5), iso.P(au + 0.04, av, 5), iso.P(au - 0.06, av - 0.18, 4), iso.P(au - 0.18, av - 0.16, 4)], shaded(hex('#5c6166'), 0.06)); // far wing
+  iso.r.poly([iso.P(au + 0.14, av, 7), iso.P(au + 0.18, av, 7), iso.P(au + 0.16, av, 15)], hex('#7a4a3a')); // tailfin
+  iso.glint(iso.P(au - 0.06, av, 7), 1.4 * RES); // canopy glint
+  return iso.build();
+}
+
+// =====================================================================
 // THE REGISTRY — order matters (first match wins). Specific named icons first,
 // then the parameterised families, so e.g. "St Mary's Cathedral" hits the
 // spired-cathedral entry before any generic church regex.
@@ -2209,5 +2625,66 @@ export const CITY_HEROES: BespokeHero[] = [
     city: 'northeast', key: 'cityspace', match: /CitySpace|Cityspace/i,
     foot: [2, 2], seed: 67, draw: mallBlockTile,
     light: { kind: 'towerCrown', topZ: 52, halfW: 1.2 },
+  },
+  // --- the long tail (W7): Ouseburn, the heritage/Roman sites, the mills ----
+  {
+    city: 'northeast', key: 'seven-stories', match: /Seven Stories/i,
+    foot: [1, 1], seed: 90, draw: sevenStoriesTile,
+    light: { kind: 'facadeFlood', topZ: 104, halfW: 0.5 },
+  },
+  {
+    city: 'northeast', key: 'stephensons-birthplace', match: /Stephenson'?s Birthplace|George Stephenson/i,
+    foot: [1, 1], seed: 91, draw: stephensonsBirthplaceTile,
+    light: { kind: 'facadeFlood', topZ: 36, halfW: 0.5 },
+  },
+  {
+    city: 'northeast', key: 'cherryburn', match: /Cherryburn|Thomas Bewick/i,
+    foot: [2, 2], seed: 92, draw: cherryburnTile,
+    light: { kind: 'facadeFlood', topZ: 50, halfW: 1.1 },
+  },
+  {
+    city: 'northeast', key: 'jarrow-hall', match: /Jarrow Hall|Bede(?: Museum| World| Museum & Anglo-Saxon)?/i,
+    foot: [2, 2], seed: 93, draw: jarrowHallTile,
+    light: { kind: 'facadeFlood', topZ: 70, halfW: 1.1 },
+  },
+  {
+    city: 'northeast', key: 'segedunum', match: /Segedunum/i,
+    foot: [1, 1], seed: 94, draw: segedunumTile,
+    light: { kind: 'aerialBeacon', topZ: 130, halfW: 0.3 },
+  },
+  {
+    city: 'northeast', key: 'stephenson-railway-museum', match: /Stephenson Railway Museum|North Tyneside Steam Railway/i,
+    foot: [2, 2], seed: 95, draw: stephensonRailwayMuseumTile,
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 1.3 },
+  },
+  {
+    city: 'northeast', key: 'corbridge-roman', match: /Corbridge Roman|Coria/i,
+    foot: [2, 2], seed: 96, draw: corbridgeRomanTile,
+    light: { kind: 'facadeFlood', topZ: 34, halfW: 1.3 },
+  },
+  {
+    city: 'northeast', key: 'cliffords-fort', match: /Cliff?ord'?s Fort/i,
+    foot: [2, 2], seed: 97, draw: cliffordsFortTile,
+    light: { kind: 'facadeFlood', topZ: 28, halfW: 1.3 },
+  },
+  {
+    city: 'northeast', key: 'path-head-watermill', match: /Path Head Watermill|Path Head Water Mill/i,
+    foot: [1, 1], seed: 98, draw: pathHeadWatermillTile,
+    light: { kind: 'facadeFlood', topZ: 46, halfW: 0.5 },
+  },
+  {
+    city: 'northeast', key: 'hexham-old-gaol', match: /Hexham Old Gaol|Hexham Gaol/i,
+    foot: [1, 1], seed: 99, draw: hexhamGaolTile,
+    light: { kind: 'facadeFlood', topZ: 96, halfW: 0.5 },
+  },
+  {
+    city: 'northeast', key: 'derwentcote-furnace', match: /Derwentcote(?: Steel Furnace)?/i,
+    foot: [1, 1], seed: 100, draw: derwentcoteFurnaceTile,
+    light: { kind: 'aerialBeacon', topZ: 116, halfW: 0.4 },
+  },
+  {
+    city: 'northeast', key: 'air-museum', match: /Land,? Sea and Air Museum|North East Aircraft Museum|NELSAM/i,
+    foot: [2, 2], seed: 101, draw: airMuseumTile,
+    light: { kind: 'aerialBeacon', topZ: 50, halfW: 1.4 },
   },
 ];
