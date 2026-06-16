@@ -987,6 +987,716 @@ function glassTowerTile(
 }
 
 // =====================================================================
+// ROUND 2 — the remaining PLACED HK heroes (Central/Wan Chai/Kowloon towers,
+// the hotels, colonial heritage, temples + the mosque, the universities, the
+// piers, markets/museums, residential estates). New bespoke draw fns below;
+// each gets its own silhouette + a bespoke electrification light at the foot
+// of the file. Palette stays teal/cool-grey glass + stone/brick + jade tile.
+// =====================================================================
+
+// =====================================================================
+// HKU MAIN BUILDING — the University of Hong Kong's oldest building: Edwardian
+// Baroque red-brick + granite, a long colonnaded façade with a TALL central
+// clock-cupola tower (the Loke Yew tower) and shorter corner turrets, all under
+// a hipped tiled roof. Draw it broad with the central tower spiking up. 2×2.
+// =====================================================================
+function hkuMainBuildingTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 150 });
+  void seed;
+  const u0 = 0.3, u1 = 1.7, v0 = 0.42, v1 = 1.58;
+  iso.shadow(u0, v0, u1, v1, 0.32, 0.24);
+  const BR = REDBRICK, BRD = shaded(REDBRICK, 0.16);
+  // granite plinth
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 9, STONE, { ink: false });
+  // the long three-storey brick body
+  iso.box(u0, v0, u1, v1, 9, 46, BR, { topC: lit(BR, 0.05), leftC: BRD });
+  // a granite colonnade / arcade across the front (v1) ground floor
+  for (let i = 0; i <= 9; i++) {
+    const u = u0 + 0.1 + ((u1 - u0 - 0.2) * i) / 9;
+    iso.r.poly([iso.P(u - 0.016, v1, 30), iso.P(u + 0.016, v1, 30), iso.P(u + 0.016, v1, 11), iso.P(u - 0.016, v1, 11)], i % 2 ? STONE : lit(STONE, 0.06));
+  }
+  // granite string-courses banding the brick (the Baroque read)
+  iso.r.line(iso.P(u0, v1, 30), iso.P(u1, v1, 30), 1.2 * RES, alpha(STONE, 0.8));
+  iso.r.line(iso.P(u1, v0, 30), iso.P(u1, v1, 30), 1 * RES, alpha(STONE, 0.7));
+  // hipped tiled roof over the wings
+  iso.hip(u0 - 0.05, v0 - 0.05, u1 + 0.05, v1 + 0.05, 46, 14, TILE_GREEN);
+  // four corner turrets (short octagonal cupolas)
+  for (const [cu, cv] of [[u0 + 0.06, v0 + 0.06], [u1 - 0.06, v0 + 0.06], [u0 + 0.06, v1 - 0.06], [u1 - 0.06, v1 - 0.06]] as const) {
+    iso.box(cu - 0.08, cv - 0.08, cu + 0.08, cv + 0.08, 46, 64, STONE, { topC: lit(STONE, 0.06), leftC: STONE_D });
+    iso.hip(cu - 0.1, cv - 0.1, cu + 0.1, cv + 0.1, 64, 12, JADE);
+  }
+  // the dominant central clock-cupola tower (Loke Yew tower) — granite,
+  // colonnaded belfry, a small dome + finial, towering over the wings.
+  const cx = (u0 + u1) / 2, cy = (v0 + v1) / 2;
+  iso.box(cx - 0.2, cy - 0.2, cx + 0.2, cy + 0.2, 46, 96, STONE, { topC: lit(STONE, 0.06), leftC: STONE_D });
+  // colonnaded belfry stage
+  for (const uu of [cx - 0.16, cx - 0.05, cx + 0.06, cx + 0.16] as const) {
+    iso.r.line(iso.P(uu, cy + 0.2, 78), iso.P(uu, cy + 0.2, 96), 1.2 * RES, COLORS.white);
+  }
+  // a clock face on the front of the tower
+  const [clx, cly] = iso.P(cx, cy + 0.2, 70);
+  const RR = 3.4 * RES;
+  const ring: Pt[] = [];
+  for (let i = 0; i <= 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    ring.push([clx + Math.cos(a) * RR, cly + Math.sin(a) * RR]);
+  }
+  iso.r.poly(ring, COLORS.white);
+  iso.r.polyline(ring, INK_W * 0.6, INK, true);
+  // a small dome + finial on the tower
+  const [dx, dyB] = iso.P(cx, cy, 96);
+  const dome: Pt[] = [];
+  const DR = 0.2 * (CELL_W / 2);
+  for (let i = 0; i <= 14; i++) {
+    const a = Math.PI * (i / 14);
+    dome.push([dx + Math.cos(Math.PI - a) * DR, dyB - Math.sin(a) * DR * 0.95]);
+  }
+  iso.r.poly(dome, shaded(JADE, 0.04), lit(JADE, 0.08));
+  iso.r.polyline(dome, INK_W * 0.6, alpha(INK, 0.8));
+  iso.r.line([dx, dyB - DR * 0.95], [dx, dyB - DR * 0.95 - 8 * RES], 1.2 * RES, hex('#caa64a'));
+  iso.glint([dx, dyB - DR * 0.95 - 8 * RES], 1.8 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// JOCKEY CLUB INNOVATION TOWER — Zaha Hadid's first HK work: a fluid, curving
+// white sculptural mass with NO straight verticals — sweeping stacked horizontal
+// floor-bands that fan out and cantilever, narrowing then bulging. The read is a
+// liquid white tower. Cool white aluminium + pale glass. 3×3 + headroom.
+// =====================================================================
+function innovationTowerTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 200 });
+  void seed;
+  const cx = 1.5, cy = 1.5;
+  iso.shadow(0.6, 0.6, 2.4, 2.4, 0.5, 0.3);
+  const WH = hex('#dce4e6'); // Hadid white aluminium
+  const WHD = shaded(WH, 0.14);
+  const GL = hex('#9fb9c2');
+  const H = 220;
+  // a stack of curved cantilevering floor-slabs, each an ellipse-footprint box
+  // whose centre drifts and whose radius swells/shrinks — the fluid Hadid mass.
+  const N = 14;
+  for (let i = 0; i < N; i++) {
+    const t = i / N;
+    const z0 = 6 + t * (H - 6);
+    const z1 = z0 + (H - 6) / N + 1;
+    // the plan drifts in a slow S and the width bulges in the middle
+    const drift = Math.sin(t * Math.PI * 1.3) * 0.34;
+    const wob = 0.5 + 0.34 * Math.sin(t * Math.PI); // fat waist, slim ends
+    const du = cx + drift, dv = cy - drift * 0.6;
+    const col = i % 2 ? WH : lighten(WH, 0.05);
+    iso.box(du - wob, dv - wob, du + wob, dv + wob, z0, z1, col, { topC: lit(col, 0.08), leftC: WHD, rightC: lit(col, 0.04) });
+    // a ribbon of glazing in the recessed band between slabs
+    iso.r.line(iso.P(du - wob, dv + wob, z0 + 1), iso.P(du + wob, dv + wob, z0 + 1), 1.4 * RES, alpha(GL, 0.7));
+  }
+  // a bright sweeping seam down the sun-facing flank (the cantilever edge)
+  iso.gleam(iso.P(cx + 0.5, cy - 0.5, H * 0.2), iso.P(cx + 0.34, cy - 0.34, H * 0.85), 1.1 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// POLYU RED-BRICK BLOCK — the Hong Kong Polytechnic University's signature
+// rust-red ribbed campus architecture: low-to-mid blocks of deep terracotta-red
+// fins / brick with strong vertical ribbing and flat roofs. Serves the PolyU
+// library + college buildings. Broad + ribbed. 2×2.
+// =====================================================================
+function polyuRedBrickTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 110 });
+  void seed;
+  const u0 = 0.4, u1 = 1.6, v0 = 0.44, v1 = 1.56;
+  iso.shadow(u0, v0, u1, v1, 0.34, 0.26);
+  const RR = hex('#9e4f3a'); // PolyU terracotta red
+  const RRD = shaded(RR, 0.16);
+  // stepped massing — a lower wing + a taller block (campus blocks step)
+  iso.box(u0, v0, u1, v1, 0, 60, RR, { topC: lit(RR, 0.05), leftC: RRD });
+  iso.box(u0 + 0.18, v0 + 0.18, u1 - 0.04, v1 - 0.04, 60, 84, RR, { topC: lit(RR, 0.06), leftC: RRD });
+  // the strong vertical brick fins (PolyU's defining ribbing) on both faces
+  for (let i = 0; i <= 12; i++) {
+    const u = u0 + 0.06 + ((u1 - u0 - 0.12) * i) / 12;
+    iso.r.line(iso.P(u, v1, 6), iso.P(u, v1, 58), 1 * RES, i % 2 ? lit(RR, 0.1) : RRD);
+  }
+  for (let i = 0; i <= 10; i++) {
+    const v = v0 + 0.06 + ((v1 - v0 - 0.12) * i) / 10;
+    iso.r.line(iso.P(u1, v, 6), iso.P(u1, v, 58), 0.9 * RES, i % 2 ? lit(RR, 0.08) : RRD);
+  }
+  // a flat parapet cap catching the dusk
+  iso.gleam(iso.P(u1 - 0.04, v0 + 0.18, 84), iso.P(u1 - 0.04, v1 - 0.04, 84), 1 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// CHUNGKING MANSIONS — the famously grimy 17-storey Nathan Road slab: a dense,
+// dark, weathered tower-block whose whole facade is a chaos of stacked air-con
+// boxes, hanging signboards and a thicket of windows. The read is a tall, busy,
+// cluttered mass — not a clean glass tower. 3×3 + headroom.
+// =====================================================================
+function chungkingMansionsTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 260 });
+  void seed;
+  const u0 = 0.5, u1 = 2.5, v0 = 0.5, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.5, 0.3);
+  const CON = hex('#8f8377'); // grimy weathered concrete
+  const COND = shaded(CON, 0.18);
+  const H = 250;
+  // the big slab (several conjoined blocks)
+  iso.box(u0, v0, u1, v1, 0, H, CON, { topC: lit(CON, 0.04), leftC: COND, rightC: lit(CON, 0.03) });
+  // a dense grid of dark windows on both faces
+  for (let r = 0; r < 17; r++) {
+    const z = 14 + r * ((H - 24) / 17);
+    for (let c = 0; c < 9; c++) {
+      const t = 0.06 + (c / 8) * 0.88;
+      iso.r.line(iso.P(u0 + (u1 - u0) * t, v1, z), iso.P(u0 + (u1 - u0) * t + 0.06, v1, z), 1.3 * RES, alpha(COLORS.glassDark, 0.7));
+      iso.r.line(iso.P(u1, v0 + (v1 - v0) * t, z), iso.P(u1, v0 + (v1 - v0) * t + 0.06, z), 1.1 * RES, alpha(COLORS.glassDark, 0.6));
+    }
+  }
+  // the chaotic stacked AC-unit boxes jutting from the front face
+  for (let i = 0; i < 26; i++) {
+    const u = u0 + 0.1 + frac(i * 3.1) * (u1 - u0 - 0.2);
+    const z = 18 + frac(i * 7.7) * (H - 40);
+    iso.box(u, v1, u + 0.1, v1 + 0.06, z, z + 5, hex('#b6ab9c'), { ink: false });
+  }
+  // a clutter of neon signboards low on the building (the Nathan Road read)
+  for (const [z, col] of [[34, hex('#d85a4a')], [52, hex('#4a86c0')], [70, hex('#c9a24a')]] as const) {
+    iso.box(u0 + 0.2, v1, u0 + 0.9, v1 + 0.04, z, z + 10, col, { ink: false });
+    iso.box(u1 - 0.8, v1, u1 - 0.2, v1 + 0.04, z + 6, z + 14, col, { ink: false });
+  }
+  return iso.build();
+}
+
+// small deterministic hash so the AC clutter is stable (no runtime RNG drift).
+function frac(n: number): number {
+  const s = Math.sin(n * 12.9898) * 43758.5453;
+  return s - Math.floor(s);
+}
+
+// =====================================================================
+// HK SPACE MUSEUM — the unmistakable EGG: a great pale hemispherical planetarium
+// dome (the "pinball"/egg) sitting on a low curved base by the harbour. The
+// silhouette IS the half-sphere. 3×3.
+// =====================================================================
+function spaceMuseumTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 130 });
+  void seed;
+  const cx = 1.5, cy = 1.5;
+  iso.shadow(0.6, 0.6, 2.4, 2.4, 0.5, 0.28);
+  const SH = hex('#cfc6b2'); // pale render of the egg
+  const SHD = shaded(SH, 0.14);
+  // a low curved base block
+  iso.box(0.7, 0.7, 2.3, 2.3, 0, 26, SHD, { topC: lit(SHD, 0.06), leftC: shaded(SHD, 0.14) });
+  // the great hemispherical dome (the egg) — a big half-sphere of facet arcs
+  const [dx, dyB] = iso.P(cx, cy, 26);
+  const DR = 1.0 * (CELL_W / 2);
+  const ring = (s: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 22; i++) {
+      const a = Math.PI * (i / 22);
+      pts.push([dx + Math.cos(Math.PI - a) * DR * s, dyB - Math.sin(a) * DR * 0.94 * s]);
+    }
+    return pts;
+  };
+  iso.r.poly(ring(1), SH, lit(SH, 0.08));
+  // a lit (sun) crescent on the upper-right of the egg
+  iso.r.poly(ring(0.62).map(([x, y]): Pt => [x + DR * 0.2, y - DR * 0.16]), lit(SH, 0.14));
+  // latitude bands so it reads as a smooth sphere, not a flat disc
+  for (const zf of [0.3, 0.55, 0.78] as const) {
+    const yb = dyB - DR * 0.94 * zf;
+    const w = DR * Math.sqrt(1 - zf * zf);
+    iso.r.poly([[dx - w, yb], [dx, yb - 3 * RES], [dx + w, yb], [dx, yb + 3 * RES]], alpha(SHD, 0.0), alpha(SHD, 0.0));
+    iso.r.line([dx - w, yb], [dx + w, yb], 0.5 * RES, alpha(SHD, 0.4));
+  }
+  iso.r.polyline(ring(1), INK_W * 0.8, alpha(INK, 0.85));
+  return iso.build();
+}
+
+// =====================================================================
+// LOW MUSEUM BLOCK — HK Museum of History / Maritime Museum: low modern
+// brown-brick / sandstone museum masses, stepped horizontal blocks with deep
+// shaded recesses and a flat roof, a glazed entrance. 3×3, broad and low.
+// =====================================================================
+function museumBlockTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 90 });
+  void seed;
+  const u0 = 0.5, u1 = 2.5, v0 = 0.5, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.46, 0.28);
+  const BR = hex('#a8714f'); // warm museum brick
+  const BRD = shaded(BR, 0.16);
+  // stepped horizontal blocks
+  iso.box(u0, v0, u1, v1, 0, 38, BR, { topC: lit(BR, 0.05), leftC: BRD });
+  iso.box(u0 + 0.3, v0 + 0.3, u1 - 0.1, v1 - 0.1, 38, 56, BR, { topC: lit(BR, 0.06), leftC: BRD });
+  // deep shaded horizontal recess bands (the museum's banded brick)
+  for (const z of [16, 28] as const) {
+    iso.r.line(iso.P(u0 + 0.04, v1, z), iso.P(u1 - 0.04, v1, z), 1.6 * RES, alpha(BRD, 0.8));
+    iso.r.line(iso.P(u1, v0 + 0.04, z), iso.P(u1, v1 - 0.04, z), 1.3 * RES, alpha(BRD, 0.7));
+  }
+  // a glowing glazed entrance at the base
+  iso.box(u0 + 0.5, v1, u1 - 0.5, v1 + 0.001, 8, 22, alpha(COLORS.glassLit, 0.7), { ink: false });
+  return iso.build();
+}
+
+// =====================================================================
+// STAR FERRY PIER — a long low pier reaching out over the harbour: a covered
+// pier-shed on piles with an open-truss pitched roof, a small clock/flag cupola,
+// the gangway sheds, all sitting in water (a blue apron round the base). 4×4.
+// =====================================================================
+function ferryPierTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 90 });
+  void seed;
+  iso.shadow(0.5, 0.5, 3.5, 3.5, 0.4, 0.22);
+  const water = hex('#3c6b86');
+  // the harbour water apron the pier sits on
+  iso.box(0.3, 0.3, 3.7, 3.7, 0, 4, water, { ink: false, topC: lit(water, 0.06) });
+  const DECK = hex('#caa98a'); // timber deck
+  const SHED = hex('#c7d0d4'); // pale pier-shed walls
+  const SHEDD = shaded(SHED, 0.14);
+  // the long pier deck on piles
+  iso.box(0.6, 1.2, 3.4, 2.8, 4, 14, DECK, { topC: lit(DECK, 0.06), leftC: shaded(DECK, 0.14) });
+  // piles below the deck (a row of dark stilts in the water)
+  for (let i = 0; i < 6; i++) {
+    const u = 0.7 + i * 0.5;
+    iso.r.line(iso.P(u, 2.8, 0), iso.P(u, 2.8, 14), 1.4 * RES, shaded(hex('#6f5a44'), 0.1));
+  }
+  // the covered pier-shed (the building) with its pitched truss roof
+  iso.box(0.9, 1.4, 3.1, 2.6, 14, 36, SHED, { topC: lit(SHED, 0.06), leftC: SHEDD });
+  // ribbon glazing along the shed
+  iso.r.line(iso.P(0.95, 2.6, 26), iso.P(3.05, 2.6, 26), 2.4 * RES, alpha(COLORS.glassSky, 0.7));
+  iso.gable(0.86, 1.36, 3.14, 2.64, 36, 14, 'u', STEELG, SHED);
+  // the open truss diagonals on the gable end
+  const ge = (z: number): Pt => iso.P(3.14, 2.0, z);
+  for (let i = 0; i < 4; i++) {
+    iso.r.line(iso.P(3.14, 1.4 + i * 0.3, 36), iso.P(3.14, 1.7 + i * 0.3, 50), 0.7 * RES, alpha(COLORS.white, 0.4));
+  }
+  void ge;
+  // a small clock / flag cupola on the ridge
+  const [px, pyB] = iso.P(2.0, 2.0, 50);
+  iso.r.rect(px - 3 * RES, pyB - 10 * RES, px + 3 * RES, pyB, lit(SHED, 0.06));
+  iso.r.line([px, pyB - 10 * RES], [px, pyB - 22 * RES], 1.2 * RES, SILVER);
+  iso.glint([px, pyB - 22 * RES], 1.6 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// TONG LAU SHOPHOUSE — a heritage four-storey Chinese-baroque verandah
+// tenement (Lui Seng Chun, the classic curved-corner shophouse): rendered
+// plaster, deep cantilevered VERANDAH balconies stacked up the front, a
+// rounded street corner, a parapet with the shop name. Slim 2×2.
+// =====================================================================
+function tongLauTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 80 });
+  void seed;
+  const u0 = 0.5, u1 = 1.5, v0 = 0.5, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.34, 0.26);
+  const PL = hex('#d9c8a8'); // aged plaster render
+  const PLD = shaded(PL, 0.14);
+  const H = 70;
+  iso.box(u0, v0, u1, v1, 0, H, PL, { topC: lit(PL, 0.05), leftC: PLD });
+  // the stacked verandah balconies up the front (v1) face — the Tong Lau read:
+  // each storey a slim balcony slab with a row of columns and a dark recess.
+  for (let s = 0; s < 4; s++) {
+    const z0 = 8 + s * 15;
+    // the dark verandah recess
+    iso.box(u0 + 0.06, v1 - 0.06, u1 - 0.06, v1, z0, z0 + 11, shaded(PL, 0.22), { ink: false });
+    // the balcony slab edge
+    iso.r.line(iso.P(u0 + 0.04, v1, z0 + 11), iso.P(u1 - 0.04, v1, z0 + 11), 1.4 * RES, lit(PL, 0.08));
+    // slim verandah columns
+    for (let i = 0; i <= 4; i++) {
+      const u = u0 + 0.08 + ((u1 - u0 - 0.16) * i) / 4;
+      iso.r.line(iso.P(u, v1, z0), iso.P(u, v1, z0 + 11), 1 * RES, COLORS.white);
+    }
+  }
+  // the rounded street corner (a quarter-round pier at the SW corner)
+  iso.box(u0 - 0.02, v1 - 0.02, u0 + 0.12, v1 + 0.001, 0, H, lit(PL, 0.04), { ink: false });
+  // a parapet name-band catching the dusk
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, H, H + 8, lighten(PL, 0.06), { topC: top(PL, 0.2) });
+  iso.gleam(iso.P(u1, v0, H + 8), iso.P(u1, v1, H + 8), 0.9 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// RESETTLEMENT BLOCK (Mei Ho House) — an H-shaped 1950s public-housing
+// resettlement block: a long low concrete bar with hundreds of identical small
+// windows + the open balcony-access galleries, a flat roof. Mei Ho House is the
+// last surviving Mark II block. Long + low. 3×3.
+// =====================================================================
+function resettlementBlockTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 90 });
+  void seed;
+  const u0 = 0.4, u1 = 2.6, v0 = 0.7, v1 = 2.3;
+  iso.shadow(u0, v0, u1, v1, 0.4, 0.26);
+  const CON = hex('#c2b59a'); // pale rendered concrete
+  const COND = shaded(CON, 0.16);
+  const H = 64;
+  iso.box(u0, v0, u1, v1, 0, H, CON, { topC: lit(CON, 0.05), leftC: COND });
+  // the dense grid of identical small windows + balcony galleries on the front
+  for (let r = 0; r < 6; r++) {
+    const z = 10 + r * ((H - 16) / 6);
+    // the open access-gallery shadow line
+    iso.r.line(iso.P(u0 + 0.04, v1, z + 4), iso.P(u1 - 0.04, v1, z + 4), 1.4 * RES, alpha(COND, 0.7));
+    for (let c = 0; c < 16; c++) {
+      const t = 0.04 + (c / 15) * 0.92;
+      iso.r.line(iso.P(u0 + (u1 - u0) * t, v1, z), iso.P(u0 + (u1 - u0) * t + 0.03, v1, z), 1.1 * RES, alpha(COLORS.glassDark, 0.6));
+    }
+  }
+  // windows on the right gable too
+  for (let r = 0; r < 6; r++) {
+    const z = 10 + r * ((H - 16) / 6);
+    for (let c = 0; c < 5; c++) {
+      const t = 0.1 + (c / 4) * 0.8;
+      iso.r.line(iso.P(u1, v0 + (v1 - v0) * t, z), iso.P(u1, v0 + (v1 - v0) * t + 0.04, z), 1 * RES, alpha(COLORS.glassDark, 0.5));
+    }
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// TRIANGULAR TOWER (Lee Garden One / Manulife Plaza) — a tall triangular-plan
+// office tower: a slim shaft whose plan is a triangle (one sharp chamfered prow),
+// cool blue-grey glass, a flat crown. 240 m. 2×2 + big headroom.
+// =====================================================================
+function triangularTowerTile(seed: number, glass: RGBA, h: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 420 });
+  void seed;
+  const u0 = 0.44, u1 = 1.56, v0 = 0.44, v1 = 1.56;
+  const cx = (u0 + u1) / 2;
+  iso.shadow(u0, v0, u1, v1, 0.5, 0.3);
+  const gl = glass, glL = lit(glass, 0.1), glD = shaded(glass, 0.18);
+  // a low podium
+  podium(iso, u0 - 0.04, v0 - 0.04, u1 + 0.04, v1 + 0.04, 24, STEELG);
+  // the shaft as a box with the near (SW) corner cut to a sharp triangular prow
+  iso.box(u0, v0, u1, v1, 24, h, gl, { topC: glL, leftC: glD, rightC: lit(gl, 0.05) });
+  // the chamfer prow: a bright bevel plane cutting the near vertical edge so the
+  // plan reads triangular (the Manulife wedge).
+  iso.r.poly([iso.P(u0, cx, 24), iso.P(cx, v1, 24), iso.P(cx, v1, h), iso.P(u0, cx, h)], lit(gl, 0.14));
+  iso.r.line(iso.P(cx, v1, 24), iso.P(cx, v1, h), 1 * RES, alpha(SILVER, 0.5));
+  // floor banding + a couple of bright mullions
+  floorsLeft(iso, v1, u0, u1, 28, h, 13);
+  floorsRight(iso, u1, v0, v1, 28, h, 13);
+  iso.r.line(iso.P(u1, v0 + 0.56, 28), iso.P(u1, v0 + 0.56, h - 4), 0.7 * RES, alpha(SILVER, 0.4));
+  // flat crown + gleam
+  iso.box(u0 + 0.06, v0 + 0.06, u1 - 0.06, v1 - 0.06, h, h + 8, glL);
+  iso.gleam(iso.P(u1, v0, h), iso.P(u1, v1, h), 1.1 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// GREEN SKY-GARDEN TOWER (Hysan Place) — a KPF mixed-use tower notched by big
+// open-air "sky gardens": a slim glass shaft with deep planted void-cuts (lush
+// green recesses) breaking the facade at intervals. Teal glass + green voids.
+// 3×3 + headroom.
+// =====================================================================
+function skyGardenTowerTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 360 });
+  void seed;
+  const u0 = 0.7, u1 = 2.3, v0 = 0.7, v1 = 2.3;
+  iso.shadow(u0, v0, u1, v1, 0.5, 0.3);
+  const GL = hex('#5b9aa0'), GLD = shaded(hex('#5b9aa0'), 0.18);
+  const H = 280;
+  // a retail podium
+  podium(iso, u0 - 0.1, v0 - 0.1, u1 + 0.1, v1 + 0.1, 30, STEELG);
+  iso.box(u0, v0, u1, v1, 30, H, GL, { topC: lit(GL, 0.1), leftC: GLD, rightC: lit(GL, 0.04) });
+  floorsLeft(iso, v1, u0, u1, 34, H, 14);
+  floorsRight(iso, u1, v0, v1, 34, H, 14);
+  // the big planted SKY-GARDEN void cuts — green-glowing recessed notches at a
+  // few levels on the front face (Hysan's signature).
+  for (const z of [90, 170, 240] as const) {
+    iso.box(u0 + 0.2, v1 - 0.14, u1 - 0.2, v1, z, z + 22, shaded(JADE, 0.04), { ink: false });
+    // a few planting ticks
+    for (let i = 0; i < 5; i++) {
+      const u = u0 + 0.3 + i * 0.3;
+      iso.r.line(iso.P(u, v1, z + 2), iso.P(u, v1, z + 8), 1 * RES, alpha(lit(JADE, 0.12), 0.8));
+    }
+  }
+  iso.gleam(iso.P(u1, v0, H), iso.P(u1, v1, H), 1.1 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// SHUN TAK CENTRE — the red-clad Sheung Wan complex: two 38-storey office towers
+// (the distinctive deep-RED curtain wall) on a four-storey podium that houses the
+// Macau Ferry Terminal. Two red towers + a broad podium on the water. 5×5.
+// =====================================================================
+function shunTakTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(5, 5, { swAnchor: true, headroom: 360 });
+  void seed;
+  iso.shadow(0.6, 0.6, 4.4, 4.4, 0.7, 0.3);
+  const RED = hex('#a85046'); // the Shun Tak red cladding
+  const REDD = shaded(RED, 0.16);
+  // the broad podium (ferry terminal)
+  podium(iso, 0.5, 0.5, 4.5, 4.5, 54, hex('#9a6a60'));
+  floorsLeft(iso, 4.5, 0.5, 4.5, 10, 54, 14);
+  // two red towers of slightly different heights
+  const tower = (cu: number, cv: number, h: number): void => {
+    const w = 0.62;
+    iso.box(cu - w, cv - w, cu + w, cv + w, 54, h, RED, { topC: lit(RED, 0.06), leftC: REDD, rightC: lit(RED, 0.03) });
+    floorsLeft(iso, cv + w, cu - w, cu + w, 60, h, 13);
+    floorsRight(iso, cu + w, cv - w, cv + w, 60, h, 13);
+    // bright vertical mullion stripes (the red towers' banding)
+    for (const uu of [cu - 0.3, cu, cu + 0.3] as const) {
+      iso.r.line(iso.P(uu, cv + w, 60), iso.P(uu, cv + w, h - 4), 0.7 * RES, alpha(SILVER, 0.35));
+    }
+    iso.box(cu - w + 0.06, cv - w + 0.06, cu + w - 0.06, cv + w - 0.06, h, h + 12, lit(RED, 0.08));
+  };
+  tower(1.7, 1.9, 230);
+  tower(3.1, 1.8, 248);
+  return iso.build();
+}
+
+// =====================================================================
+// TIN HAU / SMALL CHINESE TEMPLE — a small traditional temple distinct from Man
+// Mo: a single low hall with a green-tiled gable roof, strongly UPTURNED swallow-
+// tail ridge ends, a red-and-gold facade and a glowing doorway. Serves Tin Hau
+// Temple, Shui Yuet Kung, Lo Pan Temple. 2×2, low.
+// =====================================================================
+function tinHauTempleTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 80 });
+  void seed;
+  const u0 = 0.46, u1 = 1.54, v0 = 0.54, v1 = 1.46;
+  iso.shadow(u0, v0, u1, v1, 0.3, 0.24);
+  // granite plinth + red wall
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 7, STONE, { ink: false });
+  iso.box(u0, v0, u1, v1, 7, 30, hex('#a5503e'), { topC: lit(hex('#a5503e'), 0.05), leftC: shaded(hex('#a5503e'), 0.16) });
+  // gold trim band + glowing doorway
+  iso.r.line(iso.P(u0, v1, 28), iso.P(u1, v1, 28), 1.4 * RES, alpha(hex('#caa64a'), 0.8));
+  iso.box(u0 + 0.36, v1, u1 - 0.36, v1 + 0.001, 9, 24, alpha(COLORS.glassHot, 0.8), { ink: false });
+  // the single green-tiled gable roof with a deep overhang
+  const eaveZ = 30;
+  iso.gable(u0 - 0.12, v0 - 0.06, u1 + 0.12, v1 + 0.06, eaveZ, 16, 'u', TILE_GREEN, JADE);
+  // the strongly upturned swallow-tail ridge ends (the temple's defining curl)
+  const [rxL, ryL] = iso.P(u0 - 0.12, (v0 + v1) / 2, eaveZ + 16);
+  const [rxR, ryR] = iso.P(u1 + 0.12, (v0 + v1) / 2, eaveZ + 16);
+  iso.r.line([rxL, ryL], [rxL - 6 * RES, ryL - 12 * RES], 1.8 * RES, JADE);
+  iso.r.line([rxR, ryR], [rxR + 6 * RES, ryR - 12 * RES], 1.8 * RES, JADE);
+  iso.r.poly([[rxL - 6 * RES, ryL - 12 * RES], [rxL - 11 * RES, ryL - 18 * RES], [rxL - 4 * RES, ryL - 13 * RES]], lit(JADE, 0.1));
+  iso.r.poly([[rxR + 6 * RES, ryR - 12 * RES], [rxR + 11 * RES, ryR - 18 * RES], [rxR + 4 * RES, ryR - 13 * RES]], lit(JADE, 0.1));
+  // a small gold ridge pearl in the centre
+  const [mx, myB] = iso.P((u0 + u1) / 2, (v0 + v1) / 2, eaveZ + 16);
+  iso.r.poly([[mx - 3 * RES, myB - 1 * RES], [mx + 3 * RES, myB - 1 * RES], [mx, myB - 10 * RES]], hex('#caa64a'));
+  return iso.build();
+}
+
+// =====================================================================
+// JAMIA MOSQUE — the small green Kowloon/Central mosque: a low rendered prayer
+// hall with horseshoe-arched windows, a shallow dome, and a slim corner MINARET
+// topped by a crescent. Pale green + cream. 2×2.
+// =====================================================================
+function mosqueTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 130 });
+  void seed;
+  const u0 = 0.5, u1 = 1.5, v0 = 0.5, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.34, 0.26);
+  const CR = hex('#cfcda8'); // pale cream-green render
+  const CRD = shaded(CR, 0.14);
+  iso.box(u0, v0, u1, v1, 0, 40, CR, { topC: lit(CR, 0.05), leftC: CRD });
+  // horseshoe-arched windows along the front
+  for (let i = 0; i < 4; i++) {
+    const u = u0 + 0.14 + i * 0.2;
+    const poly: Pt[] = [iso.P(u, v1, 12), iso.P(u, v1, 24)];
+    for (let j = 0; j <= 6; j++) {
+      const t = j / 6;
+      poly.push(iso.P(u + 0.09 * t, v1, 24 + Math.sin(t * Math.PI) * 6));
+    }
+    poly.push(iso.P(u + 0.09, v1, 24), iso.P(u + 0.09, v1, 12));
+    iso.r.poly(poly, alpha(COLORS.glassDark, 0.82));
+  }
+  // a shallow central dome
+  const cx = (u0 + u1) / 2, cy = (v0 + v1) / 2;
+  iso.box(cx - 0.2, cy - 0.2, cx + 0.2, cy + 0.2, 40, 46, lighten(CR, 0.04));
+  const [dx, dyB] = iso.P(cx, cy, 46);
+  const dome: Pt[] = [];
+  const DR = 0.22 * (CELL_W / 2);
+  for (let i = 0; i <= 14; i++) {
+    const a = Math.PI * (i / 14);
+    dome.push([dx + Math.cos(Math.PI - a) * DR, dyB - Math.sin(a) * DR * 1.0]);
+  }
+  iso.r.poly(dome, shaded(JADE, 0.04), lit(JADE, 0.08));
+  iso.r.polyline(dome, INK_W * 0.6, alpha(INK, 0.8));
+  // the slim corner minaret topped with a crescent
+  const mu = u1 - 0.08, mv = v1 - 0.08;
+  iso.box(mu - 0.07, mv - 0.07, mu + 0.07, mv + 0.07, 0, 86, CR, { topC: lit(CR, 0.06), leftC: CRD });
+  // a little balcony ring + cap
+  iso.box(mu - 0.09, mv - 0.09, mu + 0.09, mv + 0.09, 78, 84, lighten(CR, 0.06), { ink: false });
+  const [mx, myB] = iso.P(mu, mv, 86);
+  iso.r.poly([[mx - 4 * RES, myB], [mx + 4 * RES, myB], [mx, myB - 12 * RES]], lit(JADE, 0.08));
+  // crescent finial
+  iso.r.line([mx, myB - 12 * RES], [mx, myB - 18 * RES], 1 * RES, hex('#caa64a'));
+  iso.glint([mx, myB - 18 * RES], 1.6 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// THE CENOTAPH — the Portland-stone war memorial in Central: a tall slender
+// stepped stone pylon (an empty tomb) on a stepped base, a wreath + the dates,
+// standing alone in a paved square. Slim 1×1 with headroom.
+// =====================================================================
+function cenotaphTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 150 });
+  void seed;
+  const u = 0.5, v = 0.5;
+  iso.shadow(u - 0.22, v - 0.1, u + 0.22, v + 0.22, 0.34, 0.24);
+  // paved plinth
+  iso.box(u - 0.3, v - 0.3, u + 0.3, v + 0.3, 0, 6, shaded(STONE, 0.06), { ink: false });
+  const ST = hex('#d6cdb6'), STD = shaded(hex('#d6cdb6'), 0.14);
+  // stepped base
+  iso.box(u - 0.24, v - 0.24, u + 0.24, v + 0.24, 6, 16, ST, { topC: lit(ST, 0.06), leftC: STD });
+  iso.box(u - 0.18, v - 0.18, u + 0.18, v + 0.18, 16, 24, ST, { topC: lit(ST, 0.06), leftC: STD });
+  // the slender tapering pylon
+  iso.box(u - 0.12, v - 0.12, u + 0.12, v + 0.12, 24, 92, ST, { topC: lit(ST, 0.06), leftC: STD });
+  iso.box(u - 0.1, v - 0.1, u + 0.1, v + 0.1, 92, 104, ST, { topC: lit(ST, 0.08), leftC: STD });
+  // a stone "sarcophagus" cap on top
+  iso.box(u - 0.13, v - 0.13, u + 0.13, v + 0.13, 104, 110, lighten(ST, 0.04), { topC: top(ST, 0.2) });
+  // a carved wreath (a dark ring) on the front
+  const [wx, wy] = iso.P(u, v + 0.12, 56);
+  const ring: Pt[] = [];
+  for (let i = 0; i <= 14; i++) {
+    const a = (i / 14) * Math.PI * 2;
+    ring.push([wx + Math.cos(a) * 2.6 * RES, wy + Math.sin(a) * 2.6 * RES]);
+  }
+  iso.r.polyline(ring, 1 * RES, alpha(STD, 0.9), true);
+  iso.gleam(iso.P(u + 0.12, v - 0.1, 104), iso.P(u + 0.12, v + 0.12, 104), 0.8 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// GOLDEN BAUHINIA — the gilded Bauhinia-flower sculpture on its red granite
+// column at Golden Bauhinia Square (the Handover gift): a tall reddish pillar
+// crowned by a big golden five-petal flower. A statue hero. 2×2.
+// =====================================================================
+function bauhiniaTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 130 });
+  void seed;
+  const cx = 1.0, cy = 1.0;
+  iso.shadow(0.6, 0.6, 1.4, 1.4, 0.3, 0.24);
+  // a low paved plaza
+  iso.box(0.4, 0.4, 1.6, 1.6, 0, 5, shaded(STONE, 0.06), { ink: false });
+  // the stepped red-granite base
+  const GRAN = hex('#a8584e');
+  iso.box(0.74, 0.74, 1.26, 1.26, 5, 18, GRAN, { topC: lit(GRAN, 0.06), leftC: shaded(GRAN, 0.16) });
+  // the tall reddish column
+  iso.box(cx - 0.12, cy - 0.12, cx + 0.12, cy + 0.12, 18, 78, hex('#b56a5c'), { topC: lit(hex('#b56a5c'), 0.06), leftC: shaded(hex('#b56a5c'), 0.16) });
+  // the big golden bauhinia flower on top — five gilt petals radiating from a hub
+  const [fx, fyB] = iso.P(cx, cy, 78);
+  const GOLD = hex('#d8b24e'), GOLDL = hex('#ecca6a');
+  for (let i = 0; i < 5; i++) {
+    const a = -Math.PI / 2 + (i / 5) * Math.PI * 2;
+    const tipx = fx + Math.cos(a) * 13 * RES;
+    const tipy = fyB - 8 * RES + Math.sin(a) * 9 * RES;
+    iso.r.poly([
+      [fx, fyB - 8 * RES],
+      [fx + Math.cos(a - 0.35) * 7 * RES, fyB - 8 * RES + Math.sin(a - 0.35) * 5 * RES],
+      [tipx, tipy],
+      [fx + Math.cos(a + 0.35) * 7 * RES, fyB - 8 * RES + Math.sin(a + 0.35) * 5 * RES],
+    ], i % 2 ? GOLD : GOLDL);
+    iso.r.polyline([[fx, fyB - 8 * RES], [tipx, tipy]], 0.6 * RES, alpha(INK, 0.5));
+  }
+  // the bright gilt hub
+  iso.r.line([fx - 3 * RES, fyB - 8 * RES], [fx + 3 * RES, fyB - 8 * RES], 4 * RES, GOLDL);
+  iso.glint([fx, fyB - 8 * RES], 2.4 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// STATUE / MONUMENT — a bronze figure or column monument on a stone plinth in a
+// square: serves the Queen Victoria / George VI bronzes, the Pillar of Shame and
+// the commemorative columns. A small stone pedestal carrying a dark bronze form.
+// 1×1. `kind`: 'figure' (seated/standing bronze) or 'column' (a memorial pillar).
+// =====================================================================
+function monumentTile(seed: number, kind: 'figure' | 'column'): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 130 });
+  void seed;
+  const u = 0.5, v = 0.5;
+  iso.shadow(u - 0.2, v - 0.08, u + 0.2, v + 0.2, 0.3, 0.24);
+  // paved base
+  iso.box(u - 0.28, v - 0.28, u + 0.28, v + 0.28, 0, 5, shaded(STONE, 0.06), { ink: false });
+  const ST = hex('#cdc4ad'), STD = shaded(hex('#cdc4ad'), 0.14);
+  if (kind === 'figure') {
+    // a tall stone pedestal + a canopy of slim columns (Victoria sits under a
+    // bronze canopy) and a seated bronze figure.
+    iso.box(u - 0.2, v - 0.2, u + 0.2, v + 0.2, 5, 30, ST, { topC: lit(ST, 0.06), leftC: STD });
+    // four slim canopy columns
+    for (const [du, dv] of [[u - 0.16, v - 0.16], [u + 0.16, v - 0.16], [u - 0.16, v + 0.16], [u + 0.16, v + 0.16]] as const) {
+      iso.r.line(iso.P(du, dv, 30), iso.P(du, dv, 70), 1.2 * RES, COLORS.white);
+    }
+    // a domed bronze canopy
+    const [dx, dyB] = iso.P(u, v, 70);
+    iso.r.poly([[dx - 12 * RES, dyB], [dx, dyB - 12 * RES], [dx + 12 * RES, dyB], [dx, dyB + 4 * RES]], shaded(BRONZE, 0.06), lit(BRONZE, 0.1));
+    iso.r.line([dx, dyB - 12 * RES], [dx, dyB - 18 * RES], 1.2 * RES, BRONZE_L);
+    // the seated bronze figure under the canopy
+    const [bx, byB] = iso.P(u, v + 0.06, 30);
+    iso.r.poly([[bx - 4 * RES, byB], [bx + 4 * RES, byB], [bx + 3 * RES, byB - 14 * RES], [bx - 3 * RES, byB - 14 * RES]], BRONZE);
+    iso.r.line([bx, byB - 14 * RES], [bx, byB - 20 * RES], 3 * RES, BRONZE_L); // head
+    iso.glint([bx + 1.5 * RES, byB - 18 * RES], 1.5 * RES);
+  } else {
+    // a tall slender memorial column on a stepped base, a small finial.
+    iso.box(u - 0.2, v - 0.2, u + 0.2, v + 0.2, 5, 18, ST, { topC: lit(ST, 0.06), leftC: STD });
+    iso.box(u - 0.1, v - 0.1, u + 0.1, v + 0.1, 18, 96, hex('#b07a52'), { topC: lit(hex('#b07a52'), 0.06), leftC: shaded(hex('#b07a52'), 0.16) });
+    // twisted/figural feel: a darker bronze cap mass (the Pillar of Shame's
+    // piled figures) on top
+    iso.box(u - 0.12, v - 0.12, u + 0.12, v + 0.12, 96, 112, BRONZE, { topC: lit(BRONZE, 0.08), leftC: darken(BRONZE, 0.12) });
+    const [tx, tyB] = iso.P(u, v, 112);
+    iso.r.poly([[tx - 5 * RES, tyB], [tx + 5 * RES, tyB], [tx, tyB - 9 * RES]], BRONZE_L);
+    iso.glint([tx, tyB - 4 * RES], 1.6 * RES);
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// HERITAGE THEATRE (Yau Ma Tei Theatre) — a 1930s cinema: a low rendered block
+// with a strong streamline-moderne corner, a pitched Chinese tiled entrance
+// canopy with green tiles + a "swallowtail" detail, a tall vertical name-pylon.
+// Slim 2×2.
+// =====================================================================
+function theatreTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 100 });
+  void seed;
+  const u0 = 0.46, u1 = 1.54, v0 = 0.5, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.32, 0.24);
+  const CR = hex('#d8c8aa'), CRD = shaded(hex('#d8c8aa'), 0.14);
+  iso.box(u0, v0, u1, v1, 0, 40, CR, { topC: lit(CR, 0.05), leftC: CRD });
+  // a green-tiled pitched entrance canopy over the front (the YMT theatre's
+  // distinctive Chinese-temple-style porte-cochère)
+  iso.box(u0 + 0.16, v1 - 0.02, u1 - 0.16, v1 + 0.12, 18, 28, REDBRICK, { ink: false });
+  iso.gable(u0 + 0.12, v1 - 0.04, u1 - 0.12, v1 + 0.16, 28, 12, 'u', TILE_GREEN, REDBRICK);
+  // ribbon windows on the upper storey
+  iso.r.poly([iso.P(u0 + 0.1, v1, 30), iso.P(u1 - 0.1, v1, 30), iso.P(u1 - 0.1, v1, 37), iso.P(u0 + 0.1, v1, 37)], alpha(COLORS.glassSky, 0.74));
+  // the tall vertical name-pylon at the corner (a cinema marquee fin)
+  iso.box(u1 - 0.1, v1 - 0.1, u1 + 0.02, v1 + 0.02, 0, 66, lighten(CR, 0.04), { topC: top(CR, 0.2) });
+  for (let i = 0; i < 4; i++) {
+    const z = 18 + i * 11;
+    iso.r.line(iso.P(u1 - 0.04, v1 + 0.02, z), iso.P(u1 - 0.04, v1 + 0.02, z + 6), 1.4 * RES, alpha(COLORS.glassHot, 0.7));
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// COLONIAL POLICE STATION (Yau Ma Tei) — a robust Edwardian colonial police
+// building: a two-storey granite-and-render block with a deep arcaded verandah
+// wrapping the corner, segmental arches, a hipped tiled roof. 2×2.
+// =====================================================================
+function policeStationTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 90 });
+  void seed;
+  const u0 = 0.42, u1 = 1.58, v0 = 0.46, v1 = 1.54;
+  iso.shadow(u0, v0, u1, v1, 0.32, 0.24);
+  const CR = hex('#ccb894'), CRD = shaded(hex('#ccb894'), 0.14);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 8, shaded(CR, 0.12), { ink: false });
+  iso.box(u0, v0, u1, v1, 8, 44, CR, { topC: lit(CR, 0.05), leftC: CRD });
+  // the deep arcaded verandah on two storeys across the front (v1)
+  for (const z0 of [10, 28] as const) {
+    iso.box(u0 + 0.06, v1 - 0.08, u1 - 0.06, v1, z0, z0 + 14, shaded(CR, 0.2), { ink: false });
+    for (let i = 0; i <= 7; i++) {
+      const u = u0 + 0.08 + ((u1 - u0 - 0.16) * i) / 7;
+      iso.r.line(iso.P(u, v1, z0), iso.P(u, v1, z0 + 14), 1.4 * RES, COLORS.white);
+      if (i < 7) {
+        const um = u + ((u1 - u0 - 0.16) / 7) / 2;
+        iso.r.line(iso.P(u, v1, z0 + 14), iso.P(um, v1, z0 + 16), 0.8 * RES, alpha(COLORS.white, 0.7));
+      }
+    }
+  }
+  // a hipped tiled roof
+  iso.hip(u0 - 0.06, v0 - 0.06, u1 + 0.06, v1 + 0.06, 44, 18, REDBRICK);
+  return iso.build();
+}
+
+// =====================================================================
 // THE REGISTRY
 // =====================================================================
 export const CITY_HEROES: BespokeHero[] = [
@@ -1334,5 +2044,613 @@ export const CITY_HEROES: BespokeHero[] = [
     seed: 7344,
     draw: (s) => glassTowerTile(s, { w: 4, h: 120, head: 160, glass: hex('#93a6ad'), crown: 'flat', podiumH: 40 }),
     light: { kind: 'genericGlow', topZ: 120, halfW: 1.1 },
+  },
+
+  // ====================================================================
+  // ROUND 2 — the remaining PLACED Hong Kong heroes. Ordered specific →
+  // generic so resolveBespokeKey (first-match-wins) never mis-resolves.
+  // ====================================================================
+
+  // ---- the universities + Zaha Hadid PolyU campus ---------------------
+  {
+    city: 'hongkong',
+    key: 'hku-main-building',
+    match: /Main Building of the University of Hong Kong|香港大學.*本部大樓|香港大學美術博物館|University Museum (&|and) Art Gallery|HKU Main/,
+    foot: [2, 2],
+    seed: 7350,
+    draw: hkuMainBuildingTile,
+    light: { kind: 'facadeFlood', topZ: 100, halfW: 1.0 },
+  },
+  {
+    city: 'hongkong',
+    key: 'ricci-hall',
+    match: /Ricci Hall|利瑪竇/,
+    foot: [2, 2],
+    seed: 7351,
+    draw: hkuMainBuildingTile,
+    light: { kind: 'facadeFlood', topZ: 100, halfW: 1.0 },
+  },
+  {
+    city: 'hongkong',
+    key: 'jockey-club-innovation-tower',
+    match: /Innovation Tower|創新樓|賽馬會創新/,
+    foot: [3, 3],
+    seed: 7352,
+    draw: innovationTowerTile,
+    light: { kind: 'towerCrown', topZ: 220, halfW: 1.0 },
+  },
+  {
+    city: 'hongkong',
+    key: 'polyu-faculty-construction',
+    match: /Polytechnic University Faculty of Construction|理工大學.*建設/,
+    foot: [3, 3],
+    seed: 7353,
+    draw: innovationTowerTile,
+    light: { kind: 'towerCrown', topZ: 220, halfW: 1.0 },
+  },
+  {
+    city: 'hongkong',
+    key: 'polyu-library',
+    match: /Pao Yue-?Kong Library|包玉剛|Polytechnic University.*Library|理工大學.*圖書館/i,
+    foot: [2, 2],
+    seed: 7354,
+    draw: polyuRedBrickTile,
+    light: { kind: 'genericGlow', topZ: 84, halfW: 1.0 },
+  },
+  {
+    city: 'hongkong',
+    key: 'polyu-cpce',
+    match: /College of Professional and Continuing Education|專業及持續教育/,
+    foot: [2, 2],
+    seed: 7355,
+    draw: polyuRedBrickTile,
+    light: { kind: 'genericGlow', topZ: 84, halfW: 1.0 },
+  },
+
+  // ---- the Kowloon icons (Chungking Mansions, the egg, the museums) ----
+  {
+    city: 'hongkong',
+    key: 'chungking-mansions',
+    match: /Chungking Mansions|重慶大廈/,
+    foot: [3, 3],
+    seed: 7356,
+    draw: chungkingMansionsTile,
+    light: { kind: 'genericGlow', topZ: 250, halfW: 1.0 },
+  },
+  {
+    city: 'hongkong',
+    key: 'space-museum',
+    match: /Space Museum|太空館/,
+    foot: [3, 3],
+    seed: 7357,
+    draw: spaceMuseumTile,
+    light: { kind: 'rimCycle', topZ: 122, halfW: 1.0 },
+  },
+  {
+    city: 'hongkong',
+    key: 'museum-of-history',
+    match: /Museum of History|歷史博物館/,
+    foot: [3, 3],
+    seed: 7358,
+    draw: museumBlockTile,
+    light: { kind: 'genericGlow', topZ: 56, halfW: 1.2 },
+  },
+  {
+    city: 'hongkong',
+    key: 'maritime-museum',
+    match: /Maritime Museum|海事博物館/,
+    foot: [3, 3],
+    seed: 7359,
+    draw: museumBlockTile,
+    light: { kind: 'genericGlow', topZ: 56, halfW: 1.2 },
+  },
+  {
+    city: 'hongkong',
+    key: 'lei-cheng-uk-tomb-museum',
+    match: /Lei Cheng Uk|李鄭屋/,
+    foot: [3, 3],
+    seed: 7360,
+    draw: museumBlockTile,
+    light: { kind: 'genericGlow', topZ: 56, halfW: 1.2 },
+  },
+  {
+    city: 'hongkong',
+    key: 'film-archive',
+    match: /Film Archive|電影資料館/,
+    foot: [3, 3],
+    seed: 7361,
+    draw: museumBlockTile,
+    light: { kind: 'genericGlow', topZ: 56, halfW: 1.2 },
+  },
+  {
+    city: 'hongkong',
+    key: 'law-uk-folk-museum',
+    match: /Law Uk|羅屋/,
+    foot: [3, 3],
+    seed: 7362,
+    draw: museumBlockTile,
+    light: { kind: 'genericGlow', topZ: 56, halfW: 1.2 },
+  },
+
+  // ---- the harbour piers ----------------------------------------------
+  {
+    city: 'hongkong',
+    key: 'tsim-sha-tsui-ferry-pier',
+    match: /Ferry Pier|Star Ferry|天星碼頭|尖沙咀.*碼頭/,
+    foot: [4, 4],
+    seed: 7363,
+    draw: ferryPierTile,
+    light: { kind: 'facadeFlood', topZ: 50, halfW: 1.4 },
+  },
+  {
+    city: 'hongkong',
+    key: 'kowloon-public-pier',
+    match: /Kowloon Public Pier|九龍公眾碼頭|公眾碼頭/,
+    foot: [4, 4],
+    seed: 7364,
+    draw: ferryPierTile,
+    light: { kind: 'facadeFlood', topZ: 50, halfW: 1.4 },
+  },
+
+  // ---- the heritage Tong Lau / resettlement / theatre / police --------
+  {
+    city: 'hongkong',
+    key: 'lui-seng-chun',
+    match: /Lui Seng Chun|雷生春/,
+    foot: [2, 2],
+    seed: 7365,
+    draw: tongLauTile,
+    light: { kind: 'facadeFlood', topZ: 78, halfW: 1.0 },
+  },
+  {
+    city: 'hongkong',
+    key: 'french-mission-building',
+    match: /French Mission|法國外方傳道會/,
+    foot: [2, 2],
+    seed: 7366,
+    draw: tongLauTile,
+    light: { kind: 'facadeFlood', topZ: 78, halfW: 1.0 },
+  },
+  {
+    city: 'hongkong',
+    key: 'pedder-building',
+    match: /Pedder Building|畢打行/,
+    foot: [2, 2],
+    seed: 7367,
+    draw: tongLauTile,
+    light: { kind: 'facadeFlood', topZ: 78, halfW: 1.0 },
+  },
+  {
+    city: 'hongkong',
+    key: 'mei-ho-house',
+    match: /Mei Ho House|美荷樓/,
+    foot: [3, 3],
+    seed: 7368,
+    draw: resettlementBlockTile,
+    light: { kind: 'genericGlow', topZ: 64, halfW: 1.2 },
+  },
+  {
+    city: 'hongkong',
+    key: 'yau-ma-tei-theatre',
+    match: /Yau Ma Tei Theatre|油麻地戲院/,
+    foot: [2, 2],
+    seed: 7369,
+    draw: theatreTile,
+    light: { kind: 'facadeFlood', topZ: 66, halfW: 1.0 },
+  },
+  {
+    city: 'hongkong',
+    key: 'yau-ma-tei-police-station',
+    match: /Yau Ma Tei Police|油蔴?地警署/,
+    foot: [2, 2],
+    seed: 7370,
+    draw: policeStationTile,
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.0 },
+  },
+  {
+    city: 'hongkong',
+    key: 'tung-wah-museum',
+    match: /Tung Wah Museum|東華三院文物館/,
+    foot: [2, 2],
+    seed: 7371,
+    draw: policeStationTile,
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.0 },
+  },
+  {
+    city: 'hongkong',
+    key: 'jao-tsung-i-academy',
+    match: /Jao Tsung-?I|饒宗頤/,
+    foot: [2, 2],
+    seed: 7372,
+    draw: policeStationTile,
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.0 },
+  },
+  {
+    city: 'hongkong',
+    key: 'museum-of-medical-sciences',
+    match: /Museum of Medical Sciences|醫學博物館/,
+    foot: [2, 2],
+    seed: 7373,
+    draw: policeStationTile,
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.0 },
+  },
+
+  // ---- the temples + the mosque ---------------------------------------
+  {
+    city: 'hongkong',
+    key: 'tin-hau-temple',
+    match: /Tin Hau Temple|天后廟/,
+    foot: [2, 2],
+    seed: 7374,
+    draw: tinHauTempleTile,
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.0 },
+  },
+  {
+    city: 'hongkong',
+    key: 'shui-yuet-kung',
+    match: /Shui Yuet Kung|水月宮/,
+    foot: [2, 2],
+    seed: 7375,
+    draw: tinHauTempleTile,
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.0 },
+  },
+  {
+    city: 'hongkong',
+    key: 'lo-pan-temple',
+    match: /Lo Pan Temple|魯班先師廟|魯班/,
+    foot: [2, 2],
+    seed: 7376,
+    draw: tinHauTempleTile,
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.0 },
+  },
+  {
+    city: 'hongkong',
+    key: 'jamia-mosque',
+    match: /Jamia Mosque|清真禮拜總堂|回教/,
+    foot: [2, 2],
+    seed: 7377,
+    draw: mosqueTile,
+    light: { kind: 'facadeFlood', topZ: 86, halfW: 0.8 },
+  },
+
+  // ---- the monuments + statues ----------------------------------------
+  {
+    city: 'hongkong',
+    key: 'the-cenotaph',
+    match: /Cenotaph|和平紀念碑/,
+    foot: [1, 1],
+    seed: 7378,
+    draw: cenotaphTile,
+    light: { kind: 'facadeFlood', topZ: 110, halfW: 0.3 },
+  },
+  {
+    city: 'hongkong',
+    key: 'golden-bauhinia',
+    match: /Golden Bauhinia|金紫荊|回歸祖國紀念碑|Return of Hong Kong/,
+    foot: [2, 2],
+    seed: 7379,
+    draw: bauhiniaTile,
+    light: { kind: 'spireBeacon', topZ: 86, halfW: 0.4 },
+  },
+  {
+    city: 'hongkong',
+    key: 'queen-victoria-statue',
+    match: /Queen Victoria|維多利亞女皇/,
+    foot: [1, 1],
+    seed: 7380,
+    draw: (s) => monumentTile(s, 'figure'),
+    light: { kind: 'facadeFlood', topZ: 70, halfW: 0.3 },
+  },
+  {
+    city: 'hongkong',
+    key: 'statue-of-george-vi',
+    match: /Statue of George VI|佐治六世/,
+    foot: [1, 1],
+    seed: 7381,
+    draw: (s) => monumentTile(s, 'figure'),
+    light: { kind: 'facadeFlood', topZ: 70, halfW: 0.3 },
+  },
+  {
+    city: 'hongkong',
+    key: 'pillar-of-shame',
+    match: /Pillar of Shame|國殤之柱/,
+    foot: [1, 1],
+    seed: 7382,
+    draw: (s) => monumentTile(s, 'column'),
+    light: { kind: 'facadeFlood', topZ: 112, halfW: 0.3 },
+  },
+  {
+    city: 'hongkong',
+    key: 'race-course-fire-memorial',
+    match: /Race Course Fire Memorial|馬場先難友/,
+    foot: [1, 1],
+    seed: 7383,
+    draw: (s) => monumentTile(s, 'column'),
+    light: { kind: 'facadeFlood', topZ: 112, halfW: 0.3 },
+  },
+
+  // ---- the Central / Causeway Bay tower fabric (placed offices+malls) --
+  {
+    city: 'hongkong',
+    key: 'lee-garden-one',
+    match: /Lee Garden One|Manulife Plaza|利園一期/,
+    foot: [2, 2],
+    seed: 7384,
+    draw: (s) => triangularTowerTile(s, hex('#7f9fb0'), 320),
+    light: { kind: 'towerCrown', topZ: 332, halfW: 0.5 },
+  },
+  {
+    city: 'hongkong',
+    key: 'hysan-place',
+    match: /Hysan Place|希慎廣場/,
+    foot: [3, 3],
+    seed: 7385,
+    draw: skyGardenTowerTile,
+    light: { kind: 'towerCrown', topZ: 280, halfW: 0.8 },
+  },
+  {
+    city: 'hongkong',
+    key: 'shun-tak-centre',
+    match: /Shun Tak Cent(re|er)|信德中心/,
+    foot: [5, 5],
+    seed: 7386,
+    draw: shunTakTile,
+    light: { kind: 'towerCrown', topZ: 250, halfW: 1.2 },
+  },
+  {
+    city: 'hongkong',
+    key: 'lee-garden-two',
+    match: /Lee Garden Two|利園二期|Caroline Centre/,
+    foot: [4, 4],
+    seed: 7387,
+    draw: (s) => glassTowerTile(s, { w: 4, h: 180, head: 240, glass: hex('#84a3b0'), crown: 'step', podiumH: 30 }),
+    light: { kind: 'towerCrown', topZ: 180, halfW: 0.9 },
+  },
+  {
+    city: 'hongkong',
+    key: 'lee-garden-three',
+    match: /Lee Garden Three|利園三期/,
+    foot: [2, 2],
+    seed: 7388,
+    draw: (s) => glassTowerTile(s, { w: 2, h: 200, head: 280, glass: hex('#7d9ba8'), crown: 'flat', podiumH: 24 }),
+    light: { kind: 'towerCrown', topZ: 212, halfW: 0.5 },
+  },
+  {
+    city: 'hongkong',
+    key: 'new-world-tower',
+    match: /New World Tower|新世界大廈/,
+    foot: [2, 2],
+    seed: 7389,
+    draw: (s) => glassTowerTile(s, { w: 2, h: 230, head: 310, glass: hex('#869fa8'), crown: 'mast' }),
+    light: { kind: 'towerCrown', topZ: 242, halfW: 0.5 },
+  },
+  {
+    city: 'hongkong',
+    key: 'alexandra-house',
+    match: /Alexandra House|歷山大廈/,
+    foot: [2, 2],
+    seed: 7390,
+    draw: (s) => glassTowerTile(s, { w: 2, h: 200, head: 280, glass: hex('#88a6b0'), crown: 'flat', podiumH: 20 }),
+    light: { kind: 'towerCrown', topZ: 212, halfW: 0.5 },
+  },
+  {
+    city: 'hongkong',
+    key: 'princes-building',
+    match: /Prince'?s Building|太子大廈/,
+    foot: [2, 2],
+    seed: 7391,
+    draw: (s) => glassTowerTile(s, { w: 2, h: 190, head: 270, glass: hex('#8aa4ad'), crown: 'flat', podiumH: 24 }),
+    light: { kind: 'towerCrown', topZ: 202, halfW: 0.5 },
+  },
+  {
+    city: 'hongkong',
+    key: 'man-yee-building',
+    match: /Man Yee Building|萬宜大廈/,
+    foot: [2, 2],
+    seed: 7392,
+    draw: (s) => glassTowerTile(s, { w: 2, h: 200, head: 280, glass: hex('#7f9ba4'), crown: 'step' }),
+    light: { kind: 'towerCrown', topZ: 212, halfW: 0.5 },
+  },
+  {
+    city: 'hongkong',
+    key: 'united-centre',
+    match: /United Cent(re|er)|統一中心/,
+    foot: [2, 2],
+    seed: 7393,
+    draw: (s) => glassTowerTile(s, { w: 2, h: 240, head: 320, glass: hex('#849ba0'), crown: 'mast', podiumH: 24 }),
+    light: { kind: 'towerCrown', topZ: 252, halfW: 0.5 },
+  },
+  {
+    city: 'hongkong',
+    key: 'wing-on-centre',
+    match: /Wing On Cent(re|er)|永安中心/,
+    foot: [2, 2],
+    seed: 7394,
+    draw: (s) => glassTowerTile(s, { w: 2, h: 210, head: 290, glass: hex('#7e9aa6'), crown: 'flat' }),
+    light: { kind: 'towerCrown', topZ: 222, halfW: 0.5 },
+  },
+  {
+    city: 'hongkong',
+    key: 'grand-millennium-plaza',
+    match: /Grand Millennium Plaza|新紀元廣場/,
+    foot: [3, 3],
+    seed: 7395,
+    draw: (s) => glassTowerTile(s, { w: 3, h: 230, head: 310, glass: hex('#82a0aa'), crown: 'step', podiumH: 24 }),
+    light: { kind: 'towerCrown', topZ: 242, halfW: 0.7 },
+  },
+
+  // ---- the placed HOTELS (dense vertical hotel slabs) -----------------
+  {
+    city: 'hongkong',
+    key: 'grand-hyatt',
+    match: /Grand Hyatt|君悅酒店/,
+    foot: [2, 2],
+    seed: 7396,
+    draw: (s) => glassTowerTile(s, { w: 2, h: 220, head: 300, glass: hex('#8aa6b2'), crown: 'flat', podiumH: 20 }),
+    light: { kind: 'towerCrown', topZ: 232, halfW: 0.5 },
+  },
+  {
+    city: 'hongkong',
+    key: 'jw-marriott',
+    match: /JW Marriott|JW萬豪/,
+    foot: [2, 2],
+    seed: 7397,
+    draw: (s) => glassTowerTile(s, { w: 2, h: 230, head: 310, glass: hex('#83a0ac'), crown: 'step', podiumH: 20 }),
+    light: { kind: 'towerCrown', topZ: 242, halfW: 0.5 },
+  },
+  {
+    city: 'hongkong',
+    key: 'renaissance-harbour-view',
+    match: /Renaissance Harbour View|萬麗海景酒店/,
+    foot: [2, 2],
+    seed: 7398,
+    draw: (s) => glassTowerTile(s, { w: 2, h: 220, head: 300, glass: hex('#7f9da8'), crown: 'flat' }),
+    light: { kind: 'towerCrown', topZ: 232, halfW: 0.5 },
+  },
+  {
+    city: 'hongkong',
+    key: 'kerry-hotel',
+    match: /Kerry Hotel|嘉里酒店/,
+    foot: [4, 4],
+    seed: 7399,
+    draw: (s) => glassTowerTile(s, { w: 4, h: 170, head: 230, glass: hex('#87a4ac'), crown: 'flat', podiumH: 30 }),
+    light: { kind: 'towerCrown', topZ: 170, halfW: 0.9 },
+  },
+  {
+    city: 'hongkong',
+    key: 'cordis-hong-kong',
+    match: /Cordis|康得思酒店|Langham Place Hotel/,
+    foot: [2, 2],
+    seed: 7400,
+    draw: (s) => glassTowerTile(s, { w: 2, h: 250, head: 330, glass: hex('#869da8'), crown: 'mast', podiumH: 24 }),
+    light: { kind: 'towerCrown', topZ: 262, halfW: 0.5 },
+  },
+  {
+    city: 'hongkong',
+    key: 'royal-garden-hotel',
+    match: /Royal Garden|帝苑酒店/,
+    foot: [2, 2],
+    seed: 7401,
+    draw: (s) => glassTowerTile(s, { w: 2, h: 200, head: 280, glass: hex('#7e9ba4'), crown: 'flat' }),
+    light: { kind: 'towerCrown', topZ: 212, halfW: 0.5 },
+  },
+  {
+    city: 'hongkong',
+    key: 'harbour-grand-kowloon',
+    match: /Harbour Grand Kowloon|港島海逸|黃埔.*海逸/,
+    foot: [3, 3],
+    seed: 7402,
+    draw: (s) => glassTowerTile(s, { w: 3, h: 230, head: 310, glass: hex('#84a1ab'), crown: 'step', podiumH: 24 }),
+    light: { kind: 'towerCrown', topZ: 242, halfW: 0.7 },
+  },
+  {
+    city: 'hongkong',
+    key: 'royal-plaza-hotel',
+    match: /Royal Plaza Hotel|帝京酒店/,
+    foot: [2, 2],
+    seed: 7403,
+    draw: (s) => glassTowerTile(s, { w: 2, h: 210, head: 290, glass: hex('#80a0a8'), crown: 'flat' }),
+    light: { kind: 'towerCrown', topZ: 222, halfW: 0.5 },
+  },
+  {
+    city: 'hongkong',
+    key: 'the-emperor-hotel',
+    match: /Emperor Hotel|英皇駿景/,
+    foot: [2, 2],
+    seed: 7404,
+    draw: (s) => glassTowerTile(s, { w: 2, h: 190, head: 270, glass: hex('#7c98a4'), crown: 'flat' }),
+    light: { kind: 'towerCrown', topZ: 202, halfW: 0.5 },
+  },
+  {
+    city: 'hongkong',
+    key: 'the-mira-hong-kong',
+    match: /\bMira\b|美麗華酒店/,
+    foot: [2, 2],
+    seed: 7405,
+    draw: (s) => glassTowerTile(s, { w: 2, h: 200, head: 280, glass: hex('#869fab'), crown: 'step' }),
+    light: { kind: 'towerCrown', topZ: 212, halfW: 0.5 },
+  },
+  {
+    city: 'hongkong',
+    key: 'metropark-hotel-mongkok',
+    match: /Metropark Hotel|維景酒店/,
+    foot: [2, 2],
+    seed: 7406,
+    draw: (s) => glassTowerTile(s, { w: 2, h: 190, head: 270, glass: hex('#7d9aa6'), crown: 'flat' }),
+    light: { kind: 'towerCrown', topZ: 202, halfW: 0.5 },
+  },
+  {
+    city: 'hongkong',
+    key: 'nina-hotel-island-south',
+    match: /Nina Hotel|如心酒店/,
+    foot: [2, 2],
+    seed: 7407,
+    draw: (s) => glassTowerTile(s, { w: 2, h: 240, head: 320, glass: hex('#83a1ac'), crown: 'mast' }),
+    light: { kind: 'towerCrown', topZ: 252, halfW: 0.5 },
+  },
+  {
+    city: 'hongkong',
+    key: 'le-meridien-cyberport',
+    match: /Méridien|艾美酒店|Cyberport/,
+    foot: [3, 3],
+    seed: 7408,
+    draw: (s) => glassTowerTile(s, { w: 3, h: 150, head: 200, glass: hex('#88a4ac'), crown: 'flat', podiumH: 24 }),
+    light: { kind: 'towerCrown', topZ: 150, halfW: 0.7 },
+  },
+
+  // ---- the placed RESIDENTIAL estates (slim tall towers) --------------
+  {
+    city: 'hongkong',
+    key: 'sorrento',
+    match: /Sorrento|擎天半島/,
+    foot: [3, 3],
+    seed: 7409,
+    draw: (s) => glassTowerTile(s, { w: 3, h: 320, head: 400, glass: hex('#8aa3ad'), crown: 'mast', podiumH: 28 }),
+    light: { kind: 'towerCrown', topZ: 332, halfW: 0.7 },
+  },
+  {
+    city: 'hongkong',
+    key: 'island-crest',
+    match: /Island Crest|縉城峰/,
+    foot: [3, 3],
+    seed: 7410,
+    draw: (s) => glassTowerTile(s, { w: 3, h: 280, head: 360, glass: hex('#85a0aa'), crown: 'step', podiumH: 24 }),
+    light: { kind: 'towerCrown', topZ: 292, halfW: 0.7 },
+  },
+  {
+    city: 'hongkong',
+    key: 'fortress-metro-tower',
+    match: /Fortress Metro Tower|港運城/,
+    foot: [3, 3],
+    seed: 7411,
+    draw: (s) => glassTowerTile(s, { w: 3, h: 240, head: 320, glass: hex('#809ca8'), crown: 'flat', podiumH: 24 }),
+    light: { kind: 'towerCrown', topZ: 240, halfW: 0.7 },
+  },
+  {
+    city: 'hongkong',
+    key: 'chong-yip-centre',
+    match: /Chong Yip Cent(re|er)|創業中心/,
+    foot: [3, 3],
+    seed: 7412,
+    draw: (s) => glassTowerTile(s, { w: 3, h: 230, head: 310, glass: hex('#7e99a4'), crown: 'flat', podiumH: 20 }),
+    light: { kind: 'towerCrown', topZ: 230, halfW: 0.7 },
+  },
+  {
+    city: 'hongkong',
+    key: 'causeway-centre',
+    match: /Causeway Cent(re|er)|灣景中心/,
+    foot: [3, 3],
+    seed: 7413,
+    draw: (s) => glassTowerTile(s, { w: 3, h: 220, head: 300, glass: hex('#839ea8'), crown: 'step', podiumH: 20 }),
+    light: { kind: 'towerCrown', topZ: 222, halfW: 0.7 },
+  },
+  {
+    city: 'hongkong',
+    key: 'metropole-building',
+    match: /Metropole Building|新都城大廈/,
+    foot: [3, 3],
+    seed: 7414,
+    draw: (s) => glassTowerTile(s, { w: 3, h: 200, head: 270, glass: hex('#7c97a2'), crown: 'flat' }),
+    light: { kind: 'towerCrown', topZ: 200, halfW: 0.7 },
   },
 ];

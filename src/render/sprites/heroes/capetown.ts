@@ -1054,6 +1054,422 @@ function grandBlockTile(seed: number, body: RGBA, turret: boolean): Uint8Clamped
 }
 
 // =====================================================================
+// ROUND 2 — the next ~34 bespoke heroes, covering the placed names not yet
+// matched: the harbour/Waterfront blocks, the Atlantic-seaboard apartment
+// hotels (Sea Point / Camps Bay), the UCT + Observatory precinct, the
+// Long-Street museums + theatres, libraries, the malls and Groote Schuur.
+// Same Cape palette (Atlantic whitewash + honey sandstone + Bo-Kaap pop);
+// each a custom silhouette + a bespoke light. (Round 1's 38 heroes above.)
+// =====================================================================
+
+/** A slim verdigris-copper flagpole + a tiny triangular burgee pennant, the
+ *  yacht-club signature; returned tip for an optional glint. */
+function burgee(iso: Iso, u: number, v: number, z0: number, hPx: number, col: RGBA): Pt {
+  const [bx, byB] = iso.P(u, v, z0);
+  const tipY = byB - hPx * RES;
+  iso.r.line([bx, byB], [bx, tipY], 1 * RES, hex('#8a9a8f'));
+  iso.r.poly([[bx, tipY], [bx + 7 * RES, tipY + 2 * RES], [bx, tipY + 5 * RES]], col);
+  return [bx, tipY];
+}
+
+// =====================================================================
+// ROYAL CAPE YACHT CLUB — the Duncan Dock clubhouse: a long low white
+// waterfront pavilion with a broad veranda, a glazed upper commodore's deck
+// looking over the marina, a flag mast crowned by the club burgee, and a
+// foreground of moored-yacht MASTS bristling at the quay (the sailing read).
+// 3×3 (waterfront, wide + low).
+// =====================================================================
+function yachtClubTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 150 });
+  void seed;
+  const u0 = 0.4, u1 = 2.6, v0 = 0.5, v1 = 2.55;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.2);
+  // the marina water filling the front third (the quay the yachts lie against)
+  iso.box(u0 - 0.1, v1 - 0.02, u1 + 0.1, v1 + 0.34, 0, 2, shaded(HARBOUR, 0.04), { ink: false });
+  // the long white clubhouse body, set back at the rear
+  const bodyZ = 30;
+  iso.box(u0, v0, u1, v1 - 0.7, 0, bodyZ, WASH, { leftC: shaded(WASH_D, 0.04), rightC: lit(WASH, 0.05) });
+  // a banded blue stripe (the club livery) along the parapet
+  iso.r.line(iso.P(u0, v1 - 0.7, bodyZ - 3), iso.P(u1, v1 - 0.7, bodyZ - 3), 1.4 * RES, alpha(HARBOUR, 0.85));
+  // a continuous veranda of windows facing the water
+  iso.windowsLeft(v1 - 0.7, u0 + 0.08, u1 - 0.08, 8, bodyZ - 6, 11, alpha(COLORS.glassLit, 0.55), COLORS.steelDark);
+  // the glazed upper commodore's deck (a set-back glass box on the roof)
+  iso.box(u0 + 0.5, v0 + 0.2, u1 - 0.5, v0 + 0.9, bodyZ, bodyZ + 22, alpha(GLASSCT, 0.7), { ink: true });
+  iso.windowsLeft(v0 + 0.9, u0 + 0.56, u1 - 0.56, bodyZ + 4, bodyZ + 18, 8, alpha(COLORS.glassLit, 0.6), COLORS.steelDark);
+  iso.box(u0 + 0.48, v0 + 0.18, u1 - 0.48, v0 + 0.92, bodyZ + 22, bodyZ + 25, COLORS.steelDark, { ink: false });
+  // the flag mast + club burgee on the deck
+  const tip = burgee(iso, u0 + 0.6, v0 + 0.5, bodyZ + 25, 36, STRIPE_R);
+  iso.glint(tip, 1.8 * RES);
+  // a forest of yacht MASTS bristling along the quay (thin verticals + tiny
+  // furled sails) — the unmistakable marina silhouette
+  let mi = 0;
+  for (let i = 0; i < 9; i++) {
+    const mu = u0 + 0.2 + i * 0.26;
+    const mv = v1 - 0.04;
+    const [mx, myB] = iso.P(mu, mv, 2);
+    const hh = (26 + ((mi * 37) % 13)) * RES;
+    iso.r.line([mx, myB], [mx, myB - hh], 0.8 * RES, WASH);
+    // a small hull at the waterline
+    iso.r.poly([[mx - 4 * RES, myB], [mx + 4 * RES, myB], [mx + 2.5 * RES, myB + 3 * RES], [mx - 2.5 * RES, myB + 3 * RES]], i % 2 ? hex('#d8d2c4') : WASH_D);
+    // a furled triangular sail/boom
+    iso.r.line([mx, myB - hh * 0.62], [mx + 6 * RES, myB - hh * 0.34], 0.7 * RES, alpha(WASH, 0.7));
+    mi++;
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// GROOTE SCHUUR — Cecil Rhodes's Herbert-Baker manor on the mountain slope:
+// a long Cape-Dutch-REVIVAL house, whitewashed under a steep dark thatched
+// roof, ranks of tall barley-twist CHIMNEYS, ornate curvilinear Cape gables
+// at each end and shuttered sash windows, set in mountain gardens. The
+// chimney-ranked thatched silhouette is the read. Serves The Woolsack too.
+// 2×2 (wide).
+// =====================================================================
+function grooteSchuurTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 120 });
+  void seed;
+  const THATCH = hex('#8a6f47'); // dark Cape thatch
+  const u0 = 0.34, u1 = 1.66, v0 = 0.42, v1 = 1.62;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // a green garden apron
+  iso.box(u0 - 0.06, v1, u1 + 0.06, v1 + 0.12, 0, 2, shaded(COLORS.grass, 0.06), { ink: false });
+  // the long whitewashed body
+  const bodyZ = 40;
+  iso.box(u0, v0 + 0.12, u1, v1, 0, bodyZ, WASH);
+  // two ranks of green-shuttered sash windows
+  iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 8, 18, 7, alpha(COLORS.glassDark, 0.8), TEAL);
+  iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 24, 36, 7, alpha(COLORS.glassDark, 0.8), TEAL);
+  // the steep dark thatched gable roof (ridge along u so the long slope shows)
+  iso.gable(u0, v0 + 0.12, u1, v1, bodyZ, 30, 'u', THATCH, WASH);
+  // ornate curvilinear CAPE GABLES at each end of the front
+  for (const gx of [u0 + 0.16, u1 - 0.16] as const) {
+    const [bx, byB] = iso.P(gx, v1, bodyZ);
+    const gable: Pt[] = [
+      [bx - 6 * RES, byB], [bx - 6 * RES, byB - 5 * RES], [bx - 3 * RES, byB - 10 * RES],
+      [bx - 4 * RES, byB - 14 * RES], [bx, byB - 19 * RES],
+      [bx + 4 * RES, byB - 14 * RES], [bx + 3 * RES, byB - 10 * RES],
+      [bx + 6 * RES, byB - 5 * RES], [bx + 6 * RES, byB],
+    ];
+    iso.r.poly(gable, lit(WASH, 0.04));
+    iso.r.polyline(gable, INK_W * 0.7, INK, true);
+  }
+  // the rank of tall barley-twist white CHIMNEYS along the ridge (the signature)
+  for (let i = 0; i < 4; i++) {
+    const cu = u0 + 0.28 + i * 0.36;
+    const cv = (v0 + 0.12 + v1) / 2;
+    iso.box(cu - 0.04, cv - 0.04, cu + 0.04, cv + 0.04, bodyZ + 26, bodyZ + 44, WASH, { topC: top(WASH, 0.2) });
+    // a dark cap
+    iso.box(cu - 0.055, cv - 0.055, cu + 0.055, cv + 0.055, bodyZ + 44, bodyZ + 47, ROOFSL, { ink: false });
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// ASTRONOMICAL OBSERVATORY — the SAAO McClean dome on the hill at
+// Observatory: a low square white base block topped by a large hemispherical
+// rotating DOME with the dark vertical telescope SLIT, the unmistakable
+// observatory silhouette. 1×1 (wide), domed.
+// =====================================================================
+function observatoryTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 110 });
+  void seed;
+  const DOMEC = hex('#dfe2dc'); // pale metal observatory dome
+  const u0 = 0.2, u1 = 0.8, v0 = 0.24, v1 = 0.8;
+  const cx = (u0 + u1) / 2, cy = (v0 + v1) / 2;
+  iso.shadow(u0, v0, u1, v1, 0.28, 0.22);
+  // the square white base block
+  const baseZ = 34;
+  iso.box(u0, v0, u1, v1, 0, baseZ, WASH);
+  iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 8, 24, 3, alpha(COLORS.glassDark, 0.8), WASH);
+  // a short drum the dome rotates on
+  iso.box(u0 + 0.04, v0 + 0.04, u1 - 0.04, v1 - 0.04, baseZ, baseZ + 8, lighten(WASH, 0.04));
+  // the big hemispherical DOME (a near-full half-sphere, tall rise)
+  const dome = domeAt(iso, cx, cy, baseZ + 8, 0.26 * (CELL_W / 2), 1.05, DOMEC, { bulb: false });
+  // the dark vertical telescope SLIT up the face of the dome
+  const [sx, syB] = iso.P(cx, v1 - 0.06, baseZ + 8);
+  iso.r.poly([
+    [sx - 2.4 * RES, syB], [sx + 2.4 * RES, syB],
+    [sx + 1.6 * RES, dome.tipY + 3 * RES], [sx - 1.6 * RES, dome.tipY + 3 * RES],
+  ], alpha(hex('#222a38'), 0.92));
+  // a hint of the telescope barrel peeking through the slit
+  iso.r.line([sx, syB - 3 * RES], [sx + 4 * RES, dome.tipY + 10 * RES], 1.6 * RES, alpha(COLORS.steelDark, 0.8));
+  return iso.build();
+}
+
+// =====================================================================
+// LONG-STREET MUSEUM / VICTORIAN TERRACE — a tall narrow Cape-Victorian
+// townhouse in the Long Street idiom: a rendered colour-block facade with
+// ornate cast-iron BROEKIE-LACE balconies (the wrought-iron verandas), a
+// bracketed cornice and a parapet. The lacy double-decker balcony is the
+// read. Parameterised by body colour. Serves the Long-Street museums +
+// guest-houses + small civic terraces. 1×1 (wide).
+// =====================================================================
+function longStreetTile(seed: number, body: RGBA): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 90 });
+  void seed;
+  const u0 = 0.16, u1 = 0.84, v0 = 0.24, v1 = 0.82;
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.22);
+  const z = 52;
+  iso.box(u0, v0, u1, v1, 0, z, body, { leftC: shaded(body, 0.06), rightC: lit(body, 0.05) });
+  // a shop-front at the base (dark glazed)
+  iso.r.poly([iso.P(u0 + 0.06, v1, 2), iso.P(u1 - 0.06, v1, 2), iso.P(u1 - 0.06, v1, 14), iso.P(u0 + 0.06, v1, 14)], alpha(COLORS.glassDark, 0.85));
+  // two tiers of cast-iron BROEKIE-LACE balcony across the front
+  for (const [zb, zt] of [[16, 30], [32, 46]] as const) {
+    // the balcony deck slab
+    iso.r.poly([iso.P(u0 + 0.02, v1 + 0.04, zb), iso.P(u1 - 0.02, v1 + 0.04, zb), iso.P(u1 - 0.02, v1 + 0.04, zb + 1.5), iso.P(u0 + 0.02, v1 + 0.04, zb + 1.5)], WASH);
+    // the lacy rail (a row of fine white verticals + a top rail)
+    const [lxA, ly] = iso.P(u0 + 0.06, v1 + 0.04, zb + 5);
+    const [lxB] = iso.P(u1 - 0.06, v1 + 0.04, zb + 5);
+    iso.r.line([lxA, ly], [lxB, ly], 0.8 * RES, WASH);
+    for (let k = 0; k <= 10; k++) {
+      const x = lxA + (lxB - lxA) * (k / 10);
+      iso.r.line([x, ly], [x, ly + 5 * RES], 0.5 * RES, alpha(WASH, 0.85));
+    }
+    // the window band behind the balcony
+    iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, zb + 1, zt, 3, alpha(COLORS.glassDark, 0.8), WASH);
+    // a lacy frieze hanging under the upper balcony roof
+    iso.r.line([lxA, ly - 1 * RES], [lxB, ly - 1 * RES], 0.5 * RES, alpha(WASH, 0.5));
+  }
+  // bracketed cornice + parapet
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, z, z + 5, lighten(body, 0.08), { topC: top(body, 0.24) });
+  return iso.build();
+}
+
+// =====================================================================
+// MODERN HOTEL SLAB — a contemporary Cape Town hotel/apartment tower: a
+// rendered mid-rise slab with regular punched balcony windows, a darker glazed
+// ground floor and a flat parapet with a rooftop plant box. Serves the City
+// Lodge / Garden Court / Southern Sun / SunSquare / StayEasy stock. `h` height,
+// `body` the render colour. 2×2.
+// =====================================================================
+function hotelSlabTile(seed: number, h: number, body: RGBA): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: Math.max(90, h + 24) });
+  void seed;
+  const u0 = 0.36, u1 = 1.64, v0 = 0.42, v1 = 1.6;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // a darker glazed podium / ground floor
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 14, COLORS.steelDark, { ink: false });
+  // the rendered slab body
+  iso.box(u0, v0, u1, v1, 14, h, body, { leftC: shaded(body, 0.06), rightC: lit(body, 0.05) });
+  // rows of punched balcony windows on both visible faces (the regular hotel
+  // grid — alternating glass + a slim balcony shadow line)
+  const rows = Math.max(4, Math.floor((h - 20) / 14));
+  for (let r = 0; r < rows; r++) {
+    const zb = 20 + r * 14;
+    iso.windowsLeft(v1, u0 + 0.07, u1 - 0.07, zb, zb + 8, 6, alpha(COLORS.glassLit, 0.5), WASH);
+    iso.windowsRight(u1, v0 + 0.07, v1 - 0.07, zb, zb + 8, 6, alpha(COLORS.glassLit, 0.5), WASH);
+    // the balcony slab line
+    iso.r.line(iso.P(u0 + 0.05, v1, zb - 1), iso.P(u1 - 0.05, v1, zb - 1), 0.5 * RES, alpha(shaded(body, 0.16), 0.6));
+  }
+  // cornice + parapet + a rooftop plant box
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, h, h + 5, lighten(body, 0.08), { topC: top(body, 0.22) });
+  iso.box(u0 + 0.4, v0 + 0.3, u0 + 0.75, v0 + 0.65, h + 5, h + 14, COLORS.steelDark);
+  return iso.build();
+}
+
+// =====================================================================
+// ATLANTIC-SEABOARD APARTMENT — a Sea Point / Camps Bay seafront block: a
+// crisp WHITE modernist apartment building with wraparound glass balconies
+// (the curved or stepped Atlantic-facing balustrades), turquoise-glass rails
+// catching the sea, and palms at the base. The white-and-glass seaside read.
+// `h` height. 2×2.
+// =====================================================================
+function seaboardTile(seed: number, h: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: Math.max(90, h + 24) });
+  void seed;
+  const u0 = 0.4, u1 = 1.62, v0 = 0.44, v1 = 1.6;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // a sandy/garden apron with two palms
+  iso.box(u0 - 0.08, v1, u1 + 0.08, v1 + 0.14, 0, 2, shaded(hex('#d8cba0'), 0.04), { ink: false });
+  // the crisp white body
+  iso.box(u0, v0, u1, v1, 0, h, WASH, { leftC: shaded(WASH_D, 0.05), rightC: lit(WASH, 0.05) });
+  // wraparound glass balcony bands (turquoise-glass rails) every floor
+  const rows = Math.max(4, Math.floor((h - 12) / 13));
+  for (let r = 0; r < rows; r++) {
+    const zb = 12 + r * 13;
+    // the white slab edge
+    iso.r.line(iso.P(u0, v1 + 0.03, zb), iso.P(u1, v1 + 0.03, zb), 1 * RES, WASH);
+    // the turquoise glass balustrade sitting on it
+    iso.r.poly([iso.P(u0 + 0.04, v1 + 0.03, zb), iso.P(u1 - 0.04, v1 + 0.03, zb), iso.P(u1 - 0.04, v1 + 0.03, zb + 5), iso.P(u0 + 0.04, v1 + 0.03, zb + 5)], alpha(hex('#5fc6c0'), 0.5));
+    // the same on the right face
+    iso.r.line(iso.P(u1 + 0.03, v0, zb), iso.P(u1 + 0.03, v1, zb), 1 * RES, WASH);
+    iso.r.poly([iso.P(u1 + 0.03, v0 + 0.04, zb), iso.P(u1 + 0.03, v1 - 0.04, zb), iso.P(u1 + 0.03, v1 - 0.04, zb + 5), iso.P(u1 + 0.03, v0 + 0.04, zb + 5)], alpha(hex('#5fc6c0'), 0.4));
+    // a strip of warm window behind each balcony
+    iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, zb + 5, zb + 11, 5, alpha(COLORS.glassLit, 0.45), undefined);
+  }
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, h, h + 4, lighten(WASH, 0.06), { ink: false });
+  // two palms flanking the front
+  for (const pu of [u0 + 0.04, u1 - 0.04] as const) {
+    const [px, py] = iso.P(pu, v1 + 0.08, 0);
+    iso.r.line([px, py], [px, py - 15 * RES], 1.1 * RES, hex('#6f5a3a'));
+    for (let k = 0; k < 5; k++) {
+      const a = -Math.PI / 2 + (k - 2) * 0.55;
+      iso.r.line([px, py - 15 * RES], [px + Math.cos(a) * 7 * RES, py - 15 * RES + Math.sin(a) * 7 * RES], 1 * RES, COLORS.treeGreen);
+    }
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// MODERN LIBRARY / CIVIC PAVILION — a low 1960s-modern Cape library or
+// research block: a horizontally-banded face-brick + concrete pavilion with a
+// deep flat eave (brise-soleil) over a ribbon of glazing, raised on a low
+// plinth. Serves Vredehoek / Jagger / Rondebosch libraries + small civic
+// agencies. `brick` toggles the warm face-brick vs pale concrete. 1×1 (wide).
+// =====================================================================
+function libraryPavilionTile(seed: number, brick: boolean): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 70 });
+  void seed;
+  const BODY = brick ? hex('#b07a52') : hex('#cfcabe');
+  const u0 = 0.14, u1 = 0.86, v0 = 0.2, v1 = 0.82;
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.22);
+  // a low plinth
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 6, shaded(COLORS.pavement, 0.06), { ink: false });
+  // the banded body
+  const z = 34;
+  iso.box(u0, v0, u1, v1, 6, z, BODY);
+  // a deep ribbon of glazing under a flat projecting eave
+  iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, 14, 26, 6, alpha(COLORS.glassLit, 0.5), undefined);
+  // a couple of brick string-courses
+  iso.r.line(iso.P(u0, v1, 12), iso.P(u1, v1, 12), 0.8 * RES, shaded(BODY, 0.18));
+  iso.r.line(iso.P(u0, v1, 28), iso.P(u1, v1, 28), 0.8 * RES, shaded(BODY, 0.18));
+  // the deep flat eave / brise-soleil slab oversailing the front
+  iso.box(u0 - 0.05, v1 - 0.04, u1 + 0.05, v1 + 0.08, z - 4, z, lighten(BODY, 0.1), { topC: top(BODY, 0.24) });
+  // a flat parapet
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, z, z + 4, lighten(BODY, 0.06), { ink: false });
+  return iso.build();
+}
+
+// =====================================================================
+// THEATRE / PERFORMING-ARTS — a Cape theatre: a low foyer block with a tall
+// blank windowless STAGE/FLY-TOWER behind, a marquee canopy with warm sign
+// lights over the entrance and a poster band. Serves the Baxter (its famous
+// honey face-brick fly-tower) + the Magnet. `brick` = the Baxter's warm brick.
+// 2×2.
+// =====================================================================
+function theatreTile(seed: number, brick: boolean): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 110 });
+  void seed;
+  const BODY = brick ? hex('#bd8a5a') : hex('#cdc8bd');
+  const u0 = 0.3, u1 = 1.7, v0 = 0.34, v1 = 1.68;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // the low foyer block in front
+  iso.box(u0, v1 - 0.5, u1, v1, 0, 34, BODY);
+  // a glazed foyer front
+  iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, 8, 26, 8, alpha(COLORS.glassLit, 0.5), COLORS.steelDark);
+  // the projecting marquee CANOPY with warm sign-lights
+  iso.box(u0 + 0.04, v1 - 0.02, u1 - 0.04, v1 + 0.09, 26, 30, lighten(BODY, 0.08));
+  const [mx0, my] = iso.P(u0 + 0.1, v1 + 0.06, 27);
+  const [mx1] = iso.P(u1 - 0.1, v1 + 0.06, 27);
+  for (let k = 0; k <= 9; k++) {
+    const x = mx0 + (mx1 - mx0) * (k / 9);
+    iso.r.line([x, my], [x, my + 1.6 * RES], 1.4 * RES, alpha(GILT_HOT, 0.85));
+  }
+  // the tall blank windowless STAGE / FLY-TOWER rising behind (the read)
+  const flyZ = 78;
+  iso.box(u0 + 0.18, v0 + 0.06, u1 - 0.18, v0 + 0.62, 0, flyZ, BODY, { leftC: shaded(BODY, 0.08), rightC: lit(BODY, 0.04) });
+  // a horizontal brick banding on the fly-tower (the Baxter's texture)
+  for (let z = 16; z < flyZ - 6; z += 12) {
+    iso.r.line(iso.P(u0 + 0.18, v0 + 0.62, z), iso.P(u1 - 0.18, v0 + 0.62, z), 0.5 * RES, alpha(shaded(BODY, 0.16), 0.5));
+  }
+  // a flat roof cap on the fly-tower
+  iso.box(u0 + 0.16, v0 + 0.04, u1 - 0.16, v0 + 0.64, flyZ, flyZ + 5, COLORS.steelDark, { ink: false });
+  return iso.build();
+}
+
+// =====================================================================
+// SHOPPING MALL — a big low retail centre: a long sprawling pale block with a
+// curved glazed entrance atrium, large blank signage parapets, a rooftop sea
+// of plant + parking-deck banding, and a bright corporate fascia stripe.
+// Serves Cavendish Square / Canal Walk / Century City retail. 2×2 (wide+low).
+// =====================================================================
+function mallTile(seed: number, accent: RGBA): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 80 });
+  void seed;
+  const CONC = hex('#d2cdC2');
+  const u0 = 0.22, u1 = 1.78, v0 = 0.28, v1 = 1.72;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.2);
+  // the long low retail mass
+  const z = 38;
+  iso.box(u0, v0, u1, v1, 0, z, CONC);
+  // a bright corporate fascia stripe wrapping the parapet
+  iso.r.poly([iso.P(u0, v1, z - 8), iso.P(u1, v1, z - 8), iso.P(u1, v1, z - 3), iso.P(u0, v1, z - 3)], accent);
+  iso.r.poly([iso.P(u1, v0, z - 8), iso.P(u1, v1, z - 8), iso.P(u1, v1, z - 3), iso.P(u1, v0, z - 3)], shaded(accent, 0.1));
+  // a big curved glazed entrance atrium bulging from the front-centre
+  const [ax, ayB] = iso.P((u0 + u1) / 2, v1, 0);
+  const [, ayT] = iso.P((u0 + u1) / 2, v1, z + 12);
+  const atrium: Pt[] = [];
+  for (let i = 0; i <= 12; i++) {
+    const t = i / 12;
+    atrium.push([ax - 14 * RES + t * 28 * RES, ayT + Math.sin(t * Math.PI) * -6 * RES]);
+  }
+  atrium.push([ax + 14 * RES, ayB], [ax - 14 * RES, ayB]);
+  iso.r.poly(atrium, alpha(COLORS.glassLit, 0.55));
+  iso.r.polyline(atrium, INK_W * 0.6, alpha(INK, 0.5), true);
+  // mullions on the atrium glass
+  for (let k = 1; k < 5; k++) {
+    const x = ax - 14 * RES + (28 * RES) * (k / 5);
+    iso.r.line([x, ayB], [x, ayT - 2 * RES], 0.5 * RES, alpha(COLORS.steelDark, 0.5));
+  }
+  // a rooftop sea of plant boxes + a parking-deck banding hint
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, z, z + 4, lighten(CONC, 0.06), { ink: false });
+  for (const [pu, pv] of [[u0 + 0.4, v0 + 0.4], [u0 + 0.9, v0 + 0.6], [u0 + 1.3, v0 + 0.35]] as const) {
+    iso.box(pu, pv, pu + 0.22, pv + 0.22, z + 4, z + 11, COLORS.steelDark);
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// HARBOUR PIER-HEAD WAREHOUSE — a V&A Waterfront / Pierhead heritage block:
+// a Victorian red-brick + stucco warehouse-turned-hotel with a corner clock
+// turret, arched ground-floor openings (the old goods arches) and a pitched
+// corrugated-iron roof — the working-harbour-restored read. Serves the
+// Pierhead hotels (Harbour Bridge, Dock House, the V&A blocks). 2×2.
+// =====================================================================
+function pierheadTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 110 });
+  void seed;
+  const BRICK = hex('#b15a44'); // harbour red brick
+  const u0 = 0.34, u1 = 1.66, v0 = 0.42, v1 = 1.6;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // a strip of harbour water at the quay front
+  iso.box(u0 - 0.06, v1, u1 + 0.06, v1 + 0.14, 0, 2, shaded(HARBOUR, 0.04), { ink: false });
+  // the brick body
+  const z = 50;
+  iso.box(u0, v0, u1, v1, 0, z, BRICK, { leftC: shaded(BRICK, 0.08), rightC: lit(BRICK, 0.04) });
+  // a stucco string-course banding (white pilasters / quoins)
+  iso.r.line(iso.P(u0, v1, 20), iso.P(u1, v1, 20), 1 * RES, alpha(WASH, 0.7));
+  iso.r.line(iso.P(u0, v1, z - 6), iso.P(u1, v1, z - 6), 1 * RES, alpha(WASH, 0.7));
+  // arched ground-floor goods openings (the old harbour arches)
+  for (let i = 0; i < 5; i++) {
+    const u = u0 + 0.1 + i * 0.24;
+    const poly: Pt[] = [iso.P(u, v1, 4), iso.P(u, v1, 13)];
+    for (let j = 0; j <= 6; j++) { const t = j / 6; poly.push(iso.P(u + 0.16 * t, v1, 13 + Math.sin(t * Math.PI) * 5)); }
+    poly.push(iso.P(u + 0.16, v1, 13), iso.P(u + 0.16, v1, 4));
+    iso.r.poly(poly, alpha(COLORS.glassDark, 0.82));
+  }
+  // upper sash windows
+  iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 24, 40, 7, alpha(COLORS.glassDark, 0.8), WASH);
+  // the pitched corrugated-iron roof
+  iso.gable(u0, v0, u1, v1, z, 14, 'u', ROOFRED, BRICK);
+  // the corner CLOCK TURRET (the Pierhead landmark)
+  const tx0 = u1 - 0.34, tx1 = u1 - 0.06, tv0 = v1 - 0.34, tv1 = v1 - 0.06;
+  const TZ = 86;
+  iso.box(tx0, tv0, tx1, tv1, 0, TZ, WASH);
+  // clock face high on the turret
+  const [clx, cly] = iso.P((tx0 + tx1) / 2, tv1, TZ - 12);
+  iso.r.poly(circlePts(clx, cly, 3 * RES), WASH);
+  iso.r.polyline(circlePts(clx, cly, 3 * RES), INK_W * 0.6, INK, true);
+  iso.r.line([clx, cly], [clx, cly - 2 * RES], 0.8 * RES, INK);
+  // a little pyramid cap + finial
+  iso.hip(tx0, tv0, tx1, tv1, TZ, 12, ROOFSL);
+  const [fx, fy] = iso.P((tx0 + tx1) / 2, (tv0 + tv1) / 2, TZ + 12);
+  iso.r.line([fx, fy], [fx, fy - 6 * RES], 1 * RES, GILT);
+  return iso.build();
+}
+
+// =====================================================================
 // THE REGISTRY — placed-name → bespoke sprite + bespoke electrification light.
 // `match` is tested against Cape Town's placed `named` strings (see
 // src/data/cities/capetown.ts); first match wins. `foot` MUST equal what each
@@ -1415,5 +1831,335 @@ export const CITY_HEROES: BespokeHero[] = [
     seed: 5338,
     draw: (seed) => grandBlockTile(seed, hex('#e0d4b8'), false),
     light: { kind: 'facadeFlood', topZ: 66, halfW: 1.3 },
+  },
+
+  // ================= ROUND 2 — HARBOUR / WATERFRONT =================
+  {
+    city: 'capetown',
+    key: 'royal-cape-yacht-club',
+    match: /Royal Cape Yacht Club/i,
+    foot: [3, 3],
+    seed: 5339,
+    draw: (seed) => yachtClubTile(seed),
+    // floodlit pavilion + the lit commodore's deck over the dark marina
+    light: { kind: 'facadeFlood', topZ: 78, halfW: 1.6 },
+  },
+  {
+    // the V&A Pierhead heritage block, now the Harbour Bridge hotel
+    city: 'capetown',
+    key: 'harbour-bridge-hotel',
+    match: /Harbour Bridge Hotel/i,
+    foot: [2, 2],
+    seed: 5340,
+    draw: (seed) => pierheadTile(seed),
+    // floodlit brick + a warm clock-turret glow
+    light: { kind: 'facadeFlood', topZ: 90, halfW: 1.3 },
+  },
+  {
+    // Dock House, Portswood Ridge — the other restored harbour block
+    city: 'capetown',
+    key: 'dock-house',
+    match: /Dock House/i,
+    foot: [2, 2],
+    seed: 5341,
+    draw: (seed) => pierheadTile(seed),
+    light: { kind: 'facadeFlood', topZ: 90, halfW: 1.3 },
+  },
+  {
+    // City Lodge V&A Waterfront — a Waterfront hotel slab
+    city: 'capetown',
+    key: 'city-lodge-waterfront',
+    match: /City Lodge Hotel Victoria and Alfred|City Lodge/i,
+    foot: [2, 2],
+    seed: 5342,
+    draw: (seed) => hotelSlabTile(seed, 92, hex('#d8c9a6')),
+    light: { kind: 'towerCrown', topZ: 94, halfW: 1.2 },
+  },
+
+  // ================= ATLANTIC SEABOARD (Sea Point / Camps Bay) =================
+  {
+    city: 'capetown',
+    key: 'the-bay-hotel',
+    match: /The Bay Hotel/i,
+    foot: [2, 2],
+    seed: 5343,
+    draw: (seed) => seaboardTile(seed, 92),
+    // cool turquoise-glass balcony glow over the Atlantic
+    light: { kind: 'towerCrown', topZ: 94, halfW: 1.2 },
+  },
+  {
+    city: 'capetown',
+    key: 'pod-camps-bay',
+    match: /POD Camps Bay/i,
+    foot: [2, 2],
+    seed: 5344,
+    draw: (seed) => seaboardTile(seed, 78),
+    light: { kind: 'towerCrown', topZ: 80, halfW: 1.2 },
+  },
+  {
+    city: 'capetown',
+    key: 'camps-bay-retreat',
+    match: /Camps Bay Retreat/i,
+    foot: [2, 2],
+    seed: 5345,
+    draw: (seed) => seaboardTile(seed, 70),
+    light: { kind: 'towerCrown', topZ: 72, halfW: 1.2 },
+  },
+  {
+    city: 'capetown',
+    key: 'hotel-on-the-promenade',
+    match: /Hotel on the Promenade/i,
+    foot: [2, 2],
+    seed: 5346,
+    draw: (seed) => seaboardTile(seed, 100),
+    light: { kind: 'towerCrown', topZ: 102, halfW: 1.2 },
+  },
+  {
+    city: 'capetown',
+    key: 'blackheath-lodge',
+    match: /Blackheath Lodge/i,
+    foot: [1, 1],
+    seed: 5347,
+    draw: (seed) => longStreetTile(seed, WASH),
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 0.9 },
+  },
+  {
+    city: 'capetown',
+    key: 'brenwin-guest-house',
+    match: /Brenwin Guest House/i,
+    foot: [1, 1],
+    seed: 5348,
+    draw: (seed) => longStreetTile(seed, hex('#e8b53f')),
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 0.9 },
+  },
+  {
+    city: 'capetown',
+    key: 'green-elephant-guesthouse',
+    match: /Green Elephant/i,
+    foot: [1, 1],
+    seed: 5349,
+    draw: (seed) => longStreetTile(seed, TEAL),
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 0.9 },
+  },
+
+  // ================= MORE HOTELS (City Bowl / Gardens / Foreshore) =================
+  {
+    city: 'capetown',
+    key: 'garden-court-mandela-blvd',
+    match: /Garden Court Nelson Mandela/i,
+    foot: [2, 2],
+    seed: 5350,
+    draw: (seed) => hotelSlabTile(seed, 120, hex('#cdb88f')),
+    light: { kind: 'towerCrown', topZ: 122, halfW: 1.2 },
+  },
+  {
+    city: 'capetown',
+    key: 'southern-sun-newlands',
+    match: /Southern Sun Newlands/i,
+    foot: [2, 2],
+    seed: 5351,
+    draw: (seed) => hotelSlabTile(seed, 84, hex('#c98a6a')),
+    light: { kind: 'towerCrown', topZ: 86, halfW: 1.2 },
+  },
+  {
+    city: 'capetown',
+    key: 'sunsquare-gardens',
+    match: /SunSquare Cape Town Gardens/i,
+    foot: [2, 2],
+    seed: 5352,
+    draw: (seed) => hotelSlabTile(seed, 104, hex('#e0d4b8')),
+    light: { kind: 'towerCrown', topZ: 106, halfW: 1.2 },
+  },
+  {
+    city: 'capetown',
+    key: 'stayeasy-city-bowl',
+    match: /StayEasy Cape Town City Bowl/i,
+    foot: [2, 2],
+    seed: 5353,
+    draw: (seed) => hotelSlabTile(seed, 88, hex('#d8c9a6')),
+    light: { kind: 'towerCrown', topZ: 90, halfW: 1.2 },
+  },
+  {
+    city: 'capetown',
+    key: 'lady-hamilton-hotel',
+    match: /Lady Hamilton/i,
+    foot: [2, 2],
+    seed: 5354,
+    draw: (seed) => hotelSlabTile(seed, 80, WASH),
+    light: { kind: 'towerCrown', topZ: 82, halfW: 1.2 },
+  },
+
+  // ================= UCT / OBSERVATORY PRECINCT =================
+  {
+    city: 'capetown',
+    key: 'groote-schuur',
+    match: /Groote Schuur(?! Zoo)/i,
+    foot: [2, 2],
+    seed: 5355,
+    draw: (seed) => grooteSchuurTile(seed),
+    light: { kind: 'facadeFlood', topZ: 86, halfW: 1.3 },
+  },
+  {
+    // The Woolsack — Rhodes's nearby Cape-Dutch-revival cottage on the estate
+    city: 'capetown',
+    key: 'the-woolsack',
+    match: /The Woolsack/i,
+    foot: [2, 2],
+    seed: 5356,
+    draw: (seed) => grooteSchuurTile(seed),
+    light: { kind: 'facadeFlood', topZ: 86, halfW: 1.3 },
+  },
+  {
+    city: 'capetown',
+    key: 'sa-astronomical-observatory',
+    match: /Astronomical Observatory/i,
+    foot: [1, 1],
+    seed: 5357,
+    draw: (seed) => observatoryTile(seed),
+    // the dome's open slit glows + a faint sky beacon (an observatory at night)
+    light: { kind: 'aerialBeacon', topZ: 86, halfW: 0.5 },
+  },
+  {
+    city: 'capetown',
+    key: 'michaelis-school-of-fine-art',
+    match: /Michaelis School of Fine Art/i,
+    foot: [1, 1],
+    seed: 5358,
+    draw: (seed) => longStreetTile(seed, SANDP),
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 0.9 },
+  },
+  {
+    city: 'capetown',
+    key: 'baxter-theatre',
+    match: /Baxter Theatre/i,
+    foot: [2, 2],
+    seed: 5359,
+    draw: (seed) => theatreTile(seed, true),
+    light: { kind: 'facadeFlood', topZ: 84, halfW: 1.3 },
+  },
+  {
+    city: 'capetown',
+    key: 'magnet-theatre',
+    match: /Magnet Theatre/i,
+    foot: [2, 2],
+    seed: 5360,
+    draw: (seed) => theatreTile(seed, false),
+    light: { kind: 'facadeFlood', topZ: 84, halfW: 1.3 },
+  },
+
+  // ================= LIBRARIES =================
+  {
+    city: 'capetown',
+    key: 'jagger-library',
+    match: /Jagger Library/i,
+    foot: [1, 1],
+    seed: 5361,
+    draw: (seed) => libraryPavilionTile(seed, false),
+    light: { kind: 'facadeFlood', topZ: 40, halfW: 0.9 },
+  },
+  {
+    city: 'capetown',
+    key: 'rondebosch-public-library',
+    match: /Rondebosch Public Library/i,
+    foot: [1, 1],
+    seed: 5362,
+    draw: (seed) => libraryPavilionTile(seed, true),
+    light: { kind: 'facadeFlood', topZ: 40, halfW: 0.9 },
+  },
+  {
+    city: 'capetown',
+    key: 'vredehoek-library',
+    match: /Vredehoek Library/i,
+    foot: [1, 1],
+    seed: 5363,
+    draw: (seed) => libraryPavilionTile(seed, false),
+    light: { kind: 'facadeFlood', topZ: 40, halfW: 0.9 },
+  },
+
+  // ================= MUSEUMS (Long-Street terraces + waterfront) =================
+  {
+    city: 'capetown',
+    key: 'irma-stern-museum',
+    match: /Irma Stern Museum/i,
+    foot: [1, 1],
+    seed: 5364,
+    draw: (seed) => longStreetTile(seed, hex('#cdbfa0')),
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 0.9 },
+  },
+  {
+    city: 'capetown',
+    key: 'heart-of-cape-town-museum',
+    match: /Heart of Cape Town Museum/i,
+    foot: [1, 1],
+    seed: 5365,
+    draw: (seed) => longStreetTile(seed, WASH_D),
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 0.9 },
+  },
+  {
+    city: 'capetown',
+    key: 'cape-medical-museum',
+    match: /Cape Medical Museum/i,
+    foot: [1, 1],
+    seed: 5366,
+    draw: (seed) => longStreetTile(seed, hex('#e0d4b8')),
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 0.9 },
+  },
+  {
+    city: 'capetown',
+    key: 'chavonnes-battery-museum',
+    match: /Chavonnes Battery/i,
+    foot: [2, 2],
+    seed: 5367,
+    draw: (seed) => pierheadTile(seed),
+    light: { kind: 'facadeFlood', topZ: 90, halfW: 1.3 },
+  },
+  {
+    city: 'capetown',
+    key: 'waterworks-museum',
+    match: /Waterworks Museum/i,
+    foot: [1, 1],
+    seed: 5368,
+    draw: (seed) => libraryPavilionTile(seed, true),
+    light: { kind: 'facadeFlood', topZ: 40, halfW: 0.9 },
+  },
+
+  // ================= MALLS (retail centres) =================
+  {
+    city: 'capetown',
+    key: 'cavendish-square',
+    match: /Cavendish Square/i,
+    foot: [2, 2],
+    seed: 5369,
+    draw: (seed) => mallTile(seed, hex('#4f86d6')),
+    light: { kind: 'genericGlow', topZ: 42, halfW: 1.4 },
+  },
+  {
+    city: 'capetown',
+    key: 'canal-walk',
+    match: /Canal Walk/i,
+    foot: [2, 2],
+    seed: 5370,
+    draw: (seed) => mallTile(seed, hex('#e8694a')),
+    light: { kind: 'genericGlow', topZ: 42, halfW: 1.4 },
+  },
+  {
+    city: 'capetown',
+    key: 'stayeasy-century-city',
+    match: /StayEasy Century City/i,
+    foot: [2, 2],
+    seed: 5371,
+    draw: (seed) => hotelSlabTile(seed, 96, hex('#d8c9a6')),
+    light: { kind: 'towerCrown', topZ: 98, halfW: 1.2 },
+  },
+
+  // ================= CIVIC / OTHER =================
+  {
+    city: 'capetown',
+    key: 'community-house-salt-river',
+    match: /Community House/i,
+    foot: [1, 1],
+    seed: 5372,
+    draw: (seed) => longStreetTile(seed, hex('#b15a44')),
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 0.9 },
   },
 ];
