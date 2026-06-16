@@ -37,10 +37,20 @@ parallelisable waves; the main session keeps the keep-alive drumbeat + integrate
 - ✅ BATCH 4 LANDED (5ca36b5): Sydney 70, Athens 84, Cape Town 72, Hong Kong 103.
   → **800/1200 across 12 cities** (HK 103, Cairo 90, Paris 88, Athens 84, NYC 79,
   Cape Town 72, Sydney 70, NE 67, London 41, Shanghai 40, Berlin 35, Pune 31).
-- 🔄 BATCH 5 IN PROGRESS: London R2 (draw + place in NAMED_PLACES + SAVE_VERSION 14→15),
-  Berlin R2, Shanghai R2 (draws), + NYC ENRICHMENT PILOT (place famous-missing Empire
-  State/Chrysler/Statue/Brooklyn Bridge in newyork.ts named[]). If the pilot works,
-  scale enrichment to all near-cap cities (Paris/Cairo/HK/Athens/NYC) to reach the famous 100.
+- ✅ BATCH 5 LANDED (c4ae85b): London 82 (placed, SAVE_VERSION 14→15), Berlin 71, Shanghai 76.
+  NYC-enrich pilot = NO-OP (all 79 NYC heroes already placed via the placement-gap fix).
+  → **913/1200 across 12 cities** (HK 103, Cairo 90, Paris 88, Athens 84, London 82, NYC 79,
+  Shanghai 76, Cape Town 72, Berlin 71, Sydney 70, NE 67, Pune 31).
+- 🔄 BATCH 6 IN PROGRESS (combined DRAW+PLACE toward 100): London R3, Paris R3 (+enrich
+  Panthéon/Pompidou/gares into named[]), NE R2 (+place the DRAWN Tyne Bridge/Angel/Durham
+  via named[] add), Cairo enrich (place the DRAWN Cairo Tower + famous via named[]).
+- KEY LEARNINGS: (1) the placement-gap fix already renders every drawn hero whose name is
+  in named[]; the only gap is famous landmarks ABSENT from the OSM named[] (drawn but
+  unplaced) → fix = add them to src/data/cities/<city>.ts named[] (enrichment). (2) Dense
+  city CENTERS saturate (London flagged 5 infeasible) — spread heroes to real/outer
+  positions. (3) London render now evolves each round (064ba58 pin is a stable reference
+  region only — design-gate London directly). (4) Pune ~capped at its ~33 OSM hero count.
+  (5) Run a full e2e before the next milestone (hero rounds gated on unit+design+md5).
 - ⏭ NEXT: round-2 draws for London/Berlin/Shanghai; then the NAMED-LIST ENRICHMENT
   wave — the famous marquees (Tyne Bridge/Angel/Durham, Empire State-class, HSBC/IFC,
   Fernsehturm, Cairo Tower, Panthéon, QVB…) are AUTHORED + wired but absent from the OSM
