@@ -12,6 +12,30 @@
 
 ## Open
 
+### 🛟 OWNER ASK (2026-06-16 21:55): crash capture + self-heal error logging
+Owner: "The website just crashed on me. Need to capture all crashes and get the
+tracebacks so you can self-heal." URGENT — a real crash occurred (no repro detail yet).
+- [ ] **Wave C — crash capture (client):** React ErrorBoundary (catch render
+  crashes → friendly dusk "tripped a fuse" screen with stack + Copy + Reload);
+  global window 'error' + 'unhandledrejection' handlers; forward sim Web Worker
+  errors via the existing src/app/workerBridge.ts (worker.onerror/messageerror).
+  Central `errorLog` module: structured entries (message, stack, componentStack,
+  source, build/SAVE_VERSION, city, ts) → in-memory ring + localStorage persist.
+- [ ] **Wave C — self-heal sink:** POST crashes to Supabase (project electricity)
+  via the existing src/online/supabase.ts client: a `client_errors` table (anon
+  insert-only RLS) so I can QUERY tracebacks remotely and fix them; minimal
+  privacy-safe payload; in-app "copy diagnostics" button.
+- [ ] **Tests + design-gate:** unit tests for errorLog; e2e that forces an error
+  and asserts capture + crash screen; screenshot the crash screen (desktop + phone
+  landscape) and make it on-brand.
+
+### 🧪 OWNER ASK (2026-06-16 21:55): expand Playwright to EVERY button + EVERY map
+Owner: "expand your playwright testing to include every button and every map etc."
+- [ ] **Wave D — exhaustive e2e sweep:** drive EVERY button/control in every panel
+  (start menu, HUD, build tools, tenders, regulator, tutorials, settings…) and load
+  EVERY city/map; assert NO pageerror and NO console.error anywhere (doubles as the
+  crash-detection net). Data-driven over panel/city registries; shard for runtime.
+
 ### 📱 OWNER ASK (2026-06-16 20:48): a BETTER iPhone home-screen logo
 Owner asked if I had their notes on "a better iPhone logo" — I do NOT (lost to
 compaction; nothing in TASKS/ROADMAP/docs). Capturing here so it sticks.
@@ -25,6 +49,12 @@ compaction; nothing in TASKS/ROADMAP/docs). Capturing here so it sticks.
   design; (C) something they describe. iOS ignores SVG → must ship a 180px PNG +
   512px + maskable; update the web manifest + iOS metas; design-gate on a real
   home-screen mock. AWAITING owner direction on what "better" should look like.
+- **UPDATE (2026-06-16 21:30):** rendered 4 bespoke concepts (Skyline+Bolt, Lit
+  Pylon, Grid Node, Energised E) — OWNER REJECTED ALL 4. New direction: "try again
+  WITH the design skills this time"; ideas: (1) a SCREEN GRAB of the in-game energy
+  flow turned into the icon; (2) a stylised cable — a horizontal ORANGE line ~2/3
+  up a BLUE square with electrical arcing. → v2 subagent running (uses color-theory/
+  game-ui-design/frontend-design/canvas-design; concept-only, no public/ changes).
 
 ### 🎆 OWNER DIRECTIVE (2026-06-16 18:49): drive ALL remaining waves + FIX the night lights
 Owner picked ALL waves (W7 playtest, night-light fidelity, W8 operating models, W9/W10
