@@ -723,10 +723,13 @@ export const MISSIONS: Mission[] = [
           'Light the village from sun and store. With every home served, press FINISH TUTORIAL ' +
           'to complete Sun & Store.',
         objective: 'Light Sunningmead from solar + battery',
-        done: (v) =>
-          v.stats.totalCustomers > 0 &&
-          v.stats.servedCustomers >= v.stats.totalCustomers &&
-          v.assets.some((a) => a.kind === 'gen' && a.gen === 'battery'),
+        // mirror the win exactly (served + both solar and battery present) so
+        // finishing the strip implies the lesson was genuinely won.
+        done: (s) =>
+          s.stats.totalCustomers > 0 &&
+          s.stats.servedCustomers >= s.stats.totalCustomers &&
+          s.assets.some((a) => a.kind === 'gen' && a.gen === 'solarFarm') &&
+          s.assets.some((a) => a.kind === 'gen' && a.gen === 'battery'),
         focus: M6_VILLAGE,
       },
     ],

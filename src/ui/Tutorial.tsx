@@ -1,9 +1,12 @@
 // The campaign missions' guided step strip + victory card. The campaign
 // IS the tutorial now — the old standalone London step strip is retired
-// (sandbox new game starts clean; the start menu's "tutorial" launches
-// mission 1). Each step auto-advances when the sim shows it's done, or
-// waits for "next"; skippable at any point. A refused siting click shows
-// its reason loudly right under the strip.
+// (sandbox new game starts clean; the start menu's "tutorials" opens the
+// lessons page). STEP-GATING: a step with a `done` predicate keeps its
+// next/finish button DISABLED until the goal is met (with a live ○→✓
+// objective row), so the player must actually do each thing before moving
+// on; concept steps (no goal) advance freely with "continue". The victory
+// card shows ONLY on "finish tutorial", never the instant the win latches.
+// A refused siting click shows its reason loudly right under the strip.
 
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../app/store';
@@ -137,8 +140,13 @@ function StepStrip({
           left: '50%',
           transform: 'translateX(-50%)',
           width: 'min(440px, 94vw)',
-          maxHeight: '46vh',
-          overflowY: 'auto',
+          // flex column: the LESSON TEXT scrolls, but the header at the top
+          // and the objective + nav buttons at the bottom stay PINNED — so on
+          // a short phone-landscape the gate (objective row + next button) is
+          // always visible without scrolling (a real bug at 46vh before).
+          maxHeight: '64vh',
+          display: 'flex',
+          flexDirection: 'column',
           padding: '12px 16px',
           border: `1px solid ${theme.orange}`,
           boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
@@ -155,6 +163,7 @@ function StepStrip({
             justifyContent: 'space-between',
             alignItems: 'center',
             pointerEvents: 'auto',
+            flexShrink: 0,
           }}
         >
           <div style={{ color: theme.orange, fontSize: 10, letterSpacing: '0.12em' }}>
@@ -178,7 +187,7 @@ function StepStrip({
         </div>
         {/* progress dots: a quick read of where you are in the lesson, the
             done steps filled, the current one ringed */}
-        <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+        <div style={{ display: 'flex', gap: 4, marginTop: 6, flexShrink: 0 }}>
           {steps.map((_, i) => (
             <span
               key={i}
@@ -193,7 +202,20 @@ function StepStrip({
             />
           ))}
         </div>
-        <div style={{ fontSize: 13.5, lineHeight: 1.55, marginTop: 8 }}>{current.text}</div>
+        {/* the lesson PROSE is the only part that scrolls; the gate below
+            stays pinned so it's always reachable on a short screen */}
+        <div
+          style={{
+            fontSize: 13.5,
+            lineHeight: 1.55,
+            marginTop: 8,
+            overflowY: 'auto',
+            minHeight: 0,
+            flexShrink: 1,
+          }}
+        >
+          {current.text}
+        </div>
         {/* OBJECTIVE row: the concrete goal that gates this step. ○ while
             pending → ✓ when done, so the player always knows exactly what
             unlocks "next". Concept steps (no goal) show nothing here. */}
@@ -206,6 +228,7 @@ function StepStrip({
               display: 'flex',
               gap: 8,
               alignItems: 'baseline',
+              flexShrink: 0,
               background: goalMet ? 'rgba(123,196,127,0.14)' : 'rgba(255,162,56,0.10)',
               border: `1px solid ${goalMet ? theme.ok : theme.orange}`,
             }}
@@ -259,6 +282,7 @@ function StepStrip({
             marginTop: 10,
             alignItems: 'center',
             pointerEvents: 'auto',
+            flexShrink: 0,
           }}
         >
           {/* step navigation — back/forward only; there is NO "skip the

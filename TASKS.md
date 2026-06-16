@@ -440,9 +440,11 @@ TOWER, proportionally, each one bespoke."
 - [ ] Confusion: the dist sub is 33 kV/LV immediately → add a PRIOR lesson
       teaching BSP / grid site / distribution site + the voltage levels.
 **TUTORIAL 1/3/5 — step gating + completion (applies broadly)**
-- [ ] Don't allow "next" until the step's GOAL is achieved.
-- [ ] Mission-complete popup must appear ONLY on clicking "finish tutorial" in the
-      steps area — not instantly the moment the objective is met.
+- [x] Don't allow "next" until the step's GOAL is achieved. (W7e: gated next/finish,
+      disabled until the step's `done` predicate is met; live ○→✓ objective row.)
+- [x] Mission-complete popup must appear ONLY on clicking "finish tutorial" in the
+      steps area — not instantly the moment the objective is met. (W7e: victory card
+      gated on `tutorialDone`, set only by the finish button; e2e-proven.)
 **TUTORIAL 2 — offshore**
 - [ ] 2nd-pane wording weird ("Try a 33 kV line…") → have them INSPECT the offshore
       unit to learn its kV instead.
@@ -482,10 +484,14 @@ fault icon but NO van)**
       sub's catchment.
 - [ ] Opening bill was sky-high; mission "completed" at £333/yr — sense-check targets.
 **TUTORIALS STRUCTURE**
-- [ ] Tutorials REPLACE campaign; campaign's expanded steps are better → rename
+- [x] Tutorials REPLACE campaign; campaign's expanded steps are better → rename
       campaign→tutorial, delete the old tutorial. Clicking "tutorial" opens a
-      lessons page: every lesson, what it teaches, 0/1/2/3-star rating.
-- [ ] MANY more tutorials covering all the game's mechanisms.
+      lessons page: every lesson, what it teaches, 0/1/2/3-star rating. (Already the
+      model — the campaign IS the tutorial; W7e adds the expandable curriculum, the
+      core-loop intro, and "x/N complete" progress to the lessons page.)
+- [~] MANY more tutorials covering all the game's mechanisms. (W7e adds lesson 6 solar
+      + storage; the curriculum is data-driven so adding more is a steps array. Further
+      lessons — flex markets, interconnectors, reinforcement — are a follow-up.)
 
 ### 🌊 W7e — TUTORIALS 1-5 OVERHAUL + STRUCTURE (subagent, branch worktree-agent-a356abf5d51f5e8f9)
 Wave: teach the core loop progressively (designate → bid → award → plant+wires →
@@ -494,21 +500,24 @@ polished on desktop AND phone-landscape. Found a SOLID existing system (Tutorial
 step-strip + spotlight + victory; LessonsPage with sequential lock + 0-3 stars;
 missions.ts with done/unlocks/focus/spot; e2e/campaign.spec.ts + tests/missions.test.ts
 green) → IMPROVING it, not rebuilding. Build-ready sub-tasks:
-- [ ] STEP-GATING (headline): today `next ▸` always advances regardless of the step
-      goal. Make `next` GATED — for a step with a `done` predicate, `next` is DISABLED
-      until `done(snapshot,ui)` is true, with a live OBJECTIVE row (○ goal → ✓ done) so
-      the player knows what unlocks the next step. Pure concept steps (no `done`) keep a
-      freely-enabled `continue ▸`. Add `MissionStep.objective`. Auto-advance becomes
-      opt-in (`auto?: true`) only where it reads well.
-- [ ] MISSION-COMPLETE only on finish: verify victory stays gated on latched
-      missionComplete (already true — keep it).
-- [ ] LESSONS PAGE polish: expandable per-lesson curriculum (ordered objectives), star
-      criteria, best-stars, richer intro, active-lesson progress, better copy. Desktop+phone.
-- [ ] MORE/CLEARER lessons: `objective` on every gated step + clearer copy m1-m5; add a
-      6th short lesson (solar + battery / flex); keep curriculum data-driven.
-- [ ] GATES: tsc/eslint/vitest/build green; extend tests/missions.test.ts +
-      e2e/campaign.spec.ts for gating; DESIGN GATE screenshots desktop+phone to preview/,
-      critiqued + iterated. London byte-stable (tutorials are own scenarios).
+- [x] STEP-GATING (headline): `next`/`finish` now GATED — a step with a `done` predicate
+      keeps the button DISABLED until the goal is met, with a live OBJECTIVE row (○ → ✓
+      "done!"), a "do the step above to continue" hint, progress dots, and the spotlight
+      dropping once met. Concept steps (no `done`) keep a freely-enabled `continue ▸`.
+      Added `MissionStep.objective` + opt-in `auto`. (Tutorial.tsx StepStrip; e2e asserts
+      next is disabled while pending, enabled when done.)
+- [x] MISSION-COMPLETE only on finish: victory card now gated on a new `tutorialDone`
+      flag set ONLY by "finish tutorial" — never the instant the objective latches (owner).
+      e2e proves the card is absent at missionComplete, appears after finish.
+- [x] LESSONS PAGE polish: expandable per-lesson curriculum (ordered objectives read off
+      the mission steps), star criteria, "x/N complete" progress, clearer core-loop intro,
+      dedicated start/replay button. (LessonsPage.tsx.)
+- [x] MORE/CLEARER lessons: `objective` on every gated step + clearer copy m1-m5; new 6th
+      lesson "Sun & Store" (solar farm + battery storage + firming); curriculum data-driven.
+- [~] GATES: tsc/eslint clean; vitest green (missions 19/19; only pre-existing env
+      perf-flakes fail under full-suite contention, pass in isolation); build OK; campaign
+      e2e (4 functional) green incl. new gating. DESIGN GATE screenshots in progress.
+      London untouched (tutorials are own scenarios; no map/atlas change).
 **GAME FUNCTIONALITY / GRAPHICS / HUD (re-raise — verify each actually works)**
 - [ ] Tile footprint pre-determined so side-by-side bids can't EXPLODE OUT on
       award (was marked done — re-verify against the turbine-footprint bug above).
