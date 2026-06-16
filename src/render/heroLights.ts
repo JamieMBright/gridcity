@@ -341,7 +341,7 @@ export function drawHeroDusk(g: Graphics, heroes: readonly HeroLight[], glow: nu
   g.clear();
   const lvl = Math.max(0, Math.min(1, glow));
   if (lvl <= 0.05 || heroes.length === 0) return;
-  const a = 0.4 * lvl; // strongest at night, gone by day
+  const a = 0.85 * lvl; // strongest at night, gone by day
   for (const h of heroes) {
     const span = Math.max(h.cy - h.topY, h.w);
     const midY = h.cy - span * 0.42;
