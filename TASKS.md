@@ -486,6 +486,29 @@ fault icon but NO van)**
       campaign→tutorial, delete the old tutorial. Clicking "tutorial" opens a
       lessons page: every lesson, what it teaches, 0/1/2/3-star rating.
 - [ ] MANY more tutorials covering all the game's mechanisms.
+
+### 🌊 W7e — TUTORIALS 1-5 OVERHAUL + STRUCTURE (subagent, branch worktree-agent-a356abf5d51f5e8f9)
+Wave: teach the core loop progressively (designate → bid → award → plant+wires →
+bill), missions 1-5, with CLEAR STEP-GATING, a LESSONS PAGE, more/clearer lessons,
+polished on desktop AND phone-landscape. Found a SOLID existing system (Tutorial.tsx
+step-strip + spotlight + victory; LessonsPage with sequential lock + 0-3 stars;
+missions.ts with done/unlocks/focus/spot; e2e/campaign.spec.ts + tests/missions.test.ts
+green) → IMPROVING it, not rebuilding. Build-ready sub-tasks:
+- [ ] STEP-GATING (headline): today `next ▸` always advances regardless of the step
+      goal. Make `next` GATED — for a step with a `done` predicate, `next` is DISABLED
+      until `done(snapshot,ui)` is true, with a live OBJECTIVE row (○ goal → ✓ done) so
+      the player knows what unlocks the next step. Pure concept steps (no `done`) keep a
+      freely-enabled `continue ▸`. Add `MissionStep.objective`. Auto-advance becomes
+      opt-in (`auto?: true`) only where it reads well.
+- [ ] MISSION-COMPLETE only on finish: verify victory stays gated on latched
+      missionComplete (already true — keep it).
+- [ ] LESSONS PAGE polish: expandable per-lesson curriculum (ordered objectives), star
+      criteria, best-stars, richer intro, active-lesson progress, better copy. Desktop+phone.
+- [ ] MORE/CLEARER lessons: `objective` on every gated step + clearer copy m1-m5; add a
+      6th short lesson (solar + battery / flex); keep curriculum data-driven.
+- [ ] GATES: tsc/eslint/vitest/build green; extend tests/missions.test.ts +
+      e2e/campaign.spec.ts for gating; DESIGN GATE screenshots desktop+phone to preview/,
+      critiqued + iterated. London byte-stable (tutorials are own scenarios).
 **GAME FUNCTIONALITY / GRAPHICS / HUD (re-raise — verify each actually works)**
 - [ ] Tile footprint pre-determined so side-by-side bids can't EXPLODE OUT on
       award (was marked done — re-verify against the turbine-footprint bug above).
