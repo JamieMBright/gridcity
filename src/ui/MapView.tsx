@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { setActiveScenario } from '../data/cityRegistry';
+import { loadScenarioData, setActiveScenario } from '../data/cityRegistry';
 import { getLondonMap } from '../data/londonMap';
 import { MapRenderer, type Ghost, type TileHover } from '../render/MapRenderer';
 import { setActiveRenderer } from '../render/rendererRegistry';
@@ -257,51 +257,62 @@ export function MapView() {
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    setActiveScenario(scenarioId);
-    const renderer = new MapRenderer();
-    rendererRef.current = renderer;
-    setActiveRenderer(renderer); // publish for the corner minimap (#26)
-    renderer.onHover = (tile) => useAppStore.getState().setHoveredTile(tile);
-    renderer.onTileClick = (tile) => handleTileClick(tile);
-    renderer.onSiteClick = (site) => useAppStore.getState().requestInboxFocus(site.x, site.y);
-    renderer.onJobClick = (job) => {
-      // spanner pin → pin the broken asset's card: cause, ETA, fixes
-      const st = useAppStore.getState();
-      const asset = st.snapshot?.assets.find((a) => a.id === job.assetId);
-      if (!asset) return;
-      st.setTool({ t: 'inspect' });
-      st.setSelected(
-        asset.kind === 'line'
-          ? { lineId: asset.id, at: { x: job.x, y: job.y } }
-          : { assetId: asset.id },
-      );
-      st.requestPan(job.x, job.y);
-    };
-    void renderer.init(host, getLondonMap()).then(() => {
-      // StrictMode double-mounts: only the surviving renderer gets the hook
-      if (rendererRef.current !== renderer) return;
-      installTestHook(renderer);
-      // THE mission-camera fix: a campaign mission centres + zoom-FITS the
-      // tiny mission map and CLAMPS pan/zoom to it, so the village/ridge
-      // can never sit off-screen. Sandbox (london) keeps the free camera.
-      const mission = missionOf(scenarioId);
-      if (mission) {
-        const map = getLondonMap();
-        // reserve room at the top for the mission step strip so the map
-        // (and the tiles the player must tap) sit BELOW it, never hidden
-        renderer.lockToBounds(mapBounds(map), 28, 104);
-        // the fit already frames the whole tiny map; if the current step
-        // declares a focus, glide to it now that init has resolved
-        const focus = mission.steps[useAppStore.getState().tutorialStep ?? 0]?.focus;
-        if (focus) renderer.focusTile(focus.x, focus.y);
-      } else {
-        renderer.lockToBounds(undefined);
-      }
+    // a data-backed city (Paris…) must have its lazily-imported artifact in
+    // hand before setActiveScenario builds the map synchronously; London +
+    // missions are code-drawn so this resolves instantly. `cancelled` guards
+    // the StrictMode double-mount / a fast scenario re-switch.
+    let cancelled = false;
+    let renderer: MapRenderer | undefined;
+    void loadScenarioData(scenarioId).then(() => {
+      if (cancelled) return;
+      setActiveScenario(scenarioId);
+      renderer = new MapRenderer();
+      rendererRef.current = renderer;
+      setActiveRenderer(renderer); // publish for the corner minimap (#26)
+      renderer.onHover = (tile) => useAppStore.getState().setHoveredTile(tile);
+      renderer.onTileClick = (tile) => handleTileClick(tile);
+      renderer.onSiteClick = (site) => useAppStore.getState().requestInboxFocus(site.x, site.y);
+      renderer.onJobClick = (job) => {
+        // spanner pin → pin the broken asset's card: cause, ETA, fixes
+        const st = useAppStore.getState();
+        const asset = st.snapshot?.assets.find((a) => a.id === job.assetId);
+        if (!asset) return;
+        st.setTool({ t: 'inspect' });
+        st.setSelected(
+          asset.kind === 'line'
+            ? { lineId: asset.id, at: { x: job.x, y: job.y } }
+            : { assetId: asset.id },
+        );
+        st.requestPan(job.x, job.y);
+      };
+      const active = renderer;
+      void active.init(host, getLondonMap()).then(() => {
+        // StrictMode double-mounts: only the surviving renderer gets the hook
+        if (rendererRef.current !== active) return;
+        installTestHook(active);
+        // THE mission-camera fix: a campaign mission centres + zoom-FITS the
+        // tiny mission map and CLAMPS pan/zoom to it, so the village/ridge
+        // can never sit off-screen. Sandbox (london/paris) keeps the free camera.
+        const mission = missionOf(scenarioId);
+        if (mission) {
+          const map = getLondonMap();
+          // reserve room at the top for the mission step strip so the map
+          // (and the tiles the player must tap) sit BELOW it, never hidden
+          active.lockToBounds(mapBounds(map), 28, 104);
+          // the fit already frames the whole tiny map; if the current step
+          // declares a focus, glide to it now that init has resolved
+          const focus = mission.steps[useAppStore.getState().tutorialStep ?? 0]?.focus;
+          if (focus) active.focusTile(focus.x, focus.y);
+        } else {
+          active.lockToBounds(undefined);
+        }
+      });
     });
     return () => {
+      cancelled = true;
       rendererRef.current = undefined;
       setActiveRenderer(undefined);
-      renderer.destroy();
+      renderer?.destroy();
     };
   }, [scenarioId]);
 

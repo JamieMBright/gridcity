@@ -11,6 +11,7 @@ import { pushSettings } from '../online/cloud';
 import { localStorageStore } from '../persistence/localStorageStore';
 import { listSlots } from '../persistence/slotStore';
 import { AccountPanel } from './AccountPanel';
+import { CityPicker } from './CityPicker';
 import { LessonsPage } from './LessonsPage';
 import { RankBadge } from './RankPanel';
 import { STORY_KEY } from './StoryIntro';
@@ -60,6 +61,7 @@ export function StartMenu() {
   const setSavesOpen = useAppStore((s) => s.setSavesOpen);
   const setLessonsOpen = useAppStore((s) => s.setLessonsOpen);
   const [foot, setFoot] = useState<'settings' | 'leaderboard' | 'credits' | undefined>(undefined);
+  const [pickingCity, setPickingCity] = useState(false);
   const [, force] = useState(0);
   // guest vs signed-in: drives the gentle "sign in to keep your rank" nudge
   // under the rank badge (signed-in players don't see it). undefined while
@@ -90,6 +92,18 @@ export function StartMenu() {
       sessionStorage.setItem('ec-story-pending', '1');
     }
     setTutorialStep(undefined);
+    setMenuOpen(false);
+  };
+
+  // a chosen city from the picker: start a fresh game on that scenario. The
+  // worker rebuilds its map from the id and MapView re-inits the renderer on
+  // it; the story letterbox plays as for any fresh start.
+  const beginCity = (scenarioId: string): void => {
+    startMusic();
+    newGameCommand(scenarioId);
+    sessionStorage.setItem('ec-story-pending', '1');
+    setTutorialStep(undefined);
+    setPickingCity(false);
     setMenuOpen(false);
   };
 
@@ -146,7 +160,7 @@ export function StartMenu() {
                 continue
               </button>
             )}
-            <button style={bigBtn(!hasSave)} onClick={() => begin(true)}>
+            <button style={bigBtn(!hasSave)} onClick={() => setPickingCity(true)}>
               <span style={{ color: hasSave ? theme.orange : undefined }}>⚡ </span>new game
             </button>
             <button style={bigBtn(false)} onClick={() => setLessonsOpen(true)}>
@@ -241,6 +255,9 @@ export function StartMenu() {
         </div>
       </div>
       <LessonsPage />
+      {pickingCity && (
+        <CityPicker onPick={beginCity} onClose={() => setPickingCity(false)} />
+      )}
     </div>
   );
 }

@@ -44,14 +44,18 @@ test.describe('time skip', () => {
     expect(await store<number>(page, '(s) => s.snapshot.speed')).toBe(0);
   });
 
+  // a real 30-day sim fast-forward; under full-suite 2-worker load the worker
+  // is contended, so this test needs more than the default 60s budget (it was
+  // flaky against a 60s poll inside a 60s test timeout — no headroom).
   test('skip +30d lands near a month out on a quiet fresh game', async ({ page }) => {
+    test.setTimeout(150_000);
     await boot(page);
     await pause(page);
     const start = await store<number>(page, '(s) => s.snapshot.simTimeMin');
 
     await clickButton(page, 'skip 30 days');
     await expect
-      .poll(() => store<number>(page, '(s) => s.snapshot.simTimeMin'), { timeout: 60_000 })
+      .poll(() => store<number>(page, '(s) => s.snapshot.simTimeMin'), { timeout: 110_000 })
       .toBeGreaterThan(start + 7 * 1440);
 
     const advanced =

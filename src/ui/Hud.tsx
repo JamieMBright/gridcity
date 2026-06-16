@@ -7,6 +7,7 @@ import { pushSettings } from '../online/cloud';
 import type { SimSpeed } from '../sim/protocol';
 import { ALLOWANCE_Y1_K, inRebuildYear } from '../sim/scenario/story';
 import { assetCapexK } from '../sim/regulation/bill';
+import { SearchBox } from './SearchBox';
 import { fmtMoneyK, panelStyle, theme } from './theme';
 import { useUnlockGate } from './unlocks';
 import {
@@ -199,26 +200,32 @@ function AllowanceChip() {
   );
 }
 
-function MarketTicker() {
+function MarketTicker({ embedded = false }: { embedded?: boolean } = {}) {
   const snapshot = useAppStore((s) => s.snapshot);
   if (!snapshot) return null;
   const st = snapshot.stats;
   // no electrified island ⇒ no frequency to report (day-0 blank grid)
   const freqNA = st.freqHz === undefined;
   const freqOff = st.freqHz !== undefined && Math.abs(st.freqHz - 50) > 0.3;
-  return (
-    <div
-      style={{
-        ...panelStyle,
+  const place: React.CSSProperties = embedded
+    ? { position: 'relative' }
+    : {
         position: 'absolute',
         top: 'calc(28px + var(--sai-t))',
         left: '50%',
         transform: 'translateX(-50%)',
+      };
+  return (
+    <div
+      style={{
+        ...panelStyle,
+        ...place,
         display: 'flex',
         gap: 14,
         padding: '6px 14px',
         fontSize: 12,
         pointerEvents: 'none',
+        whiteSpace: 'nowrap',
       }}
     >
       <span
@@ -696,35 +703,79 @@ function SoundButton() {
   );
 }
 
-export function Hud({ compact = false }: { compact?: boolean } = {}) {
-  const snapshot = useAppStore((s) => s.snapshot);
+/** Grid-view toggle (dim the city, light up the network). Shared by the
+ *  mobile clock cluster and the desktop bottom bar. */
+function GridViewButton({ compact }: { compact: boolean }) {
   const gridView = useAppStore((s) => s.gridView);
   const setGridView = useAppStore((s) => s.setGridView);
-  const gate = useUnlockGate();
-  // progressive disclosure: on a mission, surface only the HUD buttons a
-  // mission teaches; the sandbox keeps the whole bar.
-  const show = (key: string): boolean => !gate.active || gate.has(key);
-
   return (
-    <>
-    <NewsTicker />
-    <MarketTicker />
-    <StormBanner />
-    <div
-      data-tour="clock"
+    <button
+      aria-label="grid view"
+      onClick={() => setGridView(!gridView)}
+      title="Grid view: dim the city, highlight the network (G)"
       style={{
-        ...panelStyle,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        padding: compact ? '4px 8px' : '4px 10px',
+        borderRadius: 5,
+        border: `1px solid ${gridView ? theme.orange : theme.navyLight}`,
+        background: gridView ? theme.orange : 'transparent',
+        color: gridView ? theme.navy : theme.slate,
+        fontFamily: theme.font,
+        fontSize: 12,
+        fontWeight: gridView ? 700 : 400,
+        cursor: 'pointer',
+      }}
+    >
+      <IconBolt size={15} />
+      {!compact && 'grid view'}
+    </button>
+  );
+}
+
+/** The clock + transport controls + overlay toggles, as one inline row.
+ *  `embedded` drops the floating panel chrome + absolute positioning so the
+ *  row can sit inside the perimeter HUD's bottom bar (desktop); otherwise
+ *  it floats centred along the bottom (mobile/compact). The button set is
+ *  identical either way — the desktop layout moves RIIO/net-zero/company up
+ *  to the top bar (regulator cluster) and keeps the rest here. */
+export function ClockCluster({
+  compact = false,
+  embedded = false,
+}: {
+  compact?: boolean;
+  embedded?: boolean;
+}) {
+  const snapshot = useAppStore((s) => s.snapshot);
+  const gate = useUnlockGate();
+  const show = (key: string): boolean => !gate.active || gate.has(key);
+  const floating: React.CSSProperties = embedded
+    ? {
+        // a relative flex child of the bottom bar — no absolute offsets, so
+        // it can never collide with the rails or the map
+        position: 'relative',
+        pointerEvents: 'auto',
+        maxWidth: '100%',
+      }
+    : {
         position: 'absolute',
         bottom: compact ? 'calc(6px + var(--sai-b))' : 'calc(12px + var(--sai-b))',
         left: '50%',
         transform: 'translateX(-50%)',
+        maxWidth: 'calc(100vw - 8px - var(--sai-l) - var(--sai-r))',
+      };
+  return (
+    <div
+      data-tour="clock"
+      style={{
+        ...panelStyle,
+        ...floating,
         display: 'flex',
         alignItems: 'center',
-        gap: compact ? 4 : 10,
+        flexWrap: embedded ? 'wrap' : 'nowrap',
+        gap: compact ? 4 : 8,
         padding: compact ? '4px 8px' : '6px 12px',
-        // keep clear of the safe-area AND the bottom-left minimap pill (it
-        // sits at left:12 + inset, ~88px wide) so the date never hides
-        maxWidth: 'calc(100vw - 8px - var(--sai-l) - var(--sai-r))',
         whiteSpace: 'nowrap',
         fontSize: compact ? 11 : undefined,
       }}
@@ -763,38 +814,181 @@ export function Hud({ compact = false }: { compact?: boolean } = {}) {
       {show('hud:headroom') && <HeadroomButton />}
       {show('hud:n1') && <N1Button />}
       {show('hud:forecast') && <ForecastButton />}
-      {!compact && show('hud:kpi') && <RiioButton />}
-      {!compact && show('hud:kpi') && <NetZeroButton />}
-      {!compact && show('hud:kpi') && <CompanyButton />}
-      {!compact && <SavesButton />}
+      {/* desktop lifts RIIO / net-zero / company to the TOP regulator
+          cluster; the embedded bottom bar keeps the operational toggles.
+          Compact (mobile) keeps everything here as before. */}
+      {!compact && !embedded && show('hud:kpi') && <RiioButton />}
+      {!compact && !embedded && show('hud:kpi') && <NetZeroButton />}
+      {!compact && !embedded && show('hud:kpi') && <CompanyButton />}
+      {!compact && !embedded && <SavesButton />}
+      {embedded && <SavesButton />}
       <SoundButton />
       <HelpButton />
-      <button
-        aria-label="grid view"
-        onClick={() => setGridView(!gridView)}
-        title="Grid view: dim the city, highlight the network (G)"
+      <GridViewButton compact={compact} />
+      <CollapseToggle compact={compact} />
+      {!embedded && !compact && <GoalChip />}
+    </div>
+  );
+}
+
+/** Mobile/compact HUD: the ticker, market strip, storm banner and the
+ *  floating centred clock cluster. The desktop layout uses HudTopBar /
+ *  HudBottomBar inside the perimeter frame instead. */
+export function Hud({ compact = false }: { compact?: boolean } = {}) {
+  return (
+    <>
+      <NewsTicker />
+      <MarketTicker />
+      <StormBanner />
+      <ClockCluster compact={compact} />
+    </>
+  );
+}
+
+/** The wordmark / game-menu button — top-left of the perimeter HUD. */
+function Wordmark() {
+  const setGameMenuOpen = useAppStore((s) => s.setGameMenuOpen);
+  return (
+    <button
+      aria-label="game menu"
+      title="Game menu — save or quit to the main menu (Esc)"
+      onClick={() => setGameMenuOpen(true)}
+      style={{
+        ...panelStyle,
+        pointerEvents: 'auto',
+        flex: 'none',
+        padding: '8px 14px',
+        fontSize: 18,
+        fontWeight: 800,
+        letterSpacing: '0.05em',
+        cursor: 'pointer',
+        textAlign: 'left',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <img
+        src="/icon-192.png"
+        alt=""
+        width={26}
+        height={26}
+        style={{ verticalAlign: -6, marginRight: 8, borderRadius: 6 }}
+      />
+      <span style={{ color: theme.orange }}>ELECTRI</span>
+      <span style={{ color: theme.slate }}>CITY</span>
+    </button>
+  );
+}
+
+/** The keyboard-hints strip — kept in the desktop bottom bar so the player
+ *  always has the verbs to hand without it floating loose over the map. */
+function StatusHint() {
+  const workerStatus = useAppStore((s) => s.workerStatus);
+  const workerError = useAppStore((s) => s.workerError);
+  return (
+    <div
+      style={{
+        ...panelStyle,
+        pointerEvents: 'none',
+        flex: '1 1 auto',
+        minWidth: 0,
+        padding: '6px 12px',
+        fontSize: 12,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {workerStatus === 'connecting' && <span style={{ color: theme.gold }}>starting sim…</span>}
+      {workerStatus === 'error' && (
+        <span style={{ color: theme.danger }}>sim error: {workerError}</span>
+      )}
+      {workerStatus === 'ready' && (
+        <span style={{ color: theme.slate }}>
+          drag to pan · scroll to zoom · G grid view · 1–9/QWERT/ZXC build · U under/overhead
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** The regulator cluster (top-right): the report cards + green + business
+ *  dashboards, grouped together away from the operational toggles. */
+function RegulatorCluster() {
+  const gate = useUnlockGate();
+  const show = (key: string): boolean => !gate.active || gate.has(key);
+  if (!show('hud:kpi')) return null;
+  return (
+    <div
+      style={{
+        ...panelStyle,
+        pointerEvents: 'auto',
+        flex: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '5px 8px',
+      }}
+    >
+      <RiioButton />
+      <NetZeroButton />
+      <CompanyButton />
+    </div>
+  );
+}
+
+/** TOP bar of the perimeter HUD (desktop): wordmark + map search on the
+ *  left, the live market ticker in the middle, the regulator cluster on the
+ *  right. The scrolling news ticker + storm banner ride as their own thin
+ *  centred overlays (structurally clear of the rails). */
+export function HudTopBar() {
+  const inMission = useAppStore((s) => s.scenarioId !== 'london');
+  return (
+    <>
+      <NewsTicker />
+      <StormBanner />
+      <div
         style={{
+          width: '100%',
           display: 'flex',
-          alignItems: 'center',
-          gap: 5,
-          padding: compact ? '4px 8px' : '4px 10px',
-          borderRadius: 5,
-          border: `1px solid ${gridView ? theme.orange : theme.navyLight}`,
-          background: gridView ? theme.orange : 'transparent',
-          color: gridView ? theme.navy : theme.slate,
-          fontFamily: theme.font,
-          fontSize: 12,
-          fontWeight: gridView ? 700 : 400,
-          cursor: 'pointer',
+          alignItems: 'flex-start',
+          gap: 10,
+          // leave a clear band under the news ticker (22px tall, pinned to
+          // the frame top) so the wordmark row never stacks under it
+          marginTop: 26,
+          pointerEvents: 'none',
         }}
       >
-        <IconBolt size={15} />
-        {!compact && 'grid view'}
-      </button>
-      <CollapseToggle compact={compact} />
-      {!compact && <GoalChip />}
-    </div>
+        <Wordmark />
+        {!inMission && <SearchBox embedded />}
+        <div style={{ flex: '1 1 auto', display: 'flex', justifyContent: 'center', minWidth: 0 }}>
+          <MarketTicker embedded />
+        </div>
+        <RegulatorCluster />
+      </div>
     </>
+  );
+}
+
+/** BOTTOM bar of the perimeter HUD (desktop): the keyboard-hints strip, the
+ *  clock + transport + toggles cluster, and the goal chip — all in one row
+ *  that reserves its own band so nothing floats over the map. */
+export function HudBottomBar() {
+  return (
+    <div
+      style={{
+        width: '100%',
+        display: 'flex',
+        alignItems: 'flex-end',
+        gap: 10,
+        pointerEvents: 'none',
+      }}
+    >
+      <StatusHint />
+      <ClockCluster embedded />
+      <div style={{ pointerEvents: 'auto' }}>
+        <GoalChip />
+      </div>
+    </div>
   );
 }
 

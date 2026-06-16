@@ -5,7 +5,7 @@
 
 import { Rng } from '../../sim/rng';
 import { CELL_W, INK, INK_W, Iso, lit, P, RES, shaded, top } from './iso';
-import { COLORS } from './palette';
+import { COLORS, roofColor, wallColor } from './palette';
 import { alpha, darken, hex, lighten, mix, type Pt, type RGBA } from './raster';
 
 const STONE = hex('#d9cdb4');
@@ -354,11 +354,15 @@ export function parliamentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
  *  spokes nearly three houses' height across, capsules dotted around the
  *  outside, A-frame legs and a back-stay. Fills the cell's full headroom. */
 export function eyeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso();
+  // The London Eye: 135 m observation wheel on the South Bank — a big, proud
+  // wheel riding high over the river. Headroom lets it sit taller than the
+  // 1×1 cap without clipping the rim.
+  const iso = new Iso(1, 1, { headroom: 220 });
+  const P = iso.P.bind(iso);
   void seed;
   const [cx, cyB] = P(0.55, 0.58, 0);
-  const R = 57 * RES; // great wheel radius — the whole cell width
-  const cy = cyB - 72 * RES; // hub height
+  const R = 66 * RES; // great wheel radius — a prominent South-Bank landmark
+  const cy = cyB - 88 * RES; // hub raised so the wheel rides high over the river
   iso.shadow(0.28, 0.5, 0.78, 0.72, 0.22, 0.16);
   // support: A-frame legs to the hub + a slim back-stay
   iso.r.line([cx + 30 * RES, cyB + 2 * RES], [cx, cy], 1.6 * RES, shaded(COLORS.white, 0.2));
@@ -509,12 +513,19 @@ export function domeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
  *  pale sky-reflecting glass, facet seams up its faces and the
  *  characteristic open splintered tip where the facets stop short. */
 export function spireTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso();
+  // The Shard: London's tallest, ~310 m — it must TOWER over the City fabric
+  // (CBD towers top out ~z170), so it rises to z300 on a 1×1 footprint. The
+  // headroom lets a 1×1 sprite exceed the old z≈160 canvas cap; placement is
+  // invariant to the exact headroom (the atlas trims the spare sky), so it's
+  // set comfortably above the splinter-crown tip. Slim footprint ⇒ it spikes
+  // skyward without hiding its neighbours.
+  const iso = new Iso(1, 1, { headroom: 420 });
+  const P = iso.P.bind(iso);
   void seed;
   const u = 0.5;
   const v = 0.52;
   const b = 0.3;
-  const H = 176;
+  const H = 300;
   iso.shadow(u - b, v - b * 0.4, u + b, v + b, 0.45, 0.28);
   const apex = P(u + 0.02, v - 0.02, H);
   const L = P(u - b, v + b * 0.85, 0);
@@ -537,8 +548,8 @@ export function spireTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   blade(F, 0.86, 0.97, 2 * RES, hex('#d3e3ee'));
   blade(Rr, 0.955, 1.06, 1.7 * RES, hex('#e4eef6'));
   blade(Bk, 0.89, 1.0, 1.3 * RES, hex('#a9bcd6'));
-  // faint floor lines across the two big faces
-  for (let z = 12; z < 150; z += 11) {
+  // faint floor lines across the two big faces (span the full height)
+  for (let z = 12; z < H - 24; z += 11) {
     const t = z / H;
     iso.r.line(along(L, t), along(F, t), 0.45 * RES, alpha(COLORS.white, 0.28));
     iso.r.line(along(F, t), along(Rr, t), 0.45 * RES, alpha(COLORS.white, 0.22));
@@ -628,6 +639,573 @@ export function fortressTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const flag = P(0.68, 0.32, 50);
   iso.r.line(flag, [flag[0], flag[1] - 9 * RES], 0.9 * RES, INK);
   iso.r.poly([[flag[0], flag[1] - 9 * RES], [flag[0] + 6 * RES, flag[1] - 7.5 * RES], [flag[0], flag[1] - 6 * RES]], COLORS.orange);
+  return iso.build();
+}
+
+/**
+ * NOTRE-DAME DE PARIS: bespoke gothic cathedral (owner reference photos,
+ * 2026-06-14). The twin FLAT-TOPPED west towers with the great rose window
+ * between them, the long nave under a steep dark-lead roof, the central
+ * flèche spire over the crossing, a rounded apse (chevet) and suggested
+ * flying buttresses. Cool grey gothic limestone. Compact 1×1 so the pipeline
+ * places it like any hero (with its cleared parvis apron around it).
+ */
+export function notredameTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  // Headroom lets the flèche + west towers climb well past the 2×2 cap so the
+  // cathedral genuinely towers over the ~z55 Haussmann fabric of central Paris.
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 260 });
+  void seed;
+  const GST = hex('#cdc6b4'); // cool gothic limestone
+  const GST_D = hex('#aaa48f');
+  const ROOF = hex('#4f5a6b'); // dark lead nave roof
+  const GLASS = alpha(hex('#2b3350'), 0.9);
+  const P2 = (u: number, v: number, z: number): Pt => iso.P(u, v, z);
+  iso.shadow(0.32, 0.44, 1.8, 1.84, 0.22, 0.24);
+
+  // 2×2 footprint, drawn TALL and WIDE so it towers over the surrounding
+  // fabric (ordinary tower blocks read ~96px; the twin west towers must clear
+  // that decisively). Fill the square: the building spans nearly the full 2
+  // tiles, and the silhouette climbs well above the neighbours.
+  const nu0 = 0.66;
+  const nu1 = 1.34;
+  const nv0 = 0.52; // apse (back)
+  const nv1 = 1.7; // crossing toward the front
+  const navH = 76;
+
+  // side aisles (lower) flanking the nave, with lean-to lead roofs — pushed
+  // wider (0.28..1.72) so the mass fills the square
+  iso.box(0.28, nv0 + 0.08, nu0, nv1, 0, 38, GST);
+  iso.box(nu1, nv0 + 0.08, 1.72, nv1, 0, 38, GST);
+  iso.quad(0.28, nv0 + 0.08, nu0, nv1, 38, shaded(ROOF, 0.04));
+  iso.quad(nu1, nv0 + 0.08, 1.72, nv1, 38, lit(ROOF, 0.04));
+  // tall pointed lancet windows down the visible (left) aisle wall
+  for (let i = 0; i < 7; i++) {
+    const u = 0.36 + i * 0.12;
+    iso.r.poly(
+      [P2(u, nv1, 10), P2(u + 0.055, nv1, 10), P2(u + 0.055, nv1, 28), P2(u + 0.028, nv1, 34), P2(u, nv1, 28)],
+      GLASS,
+    );
+  }
+
+  // the nave clerestory + steep gable roof (ridge front-to-back along v)
+  iso.box(nu0, nv0, nu1, nv1, 0, navH, GST);
+  iso.gable(nu0, nv0, nu1, nv1, navH, 34, 'v', ROOF, GST);
+
+  // rounded apse / chevet at the back (low v) under a conical roof
+  iso.box(nu0 + 0.04, nv0 - 0.16, nu1 - 0.04, nv0 + 0.08, 0, navH - 10, GST);
+  iso.hip(nu0, nv0 - 0.2, nu1, nv0 + 0.12, navH - 10, 22, ROOF);
+
+  // suggested flying buttresses along the apse flanks
+  for (const v of [nv0 + 0.04, nv0 + 0.34, nv0 + 0.64]) {
+    iso.r.line(P2(0.28, v, 34), P2(nu0, v, navH - 6), 1.6 * RES, GST_D);
+    iso.r.line(P2(1.72, v, 34), P2(nu1, v, navH - 6), 1.6 * RES, GST_D);
+  }
+
+  // the central flèche (spire) over the crossing — towers far above the city
+  const su = (nu0 + nu1) / 2;
+  const sv = nv0 + (nv1 - nv0) * 0.42;
+  iso.box(su - 0.05, sv - 0.05, su + 0.05, sv + 0.05, navH + 30, navH + 44, GST_D, { ink: false });
+  const base = P2(su, sv, navH + 44);
+  const tip = P2(su, sv, navH + 152);
+  iso.r.poly([[base[0] - 7 * RES, base[1]], tip, [base[0], base[1] - 2 * RES]], shaded(ROOF, 0.12));
+  iso.r.poly([[base[0], base[1] - 2 * RES], tip, [base[0] + 7 * RES, base[1]]], lit(ROOF, 0.1));
+  iso.r.polyline([[base[0] - 7 * RES, base[1]], tip, [base[0] + 7 * RES, base[1]]], INK_W * 0.8, INK);
+  iso.r.line(tip, [tip[0], tip[1] - 9 * RES], 1.6 * RES, COLORS.glassLit);
+
+  // twin FLAT-TOPPED west towers at the front (high v) — the dominant masses,
+  // drawn TALL (z≈152, well above the ordinary fabric) and wide-set
+  for (const tu of [0.52, 1.48] as const) {
+    iso.box(tu - 0.26, 1.6, tu + 0.26, 1.9, 0, 152, GST);
+    // two stacked pointed belfry openings on the front face
+    for (const [zb, zt, zp] of [[74, 106, 114], [120, 144, 152]] as const) {
+      iso.r.poly(
+        [P2(tu - 0.13, 1.9, zb), P2(tu + 0.13, 1.9, zb), P2(tu + 0.13, 1.9, zt), P2(tu, 1.9, zp), P2(tu - 0.13, 1.9, zt)],
+        GLASS,
+      );
+    }
+    // the gallery parapet + four corner pinnacles (flat top, no spire)
+    iso.box(tu - 0.28, 1.58, tu + 0.28, 1.92, 152, 158, lighten(GST, 0.08), { ink: false });
+    for (const [pu, pv] of [[tu - 0.26, 1.6], [tu + 0.26, 1.6], [tu - 0.26, 1.9], [tu + 0.26, 1.9]] as const) {
+      iso.box(pu - 0.03, pv - 0.03, pu + 0.03, pv + 0.03, 158, 176, GST_D, { ink: false });
+    }
+  }
+
+  // west-front gable wall + the great ROSE WINDOW + three portals, between the
+  // towers and rising with them
+  iso.box(0.74, 1.78, 1.26, 1.9, 0, 110, GST);
+  const [rx, ry] = P2(1.0, 1.9, 80);
+  const RR = 14 * RES;
+  const rose: Pt[] = [];
+  for (let i = 0; i <= 18; i++) {
+    const a = (i / 18) * Math.PI * 2;
+    rose.push([rx + Math.cos(a) * RR, ry - Math.sin(a) * RR * 0.92]);
+  }
+  iso.r.poly(rose, GLASS);
+  iso.r.polyline(rose, INK_W * 0.7, INK, true);
+  iso.r.line([rx - RR, ry], [rx + RR, ry], 1.2 * RES, alpha(COLORS.white, 0.55));
+  iso.r.line([rx, ry - RR * 0.92], [rx, ry + RR * 0.92], 1.2 * RES, alpha(COLORS.white, 0.55));
+  for (const pu of [0.84, 1.0, 1.16]) {
+    iso.r.poly(
+      [P2(pu - 0.05, 1.9, 0), P2(pu + 0.05, 1.9, 0), P2(pu + 0.05, 1.9, 17), P2(pu, 1.9, 23), P2(pu - 0.05, 1.9, 17)],
+      darken(GST_D, 0.22),
+    );
+  }
+  return iso.build();
+}
+
+/**
+ * ARC DE TRIOMPHE: bespoke Paris icon. A single great triumphal arch in warm
+ * limestone — the deep arched passage, a sculptural attic and cornice — atop
+ * the Étoile where the avenues radiate. Also serves the city's lesser
+ * triumphal gates (Porte Saint-Denis/Saint-Martin).
+ */
+export function archTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const ST = hex('#e0d6bb'); // warm Paris limestone
+  const u0 = 0.26;
+  const u1 = 0.74;
+  const v0 = 0.32;
+  const v1 = 0.72;
+  const H = 30;
+  const S = RES;
+  const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+  iso.shadow(u0, v0, u1, v1, 0.16, 0.2);
+  iso.box(u0, v0, u1, v1, 0, H, ST);
+  // sculptural attic crown
+  iso.box(u0 - 0.015, v0 - 0.015, u1 + 0.015, v1 + 0.015, H, H + 9, lighten(ST, 0.05), {
+    topC: top(ST, 0.3),
+  });
+  iso.r.line(P(u0, v1, H), P(u1, v1, H), INK_W * 0.7, alpha(INK, 0.5));
+
+  // the deep arched passage on the visible (left, v1) face
+  const drawArch = (face: 'v' | 'u'): void => {
+    const aL = (face === 'v' ? u0 : v0) + 0.11;
+    const aR = (face === 'v' ? u1 : v1) - 0.11;
+    const at = (a: number, z: number): Pt => (face === 'v' ? P(a, v1, z) : P(u1, a, z));
+    const poly: Pt[] = [at(aL, 2), at(aL, 16)];
+    for (let i = 0; i <= 10; i++) {
+      const t = i / 10;
+      poly.push(at(lerp(aL, aR, t), 16 + Math.sin(t * Math.PI) * 9));
+    }
+    poly.push(at(aR, 16), at(aR, 2));
+    iso.r.poly(poly, shaded(ST, 0.52));
+    iso.r.polyline(poly.slice(1, poly.length - 1), INK_W * 0.5, alpha(INK, 0.6));
+    // keystone
+    const mid = at((aL + aR) / 2, 25);
+    iso.r.rect(mid[0] - 1.6 * S, mid[1] - 2 * S, mid[0] + 1.6 * S, mid[1] + 2 * S, lighten(ST, 0.1));
+  };
+  drawArch('u'); // the cross passage (drawn first, behind)
+  drawArch('v');
+  return iso.build();
+}
+
+/**
+ * SACRÉ-CŒUR: bespoke Paris icon. The white Romano-Byzantine basilica on
+ * Montmartre — a tall ovoid central dome flanked by smaller domes and a square
+ * campanile, in pale travertine that stays white. Sits on the city's high hill.
+ */
+export function sacrecoeurTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const WHITE = hex('#eee9dc'); // travertine, famously self-whitening
+  const SHAD = hex('#cfc8b8');
+  const S = RES;
+  iso.shadow(0.2, 0.26, 0.84, 0.82, 0.18, 0.22);
+  // the body
+  iso.box(0.24, 0.3, 0.8, 0.78, 0, 22, WHITE);
+  iso.windowsLeft(0.78, 0.3, 0.74, 6, 16, 5, alpha(COLORS.glassDark, 0.85), WHITE);
+  iso.box(0.22, 0.28, 0.82, 0.8, 22, 25, lighten(WHITE, 0.06), { ink: false });
+
+  const ovoid = (cx: number, cy: number, r: number, z0: number, rise: number, s = 1): void => {
+    const [dx, dyB] = iso.P(cx, cy, z0);
+    const R = r * (CELL_W / 2);
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 18; i++) {
+      const a = Math.PI * (i / 18);
+      pts.push([dx + Math.cos(a) * R * s, dyB - Math.sin(a) * rise * S]);
+    }
+    iso.r.poly(pts, WHITE, SHAD);
+    iso.r.polyline(pts, INK_W * 0.7, alpha(INK, 0.7));
+    // lantern + cross
+    iso.r.line([dx, dyB - rise * S], [dx, dyB - rise * S - 5 * S], 1 * S, WHITE);
+    iso.r.line([dx - 1.6 * S, dyB - rise * S - 4 * S], [dx + 1.6 * S, dyB - rise * S - 4 * S], 0.8 * S, WHITE);
+  };
+  // three flanking small domes, then the great central ovoid dome
+  ovoid(0.4, 0.42, 0.16, 25, 16, 0.85);
+  ovoid(0.66, 0.66, 0.16, 25, 16, 0.85);
+  ovoid(0.4, 0.66, 0.15, 25, 14, 0.8);
+  iso.box(0.44, 0.46, 0.62, 0.64, 25, 32, WHITE); // drum
+  ovoid(0.53, 0.55, 0.27, 32, 40, 1);
+  // the square campanile to the rear-right
+  iso.box(0.72, 0.34, 0.84, 0.46, 0, 50, WHITE);
+  iso.hip(0.71, 0.33, 0.85, 0.47, 50, 8, SHAD);
+  return iso.build();
+}
+
+/**
+ * GRAND CIVIC BUILDING — a parameterized hero generator (owner, 2026-06-14:
+ * "I want ~100 hero buildings, not every building real"). One flexible 2×2
+ * block — stone body + grand windows + a columned portico & pediment — with a
+ * variant-driven CROWN (central dome / twin corner towers / a clock-bell tower
+ * / a statued balustrade) × stone colour × height. The pipeline routes notable
+ * OSM buildings (museums, theatres, palaces, ministries, big named civic
+ * blocks) to these, so the map carries many distinct, large hero buildings
+ * without hand-drawing each one. Bigger than the ordinary stock, so heroes read.
+ */
+export function grandTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true });
+  const rng = new Rng(seed * 22699 + variant * 191 + 3);
+  const S = RES;
+  const iP = (u: number, v: number, z: number): Pt => iso.P(u, v, z);
+  const stoneSet: RGBA[] = [BATH, STONE, hex('#ded3b8'), PORTLAND, hex('#d3c7a8'), hex('#e4dcc6')];
+  const stone = stoneSet[variant % stoneSet.length] ?? STONE;
+  const roofSet: RGBA[] = [LEAD, hex('#5b5f68'), hex('#7d7494'), hex('#69604f'), hex('#4f6552')];
+  const roof = roofSet[(variant >> 1) % roofSet.length] ?? LEAD;
+  const crown = variant % 4;
+  // tall enough to TOWER over the ordinary fabric (Haussmann reads ~70px with
+  // its mansard, ordinary towers ~96) — a hero must stand proud by HEIGHT, not
+  // just footprint, or a wide 3×3 block just reads as a flat "marble square".
+  const H = 100 + (variant % 3) * 16; // 100..132, + the crown above
+  const u0 = 0.36;
+  const u1 = 2.64;
+  const v0 = 0.45;
+  const v1 = 2.55;
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.22);
+
+  // the stone body
+  iso.box(u0, v0, u1, v1, 0, H, stone);
+  // string course + storeys of tall round/arched windows on both faces
+  const floors = 3 + (variant % 2);
+  for (let f = 0; f < floors; f++) {
+    const zb = 5 + (f * (H - 8)) / floors + 1.5;
+    const zt = 5 + ((f + 1) * (H - 8)) / floors - 1.5;
+    const lit = rng.chance(0.4) ? COLORS.glassLit : alpha(COLORS.glassDark, 0.85);
+    iso.windowsLeft(v1, u0 + 0.12, u1 - 0.12, zb, zt, 10, lit, COLORS.white);
+    iso.windowsRight(u1, v0 + 0.12, v1 - 0.12, zb, zt, 10, lit, COLORS.white);
+  }
+  // rusticated base + pilaster strips so the walls aren't a flat 'marble slab'
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 7, shaded(stone, 0.12), { ink: false });
+  for (let u = u0 + 0.12; u <= u1 - 0.12; u += 0.456) {
+    iso.r.line(iP(u, v1, 7), iP(u, v1, H - 2), 1.4 * S, alpha(shaded(stone, 0.16), 0.5));
+  }
+  for (let v = v0 + 0.12; v <= v1 - 0.12; v += 0.456) {
+    iso.r.line(iP(u1, v, 7), iP(u1, v, H - 2), 1.4 * S, alpha(shaded(stone, 0.1), 0.5));
+  }
+  // a balustraded cornice
+  iso.box(u0 - 0.04, v0 - 0.04, u1 + 0.04, v1 + 0.04, H, H + 3, lighten(stone, 0.08), { topC: top(stone, 0.3) });
+  // a grey roof over the body for non-dome crowns (kills the flat marble top)
+  if (crown !== 0) iso.gable(u0, v0, u1, v1, H + 3, 16, u1 - u0 >= v1 - v0 ? 'u' : 'v', roof, stone);
+
+  // a columned PORTICO + pediment projecting from the front (v1). NB: this is a
+  // multi-tile sprite, so coords MUST go through iso.P (the module-level 1×1 P
+  // would land in the wrong place) — see iP at the top.
+  const pcU0 = 0.95;
+  const pcU1 = 2.05;
+  iso.box(pcU0, v1, pcU1, v1 + 0.2, 0, H - 5, stone, { ink: false });
+  for (let c = 0; c <= 9; c++) {
+    const cu = pcU0 + ((pcU1 - pcU0) * c) / 9;
+    iso.r.poly([iP(cu - 0.015, v1 + 0.2, H - 8), iP(cu + 0.015, v1 + 0.2, H - 8), iP(cu + 0.015, v1 + 0.2, 2), iP(cu - 0.015, v1 + 0.2, 2)], c % 2 ? lit(COLORS.white, 0.1) : COLORS.white);
+  }
+  // pediment triangle
+  iso.r.poly([iP(pcU0 - 0.05, v1 + 0.2, H - 5), iP(pcU1 + 0.05, v1 + 0.2, H - 5), iP((pcU0 + pcU1) / 2, v1 + 0.2, H + 10)], lighten(stone, 0.12));
+  iso.r.polyline([iP(pcU0 - 0.05, v1 + 0.2, H - 5), iP(pcU1 + 0.05, v1 + 0.2, H - 5), iP((pcU0 + pcU1) / 2, v1 + 0.2, H + 10)], INK_W * 0.8, INK, true);
+
+  const cx = (u0 + u1) / 2;
+  const cy = (v0 + v1) / 2;
+  if (crown === 0) {
+    // a great green-grey DOME on a colonnaded drum (Panthéon / Invalides)
+    iso.box(cx - 0.5, cy - 0.5, cx + 0.5, cy + 0.5, H, H + 11, stone);
+    const [dx, dyB] = iso.P(cx, cy, H + 11);
+    const DR = 0.62 * (CELL_W / 2);
+    for (let i = 0; i <= 10; i++) {
+      iso.r.line([dx - DR + (2 * DR * i) / 10, dyB], [dx - DR + (2 * DR * i) / 10, dyB - 7 * S], 1.2 * S, i % 2 ? COLORS.white : lit(stone, 0.1));
+    }
+    const dome: Pt[] = [];
+    for (let i = 0; i <= 18; i++) {
+      const a = Math.PI * (i / 18);
+      dome.push([dx + Math.cos(a) * DR, dyB - 7 * S - Math.sin(a) * DR * 1.2]);
+    }
+    iso.r.poly(dome, shaded(roof, 0.05), lit(roof, 0.06));
+    iso.r.polyline(dome, INK_W * 0.9, INK);
+    const tipY = dyB - 7 * S - DR * 1.2;
+    iso.r.line([dx, tipY], [dx, tipY - 10 * S], 1.2 * S, COLORS.glassLit);
+  } else if (crown === 1) {
+    // twin corner towers (a grand hôtel / station frontage)
+    for (const tu of [u0 + 0.34, u1 - 0.34]) {
+      iso.box(tu - 0.24, v1 - 0.74, tu + 0.24, v1 - 0.26, H, H + 24, stone);
+      iso.hip(tu - 0.27, v1 - 0.77, tu + 0.27, v1 - 0.23, H + 24, 13, roof);
+    }
+  } else if (crown === 2) {
+    // a clock / bell campanile rising at the rear
+    iso.box(cx - 0.24, v0 + 0.3, cx + 0.24, v0 + 0.78, H, H + 38, stone);
+    iso.windowsLeft(v0 + 0.78, cx - 0.18, cx + 0.18, H + 24, H + 34, 1, alpha(COLORS.glassDark, 0.8), COLORS.white);
+    const [clx, cly] = iso.P(cx, v0 + 0.78, H + 20);
+    iso.r.line([clx - 3.4 * S, cly], [clx + 3.4 * S, cly], 1.4 * S, COLORS.white); // clock face hint
+    iso.hip(cx - 0.27, v0 + 0.27, cx + 0.27, v0 + 0.81, H + 38, 15, roof);
+  } else {
+    // a raised central attic storey + a crowning lantern cupola, so even the
+    // "no dome/tower" variant has vertical punctuation (never a flat slab top)
+    iso.box(cx - 0.6, cy - 0.5, cx + 0.6, cy + 0.5, H + 3, H + 26, lighten(stone, 0.04));
+    iso.windowsLeft(cy + 0.5, cx - 0.5, cx + 0.5, H + 8, H + 22, 4, alpha(COLORS.glassDark, 0.8), COLORS.white);
+    // octagonal lantern + small dome on top
+    iso.box(cx - 0.22, cy - 0.22, cx + 0.22, cy + 0.22, H + 26, H + 38, lighten(stone, 0.1));
+    const [lx, lyB] = iso.P(cx, cy, H + 38);
+    const LR = 0.24 * (CELL_W / 2);
+    const cup: Pt[] = [];
+    for (let i = 0; i <= 16; i++) {
+      const a = Math.PI * (i / 16);
+      cup.push([lx + Math.cos(a) * LR, lyB - Math.sin(a) * LR * 1.2]);
+    }
+    iso.r.poly(cup, shaded(roof, 0.05), lit(roof, 0.06));
+    iso.r.polyline(cup, INK_W * 0.9, INK);
+    iso.r.line([lx, lyB - LR * 1.2], [lx, lyB - LR * 1.2 - 9 * RES], 1.4 * RES, COLORS.glassLit);
+    // statued balustrade along the front cornice
+    for (const su of [u0 + 0.18, u1 - 0.18]) {
+      iso.box(su - 0.04, v1 - 0.09, su + 0.04, v1, H + 3, H + 13, lighten(stone, 0.1), { ink: false });
+    }
+  }
+  return iso.build();
+}
+
+/**
+ * GENERIC SKYSCRAPER HERO: the tall tail of notable buildings that are TOWERS,
+ * not wide civic blocks — "Citibank is a skyscraper amongst skyscrapers" (owner).
+ * A blanket 3×3 grand block is wrong for these; this is sized tall+slim within a
+ * 2×2 footprint so it TOWERS over the surrounding fabric (ordinary sky-towers
+ * read ~96px, grand civic ~120; this rises ~200+). Picks up the live city
+ * fabric via COLORS.walls (NYC limestone-grey, Shanghai/HK glass-teal), with four
+ * massing variants: glass curtain-wall · Art-Deco stone setback + spire ·
+ * tapered antenna tower · flat glass beacon crown.
+ */
+export function skyscraperHeroTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 320 });
+  const rng = new Rng(seed * 9173 + variant * 313 + 7);
+  const S = RES;
+  const iP = (u: number, v: number, z: number): Pt => iso.P(u, v, z);
+  const wall = COLORS.walls[variant % COLORS.walls.length] ?? STONE;
+  const glassy = variant === 0 || variant === 3;
+  const skin = glassy ? mix(wall, COLORS.glassSky, 0.5) : wall;
+  const reflect = rng.chance(0.5) ? COLORS.glassSky : COLORS.glassSunset;
+
+  // A SLIM, tall prism — a Canary-Wharf / Citibank-class hero ("a skyscraper
+  // among skyscrapers"). Headroom lifts it to ~z258 + a crown to ~z285, well
+  // past the ordinary CBD fabric (~z120-170): clearly towering, but second to
+  // the Shard (z300). A NARROW footprint inside the 3×3 (a clean slab, not a
+  // wedding-cake ziggurat) keeps it slender and leaves a generous plaza so it
+  // doesn't hide its neighbours.
+  const u0 = 0.82, u1 = 2.18, v0 = 1.0, v1 = 2.0;
+  iso.shadow(u0, v0, u1 + 0.4, v1 + 0.4, 0.34, 0.2);
+  iso.box(u0 - 0.16, v0 - 0.16, u1 + 0.16, v1 + 0.16, 0, 16, shaded(skin, 0.14), { ink: false }); // podium
+
+  // a clean shaft with a single GENTLE setback high up (not a stepped ziggurat)
+  const secs = [
+    { du: 0.0, z0: 0, z1: 150 },
+    { du: 0.1, z0: 150, z1: 258 },
+  ];
+  for (let s = 0; s < secs.length; s++) {
+    const { du, z0, z1 } = secs[s]!;
+    const a0 = u0 + du, a1 = u1 - du, b0 = v0 + du * 0.9, b1 = v1 - du * 0.9;
+    const body = s === 0 ? skin : lighten(skin, 0.04 * s);
+    iso.box(a0, b0, a1, b1, z0, z1, body);
+    // glazing: floor bands of windows on both visible faces
+    const floors = Math.max(4, Math.round((z1 - z0) / 10));
+    for (let f = 0; f < floors; f++) {
+      const zb = z0 + 3 + (f * (z1 - z0 - 4)) / floors;
+      const zt = z0 + 3 + ((f + 1) * (z1 - z0 - 4)) / floors - 2;
+      const litc = rng.chance(glassy ? 0.55 : 0.4) ? COLORS.glassLit : alpha(reflect, 0.8);
+      const frame = glassy ? alpha(skin, 0.6) : COLORS.white;
+      iso.windowsLeft(b1, a0 + 0.08, a1 - 0.08, zb, zt, glassy ? 13 : 10, litc, frame);
+      iso.windowsRight(a1, b0 + 0.08, b1 - 0.08, zb, zt, glassy ? 13 : 10, litc, frame);
+    }
+    // vertical mullions/pilasters so the shaft reads ribbed, not a flat slab
+    for (let u = a0 + 0.12; u <= a1 - 0.05; u += 0.3) {
+      iso.r.line(iP(u, b1, z0 + 1), iP(u, b1, z1 - 1), 1.3 * S, alpha(shaded(skin, 0.18), 0.5));
+    }
+  }
+
+  const topZ = 258;
+  const cx = (u0 + u1) / 2, cy = (v0 + v1) / 2;
+  if (variant === 1) {
+    // Art-Deco stepped crown + slim spire (Empire State / Chrysler family)
+    let cz = topZ, cw = 0.4;
+    for (let k = 0; k < 3; k++) {
+      iso.box(cx - cw, cy - cw, cx + cw, cy + cw, cz, cz + 9, lighten(skin, 0.05 + 0.03 * k));
+      cz += 9; cw -= 0.1;
+    }
+    const [sx, syB] = iso.P(cx, cy, cz);
+    iso.r.line([sx, syB], [sx, syB - 18 * S], 1.8 * S, COLORS.steel);
+    iso.r.line([sx, syB - 12 * S], [sx, syB - 22 * S], 2.6 * S, COLORS.glassLit);
+  } else if (variant === 2) {
+    // tapered top + antenna mast with an aircraft beacon
+    iso.box(cx - 0.4, cy - 0.4, cx + 0.4, cy + 0.4, topZ, topZ + 16, lighten(skin, 0.05));
+    const [sx, syB] = iso.P(cx, cy, topZ + 14);
+    iso.r.line([sx, syB], [sx, syB - 30 * S], 1.6 * S, COLORS.steel);
+    iso.r.line([sx, syB - 26 * S], [sx, syB - 32 * S], 3.0 * S, COLORS.glassHot);
+  } else {
+    // flat glass crown + lit parapet + corner beacon (modern CBD tower)
+    iso.box(cx - 0.48, cy - 0.48, cx + 0.48, cy + 0.48, topZ, topZ + 13, mix(skin, COLORS.glassSky, 0.4), { topC: top(reflect, 0.2) });
+    const [sx, syB] = iso.P(cx, cy, topZ + 12);
+    iso.r.line([sx, syB], [sx, syB - 22 * S], 1.5 * S, COLORS.steel);
+    iso.r.line([sx, syB - 18 * S], [sx, syB - 24 * S], 2.6 * S, COLORS.glassHot);
+  }
+  return iso.build();
+}
+
+
+export function louvreTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  void seed;
+  const ST = hex('#e2d8bf'); // Louvre limestone
+  const ROOF = hex('#5b5f68'); // grey mansard/zinc
+  const S = RES;
+  iso.shadow(0.1, 0.16, 0.92, 0.9, 0.2, 0.22);
+  // a wing: stone block + steep mansard + a row of tall windows
+  const wing = (u0: number, v0: number, u1: number, v1: number, h: number): void => {
+    iso.box(u0, v0, u1, v1, 0, h, ST);
+    iso.windowsLeft(v1, u0 + 0.03, u1 - 0.03, 5, h - 4, Math.max(2, Math.round((u1 - u0) * 9)), alpha(COLORS.glassDark, 0.85), COLORS.white);
+    iso.box(u0 - 0.01, v0 - 0.01, u1 + 0.01, v1 + 0.01, h, h + 1.5, lighten(ST, 0.06), { ink: false });
+    iso.gable(u0, v0, u1, v1, h + 1.5, 7, u1 - u0 > v1 - v0 ? 'v' : 'u', ROOF, ST);
+  };
+  // three wings around a court that opens toward the viewer (south, v1)
+  wing(0.12, 0.16, 0.9, 0.34, 26); // back (north) range
+  wing(0.12, 0.34, 0.3, 0.86, 24); // west range
+  wing(0.72, 0.34, 0.9, 0.86, 24); // east range
+  // corner pavilions (taller, pavilion roofs)
+  for (const [pu, pv] of [[0.12, 0.16], [0.9, 0.16], [0.12, 0.86], [0.9, 0.86]] as const) {
+    iso.box(pu - 0.07, pv - 0.07, pu + 0.07, pv + 0.07, 0, 32, ST);
+    iso.hip(pu - 0.08, pv - 0.08, pu + 0.08, pv + 0.08, 32, 10, ROOF);
+  }
+  // the glass PYRAMID in the court
+  const [px, pyB] = iso.P(0.5, 0.6, 0);
+  const apex: Pt = [px, pyB - 26 * S];
+  const hw = 13 * S;
+  const hd = 6.5 * S;
+  const fL: Pt = [px - hw, pyB - hd];
+  const fF: Pt = [px, pyB];
+  const fR: Pt = [px + hw, pyB - hd];
+  const fB: Pt = [px, pyB - 2 * hd];
+  iso.r.poly([fL, fF, apex], alpha(COLORS.glassSky, 0.92)); // left face
+  iso.r.poly([fF, fR, apex], alpha(COLORS.glassSunset, 0.92)); // right face (sunset)
+  iso.r.poly([fR, fB, apex], alpha(COLORS.glassDark, 0.9)); // back-right
+  iso.r.polyline([fL, fF, fR, apex, fL], INK_W * 0.6, alpha(INK, 0.7), true);
+  iso.r.line(fF, apex, 0.7 * S, alpha(COLORS.white, 0.7)); // the near edge glints
+  // pyramid lattice mullions
+  for (let i = 1; i < 5; i++) {
+    const t = i / 5;
+    iso.r.line([fL[0] + (apex[0] - fL[0]) * t, fL[1] + (apex[1] - fL[1]) * t], [fF[0] + (apex[0] - fF[0]) * t, fF[1] + (apex[1] - fF[1]) * t], 0.4 * S, alpha(COLORS.white, 0.4));
+    iso.r.line([fF[0] + (apex[0] - fF[0]) * t, fF[1] + (apex[1] - fF[1]) * t], [fR[0] + (apex[0] - fR[0]) * t, fR[1] + (apex[1] - fR[1]) * t], 0.4 * S, alpha(COLORS.white, 0.4));
+  }
+  return iso.build();
+}
+
+/**
+ * THE EIFFEL TOWER: bespoke Paris icon (owner reference, 2026-06-14). The
+ * unmistakable wrought-iron silhouette — four splayed legs and the great base
+ * arch, the two observation platforms, the tapering lattice shaft to the point,
+ * drawn in Eiffel brown with cross-hatch latticework. A tall 1×1, like the
+ * Shard/BT-tower (drawn as a near-symmetric silhouette).
+ */
+/**
+ * THE EIFFEL TOWER: bespoke Paris icon (owner reference, 2026-06-14). The
+ * unmistakable wrought-iron silhouette — four splayed legs and the great base
+ * arch, the two observation platforms, the tapering lattice shaft to the point,
+ * in Eiffel brown with dense cross-hatch latticework. A MASSIVE 3×3 block
+ * landmark so it towers over the Haussmann roofscape (owner: "absolutely
+ * massive").
+ */
+export function eiffelTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true });
+  void seed;
+  const IRON = hex('#75614a');
+  const IRONL = lighten(IRON, 0.18);
+  const IROND = darken(IRON, 0.22);
+  const S = RES;
+  const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+  const [bx, by] = iso.P(1.85, 1.85, 0);
+  const yA = 54; // apex, near the top of the tall canvas
+  const Htot = by - yA;
+  const y0 = by;
+  const y1 = by - Htot * 0.3; // first platform
+  const y2 = by - Htot * 0.56; // second platform
+  const wB = 118; // base half-width (px)
+  const w1 = 66;
+  const w2 = 24;
+  const legW = 21;
+  iso.shadow(1.0, 1.45, 2.7, 2.45, 0.34, 0.2);
+
+  // --- the four legs + the great arch (below platform 1) ---
+  for (const s of [-1, 1] as const) {
+    const ox0 = bx + s * wB;
+    const ix0 = bx + s * (wB - legW);
+    const ox1 = bx + s * w1;
+    const ix1 = bx + s * (w1 - legW * 0.72);
+    const midOut = bx + s * lerp(wB, w1, 0.5) * 0.82;
+    const midIn = bx + s * lerp(wB - legW, w1 - legW * 0.72, 0.5) * 0.82;
+    const ym = (y0 + y1) / 2;
+    iso.r.poly([[ox0, y0], [ix0, y0], [midIn, ym], [ix1, y1], [ox1, y1], [midOut, ym]], s < 0 ? IROND : IRONL);
+    iso.r.polyline([[ox0, y0], [midOut, ym], [ox1, y1]], INK_W * 0.8, alpha(INK, 0.55));
+    // dense lattice cross-hatch on the leg
+    for (let t = 0.06; t < 1; t += 0.1) {
+      const yy = lerp(y0, y1, t);
+      const xa = lerp(ox0, ox1, t);
+      const xb = lerp(ix0, ix1, t);
+      iso.r.line([xa, yy], [xb, yy - 5 * S], 0.7 * S, alpha(IROND, 0.7));
+      iso.r.line([xb, yy], [xa, yy - 5 * S], 0.7 * S, alpha(IROND, 0.5));
+    }
+  }
+  // the iconic base arch (a broad curve spanning under platform 1)
+  const arch: Pt[] = [];
+  for (let i = 0; i <= 24; i++) {
+    const t = i / 24;
+    const x = lerp(bx - (w1 + legW * 0.3), bx + (w1 + legW * 0.3), t);
+    const yy = y1 - Math.sin(t * Math.PI) * 30 * S;
+    arch.push([x, yy]);
+  }
+  iso.r.polyline(arch, 2 * S, IRON);
+  iso.r.polyline(arch.map(([x, y]): Pt => [x, y + 1.5 * S]), 1 * S, alpha(IRONL, 0.6));
+
+  // --- platform 1 deck ---
+  iso.r.rect(bx - w1 - 4 * S, y1 - 4 * S, bx + w1 + 4 * S, y1 + 2 * S, IRON);
+  iso.r.line([bx - w1 - 4 * S, y1 - 4 * S], [bx + w1 + 4 * S, y1 - 4 * S], 1 * S, IRONL);
+
+  // --- the shaft from platform 1 → platform 2 (tapering lattice) ---
+  const body1: Pt[] = [];
+  const body2: Pt[] = [];
+  const Nb = 12;
+  for (let i = 0; i <= Nb; i++) {
+    const t = i / Nb;
+    const y = lerp(y1, y2, t);
+    const w = lerp(w1, w2, t) * (1 - 0.16 * Math.sin(t * Math.PI));
+    body1.push([bx - w, y]);
+    body2.push([bx + w, y]);
+  }
+  iso.r.poly([...body1, ...body2.reverse()], IRON);
+  for (let i = 0; i < Nb; i++) {
+    const yAa = lerp(y1, y2, i / Nb);
+    const yBb = lerp(y1, y2, (i + 1) / Nb);
+    const wa = lerp(w1, w2, i / Nb) * 0.92;
+    const wb = lerp(w1, w2, (i + 1) / Nb) * 0.92;
+    iso.r.line([bx - wa, yAa], [bx + wb, yBb], 0.7 * S, alpha(IROND, 0.6));
+    iso.r.line([bx + wa, yAa], [bx - wb, yBb], 0.7 * S, alpha(IROND, 0.6));
+  }
+  iso.r.polyline(body1, INK_W * 0.5, alpha(INK, 0.4));
+  iso.r.polyline(body2, INK_W * 0.5, alpha(INK, 0.4));
+
+  // --- platform 2 deck ---
+  iso.r.rect(bx - w2 - 3 * S, y2 - 3 * S, bx + w2 + 3 * S, y2 + 1.5 * S, IRON);
+
+  // --- the upper shaft tapering to the point + the beacon ---
+  iso.r.poly([[bx - w2, y2], [bx + w2, y2], [bx + 1 * S, yA], [bx - 1 * S, yA]], IRONL);
+  for (let y = y2; y > yA; y -= 6 * S) {
+    const t = (y2 - y) / (y2 - yA);
+    const w = lerp(w2, 1 * S, t);
+    iso.r.line([bx - w, y], [bx + w, y - 4 * S], 0.6 * S, alpha(IROND, 0.55));
+    iso.r.line([bx + w, y], [bx - w, y - 4 * S], 0.6 * S, alpha(IROND, 0.4));
+  }
+  iso.r.polyline([[bx - w2, y2], [bx, yA], [bx + w2, y2]], INK_W * 0.6, alpha(INK, 0.5));
+  iso.r.line([bx, yA], [bx, yA - 7 * S], 1.2 * S, COLORS.glassLit); // the tip beacon
+  iso.glint([bx, yA - 4 * S], 2.4 * S);
   return iso.build();
 }
 
@@ -1254,10 +1832,14 @@ export function kewhouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
  *  West End — banded glazing up the shaft, the lattice aerial galleries
  *  near the top and a thin antenna mast. 1×1, reads from far zoom. */
 export function bttowerTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso();
+  // 177 m slim West-End spike — it towered over 1960s London and should still
+  // read as a landmark spire well above the surrounding fabric. Headroom lets
+  // the 1×1 shaft + aerial galleries + antenna rise past the old z-cap.
+  const iso = new Iso(1, 1, { headroom: 340 });
+  const P = iso.P.bind(iso);
   void seed;
   const [cx, cyB] = P(0.5, 0.52, 0);
-  const H = 168;
+  const H = 232;
   const Rb = 13 * RES;
   iso.shadow(0.4, 0.4, 0.62, 0.62, 0.34, 0.26);
   // cylindrical shaft: a tall lit/dusk-split column
@@ -1426,6 +2008,58 @@ export function townhallTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   iso.windowsRight(0.82, 0.26, 0.56, 12, 24, 3, COLORS.glassDark, COLORS.white);
   const fl = P(0.5, 0.41, 40);
   iso.r.line(fl, [fl[0], fl[1] - 8 * RES], 0.9 * RES, INK);
+  iso.r.poly([[fl[0], fl[1] - 8 * RES], [fl[0] + 5 * RES, fl[1] - 6.8 * RES], [fl[0], fl[1] - 5.6 * RES]], COLORS.orange);
+  return iso.build();
+}
+
+/**
+ * GENERIC CIVIC BUILDING — the ORDINARY-civic tile (owner, 2026-06-15: civic
+ * differs per city — most are not grand; make the ordinary ones a STANDARD
+ * TILE-SIZED building, NO apron, styled by the city palette). This is the 1×1
+ * fabric building the pipeline routes generic council offices / clinics /
+ * libraries / depots / small named civic to — NOT the 3×3 grand block. Reads
+ * as a modest municipal block: a proud-but-low body in the city's WALL palette
+ * (so Paris cream, NYC brownstone-grey, Cairo sand…), a slightly projecting
+ * entrance bay, ranked windows, a low cornice + flat parapet roof in the city
+ * ROOF palette, and a small flag. Picks up the live fabric via wallColor()/
+ * roofColor() — the same per-city tokens the towers use — so it never reads as
+ * a London marble square. Sits inside its tile (slim margins): no parvis apron.
+ */
+export function civicTile(seed: number, variant = 0): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 33203 + variant * 137 + 7);
+  // a slightly cooler/firmer wall than the domestic stock, drawn from the SAME
+  // per-city palette as the towers (wallColor honours setWallRoofPalette)
+  const wall = wallColor(variant + 1);
+  const roof = roofColor(variant + 2);
+  const u0 = 0.16;
+  const u1 = 0.84;
+  const v0 = 0.2;
+  const v1 = 0.66;
+  const H = 22 + (variant % 3) * 3; // 22..28 — taller than a house, far below a hero
+  iso.shadow(u0, v0, u1, v1, 0.16, 0.2);
+  // the civic body
+  iso.box(u0, v0, u1, v1, 0, H, wall);
+  // a string course at first-floor level (the firm public-building horizontal)
+  iso.r.line(P(u0, v1, H * 0.42), P(u1, v1, H * 0.42), INK_W * 0.5, alpha(shaded(wall, 0.18), 0.7));
+  // two storeys of regular ranked windows on the two visible faces
+  for (const [zb, zt] of [[4, H * 0.4 - 1], [H * 0.42 + 1, H - 3]] as const) {
+    const lit2 = rng.chance(0.4) ? COLORS.glassLit : alpha(COLORS.glassDark, 0.85);
+    iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, zb, zt, 4, lit2, lighten(wall, 0.12));
+    iso.windowsRight(u1, v0 + 0.06, v1 - 0.06, zb, zt, 3, alpha(COLORS.glassDark, 0.85), lighten(wall, 0.12));
+  }
+  // a slightly projecting entrance bay on the street (left) face, with a door
+  const eu0 = 0.36;
+  const eu1 = 0.6;
+  iso.box(eu0, v1, eu1, v1 + 0.06, 0, H * 0.6, lighten(wall, 0.05));
+  iso.r.poly([P(eu0 + 0.04, v1 + 0.06, H * 0.34), P(eu1 - 0.04, v1 + 0.06, H * 0.34), P(eu1 - 0.04, v1 + 0.06, 0), P(eu0 + 0.04, v1 + 0.06, 0)], darken(wall, 0.4));
+  // a low entrance canopy
+  iso.r.poly([P(eu0 - 0.02, v1 + 0.06, H * 0.38), P(eu1 + 0.02, v1 + 0.06, H * 0.38), P(eu1 + 0.02, v1 + 0.14, H * 0.34), P(eu0 - 0.02, v1 + 0.14, H * 0.34)], lighten(wall, 0.12));
+  // a firm cornice + a flat parapet roof in the city roof tone (no pitched marble)
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, H, H + 2.6, lighten(wall, 0.06), { topC: top(roof, 0.12) });
+  // a small flag on the parapet so it reads as 'civic' even at distance
+  const fl = P((u0 + u1) / 2, v0 + 0.12, H + 2.6);
+  iso.r.line(fl, [fl[0], fl[1] - 8 * RES], 0.8 * RES, INK);
   iso.r.poly([[fl[0], fl[1] - 8 * RES], [fl[0] + 5 * RES, fl[1] - 6.8 * RES], [fl[0], fl[1] - 5.6 * RES]], COLORS.orange);
   return iso.build();
 }
@@ -2041,6 +2675,322 @@ export function westfieldTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
       const c = cars[Math.floor(v * 10) % cars.length] ?? COLORS.white;
       iso.r.rect(px - 2 * RES, py - 3.2 * RES, px + 2 * RES, py + 3.2 * RES, c);
     }
+  }
+  return iso.build();
+}
+
+// --- THE PYRAMIDS OF GIZA & THE GREAT SPHINX (owner, 2026-06-15) -------------
+// Originally one monolithic 5×4 sprite holding the whole Giza group; the owner
+// (with a plateau aerial) asked to SPLIT it so each structure is its OWN free-
+// standing hero — the real plateau spreads them out, and a single sprite made
+// the Great Pyramid OCCLUDE its siblings. So: a PARAMETERISED single-pyramid
+// sprite in three sizes, plus a SEPARATE Sphinx, each on its own tawny apron.
+// The pipelines place them SPREAD across the desert (the resolver maps Khufu/
+// Khafre/Menkaure/Sphinx to the matching sprite). docs/cities/cairo.md.
+
+/** The three Giza pyramids as distinct heroes, each its OWN broad+low sprite. */
+export type PyramidSize = 'great' | 'khafre' | 'menkaure';
+/** Per-size footprint (SW-anchored tiles) — broad + low, biggest → Khufu. The
+ *  ONE place the pyramid sizes live; mirrored by BESPOKE_FOOT + the atlas. */
+export const PYRAMID_FOOT: Record<PyramidSize, { w: number; h: number }> = {
+  great: { w: 4, h: 4 }, // Khufu — the broadest, tallest mass
+  khafre: { w: 3, h: 3 }, // Khafre — slightly smaller, keeps a casing cap
+  menkaure: { w: 2, h: 2 }, // Menkaure — clearly smaller
+};
+
+/** ONE weathered Giza pyramid, free-standing on its tawny desert apron. `size`
+ *  selects the footprint + proportions + recognisability cues:
+ *   · great    — Khufu: broadest (~1.55:1 base:height), honey limestone, stepped
+ *                courses, capstone gone (small flat top), faint casing remnants
+ *                near the apex.
+ *   · khafre   — slightly smaller, KEEPS the smooth pale casing CAP at its tip
+ *                (the key recognisability cue: Khafre still wears its summit casing).
+ *   · menkaure — clearly the smallest.
+ *  Broad + LOW (never a spike), on tawny `aridSand`, with floodlight fixtures +
+ *  warm face uplighting — the energisable nightly Sound-&-Light seed. */
+export function pyramidTile(seed: number, size: PyramidSize = 'great'): Uint8ClampedArray<ArrayBuffer> {
+  const foot = PYRAMID_FOOT[size];
+  // headroom lets the apex climb past the low footprint cap while staying a
+  // BROAD ground-hugging mass — MASSIVE yet LOW + broad, never a spike.
+  const head = size === 'great' ? 150 : size === 'khafre' ? 120 : 90;
+  const iso = new Iso(foot.w, foot.h, { swAnchor: true, headroom: head });
+  const rng = new Rng(seed * 49297 + 11);
+  const S = RES;
+  // honey limestone of the weathered core masonry, + the pale smooth casing
+  const STONE = hex('#d6c29a'); // honey limestone (cairo.md `stone`)
+  const STONE_W = hex('#c2ad82'); // shaded core
+  const CASING = hex('#ece2cc'); // pale smooth Tura casing remnant
+  const SAND = COLORS.aridSand; // tawny desert sand (cairo env: #d8b777)
+  const SAND_D = darken(SAND, 0.1);
+
+  // tawny desert apron over the whole footprint (a touch lighter than the map
+  // ground so the precinct reads as the cleared Giza plateau the hero stands on)
+  iso.floor(lighten(SAND, 0.04), SAND_D);
+  // drifted sand mounds / scattered tonal patches so it isn't a flat slab
+  const drifts = Math.round(6 * foot.w * foot.h * 0.25) + 8;
+  for (let k = 0; k < drifts; k++) {
+    const u = rng.range(0.15, foot.w - 0.15);
+    const v = rng.range(0.15, foot.h - 0.15);
+    const [px, py] = iso.P(u, v, 0);
+    const r = rng.range(2, 5) * S;
+    iso.r.poly(
+      [[px - r, py], [px, py - r * 0.5], [px + r, py], [px, py + r * 0.5]],
+      alpha(rng.chance(0.5) ? lighten(SAND, 0.08) : SAND_D, 0.5),
+    );
+  }
+
+  // proportions by size — broad-based (~1.5:1) like the real monuments. half-
+  // base `hb` in tile units, apex height `H` px, kept LOW relative to the base.
+  const cu = foot.w / 2;
+  const cv = foot.h / 2;
+  const hb = foot.w / 2 - 0.18; // fill the footprint, a hair of apron all round
+  const H = size === 'great' ? 178 : size === 'khafre' ? 138 : 96;
+  const flat = (size === 'great' ? 0.08 : 0.05) * (hb / 1.55); // missing-capstone flat
+  const capstone = size === 'khafre'; // Khafre keeps its summit casing cap
+  const casingRemnant = size === 'great'; // Khufu shows faint casing patches
+
+  iso.shadow(cu - hb, cv - hb * 0.5, cu + hb, cv + hb, hb * 0.5, 0.22);
+  // base corners (z=0) and the (near-)apex flat
+  const w = iso.P(cu - hb, cv + hb, 0); // west / left corner
+  const s = iso.P(cu + hb, cv + hb, 0); // south / front corner
+  const e = iso.P(cu + hb, cv - hb, 0); // east / right corner
+  const apexL = iso.P(cu - flat, cv - flat, H); // flat-top NW lip
+  const apexS = iso.P(cu + flat, cv + flat, H); // flat-top front lip
+  const apexE = iso.P(cu + flat, cv - flat, H); // flat-top E lip
+  // the two visible triangular faces (a near-square flat top, capstone gone)
+  iso.r.poly([w, s, apexS, apexL], shaded(STONE, 0.16)); // SW face (in shade)
+  iso.r.poly([s, e, apexE, apexS], lit(STONE, 0.06)); // SE face (sun-lit)
+  iso.r.poly([apexL, apexS, apexE], top(STONE, 0.28)); // the tiny flat top
+
+  // weathered STEPPED courses: faint horizontal step lines climbing each face
+  const courses = Math.max(7, Math.round(H / 7));
+  for (let i = 1; i < courses; i++) {
+    const t = i / courses;
+    const lw = hb * (1 - t) + flat * t;
+    const a = iso.P(cu - lw, cv + lw, H * t); // SW face (west edge → front edge)
+    const b = iso.P(cu + lw, cv + lw, H * t);
+    iso.r.line(a, b, 0.55 * S, alpha(darken(STONE, 0.22), 0.5));
+    const c = iso.P(cu + lw, cv - lw, H * t); // SE face (front edge → east edge)
+    iso.r.line(b, c, 0.55 * S, alpha(darken(STONE, 0.14), 0.42));
+    // a few jagged step nicks so the silhouette isn't a clean ruled triangle
+    if (i % 2 === 0) {
+      iso.r.line(a, [a[0], a[1] - 1.4 * S], 0.5 * S, alpha(STONE_W, 0.6));
+      iso.r.line(c, [c[0], c[1] - 1.4 * S], 0.5 * S, alpha(STONE_W, 0.5));
+    }
+  }
+
+  // faint warm UPLIGHTING — the Sound-&-Light wash, brightest at the base,
+  // fading up the faces (a translucent honey gradient over the lower courses)
+  for (let i = 0; i < 5; i++) {
+    const t0 = i / 5;
+    const t1 = (i + 1) / 5;
+    const a0 = alpha(COLORS.glassLit, 0.12 * (1 - t0));
+    const lw0 = hb * (1 - t0) + flat * t0;
+    const lw1 = hb * (1 - t1) + flat * t1;
+    const wL = iso.P(cu - lw0, cv + lw0, H * t0);
+    const sL = iso.P(cu + lw0, cv + lw0, H * t0);
+    const sH = iso.P(cu + lw1, cv + lw1, H * t1);
+    const wH = iso.P(cu - lw1, cv + lw1, H * t1);
+    iso.r.poly([wL, sL, sH, wH], a0); // wash on the SW face
+    const eL = iso.P(cu + lw0, cv - lw0, H * t0);
+    const eH = iso.P(cu + lw1, cv - lw1, H * t1);
+    iso.r.poly([sL, eL, eH, sH], alpha(COLORS.glassHot, 0.1 * (1 - t0))); // SE face
+  }
+
+  // faint remnant patches of the smooth pale casing near the apex (Khufu)
+  if (casingRemnant) {
+    for (const [du, sgn] of [[-1, 1], [1, -1]] as const) {
+      const ta = 0.66 + rng.range(0, 0.08);
+      const tb = 0.9;
+      const lwa = hb * (1 - ta) + flat * ta;
+      const lwb = hb * (1 - tb) + flat * tb;
+      const pa = iso.P(cu + du * lwa * 0.2, cv + sgn * lwa, H * ta);
+      const pb = iso.P(cu + du * lwa, cv + sgn * lwa, H * ta);
+      const pc = iso.P(cu + du * lwb, cv + sgn * lwb, H * tb);
+      const pd = iso.P(cu + du * lwb * 0.2, cv + sgn * lwb, H * tb);
+      iso.r.poly([pa, pb, pc, pd], alpha(CASING, 0.7));
+    }
+  }
+  // a smooth intact casing CAP at the very tip (Khafre keeps this)
+  if (capstone) {
+    const tc = 0.8;
+    const lw = hb * (1 - tc) + flat * tc;
+    const cw = iso.P(cu - lw, cv + lw, H * tc);
+    const cs = iso.P(cu + lw, cv + lw, H * tc);
+    const ce = iso.P(cu + lw, cv - lw, H * tc);
+    iso.r.poly([cw, cs, apexS, apexL], shaded(CASING, 0.08)); // SW casing cap
+    iso.r.poly([cs, ce, apexE, apexS], lit(CASING, 0.05)); // SE casing cap
+    iso.r.polyline([cw, apexL, apexE, ce], INK_W * 0.4, alpha(INK, 0.4));
+    // the seam where the smooth casing meets the stepped core
+    iso.r.line(cw, ce, 0.6 * S, alpha(darken(CASING, 0.3), 0.6));
+  }
+
+  // crisp ink arrises (the three visible edges) so the mass reads sharp
+  iso.r.polyline([w, apexL], INK_W * 0.55, alpha(INK, 0.7));
+  iso.r.polyline([s, apexS], INK_W * 0.7, INK); // the near (front) arris, boldest
+  iso.r.polyline([e, apexE], INK_W * 0.55, alpha(INK, 0.7));
+  iso.r.polyline([w, s, e], INK_W * 0.5, alpha(INK, 0.55)); // the base line
+
+  // floodlight FIXTURES ringing the base, fanning warm light up the faces (the
+  // energisable nightly Sound-&-Light rig)
+  for (const [fu, fv] of [[cu - hb - 0.12, cv + hb * 0.4], [cu + hb * 0.4, cv + hb + 0.12]] as const) {
+    const base = iso.P(fu, fv, 0);
+    const lhead: Pt = [base[0], base[1] - 6 * S];
+    const toward = iso.P(cu, cv, H * 0.5);
+    iso.r.line(base, lhead, 1.1 * S, COLORS.steelDark); // the mast
+    iso.r.rect(lhead[0] - 2 * S, lhead[1] - 2 * S, lhead[0] + 2 * S, lhead[1], COLORS.glassLit); // lamp
+    const dx = toward[0] - lhead[0];
+    const dy = toward[1] - lhead[1];
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = (-dy / len) * 7 * S;
+    const ny = (dx / len) * 7 * S;
+    iso.r.poly([lhead, [toward[0] + nx, toward[1] + ny], [toward[0] - nx, toward[1] - ny]], alpha(COLORS.glassLit, 0.1));
+    iso.glint(lhead, 1.8 * S);
+  }
+  return iso.build();
+}
+
+/** THE GREAT SPHINX — its own free-standing hero (owner, 2026-06-15 split). LOW,
+ *  LONG, couchant: a lion body lying along the u-axis with the rump at the back
+ *  (low u) and the reared chest + pharaoh head at the FRONT (high u), the face
+ *  turned to the viewer. Honey-grey weathered limestone, the nemes headdress
+ *  striped, the nose broken. A small 2×1 SW-anchored footprint on tawny sand,
+ *  with a dedicated floodlight raking the face — kept low so it always reads as
+ *  couchant, never a tower. Stands in front of the pyramids on the plateau. */
+export const SPHINX_W = 3;
+export const SPHINX_H = 2;
+export function sphinxTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  // Built for a STRONG, SIMPLE silhouette that reads at iso scale (a clear
+  // recognisable Sphinx beats fine detail): a LOW, LONG couchant lion body
+  // (longer than tall) lying along the u-axis, the two forepaws stretching
+  // FORWARD toward the viewer past the chest, and an upright HEAD block at the
+  // front (high u) in the trapezoidal striped NEMES headdress (wider at the
+  // shoulders). Honey-grey weathered limestone; floodlights at the base. Drawn
+  // from solid extruded BOXES (which carry the engine's lit/shaded/ink reads)
+  // so the masses are unmistakable, not thin billboards. 3×2 SW-anchored, low.
+  const iso = new Iso(SPHINX_W, SPHINX_H, { swAnchor: true, headroom: 36 });
+  const rng = new Rng(seed * 50051 + 7);
+  const S = RES;
+  const SPH = hex('#c9b58e'); // honey-grey weathered limestone
+  const SPH_PALE = lighten(SPH, 0.1); // sun-warmed casing tone for the face/nemes
+  const STRIPE = darken(SPH, 0.26); // the darker nemes band
+  const SAND = COLORS.aridSand;
+  const SAND_D = darken(SAND, 0.1);
+  // a thin cleared sand apron so it reads as standing FREE on the plateau
+  iso.floor(lighten(SAND, 0.04), SAND_D);
+  for (let k = 0; k < 14; k++) {
+    const [px, py] = iso.P(rng.range(0.2, SPHINX_W - 0.2), rng.range(0.2, SPHINX_H - 0.2), 0);
+    const r = rng.range(2, 5) * S;
+    iso.r.poly([[px - r, py], [px, py - r * 0.5], [px + r, py], [px, py + r * 0.5]], alpha(rng.chance(0.5) ? lighten(SAND, 0.08) : SAND_D, 0.5));
+  }
+
+  // body geometry — long along u, shallow along v, LOW in z (couchant)
+  const cv = 1.0; // body centre v (mid of the 2-deep footprint)
+  const hw = 0.34; // body half-depth (along v)
+  const bodyU0 = 0.34; // rump (back, low u)
+  const bodyU1 = 2.1; // shoulders (front, high u) — body is ~1.76 long vs ~0.7 deep
+  const bodyZ = 18; // the low couchant back (kept low + long so it reads lying down)
+  const pawU1 = SPHINX_W - 0.16; // forepaws stretch forward to near the front edge
+
+  iso.shadow(bodyU0 + 0.04, cv - hw + 0.04, pawU1 + 0.06, cv + hw + 0.14, 0.2, 0.22);
+
+  // THE FOREPAWS first (lowest, furthest forward) — two long low ridges
+  // reaching forward from under the chest toward the viewer, a shaded gap
+  // between them so they read as two distinct paws of a lying lion.
+  const pawZ = 11;
+  iso.box(bodyU1 - 0.5, cv - hw + 0.02, pawU1, cv - 0.03, 0, pawZ, SPH, { rightC: lit(SPH, 0.05) });
+  iso.box(bodyU1 - 0.5, cv + 0.03, pawU1, cv + hw - 0.02, 0, pawZ, SPH, { rightC: lit(SPH, 0.08) });
+
+  // THE BODY — the long low couchant block, ONE continuous mass with the chest
+  // (same v-depth) so body → chest → head read as a single creature, not
+  // separate blocks. A low rounded rump rises a hair at the very back.
+  iso.box(bodyU0, cv - hw, bodyU1, cv + hw, 0, bodyZ, SPH);
+  iso.box(bodyU0, cv - hw + 0.02, bodyU0 + 0.3, cv + hw - 0.02, 0, bodyZ + 3, lit(SPH, 0.02)); // rounded rump
+  // faint weathering striations down the long sunlit flank (the SE/right face)
+  for (let u = bodyU0 + 0.36; u < bodyU1; u += 0.18) {
+    iso.r.line(iso.P(u, cv + hw, 1.5), iso.P(u, cv + hw, bodyZ - 1.5), 0.5 * S, alpha(STRIPE, 0.35));
+  }
+
+  // THE CHEST — the body front REARS UP to the neck. Same depth (hw) as the
+  // body and overlapping it, so the flank is continuous; a sloped breast face
+  // links the low back to the tall chest (the lion's reared front).
+  const chestU0 = bodyU1 - 0.5;
+  const chestU1 = bodyU1 + 0.2;
+  const chestZ = 46;
+  iso.box(chestU0, cv - hw, chestU1, cv + hw, 0, chestZ, SPH, { leftC: shaded(SPH, 0.12) });
+  // the sloped breast: from the body back (low) up to the chest top (the
+  // diagonal of the reared front), on the sunlit right flank
+  iso.r.poly(
+    [iso.P(chestU0, cv + hw, bodyZ), iso.P(chestU0 + 0.34, cv + hw, bodyZ), iso.P(chestU1, cv + hw, chestZ), iso.P(chestU0, cv + hw, chestZ - 14)],
+    lit(SPH, 0.04),
+  );
+
+  // THE HEAD — an upright block on top of the chest, the tallest mass. Drawn
+  // WIDER than the neck (the nemes flares at the shoulders) so the headdress
+  // silhouette reads. The front (u+) face carries the face + striped nemes.
+  const headU0 = bodyU1 - 0.2;
+  const headU1 = bodyU1 + 0.2;
+  const headZ0 = chestZ;
+  const headZ1 = 78; // the crown of the nemes
+  // the nemes is wider in v than the chest — a broad trapezoid at the shoulders
+  const nemW = 0.4; // head half-depth (wider than the body's visible neck)
+  iso.box(headU0, cv - nemW, headU1, cv + nemW, headZ0, headZ1, SPH_PALE, {
+    leftC: shaded(SPH_PALE, 0.12),
+    rightC: lit(SPH_PALE, 0.04),
+    topC: top(SPH_PALE, 0.22),
+  });
+
+  // the FRONT face of the head (u = headU1) — the viewer-facing nemes + face
+  const fu = headU1;
+  // striped nemes bands across the headdress front (alternating pale/dark)
+  for (let i = 0; i < 7; i++) {
+    const za = headZ0 + ((headZ1 - headZ0) * i) / 7;
+    const zb = headZ0 + ((headZ1 - headZ0) * (i + 1)) / 7;
+    const a0 = iso.P(fu, cv - nemW, za);
+    const a1 = iso.P(fu, cv + nemW, za);
+    const b1 = iso.P(fu, cv + nemW, zb);
+    const b0 = iso.P(fu, cv - nemW, zb);
+    iso.r.poly([a0, a1, b1, b0], alpha(i % 2 ? STRIPE : SPH_PALE, 0.55));
+  }
+  // the pale FACE panel set within the nemes (narrower than the head-cloth)
+  const faceL = iso.P(fu + 0.004, cv - 0.16, headZ0 + 6);
+  const faceR = iso.P(fu + 0.004, cv + 0.16, headZ0 + 6);
+  const faceTL = iso.P(fu + 0.004, cv - 0.16, headZ1 - 8);
+  const faceTR = iso.P(fu + 0.004, cv + 0.16, headZ1 - 8);
+  iso.r.poly([faceL, faceR, faceTR, faceTL], lighten(SPH_PALE, 0.08));
+  iso.r.polyline([faceL, faceR, faceTR, faceTL], INK_W * 0.4, alpha(INK, 0.45), true);
+  // brow + two eyes
+  const browZ = headZ0 + 22;
+  iso.r.line(iso.P(fu + 0.008, cv - 0.14, browZ), iso.P(fu + 0.008, cv + 0.14, browZ), 1.0 * S, alpha(STRIPE, 0.6));
+  for (const dy of [-0.07, 0.07]) {
+    const ey = iso.P(fu + 0.008, cv + dy, browZ - 4);
+    iso.r.line([ey[0] - 2 * S, ey[1]], [ey[0] + 2 * S, ey[1]], 1.4 * S, alpha(INK, 0.6));
+  }
+  // the broken-nose pit + a hint of the ceremonial beard below it
+  const nose = iso.P(fu + 0.01, cv, headZ0 + 13);
+  iso.r.poly([[nose[0] - 2.4 * S, nose[1]], [nose[0] + 2.4 * S, nose[1]], [nose[0], nose[1] + 5 * S]], alpha(shaded(SPH, 0.4), 0.8));
+  iso.r.line(iso.P(fu + 0.006, cv, headZ0 + 8), iso.P(fu + 0.006, cv, headZ0 - 1), 1.8 * S, alpha(shaded(SPH, 0.22), 0.7));
+  // the nemes LAPPETS dropping down each side of the face onto the shoulders
+  iso.r.line(iso.P(fu, cv - nemW + 0.02, headZ1 - 4), iso.P(fu, cv - 0.2, headZ0 - 6), 2.6 * S, shaded(SPH_PALE, 0.12));
+  iso.r.line(iso.P(fu, cv + nemW - 0.02, headZ1 - 4), iso.P(fu, cv + 0.2, headZ0 - 6), 2.6 * S, lit(SPH_PALE, 0.04));
+  // crisp ink along the head silhouette so it pops as the tallest mass
+  iso.r.polyline([iso.P(headU0, cv + nemW, headZ0), iso.P(headU0, cv + nemW, headZ1), iso.P(fu, cv + nemW, headZ1)], INK_W * 0.55, INK);
+
+  // floodlight FIXTURES at the base raking the body + face (the energisable
+  // nightly Sound-&-Light rig)
+  for (const [fU, fV, tz] of [[pawU1 + 0.05, cv, headZ1 - 18], [bodyU0 + 0.2, cv + hw + 0.12, bodyZ]] as const) {
+    const base = iso.P(fU, fV, 0);
+    const lhead: Pt = [base[0], base[1] - 6 * S];
+    const toward = iso.P(fu, cv, tz);
+    iso.r.line(base, lhead, 1.1 * S, COLORS.steelDark);
+    iso.r.rect(lhead[0] - 2 * S, lhead[1] - 2 * S, lhead[0] + 2 * S, lhead[1], COLORS.glassLit);
+    const dx = toward[0] - lhead[0];
+    const dy = toward[1] - lhead[1];
+    const l = Math.hypot(dx, dy) || 1;
+    const nx = (-dy / l) * 7 * S;
+    const ny = (dx / l) * 7 * S;
+    iso.r.poly([lhead, [toward[0] + nx, toward[1] + ny], [toward[0] - nx, toward[1] - ny]], alpha(COLORS.glassLit, 0.1));
+    iso.glint(lhead, 1.6 * S);
   }
   return iso.build();
 }

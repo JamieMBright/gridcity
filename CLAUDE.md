@@ -21,6 +21,33 @@ model it the way GB actually works, then simplify for fun.
 
 ## How to work (the owner's standing instructions)
 
+- **OWNER REQUESTS ARE NOT TO BE OVERRULED** (owner, 2026-06-16). When the
+  owner asks for something, SCHEDULE it and ACTION it. Never silently drop
+  it, defer it indefinitely, water it down, or substitute your own judgement
+  for theirs. Every item the owner raises goes into TASKS.md and gets DONE.
+  If something genuinely seems infeasible or wrong, SAY SO explicitly and
+  ask — do not just quietly not-do it or rescope it.
+- **Hero doctrine (owner, 2026-06-16) — this is the STANDARD, not aspirational:
+  100 heroes per city, ALL BESPOKE.** Every one of the 100 is a hand-drawn
+  bespoke sprite (no shared/reused hero sprites) with its OWN bespoke
+  night-time electrification lighting effect, and ALL 100 are placed on the
+  playable map. Everything that is NOT one of the 100 heroes is placed via
+  archetypes. Drive it from the stored per-building research (docs/heroes/
+  <city>/). "Dozens placed, a few bespoke" is NOT acceptable — it is 100,
+  bespoke, lit, placed, per city.
+- **Schedule everything in WAVES (owner, 2026-06-16).** All TASKS.md feedback
+  must ALWAYS be scheduled and actioned — analyse TASKS into WAVES of work
+  that each make a sensible PR, and action each wave with subagents (Opus).
+  Nothing the owner raised is allowed to sit unscheduled.
+- **Keep-alive drumbeat (owner, 2026-06-16): the orchestration (main) session
+  must SPEAK at least every 10 minutes** — an idle main session gets reclaimed
+  and KILLS the subagents it spawned (a passive Monitor drumbeat alone let
+  agents die mid-run). Run an ACTIVE self-heartbeat: the `/loop` skill on a
+  ≤9-min interval, or a ≤9-min Monitor you act on every tick — and on each
+  beat check subagent/PR status, re-launch anything that died, and re-arm the
+  heartbeat whenever it lapses. Verify a spawned subagent is ALIVE (its work
+  files' mtimes advancing) a few minutes after launch; its transcript mtime is
+  unreliable.
 - **Model: use Opus, NEVER Fable** (owner, 2026-06-14). Run the main
   thread and every subagent on Opus (`claude-opus-4-8`). Do NOT select or
   switch to the Fable model — it is unavailable until Anthropic re-enable

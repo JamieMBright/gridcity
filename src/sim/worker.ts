@@ -38,6 +38,7 @@ import {
   type GameState,
   type SaveData,
 } from './state';
+import { loadScenarioData } from '../data/scenarioData';
 import { BillHistory, bandsOf } from './billHistory';
 import { describeCommand } from './describeCommand';
 import { computeBalance } from './balance';
@@ -77,6 +78,9 @@ const redoLabels: string[] = [];
 const billHistory = new BillHistory();
 
 function restore(data: SaveData): void {
+  // a data-backed scenario's artifact is preloaded before any restore (the
+  // undo/redo + load paths all await it first), so newContext's sync build()
+  // finds its CityData. London/missions are code-drawn — no preload needed.
   state = deserialize(data);
   ctx = newContext(state.scenarioId);
   applyGrowth(ctx.map, state.growth);
@@ -363,9 +367,14 @@ function step(): void {
   }
 }
 
-function start(save: unknown): void {
+async function start(save: unknown): Promise<void> {
   if (isSaveData(save)) {
     try {
+      // a Paris (or any data-backed) save rebuilds its map from scenarioId, so
+      // its lazily-imported artifact must be loaded BEFORE newContext's sync
+      // build(). Await it off the save's own scenario tag (absent ⇒ london ⇒
+      // no-op). A failed import falls through to the catch → fresh game.
+      await loadScenarioData(save.scenarioId ?? 'london');
       state = deserialize(save);
       // town growth mutated the saved game's map: replay it onto a
       // fresh copy so demand and service areas match the save
@@ -374,7 +383,7 @@ function start(save: unknown): void {
       ctx.demand = buildDemandField(ctx.map);
       derived = undefined;
     } catch {
-      state = newGame(); // corrupt save: start fresh rather than die
+      state = newGame(); // corrupt save / failed artifact: start fresh rather than die
     }
   }
   // a loaded game starts with empty chart/undo history (worker-local, not
@@ -390,18 +399,31 @@ function start(save: unknown): void {
   setInterval(step, 1000 / TICKS_PER_SECOND);
 }
 
+// Messages are handled in strict arrival order even though some handlers
+// (start/newGame) await a lazy artifact import: chain each onto the last so a
+// 'command' can never overtake the 'newGame' that must build its map first.
+// For London/missions every await is a no-op, so this just preserves the old
+// sequential behaviour.
+let msgChain: Promise<void> = Promise.resolve();
 self.onmessage = (e: MessageEvent<MainToWorker>) => {
+  const msg = e.data;
+  msgChain = msgChain.then(() => handleMessage(msg));
+};
+
+async function handleMessage(msg: MainToWorker): Promise<void> {
   try {
-    const msg = e.data;
     switch (msg.type) {
       case 'ping':
         post({ type: 'pong', t: msg.t });
         break;
       case 'start':
-        start(msg.save);
+        await start(msg.save);
         break;
       case 'newGame': {
         const scenarioId = msg.scenarioId ?? 'london';
+        // a data-backed city must have its artifact loaded before the sync
+        // build() inside newGame/newContext (no-op for london/missions).
+        await loadScenarioData(scenarioId);
         state = newGame(scenarioId);
         ctx = newContext(scenarioId); // shed any previous run's growth mutations
         const mission = missionOf(scenarioId);
@@ -550,6 +572,6 @@ self.onmessage = (e: MessageEvent<MainToWorker>) => {
   } catch (err) {
     post({ type: 'fatal', message: err instanceof Error ? err.message : String(err) });
   }
-};
+}
 
 export {};

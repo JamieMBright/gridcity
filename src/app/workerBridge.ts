@@ -259,11 +259,14 @@ export function proposeLoop(subId: number): void {
   send({ type: 'proposeLoop', subId });
 }
 
-/** Wipe progress and start over (the worker posts a fresh save). */
-export function newGameCommand(): void {
-  useAppStore.getState().setScenarioId('london');
+/** Wipe progress and start over (the worker posts a fresh save). Defaults to
+ *  London; the city picker passes another scenario id (Paris…). Switching the
+ *  store scenario tears down + rebuilds the renderer on the new map (MapView),
+ *  and the worker rebuilds its authoritative map from the same id. */
+export function newGameCommand(scenarioId = 'london'): void {
+  useAppStore.getState().setScenarioId(scenarioId);
   freshGamePending = true;
-  send({ type: 'newGame' });
+  send(scenarioId === 'london' ? { type: 'newGame' } : { type: 'newGame', scenarioId });
 }
 
 // --- the tutorial campaign ---------------------------------------------------

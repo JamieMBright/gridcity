@@ -14,7 +14,7 @@ interface Hit {
   y: number;
 }
 
-export function SearchBox() {
+export function SearchBox({ embedded = false }: { embedded?: boolean } = {}) {
   const requestPan = useAppStore((s) => s.requestPan);
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
@@ -71,8 +71,13 @@ export function SearchBox() {
     inputRef.current?.blur();
   };
 
+  // embedded = a top-bar flow child (relative); otherwise the legacy
+  // absolute placement (mobile/compact desktop still uses that).
+  const wrap: React.CSSProperties = embedded
+    ? { position: 'relative', pointerEvents: 'auto', flex: 'none' }
+    : { position: 'absolute', top: 28, left: 196, zIndex: 5 };
   return (
-    <div style={{ position: 'absolute', top: 28, left: 196, zIndex: 5 }}>
+    <div style={wrap}>
       {!open && (
         <button
           onClick={() => {

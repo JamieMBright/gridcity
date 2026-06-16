@@ -25,6 +25,10 @@ for (const vp of [
     // force a fresh campaign so the story letterbox opens
     if (await page.evaluate(() => window.__ec?.getState().menuOpen)) {
       await page.getByRole('button', { name: 'new game' }).dispatchEvent('click');
+      // New Game opens the city picker now — choose London
+      const lon = page.getByTitle('power London', { exact: true });
+      await expect.poll(async () => lon.count(), { timeout: 15_000 }).toBeGreaterThan(0);
+      await lon.first().dispatchEvent('click');
       await expect.poll(async () => page.evaluate(() => window.__ec?.getState().menuOpen)).toBe(false);
     }
     // beat 1

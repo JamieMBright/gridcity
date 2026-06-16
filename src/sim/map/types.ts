@@ -40,6 +40,63 @@ export interface TransportRoute {
   pts: Array<[number, number]>;
 }
 
+/** Renderer scenery, carried ON the map so the renderer/UI need not import a
+ *  per-city module (London/Paris/… all just read map.named|towns|airports).
+ *  Pure presentation data: NOT serialized into saves (the map is rebuilt from
+ *  scenarioId), so adding these is free of any SAVE_VERSION implication. */
+
+/** A labelled place (transport terminus, monument…). `landmark` gates it to
+ *  the mid/close zoom bands so it never clutters the far whole-region view.
+ *  `heroKey` (when set) is the per-city BESPOKE-hero registry key this place
+ *  resolved to (for UI/search); the RENDER path reads the map's `heroTable`,
+ *  not this field. */
+export interface MapPlace {
+  x: number;
+  y: number;
+  name: string;
+  landmark?: boolean | undefined;
+  heroKey?: string | undefined;
+}
+
+/** Landmark-raster values `>= HERO_BASE` are NOT global LANDMARK enum ids —
+ *  they are indices into the map's per-city `heroTable` (value − HERO_BASE),
+ *  carrying a STRING-keyed bespoke hero sprite. Values `< HERO_BASE` stay the
+ *  existing global LANDMARK enum, UNCHANGED. The enum maxes at 45 today, so
+ *  100 partitions the byte cleanly with generous headroom: this breaks the
+ *  old 255-sprites-total ceiling (a city can now carry up to ~155 bespoke
+ *  heroes in its own table, keyed by string, with zero collisions across
+ *  cities). Purely additive: a city with an empty heroTable never produces a
+ *  `>= HERO_BASE` value, so it renders byte-identically. */
+export const HERO_BASE = 100;
+
+/** One placed bespoke-hero slot, referenced by a landmark-raster value of
+ *  `HERO_BASE + index`. `key` selects the per-city registry sprite
+ *  (`hero_<fabric>_<key>`); `foot` is its footprint in tiles (w, h),
+ *  SW-anchored exactly like the multi-tile enum heroes. */
+export interface HeroSlot {
+  key: string;
+  foot: readonly [number, number];
+}
+
+/** A town/village label. `r` is the urban-core radius (drives label size +
+ *  declutter priority); villages fade one zoom band before towns. */
+export interface MapTown {
+  x: number;
+  y: number;
+  r: number;
+  kind: 'town' | 'village';
+  name: string;
+}
+
+/** An airport the render-side air layer flies arcs/planes from. `hdg` is the
+ *  runway heading ('EW' = east-west / westerly operation). */
+export interface MapAirport {
+  name: string;
+  x: number;
+  y: number;
+  hdg: 'EW';
+}
+
 /** Road-class raster codes (per tile, max of everything crossing it). */
 export const RC = {
   none: 0,
@@ -95,6 +152,24 @@ export const LANDMARK = {
   velodrome: 30, // Lee Valley VeloPark — the curved timber pringle roof
   orbit: 31, // the ArcelorMittal Orbit — red twisting helter-skelter tower
   westfield: 32, // Westfield Stratford City — the big retail mass beside it
+  // Bespoke per-city heroes (OSM pipeline). Append-only so existing
+  // landmark-raster values never shift under old saves.
+  notredame: 33, // gothic cathedral — twin towers, rose window, flèche (Paris)
+  eiffel: 34, // the wrought-iron lattice tower with the great base arch (Paris)
+  arch: 35, // a great triumphal arch — Arc de Triomphe / city gates
+  basilica: 36, // white Romano-Byzantine domed basilica — Sacré-Cœur
+  louvre: 37, // classical palace wings around the glass pyramid (Paris)
+  grand: 38, // parameterized grand civic building (the ~100 notable-building heroes)
+  skyscraper: 39, // generic TALL tower hero — tall+slim, towers over the fabric
+  civic: 40, // ORDINARY civic — a 1×1 tile-sized municipal building in the city palette (no apron)
+  pyramid: 41, // DEPRECATED: the old monolithic Giza group (Great+Khafre+Menkaure+Sphinx in one sprite). Kept for old-save raster stability; split into the separate heroes below (owner, 2026-06-15).
+  // The Pyramids of Giza, SPLIT into free-standing heroes (owner, 2026-06-15:
+  // the real plateau spreads them out — three separate pyramids + the Sphinx).
+  // Append-only so existing landmark-raster values never shift under old saves.
+  pyramidGreat: 42, // the Great Pyramid (Khufu) — broadest + tallest mass (Cairo)
+  pyramidKhafre: 43, // Khafre — slightly smaller, keeps the smooth casing cap at its tip
+  pyramidMenkaure: 44, // Menkaure — clearly the smallest pyramid
+  sphinx: 45, // the Great Sphinx — low, long, couchant lion body + pharaoh head
 } as const;
 export type Landmark = (typeof LANDMARK)[keyof typeof LANDMARK];
 
@@ -185,6 +260,30 @@ export interface CityMap {
    *  bit 2: brownfield / previously-developed land — see TILE_FLAG). */
   flags?: Uint8Array | undefined;
   councils: CouncilProfile[];
+  /** Per-city architectural style (render hint; default London brick). A
+   *  generated city wears its own building stock — e.g. 'paris' renders
+   *  Haussmann blocks, 'cairo' sand+red brick, 'athens' whitewash. Mirrors
+   *  CityFabric in render/sprites/buildingSprites (kept inline to avoid a
+   *  sim→render dependency). */
+  fabric?:
+    | 'london' | 'paris' | 'newyork' | 'sydney' | 'berlin'
+    | 'shanghai' | 'hongkong' | 'capetown' | 'cairo' | 'athens'
+    | 'pune' | 'northeast'
+    | undefined;
+  /** Renderer/UI scenery (NOT serialized — rebuilt with the map from
+   *  scenarioId). The renderer reads its labels, towns and air fleet from
+   *  here, so a non-London map is recognisable without a London import. All
+   *  optional: an omitted list just means no labels / no towns / empty skies
+   *  (campaign mini-maps carry none). */
+  named?: MapPlace[] | undefined;
+  towns?: MapTown[] | undefined;
+  airports?: MapAirport[] | undefined;
+  /** RUNTIME bespoke-hero table: index i is referenced by the landmark-raster
+   *  value `HERO_BASE + i`. Like `named`/`towns`, this is presentation scenery
+   *  rebuilt from the scenarioId at load (in buildCityFromData) and is NEVER
+   *  serialized into a save — so adding it has no SAVE_VERSION implication.
+   *  Omitted/empty ⇒ no bespoke heroes ⇒ the map renders byte-identically. */
+  heroTable?: HeroSlot[] | undefined;
 }
 
 export const NO_COUNCIL = 255;

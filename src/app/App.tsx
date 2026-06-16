@@ -1,20 +1,16 @@
 import { useEffect } from 'react';
-import { AlertsFeed, EventLog } from '../ui/AlertsFeed';
+import { EventLog } from '../ui/AlertsFeed';
 import { AssetGuide } from '../ui/AssetGuide';
 import { AuthCallback } from '../ui/AuthCallback';
 import { BalancePanel } from '../ui/BalancePanel';
-import { BillPanel } from '../ui/BillPanel';
 import { BuildLabelChip } from '../ui/BuildLabelChip';
-import { BuildPalette } from '../ui/BuildPalette';
 import { CameraBookmarks } from '../ui/CameraBookmarks';
-import { FleetPanel } from '../ui/FleetPanel';
 import { GameMenu } from '../ui/GameMenu';
 import { HotkeyHelp } from '../ui/HotkeyHelp';
 import { Hud } from '../ui/Hud';
+import { HudFrame } from '../ui/HudFrame';
 import { HudTour } from '../ui/HudTour';
 import { DirectoratesPanel } from '../ui/DirectoratesPanel';
-import { InboxPanel } from '../ui/InboxPanel';
-import { InfoPanel } from '../ui/InfoPanel';
 import { KpiDashboard } from '../ui/KpiDashboard';
 import { MapView } from '../ui/MapView';
 import { Minimap } from '../ui/Minimap';
@@ -36,7 +32,6 @@ import { playSfx } from '../audio/audio';
 import { HOTKEYS } from './hotkeys';
 import { useAppStore } from './store';
 import { useIsMobile } from './useIsMobile';
-import { useUnlockGate } from '../ui/unlocks';
 import { initWorker, sendCommand, setSimSpeed } from './workerBridge';
 
 function Wordmark() {
@@ -69,37 +64,6 @@ function Wordmark() {
       <span style={{ color: theme.orange }}>ELECTRI</span>
       <span style={{ color: theme.slate }}>CITY</span>
     </button>
-  );
-}
-
-function StatusBar() {
-  const workerStatus = useAppStore((s) => s.workerStatus);
-  const workerError = useAppStore((s) => s.workerError);
-  return (
-    <div
-      style={{
-        ...panelStyle,
-        position: 'absolute',
-        // lifted clear of the bottom-left minimap (the map overlay moved
-        // here, off the right-rail bill stack)
-        bottom: 160,
-        left: 12,
-        maxWidth: 'min(420px, calc(100vw - 24px))',
-        padding: '6px 12px',
-        fontSize: 12,
-        pointerEvents: 'none',
-      }}
-    >
-      {workerStatus === 'connecting' && <span style={{ color: theme.gold }}>starting sim…</span>}
-      {workerStatus === 'error' && (
-        <span style={{ color: theme.danger }}>sim error: {workerError}</span>
-      )}
-      {workerStatus === 'ready' && (
-        <span style={{ color: theme.slate }}>
-          drag to pan · scroll to zoom · G grid view · 1–9/QWERT/ZXC build · U under/overhead
-        </span>
-      )}
-    </div>
   );
 }
 
@@ -256,9 +220,6 @@ export function App() {
   const chrome = !menuOpen && !photoMode;
   // campaign missions hide the London-specific chrome (place search)
   const inMission = useAppStore((s) => s.scenarioId !== 'london');
-  // progressive disclosure: a mission shows only the panels it teaches
-  const gate = useUnlockGate();
-  const showPanel = (key: string): boolean => !gate.active || gate.has(key);
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
@@ -274,29 +235,22 @@ export function App() {
             {!isMobile && <Wordmark />}
             {!isMobile && !inMission && <SearchBox />}
             <MobileChrome />
+            {/* the compact desktop path keeps the floating ticker + centred
+                clock cluster (Hud) and the corner widgets */}
+            <Hud compact={compact} />
+            {!isMobile && <Minimap />}
+            {!isMobile && <CameraBookmarks />}
           </>
         ) : (
-          <>
-            <Wordmark />
-            {!inMission && <SearchBox />}
-            <BuildPalette />
-            <InfoPanel />
-            {showPanel('hud:bill') && <BillPanel />}
-            {showPanel('hud:fleet') && <FleetPanel />}
-            {showPanel('hud:inbox') && <InboxPanel />}
-            {showPanel('hud:alerts') && <AlertsFeed />}
-            <StatusBar />
-          </>
+          // DESKTOP: the unified perimeter HUD. One CSS-grid frame reserves a
+          // left rail (build palette + fleet + minimap), a right rail (pinned
+          // inspector + inbox + alerts + bill, each scroll-contained), a top
+          // bar (wordmark + search + ticker + regulator) and a bottom bar
+          // (status + clock/speed/toggles + goal). Nothing overlaps another
+          // panel or the map — every panel is a flex child of its own track.
+          <HudFrame />
         ))}
       {chrome && <BuildLabelChip />}
-      {chrome && <Hud compact={compact} />}
-      {/* Minimap, camera bookmarks and photo mode are desktop-oriented
-          floating widgets. On a phone they crowd the edges and overlapped
-          the right chip column (fave/photo) and the bottom clock bar (the
-          "map" pill hid the date), so they're desktop-only — the whole
-          phone screen is already the navigable map. (owner mobile audit) */}
-      {chrome && !isMobile && <Minimap />}
-      {chrome && !isMobile && <CameraBookmarks />}
       {!menuOpen && !isMobile && <PhotoMode />}
       {!photoMode && <Toast />}
       {!photoMode && <Tutorial />}

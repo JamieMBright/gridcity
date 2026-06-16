@@ -1,5 +1,13 @@
 # OSM-driven map + landmark pipeline (build plan for the fresh env)
 
+> **STATUS (2026-06-14): stages 1–5 BUILT** in `tools/osm/` (+ `tools/buildCity.ts`,
+> `tools/previewCity.ts`, runtime loader `src/data/cityData.ts`). Validated on real
+> Paris OSM → `src/data/cities/paris.ts`. See `tools/osm/README.md`. Remaining:
+> stage 6 (procedural footprint buildings) + stage 7 (bespoke heroes) + stage 8
+> (per-city architectural palette — e.g. Haussmann cream-walls/grey-mansard, gothic
+> Notre-Dame) + live in-game integration (city-picker UI, renderer label/river
+> generalisation). Egress allowlist confirmed working in this env.
+
 Goal: **request any city → an accurate, stylised map** with rivers/coast/roads
 in the right places and **hundreds of real buildings** placed at their true
 positions, scaled from real footprints/heights. No hand-placing, no hero cap —

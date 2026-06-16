@@ -80,10 +80,17 @@ export class Iso {
   readonly hTiles: number;
   /** Vertical projection shift (sw-anchored multi-tile sprites). */
   private readonly yOff: number;
+  /** Extra canvas rows added ABOVE the footprint so a hero can exceed the
+   *  footprint-derived height cap (a 1x1 canvas only fits z≈160). All drawing
+   *  is shifted DOWN by this amount (see P) so the floor stays pinned exactly
+   *  where it was; both renderers compensate by lifting the placement by the
+   *  same headroom (stored on the atlas frame). Default 0 ⇒ byte-identical. */
+  readonly headroom: number;
 
-  constructor(wTiles = 1, hTiles = 1, opts: { swAnchor?: boolean } = {}) {
+  constructor(wTiles = 1, hTiles = 1, opts: { swAnchor?: boolean; headroom?: number } = {}) {
     this.wTiles = wTiles;
     this.hTiles = hTiles;
+    this.headroom = Math.max(0, Math.round(opts.headroom ?? 0));
     // SW anchoring: shift the footprint up so that footprint tile
     // (0, hTiles-1) — the block's south-west corner — sits exactly where
     // a 1x1 sprite's floor diamond would. The standard structure placement
@@ -93,15 +100,17 @@ export class Iso {
     // (min x, max y) tile. No renderer special-casing needed.
     this.yOff = opts.swAnchor ? -((hTiles - 1) * FLOOR_H) / 2 : 0;
     const dims = opts.swAnchor ? swAnchorDims(wTiles, hTiles) : isoDims(wTiles, hTiles);
-    this.r = new Raster(dims.w, dims.h);
+    this.r = new Raster(dims.w, dims.h + this.headroom);
   }
 
   /** Project tile-local (u,v,z) to this sprite's pixel coordinates.
-   *  For a 1x1 footprint this is exactly the module-level P(). */
+   *  For a 1x1 footprint with no headroom this is exactly the module-level
+   *  P(); with headroom every point is shifted down so the floor still lands
+   *  at the canvas bottom and the freed rows are all sky above the building. */
   P(u: number, v: number, z = 0): Pt {
     return [
       this.hTiles * (CELL_W / 2) + (u - v) * (CELL_W / 2),
-      CELL_H - FLOOR_H + (u + v) * (FLOOR_H / 2) + this.yOff - z * RES,
+      CELL_H - FLOOR_H + (u + v) * (FLOOR_H / 2) + this.yOff - z * RES + this.headroom,
     ];
   }
 

@@ -9,15 +9,21 @@ import { Iso } from './sprites/iso';
 import { Raster } from './sprites/raster';
 import * as world from './sprites/worldSprites';
 import * as buildings from './sprites/buildingSprites';
+import { activeFabric } from './sprites/buildingSprites';
+import { bespokeHeroesFor } from './sprites/heroes/registry';
 import * as landmarks from './sprites/landmarkSprites';
 import * as network from './sprites/networkSprites';
-import { buildAtlas, type SpriteAtlas } from './sprites/atlas';
+import { buildAtlas, type AtlasFrame, type SpriteAtlas } from './sprites/atlas';
 
 const DB = 'electricity-atlas';
 const STORE = 'sheets';
 
 function fingerprint(): string {
-  const sources: string[] = [JSON.stringify(COLORS)];
+  // the active fabric joins the key: a city's brick/roof tokens (and FLAT_ROOF)
+  // live in module `let`s, not COLORS, so two fabrics could otherwise share a
+  // fingerprint and serve each other's sheet. London ('london') keeps its
+  // historical key so its cached atlas is reused, not rebaked.
+  const sources: string[] = [`fabric:${activeFabric()}`, JSON.stringify(COLORS)];
   for (const mod of [world, buildings, landmarks, network]) {
     for (const v of Object.values(mod)) {
       if (typeof v === 'function') sources.push(String(v));
@@ -29,6 +35,16 @@ function fingerprint(): string {
       if (typeof fn === 'function') sources.push(String(fn));
     }
   }
+  // the ACTIVE fabric's registered bespoke-hero keys (sorted, stable) bust the
+  // cache when a city's hero set changes. GUARD: an EMPTY registry (London for
+  // now) appends NOTHING, so London keeps its EXACT historical fingerprint and
+  // its cached sheet is reused, not rebaked. (The heroes' draw fns live in
+  // landmarkSprites, already hashed above, so the key list is enough.)
+  const heroKeys = bespokeHeroesFor(activeFabric()).map((h) => h.key).sort();
+  // 'offatlas' token (W2b): heroes now ride their own buffers, NOT the packed
+  // sheet — so a city-with-heroes cache from the in-sheet era (W2) must rebake.
+  // Heroless fabrics (London) append nothing ⇒ exact historical fingerprint kept.
+  if (heroKeys.length > 0) sources.push(`heroes-offatlas:${heroKeys.join(',')}`);
   // djb2 over the concatenated sources
   let h = 5381;
   const s = sources.join('\n');
@@ -36,12 +52,23 @@ function fingerprint(): string {
   return `a${h.toString(36)}:${sources.length}`;
 }
 
+interface StoredHero {
+  pixels: ArrayBuffer;
+  w: number;
+  h: number;
+  ox: number;
+  oy: number;
+  headroom: number;
+}
+
 interface StoredAtlas {
   key: string;
   width: number;
   height: number;
-  frames: Array<[string, { x: number; y: number; w: number; h: number; ox: number; oy: number }]>;
+  frames: Array<[string, AtlasFrame]>;
   pixels: ArrayBuffer;
+  /** W2b off-sheet bespoke heroes (absent in old/heroless cache entries). */
+  heroes?: Array<[string, StoredHero]>;
 }
 
 function openDb(): Promise<IDBDatabase | undefined> {
@@ -57,10 +84,10 @@ function openDb(): Promise<IDBDatabase | undefined> {
   });
 }
 
-async function readCache(db: IDBDatabase, key: string): Promise<SpriteAtlas | undefined> {
+async function readCache(db: IDBDatabase, key: string, slot: string): Promise<SpriteAtlas | undefined> {
   return new Promise((resolve) => {
     try {
-      const req = db.transaction(STORE, 'readonly').objectStore(STORE).get('atlas');
+      const req = db.transaction(STORE, 'readonly').objectStore(STORE).get(slot);
       req.onsuccess = () => {
         const v = req.result as StoredAtlas | undefined;
         if (!v || v.key !== key) {
@@ -72,6 +99,12 @@ async function readCache(db: IDBDatabase, key: string): Promise<SpriteAtlas | un
           height: v.height,
           pixels: new Uint8ClampedArray(v.pixels),
           frames: new Map(v.frames),
+          heroes: new Map(
+            (v.heroes ?? []).map(([k, h]) => [
+              k,
+              { pixels: new Uint8ClampedArray(h.pixels), w: h.w, h: h.h, ox: h.ox, oy: h.oy, headroom: h.headroom },
+            ]),
+          ),
         });
       };
       req.onerror = () => resolve(undefined);
@@ -81,7 +114,7 @@ async function readCache(db: IDBDatabase, key: string): Promise<SpriteAtlas | un
   });
 }
 
-function writeCache(db: IDBDatabase, key: string, atlas: SpriteAtlas): void {
+function writeCache(db: IDBDatabase, key: string, slot: string, atlas: SpriteAtlas): void {
   try {
     const stored: StoredAtlas = {
       key,
@@ -90,25 +123,40 @@ function writeCache(db: IDBDatabase, key: string, atlas: SpriteAtlas): void {
       frames: [...atlas.frames.entries()],
       // copy into a tightly-sized buffer for structured clone
       pixels: atlas.pixels.slice().buffer,
+      // W2b off-sheet heroes — each its own tight buffer (structured-clone copy)
+      heroes: [...atlas.heroes.entries()].map(([k, h]) => [
+        k,
+        { pixels: h.pixels.slice().buffer, w: h.w, h: h.h, ox: h.ox, oy: h.oy, headroom: h.headroom },
+      ]),
     };
-    db.transaction(STORE, 'readwrite').objectStore(STORE).put(stored, 'atlas');
+    db.transaction(STORE, 'readwrite').objectStore(STORE).put(stored, slot);
   } catch {
     // cache is best-effort
   }
 }
 
-/** The sprite atlas, from cache when the art code hasn't changed. */
+/** Per-fabric IndexedDB slot so London and another city can BOTH stay cached
+ *  (the old single 'atlas' slot thrashed on every city switch). London keeps
+ *  the historical 'atlas' slot so its already-cached sheet is reused. */
+function slotFor(): string {
+  const f = activeFabric();
+  return f === 'london' ? 'atlas' : `atlas:${f}`;
+}
+
+/** The sprite atlas, from cache when the art code hasn't changed. Baked in the
+ *  CURRENTLY-APPLIED fabric (the caller runs applyCityFabric first). */
 export async function getAtlas(): Promise<SpriteAtlas> {
   const db = await openDb();
   if (!db) return buildAtlas();
   const key = fingerprint();
-  const cached = await readCache(db, key);
+  const slot = slotFor();
+  const cached = await readCache(db, key, slot);
   if (cached) {
     db.close();
     return cached;
   }
   const atlas = buildAtlas();
-  writeCache(db, key, atlas);
+  writeCache(db, key, slot, atlas);
   db.close();
   return atlas;
 }

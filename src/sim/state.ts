@@ -333,8 +333,16 @@ export function newContext(scenarioId = 'london'): SimContext {
 /** Set up the opening scenario on a fresh game: the iDNO's estate
  *  substations and a few starter connection applications so the inbox
  *  has decisions from minute one. Called by the worker on 'newGame'
- *  only — unit fixtures stay clean. */
+ *  only — unit fixtures stay clean.
+ *
+ *  This seeding is LONDON-SPECIFIC: NEW_ESTATES sit at London tile coords, the
+ *  starter applications look for London's solar/wind site zones, and the
+ *  bespoke Heathrow scheme is a London landmark. A non-London data city (Paris…)
+ *  therefore opens on a TRULY BLANK grid — the player builds everything from
+ *  scratch, which is fully playable and matches the blank-grid doctrine; its
+ *  own bespoke seeding lands with its FR/etc mechanics in a later wave. */
 export function seedScenario(state: GameState, ctx: SimContext): void {
+  if (state.scenarioId !== 'london') return;
   const { map } = ctx;
 
   // (a) new-build estates arrive with the iDNO's transformer already in.
@@ -432,13 +440,30 @@ export function seedScenario(state: GameState, ctx: SimContext): void {
 
 // --- save / load -----------------------------------------------------------
 
-export const SAVE_VERSION = 13;
+// v15 (W3 round 2): 41 more bespoke London heroes were placed in NAMED_PLACES
+// (City office towers, West-End hotels, colleges/libraries, the South-Bank /
+// Bankside set, the Regent's-Park terraces, the palaces and department stores).
+// Their hero footprints now stamp protected London tiles, so map geometry —
+// and thus the heroTable baked into saves — changed; bump so old saves rebuild.
+// v16 (W3 round 3): 18 MORE bespoke London heroes placed (82 → 100, the
+// doctrine target) — the listed City/West-End blocks, the council estates +
+// stucco terraces, a college, a Crown Court, the Chelsea Flower Show marquees
+// and the King's Cross Coal Drops. New hero footprints stamp more London
+// tiles ⇒ map geometry + the baked heroTable changed again; bump so old saves
+// rebuild their hero placement from the committed names.
+export const SAVE_VERSION = 16;
 
 /** Guard for untrusted save payloads; lives beside SAVE_VERSION so the two
  *  can never drift apart again (a stale guard silently discarded saves). */
 export function isSaveData(d: unknown): d is SaveData {
   if (typeof d !== 'object' || d === null) return false;
   const v = (d as { v?: unknown }).v;
+  // v14: London PLACEMENT wiring — buildLondonMap now calls buildHeroTable, and
+  // ~30 new NAMED_PLACES place London's 41 bespoke registry heroes (the rail
+  // termini, the great museums, the palaces, the South-Bank set, the City
+  // civics) into the `landmark` raster as multi-tile HERO_BASE footprints
+  // (protected building-exclusion fabric). A v13 asset could sit on what is now
+  // a protected hero precinct, so v13 saves are retired here.
   // v13: landmark RESIZE pass (owner playtest, 2026-06-13) — the hero venues
   // grew from 1×1 dots to dominant multi-tile footprints: the Olympic Stadium
   // (3×3) and Wembley (2×2) in/near Stratford, the O2/Millennium Dome (3×3) on
@@ -467,11 +492,11 @@ export function isSaveData(d: unknown): d is SaveData {
   // network assets can sit on what is now water, carriageway or protected
   // fabric. (v9 re-laid streets on the tile-edge lattice; v8 moved the
   // whole geography; v7 the id scheme.)
-  return typeof v === 'number' && v >= 13 && v <= SAVE_VERSION;
+  return typeof v === 'number' && v >= 14 && v <= SAVE_VERSION;
 }
 
 export interface SaveData {
-  v: 13;
+  v: 16;
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;

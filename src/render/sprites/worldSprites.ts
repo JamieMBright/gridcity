@@ -125,7 +125,7 @@ export function groundRapeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 export function groundPloughTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 9341 + 7);
-  const soil = hex('#8a6242');
+  const soil = COLORS.soil;
   iso.floor(soil, darken(soil, 0.14));
   const off = rng.range(0, 0.05);
   for (let v = 0.06 + off; v < 0.97; v += 0.09) {
@@ -143,7 +143,7 @@ export function groundPloughTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 export function groundMarshTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();
   const rng = new Rng(seed * 7717 + 5);
-  const marsh = hex('#7d8a4e');
+  const marsh = COLORS.marsh;
   iso.floor(marsh, darken(marsh, 0.14));
   // standing water pools
   for (let i = 0; i < 2 + rng.int(2); i++) {

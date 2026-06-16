@@ -12,6 +12,596 @@
 
 ## Open
 
+### 🏁 OWNER DIRECTIVE (2026-06-16 16:12): "Finish, test, critique all you're doing, then merge when ready."
+THE plan to close out this branch (PR #63) to PRODUCTION:
+1. FINISH heroes: Batch 8 (NYC/Cairo/Shanghai/Athens → 100), then NE 89→100. Every city
+   with ≥100 notable buildings reaches 100; Cape Town (~88) + Pune (~31) at their real ceilings.
+2. TEST: full local e2e on a fresh server + tsc/eslint/vitest/build + London byte-stable.
+3. CRITIQUE: honest design-gate pass — real in-game screenshots (far/mid/close per city +
+   marquee close-ups), critique HARSHLY vs the real buildings (per CLAUDE.md graphics gate);
+   list what's genuinely good vs weak/needs-polish; fix the worst before merge.
+4. MERGE PR #63 → main (auto-merge standing policy: green CI + critique-passed). Then it's LIVE.
+   (NOTE: tutorials/playtest-re-raise W7 NOT done — flagged to owner; a follow-up after merge.)
+
+### 🌊 WAVE PLAN (owner, 2026-06-16: "Analyse tasks into waves of work that make a sensible PR, and use sub agents to action them.")
+The whole open backlog, sequenced into waves. Branch is `claude/serene-edison-h6tebf`
+(one feature branch, owner-mandated) so each wave lands as a self-contained,
+design-gated, green commit (≈ a sensible sub-PR). Subagents (Opus) action the
+parallelisable waves; the main session keeps the keep-alive drumbeat + integrates.
+
+**LIVE STATUS (2026-06-16 ~07:00):**
+- ✅ W1 Unified HUD — DONE, e2e-green, pushed (6689f2f).
+- ✅ W2 Hero spine — DONE, pushed (167c54a): heroTable + registry breaks the 255 ceiling.
+- ✅ W2b Off-atlas hero textures — DONE, e2e-green, pushed (eab9bd4): removes the 4096
+  sheet ceiling (heroes ride own cached textures) → 100 bespoke heroes/city now POSSIBLE.
+- ✅ Scaffold — DONE, pushed (aa12730): all 12 hero modules registered (collision-free fan-out).
+- ✅ Hero fan-out BATCH 1 LANDED, pushed (4e9f91f): London 41, Paris 30, Cairo 38
+  (+Giza Sound-&-Light), New York 38 = 147 bespoke heroes. + placement-gap fix
+  (any researched hero now places, not just OSM-flagged landmarks).
+- ✅ BATCH 2 LANDED (9b5bb12): London PLACED (41 render, SAVE_VERSION 13→14), Paris 88,
+  Sydney 32, Berlin 35.
+- ✅ BATCH 3a LANDED (e533834): Shanghai 40, Cape Town 38, Hong Kong 38, Athens 37.
+- ✅ BATCH 3b LANDED (d9f3b43): Pune 31, NE England 67, Cairo R2 90, NYC R2 79.
+  → **616/1200 bespoke heroes across ALL 12 cities** (london 41, paris 88, newyork 79,
+  cairo 90, sydney 32, berlin 35, shanghai 40, hongkong 38, capetown 38, athens 37,
+  pune 31, northeast 67). Every city renders bespoke heroes; all gates green; London byte-identical.
+- ✅ BATCH 4 LANDED (5ca36b5): Sydney 70, Athens 84, Cape Town 72, Hong Kong 103.
+  → **800/1200 across 12 cities** (HK 103, Cairo 90, Paris 88, Athens 84, NYC 79,
+  Cape Town 72, Sydney 70, NE 67, London 41, Shanghai 40, Berlin 35, Pune 31).
+- ✅ BATCH 5 LANDED (c4ae85b): London 82 (placed, SAVE_VERSION 14→15), Berlin 71, Shanghai 76.
+  NYC-enrich pilot = NO-OP (all 79 NYC heroes already placed via the placement-gap fix).
+  → **913/1200 across 12 cities** (HK 103, Cairo 90, Paris 88, Athens 84, London 82, NYC 79,
+  Shanghai 76, Cape Town 72, Berlin 71, Sydney 70, NE 67, Pune 31).
+- ✅ BATCH 6 LANDED (aee6f4c) — MILESTONE: **London 100 + Paris 105** (owner must-haves at
+  the 100 standard), Sydney 103, NE 89. London R3 drew+placed 18 (SAVE_VERSION 15→16); Paris
+  drew+enriched the 17 famous (Panthéon/Pompidou/Montparnasse/gares/Grande Arche/Stade de
+  France…); NE enriched so Tyne Bridge/Angel/Durham now render. → **1003/1200 across 12 cities**
+  (London 100, Paris 105, Sydney 103, HK 103, Cairo 90, NE 89, Athens 84, NYC 79, Shanghai 76,
+  Cape Town 72, Berlin 71, Pune 31). Full e2e validating (London is default city + changed).
+- ✅ MILESTONE e2e GREEN (56 passed, 0 fail, 16.3m) — London-100 (default city) + SAVE_VERSION 16 play cleanly.
+- ✅ BATCH 7 LANDED (61b9def): Berlin 100, NYC 96, Shanghai 92, Cape Town 88 (drew+enriched
+  the famous-absent: Fernsehturm/Tempelhof, One WTC/Statue/Brooklyn Bridge, Bund banks/Pudong
+  towers, Cape Town Stadium/City Hall). → **1081/1200 across 12 cities; FIVE at 100**
+  (London 100, Paris 105, Sydney 103, HK 103, Berlin 100); NYC 96, Shanghai 92, Cairo 90,
+  NE 89, Cape Town 88 (≈capped — rest are statues), Athens 84, Pune 31 (≈capped ~33).
+- ⏭ NEXT (Batch 8 — finish to 100): NYC 96→100, Shanghai 92→100, Cairo 90→100, NE 89→100,
+  Athens 84→100 (small draw+enrich rounds, each ~4-16 more). Cape Town + Pune are at their
+  realistic building ceilings (owner-allowed fewer). After that the 100/city doctrine is
+  essentially MET for every city with ≥100 notable buildings.
+- ⏭ THEN the rest of the backlog: per-hero night light-show in-game verification (W6);
+  PLAYTEST RE-RAISE (W7: tutorials/vans/storms/auth); per-country operating models (W8);
+  per-city polish (W9: Cairo Giza-desert terrain, thin-river glint); economy/RAV (W10).
+- RECOVERY NOTE: container restarts/idle-reclaims kill in-container subagents; mitigated by
+  committing+pushing every batch (restarts only cost recoverable in-flight work — re-launch
+  on wake). No server-side cron (CronCreate/ScheduleWakeup/send_later) in this session's
+  allowlist; owner /loop in the UI is the only reclaim-proof heartbeat.
+- KEY LEARNINGS: (1) the placement-gap fix already renders every drawn hero whose name is
+  in named[]; the only gap is famous landmarks ABSENT from the OSM named[] (drawn but
+  unplaced) → fix = add them to src/data/cities/<city>.ts named[] (enrichment). (2) Dense
+  city CENTERS saturate (London flagged 5 infeasible) — spread heroes to real/outer
+  positions. (3) London render now evolves each round (064ba58 pin is a stable reference
+  region only — design-gate London directly). (4) Pune ~capped at its ~33 OSM hero count.
+  (5) Run a full e2e before the next milestone (hero rounds gated on unit+design+md5).
+- ⏭ NEXT: round-2 draws for London/Berlin/Shanghai; then the NAMED-LIST ENRICHMENT
+  wave — the famous marquees (Tyne Bridge/Angel/Durham, Empire State-class, HSBC/IFC,
+  Fernsehturm, Cairo Tower, Panthéon, QVB…) are AUTHORED + wired but absent from the OSM
+  `named` lists, so a data pass adds their placements (name+x,y+landmark) in
+  src/data/cities/<city>.ts to render them + reach the famous 100. Plus run a full e2e
+  before the next milestone (hero rounds gated on unit+design+md5 so far; e2e periodically).
+  KEEP-ALIVE: server-side cron tools (CronCreate/ScheduleWakeup/send_later) are NOT in
+  this session's allowlist, so the only reclaim-proof heartbeat is the owner running
+  /loop in the UI; in-session I stay active (no idle-waiting) + Monitor backup.
+
+- **W1 — Unified perimeter HUD** (IN PROGRESS, subagent): one wraparound chrome,
+  dedicated non-overlapping zones, desktop + phone-landscape. (TASKS §UNIFIED PERIMETER HUD)
+- **W2 — Hero SPINE (enabler, blocks W3+):** break the 255-value landmark-raster
+  ceiling. A per-city bespoke-hero REGISTRY (string keys, own file per city →
+  collision-free parallel work) + heroes carried as a placed LIST with a
+  `heroKey` re-resolved at runtime from the stored name (no artifact regen) +
+  atlas bakes each registered hero + renderer draws heroes from the list with
+  their bespoke light + a TEST that COUNTS bespoke heroes/city (makes the
+  doctrine measurable). London migrated onto the path (owner wants London
+  transformed; SAVE_VERSION bumped if footprints move).
+- **W2b — Hero TEXTURE CAPACITY (enabler, blocks W3+; owner-surfaced feasibility
+  constraint):** the shared sprite atlas is a SINGLE 4096×4096 sheet (hard `throw`
+  on overflow) already at ~3950px — it physically CANNOT hold 100 bespoke sprites
+  per city. Fix: bespoke heroes (sparse, ≤100, static) render as their OWN cached
+  textures (baked by art-fingerprint key, drawn as Sprites at the tile anchor with
+  headroom), NOT as shared-atlas frames. Removes the 4096 ceiling for heroes
+  entirely, leaves the shared tile atlas byte-identical (London safe), and is
+  lighter on mobile memory than a 2nd 4096 sheet (only PLACED heroes bake). The
+  W2 registry/heroTable/placement is reused as-is; only the bake+draw layer
+  changes. Without this, the 100-hero waves overflow the atlas and throw.
+- **W3 — LONDON → 100 bespoke heroes** (subagent, from docs/heroes/london/100):
+  bespoke iso sprite + bespoke night electrification light each, all placed,
+  per-hero sizing (the Shard towers, Heathrow is a monster). Owner must-have.
+- **W4 — PARIS → 100 bespoke heroes** (subagent, docs/heroes/paris/100): same. Owner must-have.
+- **W5 — the other 10 cities → bespoke heroes + lighting** (parallel subagents,
+  batched): NYC, Sydney, HK, Berlin, Shanghai, Cape Town, Cairo, Athens; +
+  Pune & NE England (need docs/heroes/ first). 100/city is the standard;
+  reduce only where a city genuinely has fewer iconic structures (owner allowed).
+- **W6 — Giza gameplay + per-hero light-show polish:** energisable Sound-&-Light
+  LOAD at Giza; verify every hero's electrification animation is bespoke + gated.
+- **W7 — PLAYTEST RE-RAISE** (own sub-waves, each a commit):
+  W7a Auth/settings/menu (Enter-to-sign-in, distinct tab filters, change-password,
+  bolt icon, end-to-end login). W7b Vans on the map. W7c Turbine footprint bug +
+  wind-farm icon + capacity picker. W7d Severe-weather v2 (7-day notice, Met
+  Office colours, km/h gusts, system-prepare levers). W7e Tutorials 1-5 overhaul
+  + structure (campaign→tutorial, lessons page, step-gating, more lessons).
+- **W8 — Per-country operating models** (FR/AU/HK/BR seams part 2b + tender flows).
+- **W9 — Per-city polish** (thin-river water glint Cairo/Pune/NE; NE Alnwick framing).
+- **W10 — Economy depth:** RAV/revenue/incentives; favour-login progression gating;
+  reusable CitySpec template.
+
+### 🌍 CITY PICKER — PLAYABLE MULTI-CITY (owner, 2026-06-15) — DONE (pending parent design-gate + push)
+"When you press New Game, offer the cities to play. Selecting a map can be
+open to all for now so I can test. Consider how saved game state will handle
+it." Made cities PLAYABLE; proven end-to-end on Paris; framework ready for the
+rest. London byte-identical.
+- [x] **CITY PICKER on New Game (src/ui/CityPicker.tsx):** New Game opens a
+      picker. London + Paris PLAYABLE (orange PLAY cards); the 10-city roster
+      (Sydney/NY/Berlin/Shanghai/HK/Cape Town/Cairo/Athens/Pune/North-East
+      England) listed as disabled "SOON" cards w/ difficulty pips + blurbs. Open
+      to all (no rank gating). Lofi dusk styling; responsive grid (desktop +
+      phone-landscape, scrolls). Playable set is DATA-DRIVEN (london + whatever
+      has a committed artifact, CITY_DATA_IDS) so adding a city flips it live.
+- [x] **SCENARIO REGISTRATION + LAZY LOAD:** Paris registered in CITY_SCENARIOS
+      (build() = buildCityFromData(cityDataFor('paris'))). New module
+      src/data/scenarioData.ts: a registry + `loadScenarioData(id)` that dynamic-
+      imports ./cities/<id>.ts and registers its CityData; cityDataFor reads it
+      synchronously. MapView's effect + the worker's newGame/start handlers AWAIT
+      the preload before any sync build(); worker messages are now chained so a
+      'command' can't overtake the newGame that builds its map. PROVEN split:
+      `dist/assets/paris-*.js` = 421 KB OWN chunk (gzip 52 KB), off the main +
+      worker bundles + off the London path.
+- [x] **SAVE STATE by scenarioId:** unchanged save shape — scenarioId already
+      serialized off 'london'; map never serialized, rebuilt from scenarioId via
+      newContext. **SAVE_VERSION NOT bumped (stays 13): additive-only, no map
+      geometry change.** worker.start awaits the save's scenario artifact before
+      deserialize→newContext. e2e PROVES: Paris save reload → restores Paris;
+      London save → London. Unit: tests/cityPicker.test.ts (Paris↔Paris round-
+      trip, London no-scenarioId, map fields never serialized).
+- [x] **RENDERER GENERALISATION:** scenery now rides ON the CityMap
+      (named/towns/airports/fabric — types in sim/map/types.ts; London fills its
+      NAMED_PLACES/TOWNS/AIRPORTS, Paris via buildCityFromData + CDG/Orly
+      fallback). MapRenderer reads labels/airports/river from the map (dropped
+      the londonMap imports for those); a primary city label (LONDON/PARIS) is
+      centroid-placed; the barge river lane follows the map's actual water for
+      non-London; atlas now bakes per map.fabric (applyCityFabric before getAtlas)
+      and the fingerprint + IndexedDB slot are fabric-keyed so London & Paris
+      cache distinctly; the London-only estuary-marsh tileChooser guard is gated
+      to the london fabric. setZoom now guards on the renderer being inited (it
+      raced a scenario switch). seedScenario gated to london (Paris opens blank —
+      blank-grid doctrine; FR seeding lands with FR mechanics later).
+- [x] **GUARDRAILS — all green:** London preview md5 == 68918a994f3e543bc2589c
+      88e055c66c (byte-identical). tsc/eslint(src tests e2e tools)/build green;
+      full vitest 692/692 (1 timeout-flake on landmarks atlas test, passes in
+      isolation + on re-run, unrelated to this change). London e2e app/build/
+      campaign (14 tests) PASS on a fresh server. e2e/citypicker.helper.spec.ts
+      drives the real flow + screenshots: preview/citypicker.png, paris-ingame-
+      {far,mid,close}.png, paris-reloaded.png, london-after-paris.png — all
+      inspected (picker dusk-styled; Paris renders Seine+Haussmann; reload keeps
+      Paris; London plays w/ town labels intact).
+  KNOWN LIMITATIONS (noted, not blocking): SearchBox + InfoPanel hover-name use
+  London's NAMED_PLACES, so Paris has no place-search / monument hover label yet
+  (SearchBox already hidden for non-london). Paris resolves to LONDON_PROFILE
+  (no FR power/economy/regulator seams yet) — playable but GB under the hood.
+
+### 🏙 HERO FLURRY (owner, 2026-06-14 21:10 → 06-15 05:54) — IN PROGRESS
+The owner's reaction to the hero work (commits ad08b36 / b550a16 / 8d8a1cc /
+7d6c3d6). Later prompts supersede earlier; the through-line is "heroes must
+TOWER, proportionally, each one bespoke."
+- [x] **UNLOCK THE Z-CAP FOR HEROES — DONE (said 3×, most recent 05:32;
+      AskUserQuestion answer: "Definitely lift the ceiling height. I want
+      proportional heroes to the surrounds. The Shard towers over London so it
+      should in the game. Same for London Eye / BT Tower etc. Just careful not to
+      hide buildings 100% by the heroes.").** ROOT CAUSE: the sprite engine
+      capped EVERY building's z by its footprint — a 1×1 canvas is CELL_H tall so
+      anything above z≈160 clipped at the top (the Shard was authored at H=176,
+      already clipped). Bigger footprints (swAnchorDims) bought height → the
+      2×2/3×3 coupling the owner rejects. FIX: added `headroom` to Iso (taller
+      canvas + all drawing shifted down so the floor stays pinned); the atlas
+      AUTO-DETECTS it from the baked buffer height (no constants to thread, no
+      `set()` call sites touched) and stores it on the frame; the renderer
+      (paintTile + applyTrim) and the preview tool LIFT placement by it. headroom
+      defaults to 0 ⇒ every existing sprite byte-identical (PROVEN: atlas + city
+      crop md5 unchanged at the no-op stage). Retuned marquee heroes to tower:
+      Shard z176→300, BT Tower z168→232, London Eye bigger high-riding wheel,
+      the generic skyscraper heroes reworked from squat wedding-cakes into SLIM
+      tall prisms (~z258), Notre-Dame flèche/towers raised (~z226). Slim
+      footprints keep neighbours visible. Unit test `tests/spriteHeadroom.test.ts`
+      (floor-pinning invariant + cap-exceed + atlas auto-detect); atlas stays
+      3840×3829 < 4096. Design-gated: far/mid/close London crops + per-hero
+      dumps. (This session ALSO shipped: civic split ✓ + bespoke per-city
+      palettes/terrain ✓ — see below.) STILL TBD: per-hero bespoke sizing
+      (Heathrow MONSTER / Eiffel open space), bespoke sprites for the hero
+      long-tail, and the 8 city-map DATA builds (only paris.ts exists).
+- [ ] **Per-hero SIZE is bespoke, not a blanket footprint (21:10 / 21:15):**
+      "height AND width WITHIN the square — it towers over neighbours and is tall
+      and wide within whatever square it stands in. 3×3 as a blanket rule won't
+      always work." Each hero gets its own size considerations: Heathrow is a
+      MONSTER; the Eiffel has lots of open space around it; Citibank is a
+      skyscraper among skyscrapers (slim+very tall). A bridge / train station /
+      airport can each be a hero.
+- [ ] **Civic "marble squares" are BAD (21:15):** the grand-civic generator
+      reads as flat marble blocks with an unnecessary parvis APRON. Drop the
+      apron UNLESS the real hero genuinely has open space around it (Eiffel yes);
+      otherwise make the building actually wider + taller WITHIN its footprint.
+  - **CIVIC SPLIT (owner decision, 2026-06-15) — DONE:** "Civic differs per city
+    — some awful, some grand. Make ORDINARY civic a STANDARD TILE-SIZED building,
+    NO apron, styled by the city palette. UNLESS it's a hero (grand town halls
+    etc). FORCE town halls to be heroes." Implemented this session:
+    - [x] New generic `civicTile(seed,variant)` (1×1) keyed on `wallColor()`/
+      `roofColor()` (honours `setWallRoofPalette`, so it picks up each city's
+      palette) → atlas `lm_civic0..3`; chooser maps `LANDMARK.civic` (=40,
+      append-only) → `lm_civic{tileHash%4}`.
+    - [x] `tools/seededCity.ts`: route ORDINARY civic (clinic/library/public
+      office/depot + small named civic) to `LANDMARK.civic` 1×1, NO park apron
+      (stamps landmark only, sits on street fabric). Stopped assigning `grand`+
+      block-park to ordinary civic. Paris log: 100 heroes + 220 tile-civic.
+    - [x] FORCE grand-civic TYPES to heroes regardless of notability score:
+      town hall / government seat / parliament → `grand`; opera/concert hall →
+      `grand`; major (named, tourism-tagged) museum → `grand`; cathedral/
+      basilica/minster/mosque/temple → `dome`; stadium/airport keep bespoke.
+      Town halls ALWAYS heroes. school/parish-church stay tile-sized specials.
+    - [x] `grandTile` kept ONLY as the fallback for a grand civic with no
+      bespoke sprite (town hall/museum/opera/govt) — never ordinary civic.
+    - [x] `tools/osm/buildCityFromOsm.ts` `placeHeroes`: consistent — tile-civic
+      (`civic`/`church`/`school`/`station`) placed 1×1 with NO parvis apron;
+      town hall/govt + museum/opera → `grand` hero. (paris.ts NOT regenerated —
+      additive code only; cityData.test still green.)
+    - [x] GUARDRAIL VERIFIED: London preview md5 = `68918a994f3e543bc2589c88e0
+      55c66c` (byte-identical — London never uses `grand`/`civic`). Atlas
+      3839×3757 ≤4096. tsc/eslint clean; full vitest 682/682 green; build OK.
+      Design-gate: preview/civic-{paris,cairo,newyork}-{far,mid,close}.png +
+      preview/civictile-{paris,newyork,cairo,london}.png (isolated) + hero-
+      {grand,townhall}-*.png. Marble-square aprons GONE; ordinary civic reads
+      as tile-sized city-styled blocks; town-hall-class buildings = grand heroes.
+- [~] **Every hero RESEARCHED + bespoke, never reused (21:19 / 23:47):** research
+      STORED — ~1000 per-building docs in `docs/heroes/<city>/` (100/city, prior
+      session) + `docs/cities/<city>.md` × 8 (palette + ranked top-20 with verified
+      heights, this session). The marquee London/Paris heroes are bespoke + now
+      TOWER (z-cap). OPEN: build bespoke sprites FROM the stored research for the
+      long tail (most non-marquee heroes still use archetypes), one city at a time.
+- [ ] **AUTOMATE hero discovery → render — the owner should NOT name specific
+      buildings (owner, 2026-06-15 13:30: "I shouldn't have to ask for specific
+      hero buildings; you're supposed to automate that process").** Discovery is
+      already automated (research docs). CLOSE THE LOOP: the pipeline must
+      AUTO-SELECT + place a sprite for EVERY discovered hero from its TYPE +
+      research (height/materials/colour) — bespoke sprites for the unique iconic
+      forms (pyramid, Eiffel, Opera House…), parameterised archetypes for the long
+      tail — with NO per-building hand-curation. e.g. a `pyramid` ARCHETYPE + a
+      `pyramid`→sprite type-mapping makes EVERY discovered pyramid in ANY city
+      render itself (Giza just exercises it first). Build the type→sprite resolver
+      as the spine of hero rendering.
+- [x] **Per-city PALETTE + STYLE — DONE (23:47 + 06-15 12:10): "bespoke per city…
+      super rich blues of Sydney, grey drab of NYC, dusty Cairo… TERRAIN is more
+      important for tile colours."** Implemented bespoke per-city palettes that
+      carry each city's FEEL via TERRAIN (ground/water/vegetation) + skyline
+      (tower/office/skyscraper glass+concrete) + walls/roofs — not just low fabric.
+      `palette.ts`: COLORS made mutable + terrain tokens (soil/marsh/aridSand/rock);
+      `EnvPalette`/`setEnvPalette()` overlays a city's tokens over a captured London
+      baseline. `buildingSprites.FABRICS[city].env` authored per city; `applyCity-
+      Fabric` sets it. `previewCity.ts` now applies the real `data.fabric`.
+      Design-gated ALL 8: Sydney rich blue, NYC drab grey + Central Park, Cairo
+      dusty desert + Nile, Athens pale Mediterranean, HK teal glass, Cape Town
+      Atlantic, Berlin grey horizontal, Shanghai jade. London BYTE-IDENTICAL
+      (md5 68918a…), atlas ≤4096, vitest 682. Polish TODO: Cairo's wide-water
+      reads a touch bright at mid-zoom (env water `#5e8ba0`) — could mudden the
+      Nile; verify the seededCity wide-water uses the env water token.
+- [x] **RENDER MAPS for a batch of cities — DONE (2026-06-15).** ALL 12 are now
+      PLAYABLE from the New Game picker (London + Paris + New York + Sydney +
+      Hong Kong + Berlin + Shanghai + Cape Town + Cairo + Athens + Pune + North-
+      East England). Each: a committed OSM CityData artifact (lazy chunk) + a
+      per-city FABRICS palette + the hero type→sprite resolver + the
+      electrification light-show, registered as a selectable scenario, save-state
+      keyed by scenarioId. London byte-identical throughout; e2e green each batch.
+      REMAINING per-city polish (non-blocking): thin-river water glint (Cairo/
+      Pune/NE — wide water reads right); NE England framing omits Alnwick (chose
+      the tighter Tyne+coast window — a wider re-tune is a later option); bespoke
+      hero long-tail (most non-marquee heroes still resolve to archetypes); FR/US/
+      etc. per-country operating-model seams (all resolve to LONDON_PROFILE now).
+- [x] **MORE cities (owner, 2026-06-15 15:03) — DONE:** Pune + North-East England
+      built, palettes authored, registered + playable (see above).
+  - [ ] **PUNE, India** — research palette + heroes (Shaniwar Wada fort/palace,
+        Aga Khan Palace, Dagdusheth Halwai Ganpati temple, Sinhagad Fort,
+        Shreemant Dagdusheth, the IT/Hinjawadi towers, Pune Junction) → docs/
+        cities/pune.md + docs/heroes/pune/ + a warm Deccan-stone/colourful-render
+        fabric; then map + integrate like the rest.
+  - [ ] **NORTH EAST ENGLAND** (a REGION, not one city): Newcastle + Gateshead +
+        Sunderland + Durham, the NORTH SEA coast, north up to ALNWICK CASTLE
+        (Northumberland). Heroes: Tyne bridges (esp. the Tyne Bridge + Gateshead
+        Millennium Bridge), the ANGEL OF THE NORTH, Durham Cathedral + Castle,
+        Alnwick Castle, St James' Park, Stadium of Light, Penshaw Monument, the
+        Sage/Glasshouse, BALTIC, the quaysides + coast. NE palette: buff/honey
+        sandstone + red brick + industrial/coal heritage + grey North Sea.
+        docs/cities/north-east-england.md + docs/heroes/* + map + integrate.
+- [ ] **PYRAMIDS OF GIZA must feature + the Sound-&-Light floodlighting needs
+      ENERGISING (owner, 2026-06-15 13:27).** They're researched (docs/cities/
+      cairo.md: Great Pyramid 138.5 m near-solid honey-limestone, weathered
+      stepped texture, missing casing except faint apex remnants, ~1.57:1
+      base:height; Khafre + Menkaure beside, Khafre keeps a casing cap; Sphinx
+      20 m × 73 m couchant facing east in front) but there is NO pyramid sprite
+      and Cairo has no map data, so today they don't feature. BUILD:
+  - [ ] Bespoke `pyramidTile`/Giza hero sprite: the three pyramids (Great +
+        Khafre-with-cap + Menkaure) + the Sphinx on tawny sand, honey limestone,
+        weathered stepped faces. Multi-tile, massive + low (broad-based, not a
+        tall tower) — its own bespoke size, NOT a blanket footprint. LANDMARK +
+        atlas + tileChooser; map "pyramid/Great Pyramid/Giza" hero → it in the
+        Cairo pipeline. Add floodlight FIXTURES + warm uplighting on the faces.
+  - [ ] GAMEPLAY: the nightly Sound-&-Light show is an energisable LOAD — model
+        Giza as a notable DEMAND point the operator must connect; when energised
+        the floodlights glow (reuse the powered-area glow). Lands with the Cairo
+        map + demand model (Cairo data must be built first).
+  - [x] v1 SHIPPED (016bd9d): a single `pyramidTile` (5×4) holds the whole Giza
+        group + the type→sprite resolver auto-maps any discovered pyramid to it.
+  - [~] REFINE (owner, 2026-06-15 13:57 + high-level Giza photo): the real plateau
+        SPREADS the structures out — split into SEPARATE heroes: three distinct
+        pyramid heroes (Khufu largest, Khafre with the casing CAP, Menkaure
+        smaller) + the SPHINX as its OWN hero, each with its own footprint so they
+        stand FREE on open desert (no occluding cluster). Resolver maps each
+        type/name → its sprite; placement spreads them with cleared sand aprons.
+        FINISH PASS (subagent, 2026-06-15) — completed the stalled split:
+    - [x] Separate sprites lm_pyramid_great/khafre/menkaure verified GOOD
+          (broad+low, Khufu missing-capstone + casing remnants, Khafre keeps the
+          summit casing cap, Menkaure smallest); wired in atlas + tileChooser +
+          BESPOKE_FOOT + PYRAMID_FOOT.
+    - [x] REDREW the Sphinx (3 passes): low long couchant lion body (longer than
+          tall), forepaws stretched forward, upright head in the striped trapezoidal
+          NEMES headdress (wider at the shoulders), honey-grey limestone, 2 base
+          floodlights. Footprint 2×1 → 3×2 (room for the long body + paws); built
+          from solid extruded boxes so masses read, not thin billboards. Reads
+          unmistakably as a couchant Sphinx at iso scale (isolated dump + in-scene).
+    - [x] Retired the old monolith: pyramidTile is now the parameterised single
+          pyramid; the old whole-Giza sprite + its lm_pyramid atlas frame are GONE
+          (asserted: buildAtlas has no 'lm_pyramid' frame). LANDMARK.pyramid (41)
+          kept as a deprecated enum value, aliased in LANDMARK_SPRITE →
+          lm_pyramid_great for old-save stability.
+    - [x] Resolver mapping confirmed (Khufu/Cheops→great, Khafre/Chephren→khafre,
+          Menkaure/Mykerinos→menkaure, Sphinx/أبو الهول→sphinx, bare pyramid/giza→
+          great); tests/heroSprite.test.ts rewritten to the split heroes (4 tests
+          green).
+    - [x] Placement spreads the four on open desert with cleared aprons — both
+          pipelines (seededCity + buildCityFromOsm) route each Giza structure as a
+          SEPARATE discovered hero through the resolver, each with its own footprint
+          + apron, so they stand free (no monolith stacking). Stale 5×4 comments
+          updated.
+    - [x] Gates: London md5 = 68918a994f3e543bc2589c88e055c66c (byte-identical);
+          atlas 3965×3935 ≤4096; tsc + eslint clean; vitest 686/686; build OK.
+          Design render: 4 heroes free + spread in a diagonal, Sphinx out front.
+- [ ] **PER-HERO ELECTRIFICATION LIGHT-SHOW ANIMATIONS (owner, 2026-06-15 13:28):
+      "some form of electrification animation for each of the heroes — like a
+      night-time light show on the Eiffel Tower etc."** Every hero gets a BESPOKE,
+      signature night light-show that activates WHEN ENERGISED (ties the heroes
+      to the game's core loop — powering literally lights them up): Eiffel golden
+      sparkle/twinkle (the 20:00 flashbulb shimmer); Empire State colour-changing
+      crown; Sydney Opera House sail projections; the Shard's spire glow; Big Ben/
+      Parliament floodlighting; London Eye colour-cycling rim; Giza sound-&-light
+      floodlights. NOTE: this is the CHARACTERFUL, per-hero version — NOT the cheap
+      generic additive bloom that was removed (owner 06-13: "looks like
+      electricity"). Likely a per-frame render layer (like the wind rotors)
+      keyed to the asset's energised state, lazy/cheap, distinct animation per
+      hero. Design-gated. Sizable render feature — sequence after the cities have
+      heroes to light.
+
+### 🔁 PLAYTEST RE-RAISE + NEW FEEDBACK (owner, 2026-06-15 13:30) — "previous feedback that doesn't feel well implemented; some slipped or wasn't verified" → ACTUALLY implement AND VERIFY each (re-opens the 2026-06-13 TUTORIAL OVERHAUL + GAME/UX BUGS sections below; this is the authoritative restatement).
+**AUTH / SETTINGS / MENU**
+- [ ] Password field: ENTER triggers the sign-in button.
+- [ ] Sign-in / Create-account TAB filters currently highlight the SAME as the
+      action "sign in" button → confusing. Make the tab filters a solid pale
+      infill, visually distinct from the action button.
+- [ ] Settings menu: sign-out is off-centre; add CHANGE PASSWORD (old / new /
+      confirm-new / submit). Consider making Settings its own popup (cleaner?).
+- [ ] Remove the SQUARE icon from the main menu (owner dislikes the square home
+      icon). Use the lightning BOLT from between the ELECTRI⚡CITY wordmark on a
+      blue background — super simple.
+- [ ] LOGIN didn't really work (re-raise — end-to-end auth, ties to Supabase
+      Site-URL + styled callback).
+**TUTORIAL 1 — onshore wind**
+- [ ] Highlight on the onshore-wind button must VANISH the moment it's clicked
+      (same bug on the dist-sub/33kV-line highlight — disappear on click).
+- [ ] Guided play: darken everything except the target + highlight it; AFTER the
+      click, highlight the suitable LAND to click next. Make guided-play a
+      standing feature (e.g. award/bid bubbles pop to draw attention).
+- [ ] Highlight design: add an ARROW pointing at the target with a BOUNCING anim.
+- [ ] Allow only ONE onshore-wind facility (simplicity).
+- [ ] Make them actually click ▶▶▶; when a bid lands, show it, then tell them to
+      click ▶▶7d to gather all bids.
+- [ ] Teach a BID: all offer the same 100 MW unit but differ on £ — the white
+      £/MWh goes on customers' ENERGY bill; the curtail £ is compensation you pay
+      if you cut them, landing on the STANDING-CHARGE part. Lower is better on both.
+- [ ] TURBINE FOOTPRINT BUG: defaults to 15 MW + says "3 tiles" but renders/builds
+      a 10×4 diagonal — advertised size ≠ what lands. Should be ~5 MW per square;
+      the reserved footprint must equal the advertised footprint.
+- [ ] CAPACITY PICKER: scroll up/down AND +/- keys change installed cap in 5 MW
+      increments; HOLDING scales to a sensible max (500 MW for 132/400 kV) down to
+      1 MW (11 kV connection). Tutorial asks ~15 MW (not 100). Explain sizing
+      (bigger install needs more network — find the sweet spot) + show a rough
+      "powers ~N homes" estimate beside the capacity + introduce standing-charge aims.
+- [ ] WIND-FARM ICON wrong: should be WHITE with a tapering mast; blades
+      wing-shaped (narrow at hub → widening → tapering to a point), and LARGE —
+      ≥60% of the hub height.
+- [ ] Step 5/6 wording: replace "arm the 33 kV line" with plain language — "this
+      onshore wind farm has a 33 kV connection, so run 33 kV circuits from the
+      turbines to the distribution substation so power can flow." Teach: after a
+      line the 33 kV tool STAYS armed for the next click; end it via Esc / pick
+      another tool / click the same connection point twice (VERIFY that works).
+- [ ] After placing, click the turbine to INSPECT its connection voltage.
+- [ ] Teach demolish line + dist-sub, turn AUTO-CONNECT on (needs a HOTKEY),
+      re-place the dist sub to auto-connect.
+- [ ] MULTI-TILE installs must be selectable on ANY of their tiles — run the line
+      from any tile the farm occupies, not only the originally-clicked tile (the
+      farm bleeds beyond its auctioned tile).
+- [ ] Don't end on connect — let them watch power FLOW to homes; put a "finish
+      tutorial" button on the 6/6 step tile.
+- [ ] Prevent unrelated APPLICATIONS spawning during tutorials (confusing).
+- [ ] HIDE unnecessary overlay info during tutorials (introduce it over lessons).
+- [ ] Remove the "skip tutorial" option from the steps (tutorial is the only play).
+- [ ] Confusion: the dist sub is 33 kV/LV immediately → add a PRIOR lesson
+      teaching BSP / grid site / distribution site + the voltage levels.
+**TUTORIAL 1/3/5 — step gating + completion (applies broadly)**
+- [ ] Don't allow "next" until the step's GOAL is achieved.
+- [ ] Mission-complete popup must appear ONLY on clicking "finish tutorial" in the
+      steps area — not instantly the moment the objective is met.
+**TUTORIAL 2 — offshore**
+- [ ] 2nd-pane wording weird ("Try a 33 kV line…") → have them INSPECT the offshore
+      unit to learn its kV instead.
+- [ ] The "BUILDING Offshore Wind" top label blocks the tutorial notes → let the
+      notes DOMINATE more of the screen + hide as steps execute (recallable).
+- [ ] Teach UNDERGROUND cables (happier locals, less coastline interference).
+**TUTORIAL 3 — storm (largely NOT delivered — re-raise: no storm report popup,
+no system-prepare, no slow-down, no weather overlay, no prep suggestions; saw a
+fault icon but NO van)**
+- [ ] Step 1/5 text hard; drop "already wired"; clearer for beginners.
+- [ ] HIGHLIGHT the incoming alert; clearer alerts for major storms.
+- [ ] PAUSE the clock on major alerts until dismissed (idled through a storm that
+      restored unseen — need prep time).
+- [ ] Storm mode: subtle rain/wind/heat-mirage SCREEN effects, clearly DISTINCT
+      from regular weather; severe weather = a fun slowed-down "emergency system
+      prepare" phase for that day (~2-min experience; player can speed up; levers
+      to improve outcomes e.g. extra vans on temporary standby).
+- [ ] After the field depot, have the player raise vans 0→1 and SEE the van leave
+      the depot and attend the fault.
+- [ ] End the lesson at the end of a system-prepare stage.
+- [ ] Introduce CI & CML here.
+**TUTORIAL 4 — inbox / firm-flex**
+- [ ] Side-by-side VISUAL comparison of firm vs flexible.
+- [ ] Explain what the study message means.
+- [ ] Don't end until the site is BUILT.
+- [ ] Introduce CUSTOMER SATISFACTION; an on-time new connection = 100% satisfaction.
+**TUTORIAL 5 — bill**
+- [ ] Reword "capital is unlimited" → "The network operator can elect any solution
+      they see fit within the allowances set by The Regulator — but every pound
+      lands on customer bills."
+- [ ] Headroom toggle did NOTHING (re-raise — render fix was diagnosed earlier;
+      VERIFY it actually recolours the corridors now).
+- [ ] Allow skipping a mission step forward/backward.
+- [ ] Teach scroll-to-size a dist sub to cover the whole town in one hit.
+- [ ] Teach REINFORCING an existing sub (inspect → increase, cheaper than new).
+- [ ] Place a new application just outside range; connect it by reinforcing the
+      sub's catchment.
+- [ ] Opening bill was sky-high; mission "completed" at £333/yr — sense-check targets.
+**TUTORIALS STRUCTURE**
+- [ ] Tutorials REPLACE campaign; campaign's expanded steps are better → rename
+      campaign→tutorial, delete the old tutorial. Clicking "tutorial" opens a
+      lessons page: every lesson, what it teaches, 0/1/2/3-star rating.
+- [ ] MANY more tutorials covering all the game's mechanisms.
+**GAME FUNCTIONALITY / GRAPHICS / HUD (re-raise — verify each actually works)**
+- [ ] Tile footprint pre-determined so side-by-side bids can't EXPLODE OUT on
+      award (was marked done — re-verify against the turbine-footprint bug above).
+- [ ] Wind turbine NOT centred on the hub mast (was marked done — re-verify).
+- [ ] Esc (when not cancelling a line) opens a menu → Save / Quit to main menu;
+      clicking ELECTRICITY top-right opens the same pane (was done — verify).
+- [ ] Snooze 1h pointless → snooze 2 days (was done — verify).
+- [ ] Severe-weather alerts for the really damaging ones POP to the middle of the
+      screen to dismiss, with a weather MAP showing a hurricane bearing on London.
+- [ ] SEE orange/white VANS attending fault sites (count = player's vans); vans
+      return to a depot between repairs; follow ROADS where possible, else move
+      orthogonally through building-free tiles.
+- [ ] Applications out of reach of any kit give the network MONEY to build out the
+      cables (per the study) — do NOT penalise the operator for new connections.
+- [ ] Map overlay interrupts the finance/bill panel (was done — verify).
+- [ ] HUD panes overlap — can't upgrade the substation, messages in the way (was
+      "done" but owner 2026-06-15 14:xx still sees overlap, with a screenshot).
+- [~] **UNIFIED PERIMETER HUD (owner, 2026-06-15, screenshot — the floating
+      windows still overlap each other + the bill panel).** Stop using separate
+      floating windows. Design ONE wraparound chrome that frames the screen
+      PERIMETER with DEDICATED, non-overlapping zones for each region — build
+      palette, inbox, bill/finance, status/time bar, minimap — so nothing ever
+      covers the map or another panel. Use the game-ui-design / frontend-design
+      skills; design-gate on desktop AND phone-landscape. This supersedes the
+      piecemeal z-order fixes.
+      DONE — parent-integrated + design-gated (subagent W1, 2026-06-16 — branch
+      claude/serene-edison-h6tebf). GATES (re-run by parent on the combined
+      W1+W2 tree): tsc + eslint(src tests e2e tools) clean; vitest 711/711;
+      build OK; London render BYTE-IDENTICAL (the HUD is pure DOM/CSS over an
+      untouched inset:0 map — proven by the relative invariant: London md5 is
+      identical with vs without W1+W2; note the absolute md5 in this freshly
+      cloned container is 064ba58…, not the older 68918a9… pin — a canvas/skia
+      library delta in the env, NOT a render regression). DESIGN-GATE images:
+      preview/hud-desktop{,-right,
+      -left,-trend}.png (1280×800, inbox + bill + pinned inspector ALL open —
+      the overlap stress case) + hud-phone-{idle,inbox,bill}.png (844×390
+      landscape, hasTouch → the real MobileChrome) — zero overlap, map clear in
+      the centre, each panel scroll-contained in its own zone. London e2e
+      (app/build/controls/fleet/menu/undo) re-run on a fresh server.
+      - APPROACH: a single `HudFrame` (src/ui/HudFrame.tsx) CSS-GRID perimeter
+        that overlays the full-screen map. Grid = `[L] [centre] [R]` columns ×
+        `[top] [middle] [bottom]` rows. The CENTRE cell is empty + pointer-
+        transparent (map stays inset:0 underneath, fully visible/interactive —
+        London render byte-identical, HUD is pure DOM/CSS). The four edge tracks
+        are flex containers; each existing panel becomes a flex CHILD of its
+        track with `min-height:0` + inner scroll, so a panel can only ever grow
+        WITHIN its track and scrolls when full — overlap is structurally
+        impossible (no abs-positioned siblings fighting bottom/top offsets).
+      - ZONES: LEFT rail = BuildPalette (tools). RIGHT rail = InfoPanel(pinned)
+        / InboxPanel / BillPanel stacked in dedicated sub-zones, each scroll-
+        contained + flex-shrinkable. TOP bar = wordmark + search + ticker +
+        market + RIIO/netzero/company. BOTTOM bar = clock/speed/skip/undo +
+        toggles + status + goal. FleetPanel docks under the left rail. Minimap
+        + bookmarks pinned to corners INSIDE the frame gaps.
+      - GUARDRAILS kept: every control's text/role/data-testid unchanged so the
+        e2e + functionality are untouched (only the layout containers change).
+- [ ] Substation MVA size scrollable / +- when BUILDING (not just when reinforcing).
+
+### 🛠 OSM PIPELINE BUILD (fresh env w/ egress, 2026-06-14 ~14:50) — IN PROGRESS
+The fresh env HAS the OSM/Wikidata egress. Built the pipeline PROPER
+(`docs/osm-pipeline.md` stages 1–5): `tools/osm/` (project · geometry ·
+net+cache · nominatim · overpass · buildCityFromOsm · emitCityData) +
+`tools/buildCity.ts` CLI + `tools/previewCity.ts` + `src/data/cityData.ts`
+runtime loader. Validated on **real Paris OSM** → `src/data/cities/paris.ts`
+(256×160, water/Seine 7.5%, graded core/urban/suburb, 200 councils, 48 named
+places incl. Notre-Dame/Eiffel/Louvre/Vincennes). Unit tests: `tests/osm.test.ts`
++ `tests/cityData.test.ts`. PURELY ADDITIVE — no live London/sim change.
+- [x] Density driven by REAL road-network density (urbanity field), not a
+      radial guess; land-use → industrial/commercial/park; building footprints
+      → CBD/tall.
+- [x] **Owner flurry (2026-06-14 14:53–14:56):** "light in buildings / only
+      iconic buildings / where's Notre-Dame?" → FIXED: streets stamped
+      `streetTouch` (was `street`, which suppressed the building on every tile);
+      only DRAWN major roads clear tiles (undrawn arterials kept buildings);
+      hero landmarks get a parvis APRON so they're not occluded. Central Paris
+      now reads as dense blocks; Notre-Dame visible on its island.
+- [x] **PER-CITY ARCHITECTURE (owner, 2026-06-14 15:20–15:31): "Paris is very
+      white and grid-like… the template is missing the core research of building
+      stock + architectural styles to make the new sprites — you can't reuse from
+      other cities."** RIGHT. Split the model: the OSM GEOMETRY pipeline is the
+      reusable/universal layer; the ARCHITECTURE is authored per city.
+      Implemented `CityMap.fabric`: (a) a per-city palette (Paris → cream
+      limestone walls + grey zinc roofs; London byte-identical default); (b) a
+      BESPOKE researched `haussmannTile` sprite — uniform ~6-storey pierre-de-
+      taille facade, string courses, tall French windows, wrought-iron balcons
+      filants, steep grey-zinc MANSARD roof with dormers + chimney stacks —
+      placed on Paris's urban/urbanCore tiles via tileChooser. Central Paris now
+      reads as the pale, grid-like, grey-roofed city from the references.
+- [x] **Bespoke gothic NOTRE-DAME** (owner reference photos): new
+      `notredameTile` landmark — twin flat-topped west towers, the great rose
+      window, pointed belfry openings, steep lead nave roof, the central flèche
+      spire, rounded apse + suggested flying buttresses. `LANDMARK.notredame`
+      (append-only); the pipeline maps any `notre-dame` hero to it (other
+      cathedrals stay the dome archetype). Placed on its island parvis at the
+      centre of Paris.
+- [x] **WAY MORE HEROES + DIVERSITY (owner, 2026-06-14 15:48–16:10): "way more
+      heroes, almost every building could be custom… you're using the same
+      sprites everywhere in London, want rich diversity."** Delivered:
+      - **Bespoke Paris heroes:** Eiffel (towering iron lattice + base arch +
+        platforms), Arc de Triomphe (triumphal arch), Sacré-Cœur (white domed
+        basilica), Louvre (palace wings + glass pyramid) — joining Notre-Dame.
+        `LANDMARK.eiffel/arch/basilica/louvre` (append-only); pipeline maps real
+        names. Hero cap 48→90 (27 heroes place in Paris).
+      - **London skyline diversity:** towerTile/officeTile now take a variant
+        driving colour/height/width/crown; 8 tower + 6 office variants, spread
+        per-tile so neighbours differ (was 2 each → the pink monotone).
+- [ ] **OPEN — even more heroes + fabric variety:** Opéra Garnier, Panthéon,
+      Grand Palais, Musée d'Orsay (all in the Paris data, still archetypes);
+      richer Haussmann fabric (shopfronts, corner blocks); procedural footprint
+      buildings (stage 6) need bulk OSM/PBF at metro scale.
+- [ ] **OPEN — live integration:** register the city as a selectable scenario
+      (lazy-loaded so the 320 KB artifact doesn't bloat the bundle) + generalise
+      the renderer's London couplings (labels from the map, estuary-marsh guard,
+      per-scenario airports) + a city-picker UI. Needs the in-game design gate —
+      kept OUT of this additive PR.
+
 ### ⭐ HANDOVER (owner, 2026-06-14 ~13:45) — read this first, then build in a FRESH env
 The landmark-art arc this session, and where it's going next:
 - **Tried & reverted:** an AI-raster hero-override pipeline (PR #61, then

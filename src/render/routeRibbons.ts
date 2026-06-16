@@ -51,6 +51,10 @@ export const RIBBON_PALETTE = {
   arterialFill: 0x6e6a7c,
   streetFill: 0x605c6b,
   laneFill: 0x8a7a5e,
+  /** Pale footway/pavement flanking a carriageway (kerb-to-building-line). */
+  pavement: 0xb9b1a2,
+  /** Plane-tree verge along a boulevard. */
+  verge: 0x5f7d4a,
   railBallast: 0x4a4555,
   railSteel: 0x9aa4b5,
   railFar: 0x2b2440,

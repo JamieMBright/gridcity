@@ -32,6 +32,7 @@ import {
 } from '../sim/map/types';
 import { sampleRoute } from '../sim/map/routes';
 import { Rng } from '../sim/rng';
+import { buildHeroTable } from './cityData';
 
 export const LONDON_W = 256;
 export const LONDON_H = 160;
@@ -242,26 +243,191 @@ export interface AirportSpec {
 
 export const AIRPORTS: AirportSpec[] = [{ name: 'Heathrow', x: 65, y: 87, hdg: 'EW' }];
 
-/** Named places shown by the inspector (central termini, the airport). */
+/** Named places shown by the inspector AND the source of London's bespoke-hero
+ *  placement: buildLondonMap calls buildHeroTable(map) (see the end of the
+ *  builder), which scans this list and, for any name matching a hero in the
+ *  london.ts registry (src/render/sprites/heroes/london.ts), stamps the hero's
+ *  footprint into the landmark raster so the bespoke sprite renders + lights.
+ *
+ *  COORDINATE CONVENTION (must match buildHeroTable / tileChooser): each (x, y)
+ *  is the hero's SOUTH-WEST corner; the footprint extends EAST (+x) and NORTH
+ *  (−y) over the hero's `foot` [w, h]. The NEW heroes' positions are chosen so
+ *  every footprint sits on open LAND and no two overlap — see the placement
+ *  validator that vetted this list.
+ *
+ *  MARQUEE heroes (Shard, St Paul's, the Eye, Tower Bridge, the Gherkin,
+ *  Battersea, Wembley, the O2, ExCeL, Ally Pally, Kew, BT Tower and the four
+ *  Olympic-park venues) are ALREADY hand-placed by the enum landmark pass (§9)
+ *  in the identical bespoke art. They are labelled here on the SW corner of
+ *  that enum precinct; buildHeroTable's London additivity rule (it never
+ *  overwrites an existing London icon, nor stamps a river tile a precinct
+ *  spans) means their footprints stamp NOTHING, so they keep rendering +
+ *  lighting via the enum placement with no double-placement, and the map's
+ *  enum-landmark precinct tests stay green. Parliament keeps its hand-tuned
+ *  riverfront L-precinct (enum only — no label here, as before). */
 export const NAMED_PLACES: Array<{ x: number; y: number; name: string }> = [
-  { x: 114, y: 78, name: "King's Cross" },
+  // --- label-only places (no bespoke hero matches these names) ---------------
   { x: 122, y: 76, name: 'Liverpool Street' },
-  { x: 122, y: 90, name: 'London Bridge' },
   { x: 65, y: 87, name: 'Heathrow' },
-  // Wave 9 heroes (map-overhaul §5) — labelled in the inspector at their
-  // true relative positions
-  { x: 88, y: 60, name: 'Wembley' },
-  { x: 140, y: 90, name: 'The O2' },
-  { x: 118, y: 118, name: 'Crystal Palace' },
-  { x: 114, y: 52, name: 'Alexandra Palace' },
-  { x: 150, y: 86, name: 'ExCeL' },
-  { x: 86, y: 96, name: 'Kew Gardens' },
-  { x: 112, y: 72, name: 'BT Tower' },
+  { x: 118, y: 118, name: 'Crystal Palace' }, // palacemast enum sprite (label only)
+  { x: 137, y: 72, name: 'Westfield Stratford' }, // westfield enum sprite (label only)
+
+  // --- MARQUEE heroes (already hand-placed by the enum landmark pass §9 below).
+  //     Labelled here on the enum precinct's SW corner; buildHeroTable's London
+  //     additivity rule leaves their enum tiles intact (it never clobbers an
+  //     existing London icon nor stamps the river a precinct spans), so each
+  //     keeps rendering + lighting via its enum placement — the very same
+  //     bespoke landmarkSprites art — with no double-placement. -----------------
+  { x: 113, y: 71, name: 'BT Tower' },
+  { x: 118, y: 77, name: 'The Gherkin' }, // 30 St Mary Axe, the City
+  { x: 118, y: 89, name: 'The Shard' }, // London Bridge quarter, south bank
+  { x: 114, y: 80, name: "St Paul's Cathedral" }, // the City dome (2×2 close)
+  { x: 108, y: 94, name: 'London Eye' }, // across the water from Parliament
+  { x: 120, y: 87, name: 'Tower Bridge' }, // spans the Pool of London
+  { x: 100, y: 99, name: 'Battersea Power Station' }, // south bank, four chimneys
+  { x: 87, y: 60, name: 'Wembley' }, // the arch + bowl, NW
+  { x: 139, y: 91, name: 'The O2' }, // the Greenwich peninsula dome
+  { x: 112, y: 52, name: 'Alexandra Palace' }, // the N hill (2×1)
+  { x: 149, y: 85, name: 'ExCeL' }, // the Royal Docks (long 3×1)
+  { x: 87, y: 95, name: 'Kew Gardens' }, // the Palm House by the river bend
   // Queen Elizabeth Olympic Park, Stratford (owner, 2026-06-13)
-  { x: 134, y: 69, name: 'Olympic Park' },
+  { x: 133, y: 70, name: 'Olympic Park' }, // the Stadium bowl (3×3)
   { x: 133, y: 66, name: 'Lee Valley VeloPark' },
-  { x: 136, y: 68, name: 'ArcelorMittal Orbit' },
-  { x: 137, y: 72, name: 'Westfield Stratford' },
+  { x: 137, y: 68, name: 'ArcelorMittal Orbit' },
+
+  // --- NEW bespoke heroes (W3 round 1): the rail termini, the great museums,
+  //     the palaces, the South-Bank set and the City civics, each at its true
+  //     relative position. SW corner; footprint extends E (+x) and N (−y) ------
+  // Euston Road termini, west → east along the Marylebone/Euston Road
+  { x: 102, y: 69, name: 'Paddington' }, // GWR terminus, NW by Hyde Park
+  { x: 107, y: 69, name: 'Euston' }, // the 1960s slab
+  { x: 112, y: 69, name: 'St Pancras' }, // the Midland Grand Gothic terminus
+  { x: 117, y: 69, name: "King's Cross" }, // the twin-gabled stock-brick front
+  // the central / river termini
+  { x: 109, y: 96, name: 'Waterloo' }, // South Bank, the Victory Arch
+  { x: 124, y: 95, name: 'London Bridge' }, // south bank, the wavy concourse
+  { x: 109, y: 77, name: 'Charing Cross' }, // West End, off the Strand
+  { x: 98, y: 90, name: 'Victoria Station' }, // Belgravia / Pimlico
+  // Bloomsbury / Camden civics + libraries
+  { x: 102, y: 65, name: 'Carreras' }, // the Egyptian-Revival factory, Camden
+  { x: 107, y: 64, name: 'British Museum' }, // Bloomsbury, the Great Court dome
+  { x: 113, y: 64, name: 'British Library' }, // beside St Pancras
+  // South Kensington — the museum quarter, south of Hyde Park
+  { x: 98, y: 82, name: 'Natural History Museum' },
+  { x: 98, y: 77, name: 'Science Museum' }, // Exhibition Road
+  { x: 103, y: 82, name: 'Victoria and Albert Museum' },
+  { x: 103, y: 77, name: 'Harrods' }, // Knightsbridge
+  // the West End / Westminster
+  { x: 108, y: 82, name: 'Buckingham Palace' }, // by the park, the East Front
+  { x: 105, y: 85, name: 'Westminster Abbey' },
+  { x: 100, y: 86, name: 'Tate Britain' }, // Millbank, north bank
+  // the Strand / Holborn / City of London civics
+  { x: 112, y: 78, name: 'Royal Courts of Justice' }, // Fleet Street, the Law Courts
+  { x: 115, y: 76, name: 'Old Bailey' }, // the Central Criminal Court, by Newgate
+  { x: 116, y: 83, name: 'Somerset House' }, // the Strand, by the river
+  { x: 120, y: 79, name: 'Bank of England' }, // the City, the Tivoli corner
+  // the South Bank cultural mile (south of the river)
+  { x: 105, y: 101, name: 'County Hall' }, // opposite Westminster
+  { x: 114, y: 96, name: 'National Theatre' }, // the Brutalist terraces
+  { x: 119, y: 96, name: 'Tate Modern' }, // Bankside, the great chimney
+
+  // --- NEW bespoke heroes (W3 round 2): the City office towers, the West-End
+  //     hotels, the colleges + libraries, the South-Bank/Bankside set, the
+  //     Marylebone/Regent's-Park terraces, the palaces and the department
+  //     stores — each at its true relative London position, on land, no
+  //     footprint overlap (anchors verified by tools/place solver). The dense
+  //     Whitehall government quarter is already saturated by Buckingham/Abbey/
+  //     Parliament + the Thames, so a few Whitehall blocks (FCDO, GOGGS,
+  //     Whitehall Court, Old War Office, Burlington House) have NO sensible
+  //     footprint and are intentionally NOT placed this round. ----------------
+  // City of London — the eastern financial cluster
+  { x: 123, y: 79, name: '100 Bishopsgate' }, // the City's eastern edge
+  { x: 119, y: 82, name: '200 Aldersgate' }, // by the Museum of London / London Wall
+  { x: 113, y: 83, name: 'One New Change' }, // the glass mall hard by St Paul's
+  { x: 122, y: 82, name: 'Bank of New York Mellon' }, // the City
+  { x: 119, y: 74, name: 'London Wall Buildings' }, // Finsbury Circus
+  { x: 116, y: 73, name: 'Maughan Library' }, // Chancery Lane, the neo-Gothic strong-box
+  { x: 120, y: 71, name: 'Holborn Bars' }, // the red-terracotta Prudential, Holborn
+  // the West End — Strand / Covent Garden / Mayfair / Piccadilly
+  { x: 109, y: 85, name: 'Savoy Hotel' }, // the Strand, above the river
+  { x: 109, y: 74, name: 'Royal Opera House' }, // Covent Garden
+  { x: 106, y: 79, name: 'London Trocadero' }, // Piccadilly Circus
+  { x: 106, y: 76, name: 'Grosvenor House Hotel' }, // Park Lane, Mayfair
+  { x: 96, y: 74, name: 'One Hyde Park' }, // Knightsbridge, the glass apartments
+  // St James's / Westminster
+  { x: 105, y: 89, name: "St James's Palace" }, // the Tudor brick gatehouse
+  { x: 102, y: 89, name: 'Institute of Contemporary Arts' }, // The Mall, Nash terrace
+  { x: 114, y: 92, name: 'Ministry of Defence' }, // Whitehall, the big riverside block
+  { x: 97, y: 85, name: 'Ministry of Justice' }, // Petty France, Westminster
+  { x: 96, y: 93, name: 'Department for Transport' }, // Pimlico, by the river
+  // South Kensington — the Imperial College / museum quarter
+  { x: 95, y: 77, name: 'Royal School of Mines' }, // Prince Consort Road
+  { x: 94, y: 80, name: 'City and Guilds Building' }, // Exhibition Road
+  { x: 94, y: 83, name: 'Sherfield Building' }, // the Imperial College tower block
+  // Kensington / Bayswater (the west)
+  { x: 91, y: 80, name: 'Kensington Palace' }, // in Kensington Gardens
+  { x: 91, y: 84, name: 'Derry & Toms' }, // Kensington High Street, the roof gardens
+  { x: 94, y: 71, name: 'Whiteleys' }, // Bayswater / Queensway
+  { x: 98, y: 70, name: 'Hilton London Metropole' }, // Edgware Road
+  // Marylebone / Regent's Park / Maida Vale (the NW)
+  { x: 96, y: 66, name: 'Maida Vale Studios' }, // the BBC sound studios
+  { x: 103, y: 61, name: 'Cornwall Terrace' }, // Regent's Park, Nash terrace
+  { x: 99, y: 59, name: 'Sussex Place' }, // Regent's Park, the domed terrace (LBS)
+  { x: 99, y: 63, name: 'Chiltern Court' }, // above Baker Street station
+  { x: 103, y: 72, name: 'Broadcasting House' }, // Portland Place, the BBC
+  // Bloomsbury / King's Cross / Camden / Islington (the north)
+  { x: 110, y: 65, name: 'Senate House' }, // the University of London tower
+  { x: 110, y: 61, name: 'Francis Crick Institute' }, // by St Pancras / the Crick
+  { x: 118, y: 62, name: 'Central Saint Martins' }, // King's Cross, the Granary
+  { x: 116, y: 58, name: 'Business Design Centre' }, // Islington, the iron hall
+  // the South Bank / Bankside cultural mile (south of the river)
+  { x: 111, y: 93, name: 'BFI Southbank' }, // under Waterloo Bridge
+  { x: 112, y: 99, name: 'IBM Building' }, // the South Bank, Lasdun
+  { x: 116, y: 99, name: 'Sea Containers House' }, // Bankside, west of Blackfriars
+  // Southwark / the Pool of London
+  { x: 121, y: 93, name: "Hay's Galleria" }, // the arcaded wharf, Southwark
+  { x: 119, y: 90, name: 'HMS Belfast' }, // the museum cruiser, moored off Tooley St
+  // the outer set — Vauxhall / Wapping / Chelsea
+  { x: 95, y: 89, name: 'SIS Building' }, // Vauxhall Cross, the MI6 ziggurat
+  { x: 129, y: 86, name: 'Tobacco Dock' }, // Wapping, the great brick warehouse
+  { x: 91, y: 100, name: 'Lots Road Power Station' }, // Chelsea, the twin chimneys
+
+  // --- NEW bespoke heroes (W3 round 3): the long tail toward the 100/city
+  //     standard — the listed City/West-End blocks, the council estates and
+  //     grand stucco terraces, a college, a Crown Court, the Chelsea Flower
+  //     Show marquees and the King's Cross Coal Drops. The central Whitehall/
+  //     Piccadilly/Buckingham quarter is SATURATED (Buckingham/Abbey/Parliament
+  //     + Westminster civics + the Thames leave no free footprint there — R2
+  //     flagged 5 infeasible), so the Whitehall grandees (Old War Office, GOGGS,
+  //     FCDO, Whitehall Court, Burlington, Royal Mews) are placed on the nearest
+  //     free OUTER fringe of their true positions and the set spreads to the
+  //     wider map. Every footprint vetted on open LAND, no overlap. ------------
+  // City of London — Liverpool Street / the Barbican fringe
+  { x: 122, y: 74, name: 'Andaz Liverpool Street' }, // the Great Eastern Hotel, Bishopsgate
+  { x: 124, y: 70, name: 'Crescent House' }, // Golden Lane Estate, by the Barbican
+  // Whitehall / Westminster grandees — on the free fringe of their true seats
+  { x: 106, y: 73, name: 'Old War Office' }, // Whitehall (now Raffles), four corner domes
+  { x: 102, y: 93, name: 'Government Offices Great George Street' }, // HM Treasury, off Parliament Sq
+  { x: 114, y: 103, name: 'Foreign and Commonwealth Office' }, // the grand Italianate FO
+  { x: 109, y: 99, name: 'Whitehall Court' }, // the turreted Embankment skyline
+  { x: 94, y: 86, name: 'Royal Mews' }, // the royal stables by Buckingham Palace
+  // Mayfair / Piccadilly (west of the saturated core)
+  { x: 90, y: 75, name: 'Burlington House' }, // the Royal Academy, Piccadilly
+  // Somers Town / King's Cross (the north)
+  { x: 119, y: 65, name: 'Ossulston Estate' }, // the LCC's monumental social housing
+  { x: 119, y: 57, name: 'Coal Drops Yard' }, // the King's Cross goods-yard sheds
+  // Paddington Green (the west) — the college
+  { x: 99, y: 66, name: 'City of Westminster College' }, // the angular glass campus
+  // Bayswater / South Kensington — the grand stucco terraces
+  { x: 90, y: 72, name: 'The Lancasters' }, // the Hyde Park stucco palace front
+  { x: 88, y: 84, name: 'Cranley Gardens' }, // the South Ken Italianate terrace
+  // the south bank — Battersea / Chelsea / Southwark / Newington
+  { x: 97, y: 103, name: 'Albion Riverside' }, // Foster's bowed riverside block, Battersea
+  { x: 102, y: 104, name: 'Chelsea Flower Show' }, // the RHS Great Pavilion marquees
+  { x: 108, y: 107, name: 'Inner London Crown Court' }, // the Sessions House, Newington
+  { x: 124, y: 108, name: 'Caroline Gardens' }, // the Peckham almshouses + chapel
+  // Wapping / St Katharine Docks — by Tower Bridge
+  { x: 129, y: 89, name: 'Tower Hotel' }, // the Brutalist hotel east of Tower Bridge
 ];
 
 // NOTE: EXISTING_GENERATION (the seeded estuary CCGTs / Lea peaker / Essex
@@ -1350,7 +1516,7 @@ export function buildLondonMap(): CityMap {
     }
   }
 
-  return {
+  const map: CityMap = {
     width: w,
     height: h,
     terrain,
@@ -1364,7 +1530,22 @@ export function buildLondonMap(): CityMap {
     landmark,
     flags,
     councils: COUNCIL_SEEDS.map(({ x: _x, y: _y, ...profile }) => profile),
+    // scenery the renderer/UI read off the map (so they need no London import).
+    // London's NAMED_PLACES are all landmark-class (gated to mid/close zoom);
+    // TOWNS + AIRPORTS already match the MapTown/MapAirport shapes.
+    fabric: 'london',
+    named: NAMED_PLACES.map((p) => ({ ...p, landmark: true })),
+    towns: TOWNS.map((t) => ({ x: t.x, y: t.y, r: t.r, kind: t.kind, name: t.name })),
+    airports: AIRPORTS.map((a) => ({ name: a.name, x: a.x, y: a.y, hdg: a.hdg })),
   };
+  // London's bespoke heroes (src/render/sprites/heroes/london.ts) place exactly
+  // like every OSM city: scan `named`, and for any name a registry hero matches,
+  // stamp HERO_BASE+idx across its footprint and add a heroTable slot — so the
+  // 41 hand-drawn London heroes render + light. Run AFTER the enum landmark
+  // pass so the marquee heroes (anchored on the enum precinct's SW corner)
+  // fully overwrite their reservation: same art, bespoke light, no double-draw.
+  buildHeroTable(map);
+  return map;
 }
 
 let cached: CityMap | undefined;

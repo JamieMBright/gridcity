@@ -5,7 +5,8 @@
 // road ribbons between the two.
 
 import { FLAG_RUNWAY, FLAG_SHOPS, riverCenterY } from '../data/londonMap';
-import { LANDMARK, RC, TERRAIN, ZONE, type CityMap, type Landmark } from '../sim/map/types';
+import { HERO_BASE, LANDMARK, RC, TERRAIN, ZONE, type CityMap, type Landmark } from '../sim/map/types';
+import { frameIdFor } from './sprites/heroes/registry';
 
 /** Landmarks drawn as ONE multi-tile sprite covering their whole map
  *  reservation. The sprite is SW-anchored (see Iso swAnchor): emitting it
@@ -30,9 +31,19 @@ const BLOCK_LANDMARKS: ReadonlySet<Landmark> = new Set<Landmark>([
   LANDMARK.stadium,
   LANDMARK.o2dome,
   LANDMARK.wembley,
+  // bespoke Paris heroes (OSM pipeline): a massive 3×3 Eiffel + the towering
+  // 2×2 Notre-Dame
+  LANDMARK.eiffel,
+  LANDMARK.notredame,
+  // the Pyramids of Giza — SPLIT into free-standing heroes (owner, 2026-06-15),
+  // each a broad+low SW-anchored block on its own desert apron + the Sphinx
+  LANDMARK.pyramidGreat,
+  LANDMARK.pyramidKhafre,
+  LANDMARK.pyramidMenkaure,
+  LANDMARK.sphinx,
 ]);
 
-const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {
+export const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {
   [LANDMARK.parliament]: 'lm_parliament',
   [LANDMARK.eye]: 'lm_eye',
   [LANDMARK.dome]: 'lm_dome',
@@ -65,6 +76,19 @@ const LANDMARK_SPRITE: Partial<Record<Landmark, string>> = {
   [LANDMARK.velodrome]: 'lm_velodrome',
   [LANDMARK.orbit]: 'lm_orbit',
   [LANDMARK.westfield]: 'lm_westfield',
+  [LANDMARK.notredame]: 'lm_notredame',
+  [LANDMARK.eiffel]: 'lm_eiffel',
+  [LANDMARK.arch]: 'lm_arch',
+  [LANDMARK.basilica]: 'lm_basilica',
+  [LANDMARK.louvre]: 'lm_louvre',
+  // the old monolithic Giza group (LANDMARK.pyramid, deprecated 2026-06-15) was
+  // split into the separate heroes below; alias it to the Great Pyramid so any
+  // old save baking landmark value 41 still resolves to a real sprite.
+  [LANDMARK.pyramid]: 'lm_pyramid_great',
+  [LANDMARK.pyramidGreat]: 'lm_pyramid_great',
+  [LANDMARK.pyramidKhafre]: 'lm_pyramid_khafre',
+  [LANDMARK.pyramidMenkaure]: 'lm_pyramid_menkaure',
+  [LANDMARK.sphinx]: 'lm_sphinx',
 };
 
 function at(map: CityMap, x: number, y: number, arr: Uint8Array): number {
@@ -92,10 +116,34 @@ function estateOf(x: number, y: number): number {
   return (((x >> 3) * 73856093) ^ ((y >> 3) * 19349663)) >>> 0;
 }
 
+/** A well-mixed PER-TILE hash — for buildings that should differ from their
+ *  neighbours (towers/offices), so a skyline reads as many distinct blocks
+ *  rather than the same sprite tiled. */
+function tileHash(x: number, y: number): number {
+  let h = (Math.imul(x, 374761393) ^ Math.imul(y, 668265263)) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+  return h >>> 0;
+}
+
 /** Farmland is enclosed in 4x4 parcels; this hash keeps each parcel one
  *  coherent crop (and decides hedgerows + orchards along its bounds). */
 function parcelOf(x: number, y: number): number {
   return Math.abs(((x >> 2) * 73856093) ^ ((y >> 2) * 19349663));
+}
+
+/** The Giza plateau — Cairo's SW desert corner where the Pyramids + the Great
+ *  Sphinx stand. The OSM source tags this open archaeological zone as PARK, and
+ *  the park/countryside renderers dress it with VIVID green palm trees (Cairo's
+ *  `treeGreen` stays jungle-green so the irrigated Nile reads lush) — which left
+ *  the monuments standing in a grove instead of open sand (owner, 2026-06-16:
+ *  "the Pyramids render on GREEN TREES, but Giza is open DESERT"). This guard
+ *  flags the plateau west of the Nile (the river, which returns early, is the
+ *  natural eastern edge) so the ground reads as bare tawny sand and NO
+ *  vegetation/built structure is dressed over it — the bespoke pyramid/Sphinx
+ *  heroes (each on its own `sandApron`) then sit on open desert, as they should.
+ *  Cairo-only and bounded to the corner, so no other city/quarter is touched. */
+function isGizaDesert(map: CityMap, x: number, y: number): boolean {
+  return (map.fabric ?? 'london') === 'cairo' && x <= 33 && y >= 147;
 }
 
 /** The flat ground sprite under everything — ALWAYS returns a sprite. */
@@ -108,6 +156,9 @@ export function groundSpriteFor(map: CityMap, x: number, y: number): string {
   if (terrain === TERRAIN.water) return `water_${landMask(map, x, y)}`;
   if (((map.flags?.[i] ?? 0) & FLAG_RUNWAY) !== 0) return 'ground_runway';
   if (terrain === TERRAIN.hill) return 'ground_moor';
+  // Giza plateau: bare tawny desert sand (Cairo's `field` is sandy ochre), so
+  // the park/lawn dressing never paints a green carpet under the monuments.
+  if (isGizaDesert(map, x, y)) return `ground_field_${v % 2}`;
 
   switch (zone) {
     case ZONE.urbanCore:
@@ -124,8 +175,10 @@ export function groundSpriteFor(map: CityMap, x: number, y: number): string {
       return `ground_field_${v % 2}`;
     default: {
       if (zone === ZONE.none || zone === ZONE.rural) {
-        // estuary flats: marsh where the land runs low beside the wide river
-        if (x > 180 && Math.abs(y - riverCenterY(x)) < 9) {
+        // estuary flats: marsh where the land runs low beside the wide river.
+        // London-only — riverCenterY is the Thames profile, meaningless on
+        // another city's map (it would paint phantom marsh down the east edge).
+        if ((map.fabric ?? 'london') === 'london' && x > 180 && Math.abs(y - riverCenterY(x)) < 9) {
           return `ground_marsh_${v % 2}`;
         }
         // enclosed countryside: each ORGANIC field (the variant carries the
@@ -157,8 +210,52 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
 
   // landmarks are protected fabric — they render even where routes pass
   // (the tower bridge carries the road between its towers)
-  const lm = (map.landmark?.[i] ?? LANDMARK.none) as Landmark;
+  const lmRaw = map.landmark?.[i] ?? LANDMARK.none;
+  // BESPOKE HERO (raster value >= HERO_BASE): a per-city string-keyed sprite
+  // placed via the runtime heroTable, drawn exactly like the multi-tile enum
+  // heroes (one SW-anchored sprite on the reservation's (min x, max y) tile).
+  if (lmRaw >= HERO_BASE) {
+    const slot = map.heroTable?.[lmRaw - HERO_BASE];
+    if (slot) {
+      // anchor = the reservation's (min x, max y) SW corner — no same-index
+      // tile to the W, S or SW — exactly the enum BLOCK_LANDMARKS rule, so the
+      // standard 1×1 placement pins the whole SW-anchored foot. The footprint
+      // is a clean w×h rectangle of this exact index value (stamped from its
+      // SW corner in buildCityFromData, extending E +x and N −y).
+      const sameH = (xx: number, yy: number): boolean =>
+        xx >= 0 && xx < map.width && yy >= 0 && yy < map.height &&
+        (map.landmark?.[yy * map.width + xx] ?? LANDMARK.none) === lmRaw;
+      const anchor = !sameH(x - 1, y) && !sameH(x, y + 1) && !sameH(x - 1, y + 1);
+      return anchor ? frameIdFor(map.fabric ?? 'london', slot.key) : undefined;
+    }
+    // a dangling index (no slot) just falls through to open ground
+    return undefined;
+  }
+  const lm = lmRaw as Landmark;
   if (lm !== LANDMARK.none) {
+    // ORDINARY civic: a 1×1 tile-sized municipal building in the city palette
+    // (no apron, no grand marble block). Variant by per-tile hash so a run of
+    // civic buildings reads as a varied street.
+    if (lm === LANDMARK.civic) return `lm_civic${tileHash(x, y) % 4}`;
+    // the grand-civic generator: a 2×2 block whose VARIANT is chosen by the
+    // anchor-tile hash, so the ~100 notable buildings read as many distinct
+    // hero buildings from one family.
+    if (lm === LANDMARK.grand) {
+      const sameG = (xx: number, yy: number): boolean =>
+        xx >= 0 && xx < map.width && yy >= 0 && yy < map.height &&
+        (map.landmark?.[yy * map.width + xx] ?? LANDMARK.none) === LANDMARK.grand;
+      const anchorG = !sameG(x - 1, y) && !sameG(x, y + 1) && !sameG(x - 1, y + 1);
+      return anchorG ? `lm_grand${tileHash(x, y) % 4}` : undefined;
+    }
+    // generic skyscraper heroes: a 2×2 reservation, variant by anchor hash, so
+    // the tall tail of notable buildings reads as many distinct towers.
+    if (lm === LANDMARK.skyscraper) {
+      const sameK = (xx: number, yy: number): boolean =>
+        xx >= 0 && xx < map.width && yy >= 0 && yy < map.height &&
+        (map.landmark?.[yy * map.width + xx] ?? LANDMARK.none) === LANDMARK.skyscraper;
+      const anchorK = !sameK(x - 1, y) && !sameK(x, y + 1) && !sameK(x - 1, y + 1);
+      return anchorK ? `lm_sky${tileHash(x, y) % 4}` : undefined;
+    }
     const name = LANDMARK_SPRITE[lm];
     if (name && BLOCK_LANDMARKS.has(lm)) {
       // one sprite per reservation: only the (min x, max y) tile emits
@@ -211,21 +308,41 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
   if (rc === RC.street || rc >= RC.arterial) return undefined;
 
   if (terrain === TERRAIN.water) return undefined;
+  // Giza plateau: open desert. Bespoke pyramid/Sphinx heroes were already
+  // emitted above (lmRaw >= HERO_BASE); every remaining non-hero tile here is
+  // bare sand — suppress the park palms, countryside copses and town fabric the
+  // PARK/suburb zoning would otherwise dress, so the monuments stand alone.
+  if (isGizaDesert(map, x, y)) return undefined;
   if (terrain === TERRAIN.hill) return `hill_${v % 2}`;
   if (terrain === TERRAIN.trees) return `trees_${v % 3}`;
 
   const estate = estateOf(x, y);
   const shops = ((map.flags?.[i] ?? 0) & FLAG_SHOPS) !== 0;
+  const th = tileHash(x, y);
+
+  // bespoke per-city building stock: Paris wears Haussmann blocks across its
+  // urban fabric (the pale, grid-like street walls) — many variants spread
+  // per-tile so the uniform wall still reads as distinct buildings.
+  if (map.fabric === 'paris' && (zone === ZONE.urbanCore || zone === ZONE.urban)) {
+    return `haussmann_${th % 12}`;
+  }
 
   switch (zone) {
-    case ZONE.cbd:
-      // the Gherkin now carries its own LANDMARK id (handled above), so the
-      // CBD fabric is plain skyscrapers — no fixed-tile special-case
-      return `sky_${v % 3}`;
-    case ZONE.urbanCore:
-      if (v % 7 < 2) return `tower_${v % 2}`;
-      if (v % 7 === 2) return `office_${v % 2}`;
-      return `terrace_${v % 4}`;
+    case ZONE.cbd: {
+      // a varied financial-district skyline. The TYPE mixes per-tile, but the
+      // COLOUR/variant is keyed on the ESTATE (8×8 block) so a cluster of
+      // towers shares a family — coherent districts, not per-tile confetti.
+      const k = th % 6;
+      if (k < 3) return `sky_${estate % 3}`;
+      if (k < 5) return `office_${estate % 6}`;
+      return `tower_${estate % 8}`;
+    }
+    case ZONE.urbanCore: {
+      const k = th % 7;
+      if (k < 2) return `tower_${estate % 8}`;
+      if (k === 2) return `office_${estate % 6}`;
+      return `terrace_${(estate + (v % 2)) % 4}`;
+    }
     case ZONE.urban: {
       if (shops) return `vicshop_${v % 2}`;
       const pick = estate % 5;
@@ -273,7 +390,10 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
       if (zone !== ZONE.none) return undefined; // nuclearSite reserve, wind sites
       // open countryside furniture: hedgerows trace the parcel bounds,
       // the odd parcel is an orchard, the odd corner grows a copse
-      if (x > 180 && Math.abs(y - riverCenterY(x)) < 9) return undefined; // marsh stays open
+      // (London-only marsh guard — see groundSpriteFor)
+      if ((map.fabric ?? 'london') === 'london' && x > 180 && Math.abs(y - riverCenterY(x)) < 9) {
+        return undefined; // marsh stays open
+      }
       const p = parcelOf(x, y);
       if (p % 11 === 6 && (x & 3) !== 0 && (y & 3) !== 0) return 'orchard_0';
       const xe = (x & 3) === 3;

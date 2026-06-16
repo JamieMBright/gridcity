@@ -5,12 +5,15 @@
 // uploads this to a Pixi texture; the preview tool encodes it to PNG.
 
 import { isoDims, swAnchorDims } from './iso';
+import { activeFabric } from './buildingSprites';
+import { bespokeHeroesFor, frameIdFor } from './heroes/registry';
 import {
   cottageTile,
   councilflatTile,
   factoryTile,
   georgianTile,
   greenhouseTile,
+  haussmannTile,
   newbuildTile,
   officeTile,
   semiTile,
@@ -25,23 +28,30 @@ import {
 import {
   airportTile,
   allypallyTile,
+  archTile,
   arenaTile,
   bttowerTile,
   carparkTile,
   churchTile,
+  civicTile,
   datacentreTile,
   domeTile,
+  eiffelTile,
   EXCEL_H,
   EXCEL_W,
   excelTile,
   eyeTile,
   fortressTile,
   gherkinTile,
+  grandTile,
+  skyscraperHeroTile,
   HEATHROW_H,
   HEATHROW_W,
   heathrowTile,
   kewhouseTile,
+  louvreTile,
   mallTile,
+  notredameTile,
   O2_H,
   O2_W,
   o2domeTile,
@@ -49,6 +59,12 @@ import {
   palacemastTile,
   parliamentTile,
   powerstationTile,
+  PYRAMID_FOOT,
+  pyramidTile,
+  SPHINX_H,
+  SPHINX_W,
+  sphinxTile,
+  sacrecoeurTile,
   schoolTile,
   sewageTile,
   skyscraperTile,
@@ -120,6 +136,10 @@ export interface AtlasFrame {
   h: number;
   ox: number;
   oy: number;
+  /** Extra sky rows the sprite reserved ABOVE its footprint (Iso headroom).
+   *  Both renderers LIFT the placement by this so a taller-than-footprint
+   *  hero keeps its floor pinned. 0 for every ordinary sprite. */
+  headroom: number;
 }
 
 export interface SpriteAtlas {
@@ -129,6 +149,27 @@ export interface SpriteAtlas {
   pixels: Uint8ClampedArray<ArrayBuffer>;
   /** Sprite name → its rectangle on the sheet (+ trim offset). */
   frames: Map<string, AtlasFrame>;
+  /** BESPOKE per-city heroes, baked to their OWN tight buffers — NOT packed
+   *  into the shared sheet (W2b). Heroes are sparse (≤~100/city) + large + static,
+   *  so a per-hero texture keeps the shared sheet under the 4096px ceiling no
+   *  matter how many heroes a city carries (100 sprites would overflow a single
+   *  sheet — 2 already pushed Paris to 4014/4096). Empty for a heroless fabric
+   *  (London) ⇒ byte-identical. Each value is a tight w×h RGBA buffer + the
+   *  trim offset (added back at placement, exactly like a frame). */
+  heroes: Map<string, HeroBuf>;
+}
+
+/** A bespoke hero baked to its own tight texture buffer (off the shared sheet). */
+export interface HeroBuf {
+  /** Tight RGBA8 buffer, row-major, exactly w×h (the trimmed art). */
+  pixels: Uint8ClampedArray<ArrayBuffer>;
+  w: number;
+  h: number;
+  /** Transparent margin trimmed off the original canvas left/top (add back at placement). */
+  ox: number;
+  oy: number;
+  /** Iso headroom baked in (extra sky above the footprint; the renderer lifts by it). */
+  headroom: number;
 }
 
 interface Cell {
@@ -141,6 +182,8 @@ interface Cell {
   oy: number;
   /** Row stride of `pixels` (the sprite's full canvas width). */
   stride: number;
+  /** Iso headroom baked into this sprite (extra sky above the footprint). */
+  headroom: number;
 }
 
 /** Sprites are placed by their top-left corner in both renderers, so the
@@ -181,6 +224,51 @@ function trimmedExtent(
   };
 }
 
+/** Compute a Cell (trimmed extent + stride + auto-detected headroom) from a
+ *  raw sprite buffer. Shared by the sheet packer (`set`) and the off-sheet hero
+ *  baker (`buildHeroBufs`). dims mirror the Iso constructor (sw = SW-anchored
+ *  landmark blocks). A hero's Iso may have added HEADROOM — extra sky rows above
+ *  the footprint so it can exceed the footprint-derived height cap; infer it
+ *  from the ACTUAL buffer height vs the footprint height (dims.w is the true row
+ *  stride, unaffected by headroom). 0 for every ordinary sprite ⇒ byte-identical. */
+function makeCell(
+  pixels: Uint8ClampedArray<ArrayBuffer>,
+  wTiles: number,
+  hTiles: number,
+  sw: boolean,
+): Cell {
+  const dims = sw ? swAnchorDims(wTiles, hTiles) : isoDims(wTiles, hTiles);
+  const totalH = pixels.length / 4 / dims.w;
+  const headroom = Math.max(0, Math.round(totalH - dims.h));
+  return { pixels, ...trimmedExtent(pixels, dims.w, totalH), stride: dims.w, headroom };
+}
+
+/** Bake the ACTIVE fabric's BESPOKE heroes to their OWN tight buffers (W2b),
+ *  OFF the shared sheet so 100 heroes/city never overflow the 4096 packer. Each
+ *  hero's trimmed art is copied into a tight w×h buffer; the renderer makes a
+ *  per-hero Texture from it and the preview blits it directly. Empty for a
+ *  heroless fabric (London) ⇒ atlas.heroes is empty ⇒ byte-identical. */
+function buildHeroBufs(): Map<string, HeroBuf> {
+  const heroes = new Map<string, HeroBuf>();
+  for (const hero of bespokeHeroesFor(activeFabric())) {
+    const c = makeCell(hero.draw(hero.seed), hero.foot[0], hero.foot[1], true);
+    const tight = new Uint8ClampedArray(c.w * c.h * 4);
+    for (let row = 0; row < c.h; row++) {
+      const src = ((c.oy + row) * c.stride + c.ox) * 4;
+      tight.set(c.pixels.subarray(src, src + c.w * 4), row * c.w * 4);
+    }
+    heroes.set(frameIdFor(hero.city, hero.key), {
+      pixels: tight,
+      w: c.w,
+      h: c.h,
+      ox: c.ox,
+      oy: c.oy,
+      headroom: c.headroom,
+    });
+  }
+  return heroes;
+}
+
 function buildSpriteCells(): Map<string, Cell> {
   const m = new Map<string, Cell>();
   const set = (
@@ -190,9 +278,7 @@ function buildSpriteCells(): Map<string, Cell> {
     hTiles = 1,
     sw = false,
   ): void => {
-    // dims mirror the Iso constructor (sw = SW-anchored landmark blocks)
-    const dims = sw ? swAnchorDims(wTiles, hTiles) : isoDims(wTiles, hTiles);
-    m.set(name, { pixels, ...trimmedExtent(pixels, dims.w, dims.h), stride: dims.w });
+    m.set(name, makeCell(pixels, wTiles, hTiles, sw));
   };
   // ground pass (flat tiles, no structures)
   for (let i = 0; i < 4; i++) set(`ground_grass_${i}`, groundGrassTile(i + 1));
@@ -225,10 +311,13 @@ function buildSpriteCells(): Map<string, Cell> {
   for (let i = 0; i < 4; i++) set(`semi_${i}`, semiTile(91 + i));
   set('villa_0', villaTile(101));
   set('villa_1', villaTile(102));
-  set('tower_0', towerTile(111));
-  set('tower_1', towerTile(112));
-  set('office_0', officeTile(121));
-  set('office_1', officeTile(122));
+  // bespoke Paris stock (Haussmann blocks) — used when CityMap.fabric==='paris'.
+  // many variants (height · stone · balconies · shopfronts) so the uniform
+  // Parisian street wall still reads as many distinct buildings.
+  for (let i = 0; i < 12; i++) set(`haussmann_${i}`, haussmannTile(351 + i, i));
+  // many tower/office variants (colour · height · crown) for a diverse skyline
+  for (let i = 0; i < 8; i++) set(`tower_${i}`, towerTile(111 + i, i));
+  for (let i = 0; i < 6; i++) set(`office_${i}`, officeTile(121 + i, i));
   set('cottage_0', cottageTile(131));
   set('cottage_1', cottageTile(132));
   set('warehouse_0', warehouseTile(141));
@@ -244,6 +333,24 @@ function buildSpriteCells(): Map<string, Cell> {
   set('lm_eye', eyeTile(212));
   set('lm_dome', domeTile(213), 2, 2, true);
   set('lm_spire', spireTile(214));
+  set('lm_notredame', notredameTile(353), 2, 2, true); // bespoke Paris gothic cathedral (towering 2×2)
+  set('lm_eiffel', eiffelTile(354), 3, 3, true); // bespoke Paris iron tower (massive)
+  set('lm_arch', archTile(355)); // triumphal arch (Arc de Triomphe / gates)
+  set('lm_basilica', sacrecoeurTile(356)); // Sacré-Cœur
+  set('lm_louvre', louvreTile(357)); // the palace + glass pyramid
+  // the Pyramids of Giza — SPLIT into separate free-standing heroes (owner,
+  // 2026-06-15): three broad+low pyramids in their own sizes + the Sphinx, each
+  // SW-anchored on its own tawny apron so the pipelines spread them apart.
+  set('lm_pyramid_great', pyramidTile(358, 'great'), PYRAMID_FOOT.great.w, PYRAMID_FOOT.great.h, true);
+  set('lm_pyramid_khafre', pyramidTile(359, 'khafre'), PYRAMID_FOOT.khafre.w, PYRAMID_FOOT.khafre.h, true);
+  set('lm_pyramid_menkaure', pyramidTile(361, 'menkaure'), PYRAMID_FOOT.menkaure.w, PYRAMID_FOOT.menkaure.h, true);
+  set('lm_sphinx', sphinxTile(362), SPHINX_W, SPHINX_H, true);
+  // the ~100-hero grand-civic generator: 12 variants (dome/towers/clock/
+  // balustrade × stone × height), 2×2 SW-anchored blocks
+  for (let i = 0; i < 4; i++) set(`lm_grand${i}`, grandTile(360 + i, i), 3, 3, true);
+  // generic skyscraper heroes: tall towers (slim tower + plaza) on a 3×3 frame,
+  // for notable tall buildings — the 3×3 canvas gives the height to TOWER
+  for (let i = 0; i < 4; i++) set(`lm_sky${i}`, skyscraperHeroTile(370 + i, i), 3, 3, true);
   set('lm_gherkin', gherkinTile(223));
   set('lm_fortress', fortressTile(215));
   set('lm_bridge', towerBridgeTile(216), 1, 4, true);
@@ -270,6 +377,10 @@ function buildSpriteCells(): Map<string, Cell> {
   set('lm_station', stationTile(281));
   set('lm_school', schoolTile(282));
   set('lm_townhall', townhallTile(283));
+  // ordinary civic: a tile-sized municipal building in the city palette (no
+  // marble grand block, no apron). Four palette variants so a run of civic
+  // buildings reads as a varied street, not one sprite tiled.
+  for (let i = 0; i < 4; i++) set(`lm_civic${i}`, civicTile(364 + i, i));
   set('lm_watertower', watertowerTile(284));
   set('lm_sewage', sewageTile(285));
   set('lm_carpark', carparkTile(286));
@@ -306,6 +417,10 @@ function buildSpriteCells(): Map<string, Cell> {
   // doesn't know the stage.
   set('construction', constructionTile(244, 3));
   for (let s = 0; s < 4; s++) set(`construction_${s}`, constructionTile(244, s));
+  // BESPOKE per-city heroes do NOT bake into this shared sheet anymore (W2b) —
+  // they go to their own tight buffers via buildHeroBufs(), so 100 heroes/city
+  // can't overflow the 4096 packer. (Keeping them here capped the city at a
+  // handful: 2 already pushed Paris to 4014/4096.)
   return m;
 }
 
@@ -394,7 +509,7 @@ function packMaxRects(
   for (const [name, cell] of order) {
     const pos = place(cell.w, cell.h);
     if (!pos) return undefined; // doesn't fit this bin
-    frames.set(name, { x: pos.x, y: pos.y, w: cell.w, h: cell.h, ox: cell.ox, oy: cell.oy });
+    frames.set(name, { x: pos.x, y: pos.y, w: cell.w, h: cell.h, ox: cell.ox, oy: cell.oy, headroom: cell.headroom });
     splitFree({ x: pos.x, y: pos.y, w: cell.w, h: cell.h });
     if (pos.x + cell.w > usedW) usedW = pos.x + cell.w;
     if (pos.y + cell.h > usedH) usedH = pos.y + cell.h;
@@ -444,5 +559,6 @@ export function buildAtlas(): SpriteAtlas {
       pixels.set(cell.pixels.subarray(src, src + cell.w * 4), dst);
     }
   }
-  return { width, height, pixels, frames };
+  // bespoke heroes ride their OWN buffers, off this packed sheet (W2b).
+  return { width, height, pixels, frames, heroes: buildHeroBufs() };
 }
