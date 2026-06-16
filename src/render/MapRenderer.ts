@@ -67,6 +67,7 @@ import { groundSpriteFor, structureSpriteFor } from './tileChooser';
 import { constructionSpriteFor, constructionStage } from './construction';
 import {
   drawHeroLights,
+  drawHeroDusk,
   heroLightKind,
   HERO_GEOM,
   HERO_LIGHT_LANDMARKS,
@@ -435,6 +436,10 @@ export class MapRenderer {
    *  (powering literally lights it up). Additive, rides the glow layer, gated
    *  to energised heroes at mid/close zoom — a fresh blank game shows nothing.*/
   private heroLightsG = new Graphics();
+  /** Local dusk pockets behind energised heroes (normal blend, drawn UNDER the
+   *  additive bulbs) — deepens each lit hero so its fairy lights pop, without
+   *  touching the global (deliberately light/cosy) night wash. */
+  private heroDuskG = new Graphics();
   /** Every hero anchor on the map, with its footprint tiles + bespoke effect —
    *  scanned once when the map loads (see buildHeroLightAnchors). */
   private heroLightAnchors: Array<{ light: HeroLight; tiles: number[] }> = [];
@@ -559,8 +564,10 @@ export class MapRenderer {
     this.gleamG.eventMode = 'none';
     this.heroLightsG.blendMode = 'add';
     this.heroLightsG.eventMode = 'none';
+    this.heroDuskG.eventMode = 'none'; // normal blend (default) ⇒ it darkens
     this.glowWorld.addChild(this.bloomG);
     this.glowWorld.addChild(this.gleamG);
+    this.glowWorld.addChild(this.heroDuskG); // dusk pocket UNDER the bulbs
     this.glowWorld.addChild(this.heroLightsG);
     this.buildGleamHeroes();
     this.buildHeroLightAnchors();
@@ -1368,6 +1375,7 @@ export class MapRenderer {
     const sc = this.world.scale.x;
     if (this.gridViewOn || sc < 0.13 || this.heroLitNow.length === 0) {
       this.heroLightsG.clear();
+      this.heroDuskG.clear();
       return;
     }
     // cull to the visible world rect (+ a margin for tall heroes) so a big map
@@ -1383,6 +1391,7 @@ export class MapRenderer {
     for (const h of this.heroLitNow) {
       if (h.cx >= x0 && h.cx <= x1 && h.cy >= y0 && h.topY <= y1) onScreen.push(h);
     }
+    drawHeroDusk(this.heroDuskG, onScreen, this.grade?.glow ?? 0);
     drawHeroLights(this.heroLightsG, onScreen, this.heroClock, this.grade?.glow ?? 0);
   }
 
