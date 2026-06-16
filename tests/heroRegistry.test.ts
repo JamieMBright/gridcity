@@ -14,7 +14,7 @@ import {
 } from '../src/render/sprites/heroes/registry';
 import { buildAtlas } from '../src/render/sprites/atlas';
 import { applyCityFabric, activeFabric, type CityFabric } from '../src/render/sprites/buildingSprites';
-import { buildCityFromData } from '../src/data/cityData';
+import { buildCityFromData, buildHeroTable } from '../src/data/cityData';
 import { HERO_BASE, type CityMap } from '../src/sim/map/types';
 import { PARIS_CITY } from '../src/data/cities/paris';
 
@@ -55,11 +55,14 @@ describe('hero registry — structural invariants', () => {
   });
 
   it('footFor / lightSpecFor read back the registered values', () => {
-    expect(footFor('paris', 'chateau-de-vincennes')).toEqual([2, 2]);
-    expect(footFor('paris', 'tour-saint-jacques')).toEqual([1, 1]);
-    // unknown key → defensive [1,1]
+    // read back dynamically (robust as each city's hero set grows toward 100):
+    // footFor returns exactly the hero's registered foot; unknown key → [1,1].
+    for (const h of bespokeHeroesFor('paris')) {
+      expect(footFor('paris', h.key), `footFor ${h.key}`).toEqual([h.foot[0], h.foot[1]]);
+    }
     expect(footFor('paris', 'does-not-exist')).toEqual([1, 1]);
-    expect(lightSpecFor('paris', 'tour-saint-jacques')?.kind).toBe('aerialBeacon');
+    // at least one Paris hero carries a bespoke light; an unknown key → undefined.
+    expect(bespokeHeroesFor('paris').some((h) => lightSpecFor('paris', h.key) !== undefined)).toBe(true);
     expect(lightSpecFor('paris', 'does-not-exist')).toBeUndefined();
   });
 });
@@ -83,10 +86,15 @@ describe('hero registry — name resolution', () => {
   });
 });
 
-describe('hero registry — London byte-identity invariant', () => {
-  it('London has ZERO bespoke heroes (it must stay byte-identical until W3)', () => {
-    expect(bespokeHeroesFor('london')).toHaveLength(0);
-    expect(resolveBespokeKey('london', 'The Shard')).toBeUndefined();
+describe('hero registry — London bespoke heroes (W3)', () => {
+  it('London now carries bespoke heroes with unique keys; marquee names resolve', () => {
+    // W3 populated london.ts (was deliberately empty in W2). London render now
+    // changes by design (its placement wiring + SAVE_VERSION bump land with it).
+    const heroes = bespokeHeroesFor('london');
+    expect(heroes.length, 'London should carry bespoke heroes (W3)').toBeGreaterThan(0);
+    const keys = heroes.map((h) => h.key);
+    expect(new Set(keys).size, 'London hero keys unique').toBe(keys.length);
+    expect(resolveBespokeKey('london', 'The Shard')).toBe('the-shard');
   });
 });
 
@@ -113,17 +121,22 @@ describe('hero registry — placement via buildCityFromData', () => {
       }
     }
     expect(heroTiles, 'expected hero footprint tiles in the raster').toBeGreaterThan(0);
-    // 2 distinct heroes placed (foot 2×2 + 1×1 = 5 tiles)
-    expect(seenIdx.size).toBe(2);
-    expect(heroTiles).toBe(5);
+    // many heroes now place (W4 round 1 ≈26; was 2 proof in W2). Robust to growth.
+    expect(seenIdx.size, 'distinct heroes placed').toBeGreaterThan(5);
+    expect(heroTiles, 'hero footprint tiles').toBeGreaterThanOrEqual(seenIdx.size);
 
-    // the named places carry the resolved heroKey for UI/search
-    const withKey = map.named!.filter((p) => p.heroKey);
-    expect(withKey.map((p) => p.heroKey).sort()).toEqual(['chateau-de-vincennes', 'tour-saint-jacques']);
+    // the named places carry the resolved heroKey for UI/search; the marquee
+    // proof heroes remain among them.
+    const withKey = map.named!.filter((p) => p.heroKey).map((p) => p.heroKey);
+    expect(withKey.length).toBeGreaterThan(5);
+    expect(withKey).toContain('tour-saint-jacques');
+    expect(withKey).toContain('chateau-de-vincennes');
   });
 
-  it('a city with an EMPTY registry never stamps a >= HERO_BASE value (London additivity)', () => {
-    // a minimal london-fabric map: empty registry ⇒ buildHeroTable is a no-op
+  it('buildHeroTable no-ops for a named place with NO bespoke match (additivity)', () => {
+    // a place whose name matches no hero in the registry must never stamp a
+    // >= HERO_BASE value — buildHeroTable leaves the raster + heroTable untouched
+    // (this is what keeps non-hero labels / un-drawn cities byte-identical).
     const w = 4;
     const h = 4;
     const map: CityMap = {
@@ -139,11 +152,10 @@ describe('hero registry — placement via buildCityFromData', () => {
       landmark: new Uint8Array(w * h),
       councils: [],
       fabric: 'london',
-      named: [{ x: 1, y: 1, name: 'The Shard', landmark: true }],
+      named: [{ x: 1, y: 1, name: 'No Such Place ZZZ', landmark: true }],
     };
-    // simulate the build step's hero-table pass by re-running it via the public
-    // builder path: nothing in the london registry matches, so no slot/stamp.
-    expect(resolveBespokeKey('london', 'The Shard')).toBeUndefined();
+    expect(resolveBespokeKey('london', 'No Such Place ZZZ')).toBeUndefined();
+    buildHeroTable(map);
     expect(map.landmark!.every((v) => v < HERO_BASE)).toBe(true);
     expect(map.heroTable).toBeUndefined();
   });
@@ -182,15 +194,18 @@ describe('hero registry — atlas stays under the mobile-GPU ceiling', () => {
     }
   }, 30000);
 
-  it('London (empty registry) stays <= 4096 and bakes NO hero (sheet OR buffer)', () => {
+  it('London heroes ride OFF the <= 4096 sheet too (W3 — packed sheet stays hero-free)', () => {
     const prev = activeFabric();
     try {
       applyCityFabric('london');
       const atlas = buildAtlas();
       expect(atlas.width, 'london atlas width').toBeLessThanOrEqual(4096);
       expect(atlas.height, 'london atlas height').toBeLessThanOrEqual(4096);
+      // London now carries bespoke heroes (W3) — but, like every city, they ride
+      // their OWN off-sheet buffers, so the packed sheet stays hero-frame-free and
+      // cannot overflow however many heroes London adds.
       expect([...atlas.frames.keys()].filter((k) => k.startsWith('hero_'))).toHaveLength(0);
-      expect(atlas.heroes.size, 'london has no off-sheet heroes').toBe(0);
+      expect(atlas.heroes.size, 'london off-sheet heroes').toBeGreaterThan(0);
     } finally {
       applyCityFabric(prev);
     }
@@ -210,10 +225,13 @@ describe('hero registry — DOCTRINE METRIC (bespoke heroes per city)', () => {
     console.log('\nBESPOKE HERO COUNT PER CITY (doctrine: 100/city):\n' + lines.join('\n'));
     const total = counts.reduce((s, [, n]) => s + n, 0);
     console.log(`  ${'TOTAL'.padEnd(10)} ${String(total).padStart(3)} / 1200\n`);
-    // W2 baseline: London 0, Paris 2 proof, others 0. (No upper bound asserted
-    // — later waves grow these; this test just measures + reports.)
+    // Round 1 landed: London/Paris/Cairo/New York each carry a bespoke batch
+    // (the other 8 cities fill in later batches). Lower bounds only — the waves
+    // grow these toward the 100/city standard; this test measures + reports.
     const byCity = Object.fromEntries(counts) as Record<CityFabric, number>;
-    expect(byCity.london).toBe(0);
-    expect(byCity.paris).toBeGreaterThanOrEqual(2);
+    expect(byCity.london, 'London bespoke heroes (W3 r1)').toBeGreaterThan(0);
+    expect(byCity.paris, 'Paris bespoke heroes (W4 r1)').toBeGreaterThan(0);
+    expect(byCity.cairo, 'Cairo bespoke heroes (W5 r1)').toBeGreaterThan(0);
+    expect(byCity.newyork, 'New York bespoke heroes (W5 r1)').toBeGreaterThan(0);
   });
 });

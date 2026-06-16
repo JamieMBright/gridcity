@@ -195,7 +195,14 @@ export function buildHeroTable(map: CityMap): void {
   if (!named || !landmark) return;
   const table: HeroSlot[] = [];
   for (const place of named) {
-    if (!place.landmark) continue;
+    // PLACEMENT-GAP FIX (W5): consider EVERY named place, not just `landmark:true`
+    // ones. The OSM classifier flags only ~20-25 names per city as landmarks, so
+    // famous buildings the hero waves drew (Empire State, Cairo Tower, Opéra
+    // Garnier…) were placed as label-only pins and never rendered. A bespoke hero
+    // exists ⇒ it IS a hero, so place it regardless of the flag. The `match`
+    // regexes are specific (proper nouns / native script), so a plain label never
+    // false-matches. A place with NO bespoke match is still skipped below, keeping
+    // its archetype landmark value (if any) untouched — additive as before.
     const key = resolveBespokeKey(fabric, place.name);
     if (!key) continue; // no bespoke hero → keep its archetype landmark value
     const foot = footFor(fabric, key);
