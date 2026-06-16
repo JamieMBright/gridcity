@@ -128,6 +128,27 @@ parallelisable waves; the main session keeps the keep-alive drumbeat + integrate
   wind-farm icon + capacity picker. W7d Severe-weather v2 (7-day notice, Met
   Office colours, km/h gusts, system-prepare levers). W7e Tutorials 1-5 overhaul
   + structure (campaign→tutorial, lessons page, step-gating, more lessons).
+
+  **W7d — SEVERE-WEATHER v2 execution ledger (this subagent, worktree branch):**
+  Prior Wave-18 PR already shipped the escalated `SevereWeatherAlert.tsx` modal
+  (Met yellow/amber/red, km/h gusts, paused clock, 4 prepare levers wired to a
+  deterministic `stormPrep` command → `reliability/stormprep.ts`, full
+  call-handling/CSAT model). Tests green. Remaining v2 gaps I am closing:
+  - [ ] **Genuine ~7-day lead time (SIM).** Forecast only read `nextRegime`
+        (one regime ahead, 2–6 days) so a storm was forecast ≤6d out, often 2–4
+        — never the promised ~7d. Extend the regime pre-roll so a severe storm
+        gives ≈7 days' notice (deterministic, seeded; saves replay identically).
+  - [ ] **Routine weather UI → Met colours + km/h.** The always-on `StormBanner`
+        still showed abstract `severity {N}%`; recolour by warning level and read
+        gusts in km/h. The `MarketTicker` weather chip showed only an emoji — add
+        a live km/h windspeed off the current regime wind.
+  - [ ] **Unit tests** for the extended forecast lead-time + the live-wind km/h
+        mapping; keep determinism (no Math.random in sim).
+  - [ ] **Design gate**: real screenshots (desktop + phone-landscape) of the
+        7-day warning, Met severity colours, km/h readouts (modal AND routine
+        banner/chip), prepare levers. Save to preview/, critique, iterate.
+  - [ ] **Port override**: make playwright.config.ts honour `PW_PORT` (fallback
+        5199) so parallel worktree agents don't collide on the dev server.
 - **W8 — Per-country operating models** (FR/AU/HK/BR seams part 2b + tender flows).
 - **W9 — Per-city polish** (thin-river water glint Cairo/Pune/NE; NE Alnwick framing).
 - **W10 — Economy depth:** RAV/revenue/incentives; favour-login progression gating;

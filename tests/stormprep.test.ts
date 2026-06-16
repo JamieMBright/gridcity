@@ -16,7 +16,7 @@ import { deserialize, newGame, serialize } from '../src/sim/state';
 import { advanceTime, derive, solveTick } from '../src/sim/tick';
 import { mustApply, poweredFixture } from './helpers';
 
-describe('forecastStorms', () => {
+describe('forecastStorms — imminent (the pre-rolled next front)', () => {
   it('names a winter windy-wet front deterministically, with lead time', () => {
     const state = newGame();
     state.simTimeMin = MIDWINTER_MIN;
@@ -32,6 +32,7 @@ describe('forecastStorms', () => {
     expect(f[0]?.name).toMatch(/^Storm [A-Z]/);
     expect(f[0]?.etaMin).toBe(2 * 1440);
     expect(f[0]?.severity).toBeGreaterThan(0.7); // storm band of the fault engine
+    expect(f[0]?.confidence).toBe('imminent'); // it's the pre-rolled next front
     // pure + deterministic: same state, same forecast, name stable
     expect(forecastStorms(state)).toEqual(f);
     // the countdown runs as the clock does, the name holding
@@ -39,9 +40,26 @@ describe('forecastStorms', () => {
     const later = forecastStorms(state);
     expect(later[0]?.etaMin).toBe(1440);
     expect(later[0]?.name).toBe(f[0]?.name);
+    expect(later[0]?.confidence).toBe('imminent');
   });
 
-  it('summer fronts and benign regimes raise no storm', () => {
+  it('a pre-rolled named STORM is always imminent, summer or winter', () => {
+    const state = newGame();
+    state.simTimeMin = MIDSUMMER_MIN;
+    state.weather = {
+      cloud: 0.9,
+      wind: 0.6,
+      regime: 'mild',
+      nextRegime: 'storm',
+      regimeEndsMin: MIDSUMMER_MIN + 3 * 1440,
+    };
+    const f = forecastStorms(state);
+    expect(f).toHaveLength(1);
+    expect(f[0]?.confidence).toBe('imminent');
+    expect(f[0]?.severity).toBeGreaterThan(0.85); // named-storm band
+  });
+
+  it('a SUMMER windy-wet front is not an imminent warning', () => {
     const state = newGame();
     state.simTimeMin = MIDSUMMER_MIN;
     state.weather = {
@@ -51,11 +69,68 @@ describe('forecastStorms', () => {
       nextRegime: 'windy-wet',
       regimeEndsMin: MIDSUMMER_MIN + 2 * 1440,
     };
-    expect(forecastStorms(state)).toHaveLength(0); // windy-wet, but summer
+    // summer blows are just weather — no imminent warning (and high summer is
+    // calm enough that the medium-range outlook is usually empty too)
+    const f = forecastStorms(state);
+    expect(f.every((r) => r.confidence !== 'imminent')).toBe(true);
+  });
+});
+
+describe('forecastStorms — medium-range outlook (the ~7-day heads-up)', () => {
+  it('surfaces a deterministic storm up to ~7 days out when none is imminent', () => {
+    // deep winter, the next front is benign (calm-cold), so there is no
+    // imminent warning — but a GB operator still gets a Met-Office heads-up of
+    // the storm queuing behind it. The outlook must find one within the window.
+    const state = newGame();
     state.simTimeMin = MIDWINTER_MIN;
-    state.weather.nextRegime = 'calm-cold';
-    state.weather.regimeEndsMin = MIDWINTER_MIN + 2 * 1440;
-    expect(forecastStorms(state)).toHaveLength(0); // winter, but no front
+    state.weather = {
+      cloud: 0.4,
+      wind: 0.4,
+      regime: 'mild',
+      nextRegime: 'calm-cold',
+      regimeEndsMin: MIDWINTER_MIN + 2 * 1440,
+    };
+    const f = forecastStorms(state);
+    expect(f).toHaveLength(1);
+    expect(f[0]?.confidence).toBe('outlook');
+    expect(f[0]?.name).toMatch(/^Storm [A-Z]/);
+    expect(f[0]?.severity).toBeGreaterThan(0.7);
+    // a genuine multi-day lead, inside the ~7-day window
+    expect(f[0]?.etaMin).toBeGreaterThan(2 * 1440); // past the imminent slot
+    expect(f[0]?.etaMin).toBeLessThanOrEqual(10 * 1440); // within the horizon
+  });
+
+  it('the outlook is stable within a regime and counts down smoothly', () => {
+    const state = newGame();
+    state.weather = {
+      cloud: 0.4,
+      wind: 0.4,
+      regime: 'mild',
+      nextRegime: 'calm-cold',
+      regimeEndsMin: MIDWINTER_MIN + 2 * 1440,
+    };
+    state.simTimeMin = MIDWINTER_MIN;
+    const first = forecastStorms(state)[0];
+    expect(first?.confidence).toBe('outlook');
+    // advance half a game-day without crossing the regime boundary: same storm,
+    // eta down by exactly the elapsed time (no flicker, no re-seed)
+    state.simTimeMin = MIDWINTER_MIN + 720;
+    const later = forecastStorms(state)[0];
+    expect(later?.name).toBe(first?.name);
+    expect((first?.etaMin ?? 0) - (later?.etaMin ?? 0)).toBeCloseTo(720, 6);
+  });
+
+  it('deep summer is calm — no imminent and no outlook storm', () => {
+    const state = newGame();
+    state.simTimeMin = MIDSUMMER_MIN;
+    state.weather = {
+      cloud: 0.4,
+      wind: 0.4,
+      regime: 'mild',
+      nextRegime: 'mild',
+      regimeEndsMin: MIDSUMMER_MIN + 2 * 1440,
+    };
+    expect(forecastStorms(state)).toHaveLength(0);
   });
 });
 

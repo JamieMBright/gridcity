@@ -23,12 +23,26 @@
 // permitted call-site change in tick.ts; bill.ts itself is untouched.
 
 import { VAN_OPEX_K_YR } from '../catalog';
-import { seasonFactor, stormName, STORM_NAMES } from '../events/weather';
+import {
+  projectStormWindow,
+  REGIME_MIN_DAYS,
+  seasonFactor,
+  stormName,
+  STORM_NAMES,
+  type WeatherRegime,
+} from '../events/weather';
 import { pushEvent, type GameState } from '../state';
 import type { CommandResult } from '../commands';
 
 // ----------------------------------------------------------------------
 // Named-storm forecast.
+
+/** Forecast confidence: an IMMINENT storm is the high-confidence one the
+ *  live machine has already pre-rolled into nextRegime (it WILL arrive at
+ *  regimeEndsMin). An OUTLOOK storm is the deterministic medium-range
+ *  projection further out (the realistic ~7-day Met-Office heads-up that
+ *  firms up as it nears) — see events/weather.ts projectStormWindow. */
+export type StormConfidence = 'imminent' | 'outlook';
 
 export interface StormForecast {
   /** "Storm Aoife" — deterministic for a given window. */
@@ -39,6 +53,9 @@ export interface StormForecast {
    *  at arrival (the fault engine's storm band starts at ~0.7, severe
    *  above 0.85 — see reliability/faults.ts stormFactor). */
   severity: number;
+  /** Whether this is the imminent pre-rolled front or the medium-range
+   *  projection (the 7-day outlook). */
+  confidence: StormConfidence;
 }
 
 /** A windy-wet front only rates a NAME when it lands in the cold half of
@@ -46,34 +63,76 @@ export interface StormForecast {
  *  weather; Oct–Mar Atlantic lows are the set-piece. */
 export const STORM_WINTERNESS = 0.5;
 
+/** How far ahead the medium-range outlook projects, game-minutes. A real
+ *  network operator gets a Met-Office severe-storm heads-up ~7 days out and
+ *  runs the system-prepare over that lead (owner, 2026-06-14). We project a
+ *  little past 7d so a storm sitting just inside the window is surfaced with
+ *  a full week of lead rather than appearing at exactly 7d. */
+export const OUTLOOK_HORIZON_MIN = 10 * 1440;
+
 // The canonical name table + keyer live on the regime authority
 // (events/weather.ts), re-exported here for the existing call sites.
 export { STORM_NAMES, stormName };
 
-/** Pure, deterministic storm forecast off the regime pre-roll: the
- *  weather machine pre-rolls nextRegime 2–6 game-days ahead (the lead
- *  time), so a windy-wet front queued for winter IS the storm warning.
- *  The in-progress storm is not re-forecast here — the live storm
- *  banner already rides isStorm/stormAnnounced events. */
+/** Forecast severity (0..1 wind intensity) for a regime + winterness,
+ *  mirroring events/weather.ts REGIMES wind envelopes (that file owns the
+ *  numbers): a named storm gusts to ~0.92+, a windy-wet front to ~0.66+. */
+function forecastSeverity(regime: WeatherRegime, winterness: number): number {
+  return regime === 'storm'
+    ? Math.min(1, 0.92 + 0.06 * winterness)
+    : Math.min(1, 0.66 + 0.12 * winterness);
+}
+
+/** Pure, deterministic storm forecast. Two horizons, realistic for a GB
+ *  operator:
+ *    • IMMINENT — the live machine pre-rolls nextRegime 2–6 days ahead, so a
+ *      storm/winter-windy-wet front queued there IS the high-confidence
+ *      warning (it will arrive at regimeEndsMin).
+ *    • OUTLOOK — when nothing severe is imminent, a deterministic
+ *      medium-range projection of the regime chain (events/weather.ts
+ *      projectStormWindow) surfaces the next storm up to ~7+ days out, the
+ *      Met-Office-style heads-up the player can prepare against early.
+ *  The in-progress storm is not re-forecast here — the live storm banner
+ *  already rides isStorm/stormAnnounced events. */
 export function forecastStorms(state: GameState): StormForecast[] {
   const w = state.weather;
-  // a queued named STORM is always a warning; a windy-wet front only
-  // rates a forecast banner in the cold half of the year.
+  if (w.regimeEndsMin === undefined || w.regime === undefined) return [];
+
+  // --- imminent: the already-pre-rolled next front -------------------------
   const next = w.nextRegime;
-  if ((next !== 'storm' && next !== 'windy-wet') || w.regimeEndsMin === undefined) return [];
-  const winterness = seasonFactor(w.regimeEndsMin);
-  if (next === 'windy-wet' && winterness < STORM_WINTERNESS) return [];
-  // mirrors events/weather.ts REGIMES wind envelopes (that file is
-  // read-only here): the named storm gusts to ~0.92+, windy-wet to ~0.66.
-  const severity =
-    next === 'storm'
-      ? Math.min(1, 0.92 + 0.06 * winterness)
-      : Math.min(1, 0.66 + 0.12 * winterness);
+  const imminentForecastable =
+    next === 'storm' || (next === 'windy-wet' && seasonFactor(w.regimeEndsMin) >= STORM_WINTERNESS);
+  if (imminentForecastable && next !== undefined) {
+    const winterness = seasonFactor(w.regimeEndsMin);
+    return [
+      {
+        name: `Storm ${stormName(w.regimeEndsMin)}`,
+        etaMin: Math.max(0, w.regimeEndsMin - state.simTimeMin),
+        severity: forecastSeverity(next, winterness),
+        confidence: 'imminent',
+      },
+    ];
+  }
+
+  // --- outlook: project the chain forward for the ~7-day heads-up ----------
+  // walk begins from the current regime's end boundary (the imminent front,
+  // already known, runs until then) and holds the search past one minimum
+  // regime so it reports the MEDIUM range, not the next-day slot the imminent
+  // branch owns. Stable per-regime + independent of the live RNG, so the
+  // actual weather is untouched and the outlook only revises at each turnover.
+  const projected = projectStormWindow(
+    w.regimeEndsMin,
+    OUTLOOK_HORIZON_MIN,
+    STORM_WINTERNESS,
+    REGIME_MIN_DAYS * 1440,
+  );
+  if (!projected) return [];
   return [
     {
-      name: `Storm ${stormName(w.regimeEndsMin)}`,
-      etaMin: Math.max(0, w.regimeEndsMin - state.simTimeMin),
-      severity,
+      name: `Storm ${stormName(projected.startMin)}`,
+      etaMin: Math.max(0, projected.startMin - state.simTimeMin),
+      severity: forecastSeverity(projected.regime, projected.winterness),
+      confidence: 'outlook',
     },
   ];
 }
