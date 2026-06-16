@@ -179,7 +179,8 @@ function StormBanner() {
         ⚠ {warn.toUpperCase()}
       </span>
       <span style={{ color: theme.offWhite }}>
-        {outlook ? 'Outlook: ' : ''}Storm {storm.name}
+        {outlook ? 'Outlook: ' : ''}
+        {storm.name}
       </span>
       <span style={{ color: theme.slate }}>·</span>
       <span style={{ color: warnColor, fontWeight: 700 }}>

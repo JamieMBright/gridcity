@@ -135,6 +135,12 @@ test('severe-weather v2 — routine HUD (banner km/h + warning colour, wind chip
   await boot(page);
   await injectRoutine(page, 'Storm Aster', 0.66, 0.8);
   await page.screenshot({ path: 'preview/severe-banner-desktop.png' });
+  // a tight, legible crop of just the top band (ticker + banner) for the
+  // design-eval — the full shot reads small at this zoom
+  await page.screenshot({
+    path: 'preview/severe-banner-crop.png',
+    clip: { x: 300, y: 20, width: 680, height: 100 },
+  });
   await clearInject(page);
 
   // phone-landscape: the same routine HUD
@@ -142,5 +148,9 @@ test('severe-weather v2 — routine HUD (banner km/h + warning colour, wind chip
   await page.waitForTimeout(300);
   await injectRoutine(page, 'Storm Aster', 0.66, 0.8);
   await page.screenshot({ path: 'preview/severe-banner-mobile.png' });
+  await page.screenshot({
+    path: 'preview/severe-banner-mobile-crop.png',
+    clip: { x: 140, y: 12, width: 680, height: 96 },
+  });
   await clearInject(page);
 });
