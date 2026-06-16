@@ -47,9 +47,12 @@ parallelisable waves; the main session keeps the keep-alive drumbeat + integrate
   France…); NE enriched so Tyne Bridge/Angel/Durham now render. → **1003/1200 across 12 cities**
   (London 100, Paris 105, Sydney 103, HK 103, Cairo 90, NE 89, Athens 84, NYC 79, Shanghai 76,
   Cape Town 72, Berlin 71, Pune 31). Full e2e validating (London is default city + changed).
-- ⏭ NEXT (toward 100 for the rest): Berlin (enrich+draw Fernsehturm/Tempelhof/Olympiastadion),
-  Shanghai (Bund banks/Pudong towers), NYC (One WTC/Statue/Brooklyn Bridge/Grand Central),
-  Cape Town, + finish Cairo/NE/Athens to 100. Pune ≈capped at its ~33 OSM count.
+- ✅ MILESTONE e2e GREEN (56 passed, 0 fail, 16.3m) — London-100 (default city) + SAVE_VERSION 16 play cleanly.
+- 🔄 BATCH 7 IN PROGRESS (toward 100, combined draw+enrich): Berlin (Fernsehturm/Tempelhof/
+  Olympiastadion), Shanghai (Bund banks/Pudong towers), NYC (One WTC/Statue/Brooklyn
+  Bridge/Grand Central), Cape Town (Stadium/City Hall/Clock Tower). Agents edit heroes/<city>.ts
+  + data/cities/<city>.ts named[]. Gate each (tsc/eslint/vitest/build + London md5 064ba58) + commit.
+- ⏭ AFTER: finish Cairo 90/NE 89/Athens 84 → 100 (small draw+enrich rounds). Pune ≈capped ~33.
   Then: per-hero night light-show in-game verification; the playtest re-raise (W7); operating models (W8).
 - KEY LEARNINGS: (1) the placement-gap fix already renders every drawn hero whose name is
   in named[]; the only gap is famous landmarks ABSENT from the OSM named[] (drawn but
