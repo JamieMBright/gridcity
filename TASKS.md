@@ -27,12 +27,14 @@ parallelisable waves; the main session keeps the keep-alive drumbeat + integrate
 - ✅ Hero fan-out BATCH 1 LANDED, pushed (4e9f91f): London 41, Paris 30, Cairo 38
   (+Giza Sound-&-Light), New York 38 = 147 bespoke heroes. + placement-gap fix
   (any researched hero now places, not just OSM-flagged landmarks).
-- 🔄 BATCH 2 IN PROGRESS: London PLACEMENT wiring (so London's 41 render in-game +
-  SAVE_VERSION bump), Paris ROUND 2 (→~70), Sydney R1, Berlin R1.
-- ⏭ NEXT: Cairo/NYC R2; HK/Shanghai/Cape Town/Athens/Pune/NE R1; then further rounds
-  to ~100 bespoke/city (research is DONE — 99-100/city; drawing is multi-round for
-  QUALITY: ~30-40 genuinely-good sprites per subagent run, re-launched until 100).
-  Marathon — runs as long as it takes. Doctrine metric (vitest) climbs each round.
+- ✅ BATCH 2 LANDED, pushed (9b5bb12): London PLACEMENT wired (41 render in-game,
+  SAVE_VERSION 13→14), Paris ROUND 2 → 88 (all placed names), Sydney R1 32, Berlin R1 35.
+- 🔄 BATCH 3a IN PROGRESS: Hong Kong R1, Shanghai R1, Cape Town R1, Athens R1.
+- ⏭ NEXT: Pune R1, NE England R1, Cairo R2, New York R2; then further rounds + a
+  per-city NAMED-LIST ENRICHMENT pass (the famous unplaced marquees — Berlin Fernsehturm,
+  Paris Panthéon/Pompidou/gares, Cairo Tower, etc. — aren't in the OSM `named` lists, so
+  data must place them to reach the famous 100). Doctrine metric: **272/1200 across 6 cities**,
+  climbing. Marathon — runs as long as it takes.
 
 - **W1 — Unified perimeter HUD** (IN PROGRESS, subagent): one wraparound chrome,
   dedicated non-overlapping zones, desktop + phone-landscape. (TASKS §UNIFIED PERIMETER HUD)
