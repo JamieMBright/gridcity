@@ -2239,7 +2239,1105 @@ function historistenblockTile(seed: number, baths: boolean): Uint8ClampedArray<A
   return iso.build();
 }
 
+// =====================================================================
+// ROUND-3 SHARED PRIMITIVES — the famous icons (TV tower, airport, stadium,
+// stations, department stores) + a wider modern/civic family toward the 100.
+// =====================================================================
+
+/** A faceted SPHERE (ball-on-a-stick) at a screen point + base height — the
+ *  Fernsehturm's steel ball, a planetarium, a gasometer crown. Returns the
+ *  sphere's top Y (for the antenna/finial). Drawn as stacked horizontal poly
+ *  rings so it reads round in the iso; `mer` adds vertical meridian lines. */
+function sphereAt(
+  iso: Iso,
+  cx: number,
+  cy: number,
+  baseZ: number,
+  rPx: number,
+  body: RGBA,
+  opts: { mer?: number; band?: RGBA } = {},
+): { topX: number; topY: number; cyPx: number } {
+  const [sx, syGround] = iso.P(cx, cy, baseZ);
+  const cyPx = syGround - rPx; // sphere centre sits a radius above its base
+  // outline disc (slightly squashed for the iso)
+  const disc = (s: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      pts.push([sx + Math.cos(a) * rPx * s, cyPx + Math.sin(a) * rPx * 0.98 * s]);
+    }
+    return pts;
+  };
+  iso.r.poly(disc(1), shaded(body, 0.1), lit(body, 0.06));
+  // a lit crescent toward the sun (upper-right)
+  iso.r.poly(disc(0.62).map(([x, y]): Pt => [x + rPx * 0.22, y - rPx * 0.2]), lit(body, 0.14));
+  // latitude bands
+  for (const f of [-0.45, 0, 0.45] as const) {
+    const yy = cyPx + f * rPx;
+    const hw = Math.sqrt(Math.max(0, 1 - f * f)) * rPx;
+    iso.r.line([sx - hw, yy], [sx + hw, yy], 0.7 * RES, alpha(shaded(body, 0.2), 0.7));
+  }
+  // meridians (the disco-ball facet seams)
+  for (let k = 0; k < (opts.mer ?? 0); k++) {
+    const f = (k / Math.max(1, (opts.mer ?? 1) - 1)) * 2 - 1;
+    iso.r.line([sx + f * rPx, cyPx], [sx + f * rPx * 0.2, cyPx - rPx * 0.96], 0.5 * RES, alpha(shaded(body, 0.16), 0.6));
+  }
+  if (opts.band) {
+    // a bright equatorial band (windows of the observation deck)
+    iso.r.line([sx - rPx, cyPx], [sx + rPx, cyPx], 2.6 * RES, opts.band);
+    iso.r.line([sx - rPx, cyPx - 1.6 * RES], [sx + rPx, cyPx - 1.6 * RES], 0.8 * RES, lit(opts.band, 0.1));
+  }
+  iso.r.polyline(disc(1), INK_W * 0.8, INK, true);
+  return { topX: sx, topY: cyPx - rPx, cyPx };
+}
+
+// =====================================================================
+// FERNSEHTURM — Berlin's tallest structure and unmistakable icon: a slim
+// tapering CONCRETE shaft rising 250 m to the great stainless-steel SPHERE
+// (observation deck + revolving café, its facets catching the sun as the
+// "Pope's Revenge" cross), then a tall red-and-white antenna mast spiking far
+// higher. The whole East-Berlin skyline in one silhouette. 2×2, huge headroom.
+// =====================================================================
+function fernsehturmTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 440 });
+  void seed;
+  const CONC = COLORS.concrete;
+  const u = 1.0, v = 1.0;
+  iso.shadow(u - 0.4, v - 0.28, u + 0.42, v + 0.5, 0.42, 0.26);
+  // a small paved plaza apron (the foot at Alexanderplatz)
+  iso.box(0.36, 0.42, 1.64, 1.62, 0, 3, shaded(COLORS.pavement, 0.05), { ink: false });
+  // the splayed concrete foot (a low flaring base)
+  iso.box(u - 0.32, v - 0.32, u + 0.32, v + 0.32, 3, 20, shaded(CONC, 0.08));
+  // the VERY tall tapering shaft — the Fernsehturm must tower over everything
+  // (368 m, by far Berlin's tallest). Three diminishing drums; sphere at H2.
+  const H1 = 200, H2 = 286; // sphere springs around H2
+  iso.box(u - 0.15, v - 0.15, u + 0.15, v + 0.15, 20, H1, CONC, {
+    leftC: shaded(CONC, 0.16), rightC: lit(CONC, 0.05),
+  });
+  iso.box(u - 0.105, v - 0.105, u + 0.105, v + 0.105, H1, H2, lit(CONC, 0.02), {
+    leftC: shaded(CONC, 0.14), rightC: lit(CONC, 0.06),
+  });
+  // fine concrete form-lines up the shaft (vertical relief)
+  for (const du of [-0.08, 0, 0.08] as const) {
+    iso.r.line(iso.P(u + du, v + 0.15, 22), iso.P(u + du, v + 0.15, H1), 0.5 * RES, alpha(shaded(CONC, 0.18), 0.5));
+  }
+  // ---- the great stainless-steel SPHERE (the observation deck + café) ----
+  const STEELB = hex('#9fb0bd'); // brushed stainless
+  const { topX, topY } = sphereAt(iso, u, v, H2, 0.46 * (CELL_W / 2), STEELB, {
+    mer: 9, band: alpha(COLORS.glassLit, 0.85),
+  });
+  // a glint where the famous reflective cross catches the light
+  iso.glint([topX + 6 * RES, topY + 13 * RES], 2.6 * RES);
+  // a thin collar where the shaft re-emerges above the sphere
+  iso.r.line([topX, topY + 4 * RES], [topX, topY - 8 * RES], 2.0 * RES, lit(CONC, 0.04));
+  // ---- the tall red/white antenna mast spiking far above the sphere ----
+  let z = topY - 8 * RES;
+  const seg = 13 * RES;
+  for (let i = 0; i < 9; i++) {
+    iso.r.line([topX, z], [topX, z - seg], (2.2 - i * 0.2) * RES, i % 2 ? hex('#c94436') : COLORS.white);
+    z -= seg;
+  }
+  // the warning beacon at the very tip
+  iso.r.line([topX - 1.4 * RES, z], [topX + 1.4 * RES, z], 2 * RES, hex('#ff5a4a'));
+  return iso.build();
+}
+
+// =====================================================================
+// FLUGHAFEN TEMPELHOF — the colossal Nazi-era airport, one of the world's
+// largest buildings: a vast limestone-clad block that sweeps in a gentle 1.2 km
+// ARC, fronted by a continuous cantilevered hangar CANOPY over the apron and
+// crowned by stone eagle-piers. A true MONSTER footprint. 5×5, drawn long+curved.
+// =====================================================================
+function tempelhofTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(5, 5, { swAnchor: true, headroom: 130 });
+  void seed;
+  const LIME = hex('#cabf9f'); // Muschelkalk limestone
+  const u0 = 0.3, u1 = 4.7, v0 = 0.6, v1 = 4.5;
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.2);
+  // the open apron / Tempelhofer Feld in front
+  iso.box(u0, v1 - 0.9, u1, v1, 0, 3, shaded(COLORS.pavement, 0.06), { ink: false });
+  // the long head block, stepped in plan to suggest the gentle curve: three
+  // wings at receding v so the front edge bows toward the viewer.
+  const wings: Array<[number, number, number, number, number]> = [
+    // u0, v0, u1, v1, height
+    [u0, v0, u0 + 1.7, v0 + 1.5, 70],
+    [u0 + 1.5, v0 + 0.18, u1 - 1.5, v0 + 1.62, 74], // centre, pushed a touch forward + taller
+    [u1 - 1.7, v0, u1, v0 + 1.5, 70],
+  ];
+  for (const [a0, b0, a1, b1, h] of wings) {
+    iso.box(a0, b0, a1, b1, 0, h, LIME);
+    // the dense regular grid of windows on the long stone flank (v1 face)
+    iso.windowsLeft(b1, a0 + 0.1, a1 - 0.1, 16, 30, Math.round((a1 - a0) * 6), alpha(COLORS.glassDark, 0.85), lighten(LIME, 0.06));
+    iso.windowsLeft(b1, a0 + 0.1, a1 - 0.1, 36, 50, Math.round((a1 - a0) * 6), alpha(COLORS.glassDark, 0.85), lighten(LIME, 0.06));
+    iso.windowsLeft(b1, a0 + 0.1, a1 - 0.1, 56, h - 6, Math.round((a1 - a0) * 6), alpha(COLORS.glassDark, 0.85), lighten(LIME, 0.06));
+    // a heavy stone cornice
+    iso.box(a0 - 0.02, b0 - 0.02, a1 + 0.02, b1 + 0.02, h, h + 5, lighten(LIME, 0.06), { topC: top(LIME, 0.24) });
+  }
+  // ---- the great cantilevered hangar CANOPY sweeping along the apron front ----
+  const cz0 = 40, cz1 = 52;
+  iso.box(u0 + 0.2, v1 - 0.5, u1 - 0.2, v1 - 0.32, cz0, cz1, lit(LIME, 0.03), { topC: top(LIME, 0.2) });
+  // the row of tall slim columns carrying the canopy lip
+  for (let i = 0; i <= 16; i++) {
+    const uu = u0 + 0.3 + ((u1 - u0 - 0.6) * i) / 16;
+    iso.r.line(iso.P(uu, v1 - 0.34, 0), iso.P(uu, v1 - 0.34, cz0), 1.0 * RES, shaded(LIME, 0.14));
+  }
+  iso.r.line(iso.P(u0 + 0.2, v1 - 0.34, cz0), iso.P(u1 - 0.2, v1 - 0.34, cz0), INK_W, INK);
+  // stone eagle-piers projecting at the wing ends (square pylons w/ a dark cap)
+  for (const cu of [u0 + 0.3, u1 - 0.3] as const) {
+    iso.box(cu - 0.14, v0 + 0.1, cu + 0.14, v0 + 0.38, 0, 84, lighten(LIME, 0.04));
+    const q = iso.P(cu, v0 + 0.24, 84);
+    iso.r.poly([[q[0] - 4 * RES, q[1]], [q[0] + 4 * RES, q[1]], [q[0] + 5 * RES, q[1] - 5 * RES], [q[0] - 3 * RES, q[1] - 4 * RES]], shaded(hex('#6f6a5c'), 0.05));
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// OLYMPIASTADION — the 1936 Olympic stadium: a vast shallow elliptical stone
+// BOWL ringed by a colonnade of pale travertine piers, sunk into the ground so
+// only the upper tier shows, with the iconic MARATHONTOR gap and the modern
+// translucent ring-ROOF floating on a forest of slender masts. Monster. 5×5.
+// =====================================================================
+function olympiastadionTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(5, 5, { swAnchor: true, headroom: 90 });
+  void seed;
+  const TRAV = hex('#d2c8b2'); // travertine
+  const cu = 2.5, cv = 2.5;
+  const [cx, cyB] = iso.P(cu, cv, 0);
+  iso.shadow(0.3, 0.5, 4.7, 4.5, 0.24, 0.2);
+  const RX = 0.52 * 5 * (CELL_W / 2);
+  const RY = RX * 0.5;
+  const ring = (rx: number, ry: number, lift: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 48; i++) {
+      const a = (i / 48) * Math.PI * 2;
+      pts.push([cx + Math.cos(a) * rx, cyB - lift + Math.sin(a) * ry]);
+    }
+    return pts;
+  };
+  const WALL = 42 * RES;
+  // the outer stone bowl wall (the travertine ring)
+  iso.r.poly([...ring(RX, RY, 0), ...ring(RX, RY, WALL).reverse()], TRAV);
+  // the colonnade of piers round the outer wall (vertical ticks)
+  for (let i = 0; i < 40; i++) {
+    const a = (i / 40) * Math.PI * 2;
+    const x = cx + Math.cos(a) * RX, y = cyB + Math.sin(a) * RY;
+    iso.r.line([x, y], [x, y - WALL], 1.0 * RES, i % 2 ? shaded(TRAV, 0.16) : lit(TRAV, 0.05));
+  }
+  // seating tiers + the green pitch
+  iso.r.poly(ring(RX * 0.9, RY * 0.9, WALL), shaded(hex('#b8ae97'), 0.06));
+  iso.r.poly(ring(RX * 0.66, RY * 0.66, WALL - 3 * RES), darken(COLORS.orange, 0.3));
+  iso.r.poly(ring(RX * 0.5, RY * 0.5, WALL - 5 * RES), hex('#5f9e4e'));
+  // the blue running track ring
+  iso.r.polyline(ring(RX * 0.6, RY * 0.6, WALL - 4 * RES), 2.2 * RES, alpha(hex('#3f6ea0'), 0.8), true);
+  iso.r.polyline(ring(RX, RY, WALL), INK_W, INK, true);
+  iso.r.polyline(ring(RX, RY, 0), INK_W * 0.7, alpha(INK, 0.5), true);
+  // ---- the floating translucent ring-roof on slender masts ----
+  for (let i = 0; i < 24; i++) {
+    const a = (i / 24) * Math.PI * 2;
+    const x = cx + Math.cos(a) * RX * 1.02, y = cyB + Math.sin(a) * RY * 1.02;
+    iso.r.line([x, y - WALL], [x, y - WALL - 28 * RES], 0.9 * RES, COLORS.steelDark);
+  }
+  // the translucent roof band itself (a pale ring riding the mast tops)
+  iso.r.poly([...ring(RX * 1.1, RY * 1.1, WALL + 28 * RES), ...ring(RX * 0.74, RY * 0.74, WALL + 28 * RES).reverse()], alpha(COLORS.glassSky, 0.42));
+  iso.r.polyline(ring(RX * 1.1, RY * 1.1, WALL + 28 * RES), INK_W * 0.7, alpha(INK, 0.5), true);
+  // the Marathontor break (the open end with the cauldron) — a gleam
+  iso.gleam([cx - RX * 0.9, cyB - WALL - 10 * RES], [cx - RX * 0.5, cyB - RY * 0.7 - WALL], 1.4 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// EAST SIDE GALLERY — the longest surviving stretch of the BERLIN WALL, now an
+// open-air gallery: a long run of the rounded-top concrete Hinterland-wall
+// segments painted in vivid murals (Brezhnev–Honecker "Fraternal Kiss", the
+// Trabant breaking through), running along the Spree by the Oberbaumbrücke. 3×3.
+// =====================================================================
+function eastSideGalleryTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 70 });
+  void seed;
+  const CONC = hex('#cdc7bb'); // wall concrete
+  const u0 = 0.2, u1 = 2.8, vm = 1.7;
+  // the Spree behind the wall (low v) + the riverside walk in front
+  iso.box(0.05, 0.05, 2.95, vm - 0.2, 0, 1, shaded(COLORS.water, 0.04), { ink: false });
+  iso.box(u0, vm - 0.1, u1, 2.7, 0, 3, shaded(COLORS.pavement, 0.05), { ink: false });
+  iso.shadow(u0, vm - 0.16, u1, vm + 0.12, 0.16, 0.2);
+  // the long wall: a single run with the characteristic rounded sewer-pipe top
+  const wz = 38;
+  iso.box(u0, vm - 0.12, u1, vm, 0, wz, CONC, { leftC: shaded(CONC, 0.14), rightC: lit(CONC, 0.04) });
+  const a = iso.P(u0, vm - 0.06, wz), b = iso.P(u1, vm - 0.06, wz);
+  iso.r.line(a, b, 3.0 * RES, lighten(CONC, 0.1));
+  iso.r.line([a[0], a[1] - 1.4 * RES], [b[0], b[1] - 1.4 * RES], 1.0 * RES, top(CONC, 0.2));
+  // the murals: blocks of vivid colour panelled along the river-facing (v=vm) face
+  const palette = [hex('#c64f3e'), hex('#e0b34a'), hex('#3f8e84'), hex('#3f6ea0'), hex('#a8567f'), hex('#6f9e4e')];
+  const N = 13;
+  for (let i = 0; i < N; i++) {
+    const ua = u0 + ((u1 - u0) * i) / N + 0.02, ub = u0 + ((u1 - u0) * (i + 1)) / N - 0.02;
+    const c = palette[i % palette.length]!;
+    iso.r.poly([iso.P(ua, vm, 4), iso.P(ub, vm, 4), iso.P(ub, vm, wz - 3), iso.P(ua, vm, wz - 3)], alpha(c, 0.9));
+    // a couple of mural "figures" — simpler darker accents
+    iso.r.line(iso.P((ua + ub) / 2, vm, 8), iso.P((ua + ub) / 2, vm, wz - 6), 0.8 * RES, alpha(darken(c, 0.25), 0.7));
+  }
+  // panel seams
+  for (let i = 0; i <= N; i++) {
+    const uu = u0 + ((u1 - u0) * i) / N;
+    iso.r.line(iso.P(uu, vm, 2), iso.P(uu, vm, wz), 0.6 * RES, alpha(shaded(CONC, 0.2), 0.7));
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// KAUFHAUS DES WESTENS (KaDeWe) — continental Europe's grandest department
+// store: a massive seven-storey stone-and-render block on Tauentzienstraße,
+// a strong horizontal cornice, ranks of big shop windows, a glazed top-floor
+// food-hall/winter-garden and a flat roof with the rooftop dome lantern. 4×4.
+// =====================================================================
+function kadeweTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 120 });
+  void seed;
+  const STN = hex('#d4cbb6');
+  const u0 = 0.34, u1 = 3.66, v0 = 0.5, v1 = 3.5;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  // the great block — tall, six trading storeys
+  iso.box(u0, v0, u1, v1, 0, 78, STN);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 12, shaded(STN, 0.14), { ink: false });
+  // a big glazed shop-window band at street level (the display windows, lit)
+  iso.box(u0 + 0.04, v1 - 0.05, u1 - 0.04, v1, 0, 14, alpha(COLORS.glassLit, 0.6), { ink: false });
+  for (let i = 1; i < 14; i++) iso.r.line(iso.P(u0 + ((u1 - u0) * i) / 14, v1, 2), iso.P(u0 + ((u1 - u0) * i) / 14, v1, 14), 0.6 * RES, alpha(STEEL, 0.6));
+  // four storeys of regular windows up the two faces
+  for (const [zb, zt] of [[20, 32], [36, 48], [52, 64], [68, 76]] as const) {
+    iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, zb, zt, 16, alpha(COLORS.glassDark, 0.85), lighten(STN, 0.06));
+    iso.windowsRight(u1, v0 + 0.1, v1 - 0.1, zb, zt, 14, alpha(COLORS.glassDark, 0.85), lighten(STN, 0.06));
+  }
+  // a strong stone cornice
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 78, 84, lighten(STN, 0.06), { topC: top(STN, 0.26) });
+  // ---- the glazed top-floor food-hall / winter garden set back on the roof ----
+  iso.box(u0 + 0.4, v0 + 0.4, u1 - 0.4, v1 - 0.4, 84, 100, alpha(COLORS.glassSky, 0.55), {
+    leftC: alpha(COLORS.glassDark, 0.6), rightC: alpha(COLORS.glassLit, 0.4),
+  });
+  for (let i = 1; i < 10; i++) { const u = u0 + 0.4 + ((u1 - u0 - 0.8) * i) / 10; iso.r.line(iso.P(u, v1 - 0.4, 86), iso.P(u, v1 - 0.4, 100), 0.6 * RES, alpha(COLORS.white, 0.5)); }
+  // a low glazed barrel skylight over the winter garden
+  barrelVault(iso, u0 + 0.5, u1 - 0.5, v0 + 0.5, v1 - 0.5, 100, 112, COLORS.glassSky);
+  iso.glint(iso.P((u0 + u1) / 2, (v0 + v1) / 2, 112), 2.4 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// BERLIN HAUPTBAHNHOF — Europe's largest crossing-station: a vast glittering
+// GLASS hall, a long curved barrel-vault train-shed pierced at right angles by
+// two big GLASS office "bridge" blocks straddling the tracks — a luminous glass
+// CROSS. All steel + glass, modern, transparent. A monster station. 5×5.
+// =====================================================================
+function hauptbahnhofTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(5, 5, { swAnchor: true, headroom: 120 });
+  void seed;
+  const u0 = 0.3, u1 = 4.7, v0 = 0.5, v1 = 4.5;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  // a low glazed concourse podium
+  iso.box(u0, v0, u1, v1, 0, 20, alpha(COLORS.glassSky, 0.55), {
+    leftC: alpha(COLORS.glassDark, 0.62), rightC: alpha(COLORS.glassLit, 0.42),
+  });
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 6, shaded(hex('#9aa3ab'), 0.1), { ink: false });
+  // glazing mullions on the podium so it reads as a glass building, not a lot
+  for (let i = 1; i < 18; i++) iso.r.line(iso.P(u0 + ((u1 - u0) * i) / 18, v1, 4), iso.P(u0 + ((u1 - u0) * i) / 18, v1, 20), 0.5 * RES, alpha(COLORS.white, 0.4));
+  // the long low glazed train shed running NE–SW across the middle (a shallow
+  // segmental glass roof — kept LOW so the cross-blocks read as the icon, not
+  // a busy vault). A single bowed plane + a few ribs, no end-gable triangles.
+  {
+    const vS0 = 1.75, vS1 = 3.25, vSm = (vS0 + vS1) / 2;
+    iso.r.poly([iso.P(u0 + 0.1, vSm, 40), iso.P(u1 - 0.1, vSm, 40), iso.P(u1 - 0.1, vS1, 22), iso.P(u0 + 0.1, vS1, 22)], alpha(COLORS.glassSky, 0.5));
+    iso.r.poly([iso.P(u0 + 0.1, vS0, 22), iso.P(u1 - 0.1, vS0, 22), iso.P(u1 - 0.1, vSm, 40), iso.P(u0 + 0.1, vSm, 40)], alpha(lit(COLORS.glassSky, 0.1), 0.45));
+    iso.r.line(iso.P(u0 + 0.1, vSm, 40), iso.P(u1 - 0.1, vSm, 40), 0.9 * RES, alpha(COLORS.white, 0.6));
+    for (let i = 1; i < 9; i++) { const uu = u0 + 0.1 + ((u1 - u0 - 0.2) * i) / 9; iso.r.polyline([iso.P(uu, vS0, 22), iso.P(uu, vSm, 40), iso.P(uu, vS1, 22)], 0.5 * RES, alpha(STEEL, 0.5)); }
+  }
+  // the two GLASS office bridge-blocks straddling the tracks at right angles
+  // (crossing the shed) — the famous glass cross. They run in v, set wide apart,
+  // and rise tall + bright so the cross dominates the silhouette.
+  for (const cu of [1.5, u1 - 1.5] as const) {
+    iso.box(cu - 0.46, v0 + 0.1, cu + 0.46, v1 - 0.1, 36, 112, alpha(COLORS.glassSky, 0.72), {
+      leftC: alpha(COLORS.glassDark, 0.72), rightC: alpha(COLORS.glassLit, 0.5),
+    });
+    // a fine mullion grid on the long glass flank
+    for (let i = 1; i < 17; i++) { const vv = v0 + 0.1 + ((v1 - v0 - 0.2) * i) / 17; iso.r.line(iso.P(cu - 0.46, vv, 38), iso.P(cu - 0.46, vv, 112), 0.5 * RES, alpha(COLORS.white, 0.5)); }
+    for (const z of [54, 70, 86, 102] as const) iso.r.line(iso.P(cu - 0.46, v0 + 0.1, z), iso.P(cu - 0.46, v1 - 0.1, z), 0.5 * RES, alpha(COLORS.white, 0.45));
+    iso.windowsRight(cu + 0.46, v0 + 0.12, v1 - 0.12, 40, 108, 14, alpha(COLORS.glassLit, 0.5), undefined);
+    // a thin bowed glass roof on each bridge
+    iso.box(cu - 0.48, v0 + 0.08, cu + 0.48, v1 - 0.08, 112, 117, alpha(COLORS.glassLit, 0.55), { ink: false });
+    iso.r.polyline([iso.P(cu - 0.46, v0 + 0.1, 112), iso.P(cu + 0.46, v0 + 0.1, 112), iso.P(cu + 0.46, v1 - 0.1, 112), iso.P(cu - 0.46, v1 - 0.1, 112)], INK_W * 0.8, INK, true);
+  }
+  iso.glint(iso.P(1.5, 2.5, 112), 2.6 * RES);
+  iso.glint(iso.P(u1 - 1.5, 2.5, 112), 2.6 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// HACKESCHE HÖFE — the largest interlinked COURTYARD complex in Germany: a
+// dense block of Jugendstil tenement wings around eight hidden courts, the
+// signature first court faced in glazed POLYCHROME tiles (cream + blue +
+// geometric patterns), steep mansard roofs, gabled dormers. 3×3.
+// =====================================================================
+function hackescheHoefeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 110 });
+  void seed;
+  const FACE = hex('#dcd2bd'); // cream render
+  const TILE = hex('#cdb86a'); // ochre/cream glazed tile
+  const BLU = hex('#3f6ea0'); // the blue Jugendstil tilework
+  const u0 = 0.3, u1 = 2.7, v0 = 0.5, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  // a ring of wings around an open court (a square donut)
+  const H = 64;
+  iso.box(u0, v0, u1, v0 + 0.7, 0, H, FACE); // back wing (taller, the tiled facade)
+  iso.box(u0, v1 - 0.7, u1, v1, 0, H - 6, FACE); // front wing
+  iso.box(u0, v0, u0 + 0.7, v1, 0, H - 4, FACE); // left wing
+  iso.box(u1 - 0.7, v0, u1, v1, 0, H - 4, FACE); // right wing
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 10, shaded(FACE, 0.14), { ink: false });
+  // the open courtyard floor
+  iso.box(u0 + 0.7, v0 + 0.7, u1 - 0.7, v1 - 0.7, 0, 3, shaded(COLORS.pavement, 0.06), { ink: false });
+  // ---- the signature glazed-tile facade on the front wing (v1 face) ----
+  // geometric tile bands in ochre + blue between the window rows
+  for (const z of [16, 30, 44] as const) {
+    iso.r.line(iso.P(u0 + 0.1, v1, z), iso.P(u1 - 0.1, v1, z), 2.0 * RES, TILE);
+    iso.r.line(iso.P(u0 + 0.1, v1, z + 2), iso.P(u1 - 0.1, v1, z + 2), 0.8 * RES, alpha(BLU, 0.8));
+    // little diamond accents
+    for (let i = 0; i < 8; i++) {
+      const p = iso.P(u0 + 0.2 + i * 0.28, v1, z + 1);
+      iso.r.rect(p[0] - 1.2 * RES, p[1] - 1.2 * RES, p[0] + 1.2 * RES, p[1] + 1.2 * RES, alpha(BLU, 0.7));
+    }
+  }
+  // windows on the courtyard + outer faces
+  for (const [zb, zt] of [[20, 28], [34, 42], [48, 56]] as const) {
+    iso.windowsLeft(v1, u0 + 0.12, u1 - 0.12, zb, zt, 9, alpha(COLORS.glassDark, 0.85), COLORS.white);
+    iso.windowsRight(u1, v0 + 0.12, v1 - 0.12, zb, zt, 8, alpha(COLORS.glassDark, 0.85), lighten(FACE, 0.06));
+  }
+  // steep mansard roofs with dormers on each wing
+  iso.gable(u0, v0, u1, v0 + 0.72, H, 14, 'u', SLATE, FACE);
+  iso.hip(u0, v1 - 0.72, u1, v1, H - 6, 12, ZINC);
+  // a couple of gabled dormers poking from the front mansard
+  for (const cu of [u0 + 0.7, (u0 + u1) / 2, u1 - 0.7] as const) {
+    const d = iso.P(cu, v1, H - 4);
+    iso.r.poly([[d[0] - 3 * RES, d[1]], [d[0] + 3 * RES, d[1]], [d[0], d[1] - 7 * RES]], lit(ZINC, 0.06));
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// BATCH B — bespoke draws covering already-PLACED Berlin names that had no
+// hero yet (Brücke-Museum, AVUS-Tribüne, Stasi prison, Soho House, the Spree
+// warehouse, the Eierhäuschen). No named[] edit needed — these names exist.
+// =====================================================================
+
+// --- BRÜCKE-MUSEUM — Düttmann's 1967 pavilion in the Grunewald: a low, calm
+// single-storey block of pale rendered walls + a flat oversailing roof, glazed
+// to a sculpture court, set among pines. Quiet modernism. 3×3.
+function bruckeMuseumTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 60 });
+  void seed;
+  const STN = hex('#ddd6c6');
+  const u0 = 0.3, u1 = 2.7, v0 = 0.5, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.18);
+  // pines around it
+  iso.cone(u0 + 0.04, v0 + 0.06, 0.2, 56, hex('#2f4636'));
+  iso.cone(u1 - 0.02, v1 - 0.04, 0.18, 48, hex('#33503c'));
+  // the low rendered block (an L of two wings round a court)
+  iso.box(u0 + 0.2, v0 + 0.2, u1 - 0.1, v0 + 1.2, 0, 30, STN);
+  iso.box(u0 + 0.2, v0 + 1.1, u0 + 1.2, v1 - 0.1, 0, 30, STN);
+  iso.box(u0 + 0.16, v0 + 0.16, u1 - 0.06, v1 - 0.06, 0, 4, shaded(STN, 0.1), { ink: false });
+  // the open sculpture court
+  iso.box(u0 + 1.2, v0 + 1.2, u1 - 0.2, v1 - 0.2, 0, 3, shaded(COLORS.grass, 0.1), { ink: false });
+  // glazed court-facing walls
+  iso.windowsRight(u1 - 0.1, v0 + 0.26, v0 + 1.14, 6, 26, 7, alpha(COLORS.glassLit, 0.5), undefined);
+  iso.windowsLeft(v1 - 0.1, u0 + 0.26, u0 + 1.14, 6, 26, 7, alpha(COLORS.glassLit, 0.5), undefined);
+  // a few small clerestory windows on the outer walls
+  iso.windowsLeft(v0 + 0.2, u0 + 0.3, u1 - 0.2, 18, 26, 8, alpha(COLORS.glassDark, 0.8), lighten(STN, 0.06));
+  // the thin flat oversailing roof
+  iso.box(u0 + 0.14, v0 + 0.14, u1 - 0.04, v0 + 1.24, 30, 34, lighten(STN, 0.06), { topC: top(STN, 0.24) });
+  iso.box(u0 + 0.14, v0 + 1.04, u0 + 1.24, v1 - 0.04, 30, 34, lighten(STN, 0.06), { topC: top(STN, 0.24) });
+  return iso.build();
+}
+
+// --- AVUS-TRIBÜNE — the 1937 grandstand of the AVUS motor-racing circuit: a
+// long stepped concrete SPECTATOR STAND with a cantilevered roof, beside the
+// slim brick-and-render race CONTROL TOWER with a clock. Modernist sport. 3×3.
+function avusTribuneTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 90 });
+  void seed;
+  const CONC = hex('#cfc8b8');
+  const u0 = 0.3, u1 = 2.7, v0 = 0.6, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.2);
+  // the track apron in front
+  iso.box(u0, v1 - 0.5, u1, v1, 0, 3, shaded(hex('#8d8a86'), 0.06), { ink: false });
+  iso.r.line(iso.P(u0, v1 - 0.25, 3), iso.P(u1, v1 - 0.25, 3), 1.0 * RES, alpha(COLORS.marking, 0.7));
+  // the raked grandstand: a wedge of stepped seating
+  const sz0 = 6, sz1 = 40;
+  iso.box(u0 + 0.2, v0 + 0.3, u1 - 0.7, v0 + 0.9, 0, sz1, CONC);
+  // stepped seat rows on the front (v0+0.9) face
+  for (let i = 0; i < 6; i++) {
+    const z = sz0 + (sz1 - sz0) * (i / 6);
+    iso.r.line(iso.P(u0 + 0.2, v0 + 0.9, z), iso.P(u1 - 0.7, v0 + 0.9, z), 1.6 * RES, i % 2 ? shaded(CONC, 0.16) : lit(CONC, 0.05));
+  }
+  // the cantilevered roof slab over the stand
+  iso.box(u0 + 0.16, v0 + 0.26, u1 - 0.66, v0 + 1.2, sz1, sz1 + 5, lighten(CONC, 0.06), { topC: top(CONC, 0.22) });
+  for (let i = 0; i <= 6; i++) { const uu = u0 + 0.24 + ((u1 - 0.94 - u0) * i) / 6; iso.r.line(iso.P(uu, v0 + 1.2, 0), iso.P(uu, v0 + 1.2, sz1), 0.9 * RES, shaded(CONC, 0.14)); }
+  // ---- the slim control tower at the right end ----
+  const tu = u1 - 0.4, tv = v0 + 0.5;
+  iso.box(tu - 0.16, tv - 0.16, tu + 0.16, tv + 0.16, 0, 72, lighten(CONC, 0.02));
+  iso.windowsLeft(tv + 0.16, tu - 0.12, tu + 0.12, 40, 64, 3, alpha(COLORS.glassDark, 0.85), lighten(CONC, 0.06));
+  // a clock dial near the top
+  const [clx, cly] = iso.P(tu, tv + 0.16, 60);
+  const RR = 3.4 * RES; const dial: Pt[] = [];
+  for (let i = 0; i <= 14; i++) { const a = (i / 14) * Math.PI * 2; dial.push([clx + Math.cos(a) * RR, cly - RR * 0.7 + Math.sin(a) * RR]); }
+  iso.r.poly(dial, COLORS.white); iso.r.polyline(dial, INK_W * 0.6, INK, true);
+  iso.box(tu - 0.18, tv - 0.18, tu + 0.18, tv + 0.18, 72, 76, shaded(CONC, 0.04), { ink: false });
+  return iso.build();
+}
+
+// --- GEDENKSTÄTTE BERLIN-HOHENSCHÖNHAUSEN — the former Stasi remand prison: a
+// long, grim, windowless-looking rendered cell-block with tiny barred slit
+// windows, a perimeter WALL with a watch-corner, and a barrier gate. Bleak,
+// institutional, grey-render. 4×4.
+function stasiPrisonTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 80 });
+  void seed;
+  const REND = hex('#b9b3a4'); // GDR grey render
+  const u0 = 0.3, u1 = 3.7, v0 = 0.5, v1 = 3.5;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  // the perimeter wall enclosing the yard
+  iso.box(u0, v0, u1, v1, 0, 16, shaded(REND, 0.06), { topC: top(REND, 0.12) });
+  iso.box(u0 + 0.2, v0 + 0.2, u1 - 0.2, v1 - 0.2, 0, 3, shaded(COLORS.pavement, 0.08), { ink: false });
+  // the long cell-block (set back), three storeys, mean little windows
+  iso.box(u0 + 0.5, v0 + 0.4, u1 - 0.5, v0 + 1.5, 0, 50, REND);
+  for (const [zb, zt] of [[12, 18], [24, 30], [36, 42]] as const) {
+    iso.windowsLeft(v0 + 1.5, u0 + 0.6, u1 - 0.6, zb, zt, 20, alpha(COLORS.glassDark, 0.9), shaded(REND, 0.08));
+  }
+  // the bars on the windows (a faint grille hatch)
+  for (let i = 0; i < 20; i++) { const uu = u0 + 0.62 + ((u1 - 1.24 - u0) * i) / 20; iso.r.line(iso.P(uu, v0 + 1.5, 12), iso.P(uu, v0 + 1.5, 42), 0.4 * RES, alpha(STEEL, 0.5)); }
+  iso.box(u0 + 0.48, v0 + 0.38, u1 - 0.48, v0 + 1.52, 50, 54, lighten(REND, 0.04), { topC: top(REND, 0.2) });
+  // a watch-corner box on the wall + a swept floodlight
+  const wu = u1 - 0.24, wv = v1 - 0.24;
+  iso.box(wu - 0.14, wv - 0.14, wu + 0.14, wv + 0.14, 16, 34, lighten(REND, 0.02));
+  iso.box(wu - 0.17, wv - 0.17, wu + 0.17, wv + 0.17, 34, 42, alpha(COLORS.glassDark, 0.8), { leftC: alpha(COLORS.glassDark, 0.85), rightC: alpha(COLORS.glassLit, 0.35) });
+  iso.glint(iso.P(wu, wv, 38), 1.8 * RES);
+  // a red-white barrier at the gate (front wall)
+  const g = iso.P((u0 + u1) / 2, v1, 16);
+  iso.r.line([g[0] - 6 * RES, g[1] - 4 * RES], [g[0] + 6 * RES, g[1] - 7 * RES], 1.4 * RES, hex('#c94436'));
+  return iso.build();
+}
+
+// --- SOHO HOUSE BERLIN — the 1928 Bauhaus-era former department store
+// (Jonass, later the FDJ HQ) now a members' club: a big rounded-corner brick-
+// and-render block, strong horizontal window bands, a stepped-back rooftop with
+// a pool, a corner tower. Weimar modernism. 3×3.
+function sohoHouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 110 });
+  void seed;
+  const BR = hex('#a85a44'); // warm brick
+  const u0 = 0.3, u1 = 2.7, v0 = 0.5, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  // the big block, six storeys
+  iso.box(u0, v0, u1, v1, 0, 70, BR);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 10, shaded(BR, 0.14), { ink: false });
+  // strong horizontal window bands (the Neues-Bauen ribbon windows)
+  for (const z of [16, 28, 40, 52, 62] as const) {
+    iso.r.line(iso.P(u0, v1, z), iso.P(u1, v1, z), 2.4 * RES, alpha(COLORS.glassDark, 0.85));
+    iso.r.line(iso.P(u0, v1, z - 2.2), iso.P(u1, v1, z - 2.2), 0.7 * RES, lit(BR, 0.08));
+    iso.r.line(iso.P(u1, v0, z), iso.P(u1, v1, z), 2.4 * RES, alpha(COLORS.glassDark, 0.8));
+  }
+  // a rounded corner emphasis (a chamfered corner pier)
+  iso.box(u1 - 0.16, v1 - 0.16, u1, v1, 0, 78, lit(BR, 0.03));
+  // the stepped-back rooftop storey + the famous rooftop pool
+  iso.box(u0 + 0.3, v0 + 0.3, u1 - 0.3, v1 - 0.3, 70, 80, lighten(BR, 0.04), { topC: top(BR, 0.18) });
+  iso.box(u0 + 0.5, v0 + 0.5, u0 + 1.4, v0 + 1.2, 80, 83, alpha(COLORS.glassSky, 0.7), { ink: false });
+  iso.glint(iso.P(u0 + 0.95, v0 + 0.85, 83), 2.0 * RES);
+  return iso.build();
+}
+
+// --- PALMKERNÖLSPEICHER — a tall historic Spree-side brick WAREHOUSE (palm-
+// kernel-oil store): a gaunt multi-storey red-brick block with regular loading
+// bays, a roof hoist gable, on the waterfront. Industrial heritage. 3×3.
+function speicherTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 110 });
+  void seed;
+  const u0 = 0.4, u1 = 2.6, v0 = 0.55, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  // a strip of Spree water along the front
+  iso.box(0.1, v1 - 0.2, 2.9, 2.95, 0, 1, shaded(COLORS.water, 0.04), { ink: false });
+  // the tall gaunt brick block
+  iso.box(u0, v0, u1, v1 - 0.25, 0, 78, BRICK);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 - 0.22, 0, 10, shaded(BRICK, 0.16), { ink: false });
+  // regular loading-bay windows in tight columns over six floors
+  for (const [zb, zt] of [[14, 22], [26, 34], [38, 46], [50, 58], [62, 72]] as const) {
+    iso.windowsLeft(v1 - 0.25, u0 + 0.1, u1 - 0.1, zb, zt, 8, alpha(COLORS.glassDark, 0.85), lit(BRICK, 0.06));
+    iso.windowsRight(u1, v0 + 0.1, v1 - 0.35, zb, zt, 7, alpha(COLORS.glassDark, 0.85), lit(BRICK, 0.06));
+  }
+  // brick pilaster strips between the bays
+  for (let i = 0; i <= 4; i++) { const uu = u0 + 0.06 + ((u1 - u0 - 0.12) * i) / 4; iso.r.line(iso.P(uu, v1 - 0.25, 4), iso.P(uu, v1 - 0.25, 74), 0.7 * RES, lit(BRICK, 0.08)); }
+  // a steep slate roof with the central hoist gable (Zwerchgiebel) over the doors
+  iso.gable(u0, v0, u1, v1 - 0.25, 78, 14, 'u', SLATE, BRICK);
+  const cx = (u0 + u1) / 2;
+  iso.box(cx - 0.24, v1 - 0.27, cx + 0.24, v1 - 0.25, 78, 96, lit(BRICK, 0.02));
+  iso.gable(cx - 0.24, v1 - 0.45, cx + 0.24, v1 - 0.25, 96, 10, 'u', SLATE, BRICK);
+  // the projecting hoist beam + pulley
+  const hb = iso.P(cx, v1 - 0.25, 92);
+  iso.r.line(hb, [hb[0], hb[1] + 8 * RES], 1.2 * RES, hex('#5a4a38'));
+  return iso.build();
+}
+
+// --- EIERHÄUSCHEN — the historic Spree excursion restaurant in Plänterwald: a
+// romantic late-19c stuccoed villa with a steep many-gabled roof, a little
+// belvedere turret with a bell-curved cap, a verandah, on the riverbank. 2×2.
+function eierhaeuschenTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 120 });
+  void seed;
+  const REND = hex('#e2d3b8'); // warm stucco
+  const u0 = 0.42, u1 = 1.58, v0 = 0.5, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // riverbank + water
+  iso.box(0.05, 1.2, 1.95, 1.95, 0, 1, shaded(COLORS.water, 0.04), { ink: false });
+  iso.box(0.3, 0.4, 1.7, 1.3, 0, 3, shaded(COLORS.grass, 0.1), { ink: false });
+  // the villa body, two storeys
+  iso.box(u0, v0, u1, v1 - 0.1, 0, 40, REND);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 - 0.08, 0, 8, shaded(REND, 0.12), { ink: false });
+  iso.windowsLeft(v1 - 0.1, u0 + 0.1, u1 - 0.1, 10, 20, 5, alpha(COLORS.glassDark, 0.85), COLORS.white);
+  iso.windowsLeft(v1 - 0.1, u0 + 0.1, u1 - 0.1, 24, 34, 5, alpha(COLORS.glassHot, 0.6), COLORS.white);
+  // a verandah on the river side (a low canopy on posts)
+  iso.box(u0 + 0.06, v1 - 0.12, u1 - 0.06, v1, 0, 14, alpha(COLORS.glassLit, 0.4), { ink: false });
+  for (const uu of [u0 + 0.1, (u0 + u1) / 2, u1 - 0.1] as const) iso.r.line(iso.P(uu, v1, 0), iso.P(uu, v1, 14), 0.8 * RES, hex('#7a5a3c'));
+  // a steep many-gabled roof
+  iso.gable(u0, v0, u1, v1 - 0.1, 40, 18, 'u', hex('#7a4030'), REND);
+  // a little cross-gable dormer on the front slope
+  const cx = (u0 + u1) / 2;
+  iso.r.poly([iso.P(cx - 0.16, v1 - 0.1, 40), iso.P(cx, v1 - 0.1, 54), iso.P(cx + 0.16, v1 - 0.1, 40)], lit(REND, 0.06));
+  // ---- the belvedere turret with a bell-curved cap ----
+  const tu = u1 - 0.2, tv = v0 + 0.2;
+  iso.box(tu - 0.12, tv - 0.12, tu + 0.12, tv + 0.12, 40, 60, lighten(REND, 0.03));
+  const { tipX, tipY } = domeAt(iso, tu, tv, 60, 0.12 * (CELL_W / 2), 1.3, ZINC, { bulb: true });
+  iso.r.line([tipX, tipY], [tipX, tipY - 6 * RES], 0.9 * RES, GILT);
+  return iso.build();
+}
+
+// =====================================================================
+// BATCH C — more famous/notable Berlin landmarks (ADDED to named[] too) toward
+// the 100: hotels, modern complexes, halls/arenas, government, university,
+// reconstruction, power-hall, station, and the French cathedral.
+// =====================================================================
+
+// --- HOTEL ADLON — the grand luxury hotel by the Brandenburg Gate: a stately
+// sandstone-and-render palace block, mansard roof, a central pedimented bay,
+// flags, a porte-cochère canopy at the door. 4×4.
+function hotelAdlonTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 100 });
+  void seed;
+  const u0 = 0.34, u1 = 3.66, v0 = 0.5, v1 = 3.5;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  iso.box(u0, v0, u1, v1, 0, 64, RENDER);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 12, shaded(RENDER, 0.12), { ink: false });
+  // five storeys of regular windows
+  for (const [zb, zt] of [[16, 26], [30, 40], [44, 54], [56, 62]] as const) {
+    iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, zb, zt, 16, alpha(COLORS.glassDark, 0.85), COLORS.white);
+    iso.windowsRight(u1, v0 + 0.1, v1 - 0.1, zb, zt, 14, alpha(COLORS.glassDark, 0.85), COLORS.white);
+  }
+  // cornice + steep zinc mansard with dormers
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 64, 69, lighten(RENDER, 0.06), { topC: top(RENDER, 0.26) });
+  iso.hip(u0, v0, u1, v1, 69, 16, ZINC);
+  for (const cu of [u0 + 0.6, (u0 + u1) / 2, u1 - 0.6] as const) {
+    const d = iso.P(cu, v1, 69);
+    iso.r.poly([[d[0] - 3 * RES, d[1]], [d[0] + 3 * RES, d[1]], [d[0], d[1] - 6 * RES]], lit(ZINC, 0.06));
+  }
+  // central pedimented frontispiece + flags
+  const cx = (u0 + u1) / 2;
+  iso.box(cx - 0.34, v1 - 0.14, cx + 0.34, v1, 0, 68, lighten(RENDER, 0.04));
+  pediment(iso, v1, cx - 0.36, cx + 0.36, 68, 11, RENDER);
+  for (const du of [-0.3, 0.3] as const) { const f = iso.P(cx + du, v1, 80); iso.r.line(f, [f[0], f[1] - 10 * RES], 0.9 * RES, GILT); iso.r.line([f[0], f[1] - 10 * RES], [f[0] + 5 * RES, f[1] - 8 * RES], 0.8 * RES, alpha(hex('#c94436'), 0.9)); }
+  // the porte-cochère canopy at the door
+  iso.box(cx - 0.3, v1 - 0.02, cx + 0.3, v1 + 0.2, 14, 18, GILT, { topC: lit(GILT, 0.1) });
+  return iso.build();
+}
+
+// --- EUROPA-CENTER — the 1965 West-Berlin landmark: a slim tall white office
+// SLAB on a low retail podium, crowned by the giant rotating Mercedes star.
+// Mid-century modern tower. 5×5 (slim tower in a broad podium block).
+function europaCenterTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(5, 5, { swAnchor: true, headroom: 180 });
+  void seed;
+  const WHT = hex('#dfe1e3');
+  const u0 = 0.3, u1 = 4.7, v0 = 0.5, v1 = 4.5;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  // the broad low retail podium
+  iso.box(u0, v0, u1, v1, 0, 24, hex('#cfcabd'));
+  iso.box(u0 + 0.06, v1 - 0.06, u1 - 0.06, v1, 0, 16, alpha(COLORS.glassLit, 0.55), { ink: false });
+  // ---- the slim tall white office slab rising off the podium ----
+  const tu0 = 1.4, tu1 = 3.0, tv0 = 1.5, tv1 = 2.3; // a slab, narrow in v
+  iso.box(tu0, tv0, tu1, tv1, 24, 150, WHT, { leftC: shaded(WHT, 0.12), rightC: lit(WHT, 0.05) });
+  // dense curtain-wall window grid
+  for (const [zb, zt] of [[30, 142]] as const) {
+    iso.windowsLeft(tv1, tu0 + 0.06, tu1 - 0.06, zb, zt, 12, alpha(COLORS.glassDark, 0.8), undefined);
+    iso.windowsRight(tu1, tv0 + 0.06, tv1 - 0.06, zb, zt, 7, alpha(COLORS.glassDark, 0.75), undefined);
+  }
+  // horizontal floor lines
+  for (let z = 36; z < 146; z += 10) iso.r.line(iso.P(tu0, tv1, z), iso.P(tu1, tv1, z), 0.4 * RES, alpha(shaded(WHT, 0.16), 0.6));
+  iso.box(tu0 - 0.02, tv0 - 0.02, tu1 + 0.02, tv1 + 0.02, 150, 155, lighten(WHT, 0.06), { topC: top(WHT, 0.2) });
+  // ---- the rotating Mercedes star on the roof ----
+  const [mx, my] = iso.P((tu0 + tu1) / 2, (tv0 + tv1) / 2, 155);
+  const SR = 7 * RES;
+  const ring: Pt[] = [];
+  for (let i = 0; i <= 16; i++) { const a = (i / 16) * Math.PI * 2; ring.push([mx + Math.cos(a) * SR, my - 8 * RES + Math.sin(a) * SR]); }
+  iso.r.polyline(ring, 1.0 * RES, alpha(COLORS.steel, 0.9), true);
+  for (let k = 0; k < 3; k++) { const a = -Math.PI / 2 + (k / 3) * Math.PI * 2; iso.r.line([mx, my - 8 * RES], [mx + Math.cos(a) * SR, my - 8 * RES + Math.sin(a) * SR], 1.3 * RES, alpha(COLORS.white, 0.95)); }
+  iso.glint([mx, my - 8 * RES], 2.0 * RES);
+  return iso.build();
+}
+
+// --- BIKINI BERLIN — the listed 1950s "Zentrum am Zoo": a long low concept
+// mall with a glazed colonnaded ground floor, a continuous ribbon-window upper
+// block, a flat roof terrace overlooking the zoo. West-Berlin 50s. 4×4.
+function bikiniBerlinTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 70 });
+  void seed;
+  const STN = hex('#d6cdba');
+  const u0 = 0.3, u1 = 3.7, v0 = 0.6, v1 = 3.5;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  // a glazed colonnaded ground floor (the building floats on pilotis/glass)
+  iso.box(u0 + 0.1, v0 + 0.4, u1 - 0.1, v1, 0, 16, alpha(COLORS.glassLit, 0.5), { ink: false });
+  for (let i = 0; i <= 12; i++) { const uu = u0 + 0.16 + ((u1 - u0 - 0.32) * i) / 12; iso.r.line(iso.P(uu, v1, 0), iso.P(uu, v1, 16), 0.9 * RES, COLORS.steelDark); }
+  // the long upper block with continuous ribbon windows
+  iso.box(u0, v0 + 0.3, u1, v1 - 0.05, 16, 46, STN);
+  for (const z of [22, 32, 42] as const) {
+    iso.r.line(iso.P(u0, v1 - 0.05, z), iso.P(u1, v1 - 0.05, z), 2.0 * RES, alpha(COLORS.glassDark, 0.82));
+    iso.r.line(iso.P(u0, v1 - 0.05, z - 1.8), iso.P(u1, v1 - 0.05, z - 1.8), 0.6 * RES, lit(STN, 0.06));
+  }
+  iso.windowsRight(u1, v0 + 0.34, v1 - 0.1, 20, 44, 9, alpha(COLORS.glassDark, 0.8), lighten(STN, 0.06));
+  // flat roof terrace + a couple of pavilions
+  iso.box(u0 - 0.02, v0 + 0.28, u1 + 0.02, v1 - 0.03, 46, 49, lighten(STN, 0.06), { topC: top(STN, 0.24) });
+  iso.box(u0 + 0.4, v0 + 0.5, u0 + 1.0, v0 + 1.1, 49, 56, alpha(COLORS.glassSky, 0.6), { ink: false });
+  return iso.build();
+}
+
+// --- BUNDESKANZLERAMT — the Federal Chancellery, the "washing machine": a vast
+// pale concrete block with a tall central cube pierced by a great round window
+// and deep loggias, flanked by long office wings, by the Spree. Bombastic 90s
+// civic modernism. 5×5, monster.
+function chancelleryTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(5, 5, { swAnchor: true, headroom: 130 });
+  void seed;
+  const BETON = hex('#dad5c8');
+  const u0 = 0.3, u1 = 4.7, v0 = 0.5, v1 = 4.5;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  // the long flanking office wings (lower)
+  iso.box(u0, v0 + 0.4, u0 + 1.0, v1 - 0.4, 0, 52, BETON);
+  iso.box(u1 - 1.0, v0 + 0.4, u1, v1 - 0.4, 0, 52, BETON);
+  iso.windowsLeft(v1 - 0.4, u0 + 0.1, u0 + 0.9, 12, 46, 10, alpha(COLORS.glassDark, 0.82), lighten(BETON, 0.06));
+  iso.windowsRight(u1, v0 + 0.5, v1 - 0.5, 12, 46, 11, alpha(COLORS.glassDark, 0.82), lighten(BETON, 0.06));
+  iso.box(u0 - 0.02, v0 + 0.38, u0 + 1.02, v1 - 0.38, 52, 56, lighten(BETON, 0.06), { topC: top(BETON, 0.22) });
+  iso.box(u1 - 1.02, v0 + 0.38, u1 + 0.02, v1 - 0.38, 52, 56, lighten(BETON, 0.06), { topC: top(BETON, 0.22) });
+  // ---- the tall central cube ----
+  const cu0 = 1.5, cu1 = 3.5, cv0 = 1.2, cv1 = 3.2;
+  iso.box(cu0, cv0, cu1, cv1, 0, 96, lit(BETON, 0.02));
+  // deep loggia columns on the front (cv1) face
+  for (let i = 0; i <= 5; i++) { const uu = cu0 + 0.1 + ((cu1 - cu0 - 0.2) * i) / 5; iso.box(uu - 0.04, cv1 - 0.06, uu + 0.04, cv1, 0, 92, lighten(BETON, 0.05)); }
+  // the great round window high in the cube (the "washing-machine porthole")
+  const [rx, ry] = iso.P((cu0 + cu1) / 2, cv1, 72);
+  const RR = 8 * RES; const ring: Pt[] = [];
+  for (let i = 0; i <= 20; i++) { const a = (i / 20) * Math.PI * 2; ring.push([rx + Math.cos(a) * RR, ry + Math.sin(a) * RR * 0.92]); }
+  iso.r.poly(ring, alpha(COLORS.glassSky, 0.6), alpha(COLORS.glassLit, 0.35));
+  iso.r.polyline(ring, INK_W * 0.7, INK, true);
+  iso.r.line([rx - RR, ry], [rx + RR, ry], 0.6 * RES, alpha(COLORS.white, 0.5));
+  iso.r.line([rx, ry - RR * 0.9], [rx, ry + RR * 0.9], 0.6 * RES, alpha(COLORS.white, 0.5));
+  iso.box(cu0 - 0.03, cv0 - 0.03, cu1 + 0.03, cv1 + 0.03, 96, 102, lighten(BETON, 0.06), { topC: top(BETON, 0.2) });
+  // a couple of curved screen-walls (the famous concave flanks) as low arcs
+  iso.glint(iso.P((cu0 + cu1) / 2, cv1, 86), 2.2 * RES);
+  return iso.build();
+}
+
+// --- HAUS DER KULTUREN DER WELT — the "pregnant oyster": the 1957 congress
+// hall with its dramatic doubly-curved hyperbolic-paraboloid white ROOF arching
+// over a glazed hall on a podium, with a reflecting pool. Unique sweep. 4×4.
+function hkwTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 90 });
+  void seed;
+  const WHT = hex('#e6e3da');
+  const u0 = 0.3, u1 = 3.7, v0 = 0.5, v1 = 3.5;
+  const cx = (u0 + u1) / 2, cy = (v0 + v1) / 2;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  // reflecting pool in front
+  iso.box(u0, v1 - 0.5, u1, v1, 0, 2, shaded(COLORS.water, 0.05), { ink: false });
+  // the podium
+  iso.box(u0 + 0.2, v0 + 0.3, u1 - 0.2, v1 - 0.3, 0, 12, hex('#cfcabd'));
+  // the glazed hall under the roof
+  iso.box(u0 + 0.5, v0 + 0.6, u1 - 0.5, v1 - 0.6, 12, 34, alpha(COLORS.glassSky, 0.55), {
+    leftC: alpha(COLORS.glassDark, 0.6), rightC: alpha(COLORS.glassLit, 0.4),
+  });
+  for (let i = 1; i < 8; i++) { const uu = u0 + 0.5 + ((u1 - u0 - 1.0) * i) / 8; iso.r.line(iso.P(uu, v1 - 0.6, 14), iso.P(uu, v1 - 0.6, 34), 0.5 * RES, alpha(COLORS.white, 0.5)); }
+  // ---- the dramatic sweeping saddle ROOF: two raised arch lips + a dipped
+  // centre, drawn as a curved shell from the two high points down to the low
+  // sides (a hypar). Build it as triangle fans from the two peaks. ----
+  const peakA = iso.P(cx, v0 + 0.5, 70); // back lip raised
+  const peakB = iso.P(cx, v1 - 0.5, 70); // front lip raised
+  const dip = iso.P(cx, cy, 44); // dipped centre
+  const sideL = iso.P(u0 + 0.3, cy, 30);
+  const sideR = iso.P(u1 - 0.3, cy, 30);
+  // the two sweeping halves
+  iso.r.poly([sideL, peakA, dip], lit(WHT, 0.08));
+  iso.r.poly([peakA, sideR, dip], top(WHT, 0.2));
+  iso.r.poly([sideL, peakB, dip], shaded(WHT, 0.06));
+  iso.r.poly([peakB, sideR, dip], lit(WHT, 0.04));
+  // the bold ink edges of the shell
+  iso.r.polyline([sideL, peakA, sideR], INK_W, INK);
+  iso.r.polyline([sideL, peakB, sideR], INK_W, INK);
+  iso.r.polyline([peakA, dip, peakB], INK_W * 0.7, alpha(INK, 0.7));
+  iso.gleam([sideR[0] - 4 * RES, sideR[1] - 2 * RES], [peakA[0] + 2 * RES, peakA[1] + 2 * RES], 1.3 * RES);
+  return iso.build();
+}
+
+// --- ROUND HALL (multi-purpose) — a big round/oval arena with a low dished
+// tensile ROOF on a ring of masts and a glazed concourse drum. Serves Velodrom
+// + Tempodrom (tented variant) + Uber Arena (boxier variant via `style`). 4×4.
+function roundHallTile(seed: number, style: 'velo' | 'tent' | 'arena'): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: style === 'tent' ? 110 : 80 });
+  void seed;
+  const SKIN = style === 'arena' ? hex('#9aa3ab') : hex('#d8d2c4');
+  const cu = 2.0, cv = 2.0;
+  const [cx, cyB] = iso.P(cu, cv, 0);
+  iso.shadow(0.3, 0.5, 3.7, 3.5, 0.24, 0.2);
+  const RX = 0.48 * 4 * (CELL_W / 2), RY = RX * 0.5;
+  const ring = (rx: number, ry: number, lift: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 40; i++) { const a = (i / 40) * Math.PI * 2; pts.push([cx + Math.cos(a) * rx, cyB - lift + Math.sin(a) * ry]); }
+    return pts;
+  };
+  const WALL = 30 * RES;
+  // the glazed concourse drum
+  iso.r.poly([...ring(RX, RY, 0), ...ring(RX, RY, WALL).reverse()], style === 'arena' ? SKIN : alpha(COLORS.glassSky, 0.5));
+  if (style !== 'arena') for (let i = 0; i < 36; i++) { const a = (i / 36) * Math.PI * 2; const x = cx + Math.cos(a) * RX, y = cyB + Math.sin(a) * RY; iso.r.line([x, y], [x, y - WALL], 0.5 * RES, alpha(COLORS.white, 0.4)); }
+  iso.r.polyline(ring(RX, RY, WALL), INK_W, INK, true);
+  iso.r.polyline(ring(RX, RY, 0), INK_W * 0.7, alpha(INK, 0.5), true);
+  if (style === 'tent') {
+    // Tempodrom: a faceted white tent of peaks
+    const peak = [cx, cyB - WALL - 56 * RES] as const;
+    const rimN = 10;
+    for (let i = 0; i < rimN; i++) {
+      const a0 = (i / rimN) * Math.PI * 2, a1 = ((i + 1) / rimN) * Math.PI * 2;
+      const p0: Pt = [cx + Math.cos(a0) * RX * 0.96, cyB - WALL + Math.sin(a0) * RY * 0.96];
+      const p1: Pt = [cx + Math.cos(a1) * RX * 0.96, cyB - WALL + Math.sin(a1) * RY * 0.96];
+      iso.r.poly([p0, p1, [peak[0], peak[1]]], i % 2 ? shaded(SKIN, 0.06) : top(SKIN, 0.16));
+      iso.r.line(p0, [peak[0], peak[1]], INK_W * 0.5, alpha(INK, 0.6));
+    }
+  } else {
+    // a low dished tensile roof on a ring of masts (velodrome/arena)
+    for (let i = 0; i < 20; i++) { const a = (i / 20) * Math.PI * 2; const x = cx + Math.cos(a) * RX * 1.0, y = cyB + Math.sin(a) * RY * 1.0; iso.r.line([x, y - WALL], [x, y - WALL - 16 * RES], 0.7 * RES, COLORS.steelDark); }
+    iso.r.poly(ring(RX * 0.98, RY * 0.98, WALL + 16 * RES), style === 'arena' ? lit(SKIN, 0.06) : alpha(COLORS.glassSky, 0.4));
+    iso.r.poly(ring(RX * 0.5, RY * 0.5, WALL + 10 * RES), shaded(SKIN, 0.1)); // the dish dips to centre
+    iso.r.polyline(ring(RX * 0.98, RY * 0.98, WALL + 16 * RES), INK_W * 0.7, alpha(INK, 0.5), true);
+  }
+  iso.glint([cx + RX * 0.2, cyB - RY * 0.5 - WALL], 2.0 * RES);
+  return iso.build();
+}
+
+// --- KARL-MARX-ALLEE TOWERS — the great Stalinist boulevard's twin domed
+// gate-towers at Frankfurter Tor: a pair of tall tiled "wedding-cake" towers
+// with copper-green cupola drums + lanterns flanking the avenue. Socialist
+// classicism. 4×4 (two towers + a low linking block).
+function karlMarxAlleeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 180 });
+  void seed;
+  const TILE = hex('#cdbf9e'); // pale Meissen tile
+  const u0 = 0.3, u1 = 3.7, v0 = 0.5, v1 = 3.5;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  // low linking ranges along the boulevard
+  iso.box(u0, v1 - 0.9, u1, v1, 0, 50, TILE);
+  iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, 12, 44, 18, alpha(COLORS.glassDark, 0.85), lighten(TILE, 0.06));
+  iso.box(u0 - 0.02, v1 - 0.92, u1 + 0.02, v1 + 0.02, 50, 54, lighten(TILE, 0.06), { topC: top(TILE, 0.24) });
+  // ---- the twin towers ----
+  for (const tu of [u0 + 0.8, u1 - 0.8] as const) {
+    const tv = v1 - 0.5;
+    iso.box(tu - 0.4, tv - 0.4, tu + 0.4, tv + 0.4, 0, 96, TILE);
+    for (const z of [40, 70] as const) iso.r.line(iso.P(tu - 0.4, tv + 0.4, z), iso.P(tu + 0.4, tv + 0.4, z), 1.2 * RES, lit(TILE, 0.08));
+    iso.windowsLeft(tv + 0.4, tu - 0.32, tu + 0.32, 16, 90, 4, alpha(COLORS.glassDark, 0.85), lighten(TILE, 0.06));
+    // a set-back drum + copper cupola + lantern
+    iso.box(tu - 0.28, tv - 0.28, tu + 0.28, tv + 0.28, 96, 116, lighten(TILE, 0.04));
+    colonnadeL(iso, tv + 0.28, tu - 0.24, tu + 0.24, 96, 114, 5, COLORS.white);
+    const { tipX, tipY } = domeAt(iso, tu, tv, 116, 0.28 * (CELL_W / 2), 1.2, COPPER, { ribs: 6, bulb: true });
+    lantern(iso, tipX, tipY, 9, COPPER_D, GILT_HOT);
+    iso.r.line([tipX, tipY - 9 * RES], [tipX, tipY - 18 * RES], 1.1 * RES, GILT_HOT);
+  }
+  return iso.build();
+}
+
+// --- GEMÄLDEGALERIE — the Kulturforum picture gallery (Hilmer & Sattler): a
+// long, austere, almost windowless pale-stone block on a podium with a deep
+// recessed colonnaded entrance loggia and a flat roof of glazed light-monitors.
+// Calm 90s museum. 4×4.
+function gemaeldegalerieTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 70 });
+  void seed;
+  const STN = hex('#d3ccbb');
+  const u0 = 0.3, u1 = 3.7, v0 = 0.5, v1 = 3.5;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  iso.box(u0, v0, u1, v1, 0, 46, STN);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 10, shaded(STN, 0.12), { ink: false });
+  // a deep recessed entrance loggia in the front (a shadowed slot + columns)
+  iso.box(u0 + 0.8, v1 - 0.18, u1 - 0.8, v1, 0, 40, shaded(STN, 0.16), { ink: false });
+  colonnadeL(iso, v1, u0 + 0.9, u1 - 0.9, 6, 40, 7, COLORS.white);
+  // a very sparse band of high windows (the gallery is mostly solid)
+  iso.windowsRight(u1, v0 + 0.2, v1 - 0.2, 30, 40, 8, alpha(COLORS.glassDark, 0.8), lighten(STN, 0.06));
+  // flat roof of glazed light-monitors (north-light sheds)
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 46, 50, lighten(STN, 0.06), { topC: top(STN, 0.24) });
+  for (let j = 0; j < 4; j++) {
+    const vv = v0 + 0.4 + j * 0.7;
+    iso.r.poly([iso.P(u0 + 0.3, vv, 50), iso.P(u1 - 0.3, vv, 50), iso.P(u1 - 0.3, vv + 0.18, 56), iso.P(u0 + 0.3, vv + 0.18, 56)], alpha(COLORS.glassSky, 0.5));
+    iso.r.line(iso.P(u0 + 0.3, vv + 0.18, 56), iso.P(u1 - 0.3, vv + 0.18, 56), 0.6 * RES, alpha(COLORS.white, 0.6));
+  }
+  return iso.build();
+}
+
+// --- BAHNHOF FRIEDRICHSTRASSE — the famous through-station + Cold-War crossing:
+// a long glazed steel BARREL-VAULT shed over the elevated tracks on a brick-
+// arched viaduct, with glazed end screens. A historic glass shed. 4×4 (long).
+function friedrichstrasseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 100 });
+  void seed;
+  const u0 = 0.3, u1 = 3.7, v0 = 0.8, v1 = 3.2;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  // the brick viaduct base
+  iso.box(u0, v0, u1, v1, 0, 26, BRICK);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 8, shaded(BRICK, 0.16), { ink: false });
+  // arched openings along the viaduct
+  for (let i = 0; i < 8; i++) {
+    const u = u0 + 0.18 + i * 0.42;
+    const poly: Pt[] = [iso.P(u, v1, 4), iso.P(u, v1, 16)];
+    for (let j = 0; j <= 6; j++) { const t = j / 6; poly.push(iso.P(u + 0.28 * t, v1, 16 + Math.sin(t * Math.PI) * 6)); }
+    poly.push(iso.P(u + 0.28, v1, 16), iso.P(u + 0.28, v1, 4));
+    iso.r.poly(poly, alpha(COLORS.glassDark, 0.8), lit(BRICK, 0.05));
+  }
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 26, 30, lighten(BRICK, 0.06), { topC: top(BRICK, 0.2) });
+  // the long glazed barrel-vault shed
+  barrelVault(iso, u0 + 0.06, u1 - 0.06, v0 + 0.06, v1 - 0.06, 30, 72, COLORS.glassSky);
+  // glazed end screens
+  for (const vv of [v0 + 0.06, v1 - 0.06] as const) {
+    const um = (u0 + u1) / 2;
+    const poly: Pt[] = [iso.P(u0 + 0.06, vv, 30), iso.P(um, vv, 72), iso.P(u1 - 0.06, vv, 30)];
+    iso.r.poly(poly, alpha(COLORS.glassLit, 0.42));
+    iso.r.polyline(poly, INK_W * 0.7, INK);
+  }
+  return iso.build();
+}
+
+// --- HUMBOLDT-UNIVERSITÄT — the main building on Unter den Linden (former
+// Palais of Prince Heinrich): a long late-baroque palace with a central
+// pedimented corps-de-logis, two forward wings round a cour d'honneur, a
+// balustraded roof. Grand academic. 4×4.
+function humboldtUniTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 90 });
+  void seed;
+  const u0 = 0.34, u1 = 3.66, v0 = 0.6, v1 = 3.5;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  // main range + two forward wings (cour d'honneur open to viewer)
+  iso.box(u0, v0, u1, v0 + 0.9, 0, 52, SAND);
+  iso.box(u0, v0 + 0.9, u0 + 0.7, v1, 0, 48, SAND);
+  iso.box(u1 - 0.7, v0 + 0.9, u1, v1, 0, 48, SAND);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 12, shaded(SAND, 0.14), { ink: false });
+  // the courtyard
+  iso.box(u0 + 0.7, v0 + 0.9, u1 - 0.7, v1, 0, 3, shaded(COLORS.pavement, 0.06), { ink: false });
+  // windows on the main range + wing inner faces
+  iso.windowsLeft(v0 + 0.9, u0 + 0.1, u1 - 0.1, 14, 26, 16, alpha(COLORS.glassDark, 0.85), lighten(SAND, 0.08));
+  iso.windowsLeft(v0 + 0.9, u0 + 0.1, u1 - 0.1, 30, 44, 16, alpha(COLORS.glassDark, 0.85), lighten(SAND, 0.08));
+  iso.windowsRight(u0 + 0.7, v0 + 0.94, v1 - 0.04, 14, 44, 4, alpha(COLORS.glassDark, 0.85), lighten(SAND, 0.08));
+  // balustraded roof
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v0 + 0.92, 52, 57, lighten(SAND, 0.06), { topC: top(SAND, 0.26) });
+  iso.hip(u0, v0 + 0.9, u0 + 0.72, v1, 48, 10, ZINC);
+  iso.hip(u1 - 0.72, v0 + 0.9, u1, v1, 48, 10, ZINC);
+  // central pedimented frontispiece
+  const cx = (u0 + u1) / 2;
+  iso.box(cx - 0.4, v0 + 0.8, cx + 0.4, v0 + 0.92, 0, 58, lighten(SAND, 0.04));
+  colonnadeL(iso, v0 + 0.92, cx - 0.34, cx + 0.34, 14, 54, 6, COLORS.white);
+  pediment(iso, v0 + 0.92, cx - 0.38, cx + 0.38, 58, 12, SAND);
+  return iso.build();
+}
+
+// --- HUMBOLDT FORUM (Berliner Schloss reconstruction) — the rebuilt royal
+// palace: a colossal baroque quadrangle of sandstone wings round a court, three
+// reconstructed facades of giant-order pilasters + a great domed gate-CUPOLA
+// with a lantern + cross over the western portal. Monster. 5×5.
+function humboldtForumTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(5, 5, { swAnchor: true, headroom: 170 });
+  void seed;
+  const u0 = 0.3, u1 = 4.7, v0 = 0.5, v1 = 4.5;
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.2);
+  // the great quadrangle of wings round an inner court
+  const H = 78;
+  iso.box(u0, v0, u1, v0 + 1.1, 0, H, SAND); // back
+  iso.box(u0, v1 - 1.1, u1, v1, 0, H, SAND); // front
+  iso.box(u0, v0, u0 + 1.1, v1, 0, H, SAND); // left
+  iso.box(u1 - 1.1, v0, u1, v1, 0, H, SAND); // right
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 14, shaded(SAND, 0.14), { ink: false });
+  iso.box(u0 + 1.1, v0 + 1.1, u1 - 1.1, v1 - 1.1, 0, 4, shaded(COLORS.pavement, 0.06), { ink: false });
+  // giant-order pilasters + two window tiers on the front + right faces
+  for (const [zb, zt] of [[18, 38], [44, 64]] as const) {
+    iso.windowsLeft(v1, u0 + 0.14, u1 - 0.14, zb, zt, 22, alpha(COLORS.glassDark, 0.85), lighten(SAND, 0.08));
+    iso.windowsRight(u1, v0 + 0.14, v1 - 0.14, zb, zt, 22, alpha(COLORS.glassDark, 0.85), lighten(SAND, 0.08));
+  }
+  for (let i = 0; i <= 12; i++) { const uu = u0 + 0.2 + ((u1 - u0 - 0.4) * i) / 12; iso.r.line(iso.P(uu, v1, 14), iso.P(uu, v1, 70), 0.6 * RES, alpha(lighten(SAND, 0.1), 0.6)); }
+  // balustraded roofline + corner sculptures
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v0 + 1.12, H, H + 6, lighten(SAND, 0.08), { topC: top(SAND, 0.28) });
+  iso.box(u0 - 0.02, v1 - 1.12, u1 + 0.02, v1 + 0.02, H, H + 6, lighten(SAND, 0.08), { topC: top(SAND, 0.28) });
+  // ---- the great western gate-cupola over the front-centre portal ----
+  const cx = (u0 + u1) / 2, cy = v1 - 0.55;
+  iso.box(cx - 0.5, cy - 0.4, cx + 0.5, cy + 0.4, H, H + 26, lighten(SAND, 0.04));
+  colonnadeL(iso, cy + 0.4, cx - 0.44, cx + 0.44, H + 4, H + 24, 7, COLORS.white);
+  const { tipX, tipY } = domeAt(iso, cx, cy, H + 26, 0.5 * (CELL_W / 2), 1.2, COPPER, { ribs: 8, bulb: true });
+  lantern(iso, tipX, tipY, 11, COPPER_D, GILT_HOT);
+  iso.r.line([tipX, tipY - 11 * RES], [tipX, tipY - 22 * RES], 1.2 * RES, GILT_HOT);
+  iso.r.line([tipX - 3 * RES, tipY - 18 * RES], [tipX + 3 * RES, tipY - 18 * RES], 1 * RES, GILT_HOT);
+  iso.glint([tipX, tipY - 6 * RES], 2.6 * RES);
+  return iso.build();
+}
+
+// --- KRAFTWERK BERLIN — the monumental former GDR power station (now techno
+// cathedral): a towering raw-concrete + brick turbine HALL with a tall slab
+// massing, big industrial mullioned windows, and a chimney. Brutalist heat. 3×3.
+function kraftwerkTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 140 });
+  void seed;
+  const BETON = hex('#b4ada0');
+  const u0 = 0.3, u1 = 2.7, v0 = 0.5, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.2);
+  // the tall turbine hall (a big slab)
+  iso.box(u0, v0 + 0.3, u1, v1, 0, 100, BETON);
+  iso.box(u0 - 0.03, v0 + 0.27, u1 + 0.03, v1 + 0.03, 0, 12, shaded(BETON, 0.14), { ink: false });
+  // tall industrial mullioned window walls
+  iso.box(u0 + 0.1, v1 - 0.05, u1 - 0.1, v1, 16, 88, alpha(COLORS.glassDark, 0.7), { ink: false });
+  for (let i = 1; i < 9; i++) { const uu = u0 + 0.1 + ((u1 - u0 - 0.2) * i) / 9; iso.r.line(iso.P(uu, v1, 16), iso.P(uu, v1, 88), 0.6 * RES, alpha(STEEL, 0.6)); }
+  for (let z = 28; z < 86; z += 14) iso.r.line(iso.P(u0 + 0.1, v1, z), iso.P(u1 - 0.1, v1, z), 0.5 * RES, alpha(STEEL, 0.5));
+  iso.windowsRight(u1, v0 + 0.36, v1 - 0.1, 16, 88, 8, alpha(COLORS.glassDark, 0.7), shaded(BETON, 0.08));
+  // a heavy concrete parapet
+  iso.box(u0 - 0.02, v0 + 0.28, u1 + 0.02, v1 + 0.02, 100, 106, lighten(BETON, 0.04), { topC: top(BETON, 0.18) });
+  // a lower boiler-house annex at the back
+  iso.box(u0 + 0.2, v0, u1 - 0.2, v0 + 0.4, 0, 56, shaded(BETON, 0.04));
+  // the tall round brick chimney
+  chimney(iso, u1 - 0.4, v0 + 0.18, 132, 0.1);
+  return iso.build();
+}
+
+// --- PARK INN ALEXANDERPLATz — the great GDR-era slab HOTEL tower on
+// Alexanderplatz (~125 m): a tall, slim, flat curtain-walled white slab on a
+// low podium — the boxy counterpoint to the Fernsehturm. 3×3 (slim slab).
+function parkInnTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 200 });
+  void seed;
+  const WHT = hex('#dadcde');
+  const u0 = 0.6, u1 = 2.4, v0 = 0.7, v1 = 2.3;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // a low podium
+  iso.box(u0 - 0.3, v0 - 0.2, u1 + 0.3, v1 + 0.2, 0, 16, hex('#cfcabd'));
+  // the tall slim slab (narrow in v)
+  const tu0 = u0, tu1 = u1, tv0 = 1.2, tv1 = 1.8;
+  iso.box(tu0, tv0, tu1, tv1, 16, 168, WHT, { leftC: shaded(WHT, 0.12), rightC: lit(WHT, 0.05) });
+  // dense curtain-wall grid on the broad (v1) face
+  iso.windowsLeft(tv1, tu0 + 0.05, tu1 - 0.05, 22, 162, 16, alpha(COLORS.glassDark, 0.78), undefined);
+  for (let z = 28; z < 164; z += 8) iso.r.line(iso.P(tu0, tv1, z), iso.P(tu1, tv1, z), 0.4 * RES, alpha(shaded(WHT, 0.16), 0.55));
+  iso.windowsRight(tu1, tv0 + 0.05, tv1 - 0.05, 22, 162, 5, alpha(COLORS.glassDark, 0.72), undefined);
+  iso.box(tu0 - 0.02, tv0 - 0.02, tu1 + 0.02, tv1 + 0.02, 168, 173, lighten(WHT, 0.06), { topC: top(WHT, 0.2) });
+  // a lit sign band near the top
+  iso.r.line(iso.P(tu0 + 0.1, tv1, 158), iso.P(tu1 - 0.1, tv1, 158), 2.0 * RES, alpha(hex('#c94436'), 0.8));
+  return iso.build();
+}
+
+// --- FRANZÖSISCHER DOM — the French Cathedral on Gendarmenmarkt (twin of the
+// Deutscher Dom): a low Huguenot church with a tall domed colonnaded TOWER
+// (Carl von Gontard) carrying a viewing gallery + green-copper dome + lantern.
+// 2×2 (its own variant — mirrors the German one). Reuses the dom tower idiom.
+function franzoesischerDomTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 175 });
+  void seed;
+  const u0 = 0.42, u1 = 1.58, v0 = 0.5, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // low church body + portico
+  iso.box(u0, v0, u1, v1 - 0.2, 0, 36, RENDER);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 - 0.18, 0, 8, shaded(RENDER, 0.12), { ink: false });
+  iso.box(u0 + 0.16, v1 - 0.2, u1 - 0.16, v1, 0, 30, lighten(RENDER, 0.03));
+  colonnadeL(iso, v1, u0 + 0.22, u1 - 0.22, 8, 28, 5, COLORS.white);
+  pediment(iso, v1, u0 + 0.2, u1 - 0.2, 30, 9, RENDER);
+  // ---- the tall domed tower behind, with TWO colonnaded gallery stages ----
+  const cx = (u0 + u1) / 2, cy = v0 + 0.42;
+  iso.box(cx - 0.26, cy - 0.26, cx + 0.26, cy + 0.26, 36, 92, RENDER);
+  iso.windowsRight(cx + 0.26, cy - 0.2, cy + 0.2, 52, 84, 2, alpha(COLORS.glassDark, 0.85), lighten(RENDER, 0.1));
+  // first gallery (columned ring)
+  iso.box(cx - 0.24, cy - 0.24, cx + 0.24, cy + 0.24, 92, 100, lighten(RENDER, 0.04));
+  colonnadeL(iso, cy + 0.24, cx - 0.2, cx + 0.2, 92, 100, 5, COLORS.white);
+  // second, smaller gallery drum
+  iso.box(cx - 0.18, cy - 0.18, cx + 0.18, cy + 0.18, 100, 110, lighten(RENDER, 0.03));
+  colonnadeL(iso, cy + 0.18, cx - 0.15, cx + 0.15, 100, 110, 4, COLORS.white);
+  // green-copper dome + gilt lantern
+  const { tipX, tipY } = domeAt(iso, cx, cy, 110, 0.2 * (CELL_W / 2), 1.3, COPPER, { ribs: 6, bulb: true });
+  lantern(iso, tipX, tipY, 9, COPPER_D, GILT_HOT);
+  iso.r.line([tipX, tipY - 9 * RES], [tipX, tipY - 17 * RES], 1.0 * RES, GILT_HOT);
+  iso.glint([tipX, tipY - 5 * RES], 2.0 * RES);
+  return iso.build();
+}
+
 export const CITY_HEROES: BespokeHero[] = [
+  // ---- WORLD-FAMOUS ICONS (Round 3 bespoke draws) ----
+  {
+    city: 'berlin',
+    key: 'fernsehturm',
+    match: /Fernsehturm|Berliner Fernsehturm|TV[- ]?Tower/i,
+    foot: [2, 2],
+    seed: 1969,
+    draw: (seed) => fernsehturmTile(seed),
+    light: { kind: 'aerialBeacon', topZ: 400, halfW: 0.46 },
+  },
+  {
+    city: 'berlin',
+    key: 'tempelhof',
+    match: /Tempelhof|Flughafen Tempelhof/i,
+    foot: [5, 5],
+    seed: 1936,
+    draw: (seed) => tempelhofTile(seed),
+    light: { kind: 'facadeFlood', topZ: 90, halfW: 2.2 },
+  },
+  {
+    city: 'berlin',
+    key: 'olympiastadion',
+    match: /Olympiastadion|Olympic Stadium/i,
+    foot: [5, 5],
+    seed: 1936,
+    draw: (seed) => olympiastadionTile(seed),
+    light: { kind: 'stadiumFlood', topZ: 56, halfW: 2.0 },
+  },
+  {
+    city: 'berlin',
+    key: 'east-side-gallery',
+    match: /East Side Gallery/i,
+    foot: [3, 3],
+    seed: 1990,
+    draw: (seed) => eastSideGalleryTile(seed),
+    light: { kind: 'genericGlow', topZ: 40, halfW: 1.5 },
+  },
+  {
+    city: 'berlin',
+    key: 'kadewe',
+    match: /KaDeWe|Kaufhaus des Westens/i,
+    foot: [4, 4],
+    seed: 1907,
+    draw: (seed) => kadeweTile(seed),
+    light: { kind: 'facadeFlood', topZ: 112, halfW: 1.6 },
+  },
+  {
+    city: 'berlin',
+    key: 'hauptbahnhof',
+    match: /Hauptbahnhof|Berlin Central Station|Berlin Hauptbahnhof/i,
+    foot: [5, 5],
+    seed: 2006,
+    draw: (seed) => hauptbahnhofTile(seed),
+    light: { kind: 'genericGlow', topZ: 117, halfW: 2.0 },
+  },
+  {
+    city: 'berlin',
+    key: 'hackesche-hoefe',
+    match: /Hackesche H[öo]fe/i,
+    foot: [3, 3],
+    seed: 1906,
+    draw: (seed) => hackescheHoefeTile(seed),
+    light: { kind: 'facadeFlood', topZ: 78, halfW: 1.4 },
+  },
+
   // ---- MARQUEE ICONS (bespoke draws) ----
   {
     city: 'berlin',
@@ -2911,5 +4009,211 @@ export const CITY_HEROES: BespokeHero[] = [
     seed: 1390,
     draw: (seed) => feldsteinkircheTile(seed),
     light: { kind: 'facadeFlood', topZ: 76, halfW: 1.0 },
+  },
+
+  // =====================================================================
+  // ROUND 3 — BATCH B: bespoke heroes for already-PLACED names that lacked one.
+  // =====================================================================
+  {
+    city: 'berlin',
+    key: 'bruecke-museum',
+    match: /Br[üu]cke-Museum/i,
+    foot: [3, 3],
+    seed: 1967,
+    draw: (seed) => bruckeMuseumTile(seed),
+    light: { kind: 'genericGlow', topZ: 34, halfW: 1.4 },
+  },
+  {
+    city: 'berlin',
+    key: 'avus-tribuene',
+    match: /AVUS-Trib[üu]ne/i,
+    foot: [3, 3],
+    seed: 1937,
+    draw: (seed) => avusTribuneTile(seed),
+    light: { kind: 'stadiumFlood', topZ: 45, halfW: 1.4 },
+  },
+  {
+    city: 'berlin',
+    key: 'gedenkstaette-hohenschoenhausen',
+    match: /Gedenkst[äa]tte Berlin-Hohensch[öo]nhausen/i,
+    foot: [4, 4],
+    seed: 1951,
+    draw: (seed) => stasiPrisonTile(seed),
+    light: { kind: 'aerialBeacon', topZ: 42, halfW: 1.6 },
+  },
+  {
+    city: 'berlin',
+    key: 'soho-house',
+    match: /Soho House/i,
+    foot: [3, 3],
+    seed: 1928,
+    draw: (seed) => sohoHouseTile(seed),
+    light: { kind: 'facadeFlood', topZ: 80, halfW: 1.4 },
+  },
+  {
+    city: 'berlin',
+    key: 'palmkernoelspeicher',
+    match: /Palmkern[öo]lspeicher/i,
+    foot: [3, 3],
+    seed: 1890,
+    draw: (seed) => speicherTile(seed),
+    light: { kind: 'facadeFlood', topZ: 96, halfW: 1.4 },
+  },
+  {
+    city: 'berlin',
+    key: 'eierhaeuschen',
+    match: /Eierh[äa]uschen/i,
+    foot: [2, 2],
+    seed: 1892,
+    draw: (seed) => eierhaeuschenTile(seed),
+    light: { kind: 'facadeFlood', topZ: 70, halfW: 1.0 },
+  },
+
+  // =====================================================================
+  // ROUND 3 — BATCH C: more famous/notable landmarks (also ADDED to named[]).
+  // =====================================================================
+  {
+    city: 'berlin',
+    key: 'hotel-adlon',
+    match: /Hotel Adlon|Adlon/i,
+    foot: [4, 4],
+    seed: 1907,
+    draw: (seed) => hotelAdlonTile(seed),
+    light: { kind: 'facadeFlood', topZ: 86, halfW: 1.6 },
+  },
+  {
+    city: 'berlin',
+    key: 'europa-center',
+    match: /Europa-Center/i,
+    foot: [5, 5],
+    seed: 1965,
+    draw: (seed) => europaCenterTile(seed),
+    light: { kind: 'towerCrown', topZ: 155, halfW: 0.8 },
+  },
+  {
+    city: 'berlin',
+    key: 'bikini-berlin',
+    match: /Bikini Berlin/i,
+    foot: [4, 4],
+    seed: 1957,
+    draw: (seed) => bikiniBerlinTile(seed),
+    light: { kind: 'genericGlow', topZ: 56, halfW: 1.6 },
+  },
+  {
+    city: 'berlin',
+    key: 'bundeskanzleramt',
+    match: /Bundeskanzleramt|Federal Chancellery/i,
+    foot: [5, 5],
+    seed: 2001,
+    draw: (seed) => chancelleryTile(seed),
+    light: { kind: 'facadeFlood', topZ: 102, halfW: 2.0 },
+  },
+  {
+    city: 'berlin',
+    key: 'haus-der-kulturen-der-welt',
+    match: /Haus der Kulturen der Welt/i,
+    foot: [4, 4],
+    seed: 1957,
+    draw: (seed) => hkwTile(seed),
+    light: { kind: 'archGlow', topZ: 70, halfW: 1.6 },
+  },
+  {
+    city: 'berlin',
+    key: 'velodrom',
+    match: /Velodrom/i,
+    foot: [4, 4],
+    seed: 1997,
+    draw: (seed) => roundHallTile(seed, 'velo'),
+    light: { kind: 'stadiumFlood', topZ: 46, halfW: 1.6 },
+  },
+  {
+    city: 'berlin',
+    key: 'tempodrom',
+    match: /Tempodrom/i,
+    foot: [4, 4],
+    seed: 2001,
+    draw: (seed) => roundHallTile(seed, 'tent'),
+    light: { kind: 'stadiumFlood', topZ: 86, halfW: 1.6 },
+  },
+  {
+    city: 'berlin',
+    key: 'uber-arena',
+    match: /Uber Arena|Mercedes-Benz Arena|O2 World/i,
+    foot: [4, 4],
+    seed: 2008,
+    draw: (seed) => roundHallTile(seed, 'arena'),
+    light: { kind: 'stadiumFlood', topZ: 46, halfW: 1.6 },
+  },
+  {
+    city: 'berlin',
+    key: 'karl-marx-allee-towers',
+    match: /Karl-Marx-Allee|Frankfurter Tor/i,
+    foot: [4, 4],
+    seed: 1953,
+    draw: (seed) => karlMarxAlleeTile(seed),
+    light: { kind: 'facadeFlood', topZ: 134, halfW: 1.6 },
+  },
+  {
+    city: 'berlin',
+    key: 'gemaeldegalerie',
+    match: /Gem[äa]ldegalerie/i,
+    foot: [4, 4],
+    seed: 1998,
+    draw: (seed) => gemaeldegalerieTile(seed),
+    light: { kind: 'facadeFlood', topZ: 50, halfW: 1.6 },
+  },
+  {
+    city: 'berlin',
+    key: 'bahnhof-friedrichstrasse',
+    match: /Bahnhof Friedrichstra[ßs]e|Friedrichstra[ßs]e (Railway )?[Ss]tation/i,
+    foot: [4, 4],
+    seed: 1882,
+    draw: (seed) => friedrichstrasseTile(seed),
+    light: { kind: 'genericGlow', topZ: 72, halfW: 1.6 },
+  },
+  {
+    city: 'berlin',
+    key: 'humboldt-universitaet',
+    match: /Humboldt-Universit[äa]t|Humboldt University/i,
+    foot: [4, 4],
+    seed: 1810,
+    draw: (seed) => humboldtUniTile(seed),
+    light: { kind: 'facadeFlood', topZ: 57, halfW: 1.6 },
+  },
+  {
+    city: 'berlin',
+    key: 'humboldt-forum',
+    match: /Humboldt Forum|Berliner Schloss|Berlin City Palace|Stadtschloss/i,
+    foot: [5, 5],
+    seed: 2020,
+    draw: (seed) => humboldtForumTile(seed),
+    light: { kind: 'facadeFlood', topZ: 132, halfW: 2.0 },
+  },
+  {
+    city: 'berlin',
+    key: 'kraftwerk-berlin',
+    match: /Kraftwerk Berlin|Kraftwerk Mitte/i,
+    foot: [3, 3],
+    seed: 1964,
+    draw: (seed) => kraftwerkTile(seed),
+    light: { kind: 'aerialBeacon', topZ: 132, halfW: 1.4 },
+  },
+  {
+    city: 'berlin',
+    key: 'park-inn-alexanderplatz',
+    match: /Park Inn|Hotel Stadt Berlin/i,
+    foot: [3, 3],
+    seed: 1970,
+    draw: (seed) => parkInnTile(seed),
+    light: { kind: 'towerCrown', topZ: 173, halfW: 0.9 },
+  },
+  {
+    city: 'berlin',
+    key: 'franzoesischer-dom',
+    match: /Franz[öo]sischer Dom|French Cathedral/i,
+    foot: [2, 2],
+    seed: 1705,
+    draw: (seed) => franzoesischerDomTile(seed),
+    light: { kind: 'facadeFlood', topZ: 172, halfW: 1.0 },
   },
 ];

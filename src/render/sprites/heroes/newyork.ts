@@ -2513,6 +2513,817 @@ function heliportTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 }
 
 // ===========================================================================
+//  THE WORLD-FAMOUS ICONS — round 3. The signature New York silhouettes the
+//  earlier rounds left out: One WTC, the Statue of Liberty, the Brooklyn
+//  Bridge, Grand Central, 30 Rock, the Met / Whitney / Frick, MetLife,
+//  432 Park, Hudson Yards (the Vessel + 30 HY), Lincoln Center, the UN
+//  Secretariat slab, Yankee Stadium, and the Coney Island Wonder Wheel +
+//  Parachute Jump. All drab-grey, slim+tall on headroom, each its own light.
+// ===========================================================================
+
+/** ONE WORLD TRADE CENTER (2014, 541 m / 1776 ft) — the tapered glass obelisk
+ *  of Lower Manhattan: a square antiprism whose plan rotates from a square base
+ *  to a square top turned 45°, so the eight elevations read as long isosceles
+ *  triangles of cool grey curtain-wall glass, capped by a square parapet and the
+ *  tall mast/spire with its beacon. Slim 2×2 on huge headroom — it spikes far
+ *  above the Financial District. */
+function oneWtcTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 560 });
+  void seed;
+  const GL = STEEL_GLASS;
+  const GL_D = STEEL_GLASS_D;
+  const GL_L = lighten(STEEL_GLASS, 0.12);
+  iso.shadow(0.34, 0.52, 1.66, 1.62, 0.3, 0.26);
+  // granite podium (the blast-resistant base) spanning the block
+  iso.box(0.3, 0.42, 1.7, 1.7, 0, 30, GRANITE, { topC: lighten(GRANITE, 0.06) });
+  // ---- the tapered antiprism shaft. Base square (z30) is axis-aligned; the
+  //      top square (z440) is rotated 45° and smaller. We draw the two visible
+  //      faces as the long tapering triangle-pair chamfers that give 1WTC its
+  //      unmistakable twisting-obelisk read.
+  const Zb = 30;
+  const Zt = 440;
+  const cu = 1.0;
+  const cv = 1.05;
+  const wb = 0.5; // base half-width (square)
+  const wt = 0.2; // top half-width
+  // base corners (square) and top corners (rotated 45°, i.e. mid-edge points)
+  const bR = [cu + wb, cv - wb] as const; // right base corner (toward sun)
+  const bF = [cu + wb, cv + wb] as const; // front/near base corner
+  const bL = [cu - wb, cv + wb] as const; // left base corner
+  const bB = [cu - wb, cv - wb] as const; // back base corner
+  // top square rotated 45° → its corners sit over the base EDGE midpoints
+  const tRf = [cu + wt, cv] as const; // top corner over the right edge mid
+  const tF = [cu, cv + wt] as const; // top corner over the front edge mid
+  const tL = [cu - wt, cv] as const; // top corner over the left edge mid
+  // RIGHT elevation (sun-lit): a tall chamfered ribbon from base corner bR up
+  // and the two triangular facets meeting the rotated top corners.
+  iso.r.poly([iso.P(bF[0], bF[1], Zb), iso.P(bR[0], bR[1], Zb), iso.P(tRf[0], tRf[1], Zt), iso.P(tF[0], tF[1], Zt)], lit(GL, 0.04), GL_L);
+  // LEFT elevation (dusk-shaded)
+  iso.r.poly([iso.P(bL[0], bL[1], Zb), iso.P(bF[0], bF[1], Zb), iso.P(tF[0], tF[1], Zt), iso.P(tL[0], tL[1], Zt)], shaded(GL, 0.06), GL_D);
+  // the chamfer slivers on the back two faces, just visible past the silhouette
+  iso.r.poly([iso.P(bR[0], bR[1], Zb), iso.P(bB[0], bB[1], Zb), iso.P(tL[0], tL[1], Zt), iso.P(tRf[0], tRf[1], Zt)], shaded(GL, 0.16));
+  // mullion grid up the two big visible facets (thin vertical glass piers)
+  for (let i = 1; i < 9; i++) {
+    const f = i / 9;
+    // right facet: interpolate base-edge → top corner
+    const xb = bF[0] + (bR[0] - bF[0]) * f, yb = bF[1] + (bR[1] - bF[1]) * f;
+    const xt = tF[0] + (tRf[0] - tF[0]) * f, yt = tF[1] + (tRf[1] - tF[1]) * f;
+    iso.r.line(iso.P(xb, yb, Zb + 6), iso.P(xt, yt, Zt - 4), 0.6 * RES, alpha(GL_L, 0.5));
+    const xb2 = bL[0] + (bF[0] - bL[0]) * f, yb2 = bL[1] + (bF[1] - bL[1]) * f;
+    const xt2 = tL[0] + (tF[0] - tL[0]) * f, yt2 = tL[1] + (tF[1] - tL[1]) * f;
+    iso.r.line(iso.P(xb2, yb2, Zb + 6), iso.P(xt2, yt2, Zt - 4), 0.6 * RES, alpha(GL_D, 0.55));
+  }
+  // a few lit horizontal floor-bands (the spandrel reflections)
+  for (let z = Zb + 60; z < Zt; z += 70) {
+    const f = (z - Zb) / (Zt - Zb);
+    const wr = wb + (0 - wb) * f;
+    iso.r.line(iso.P(cu + wr, cv, z), iso.P(cu, cv + wr, z), 0.5 * RES, alpha(GL_L, 0.4));
+  }
+  // sharp ink silhouette edges (the crisp prism corners)
+  iso.edge(iso.P(bF[0], bF[1], Zb), iso.P(tF[0], tF[1], Zt));
+  iso.edge(iso.P(bR[0], bR[1], Zb), iso.P(tRf[0], tRf[1], Zt));
+  iso.edge(iso.P(bL[0], bL[1], Zb), iso.P(tL[0], tL[1], Zt));
+  iso.r.polyline([iso.P(tL[0], tL[1], Zt), iso.P(tF[0], tF[1], Zt), iso.P(tRf[0], tRf[1], Zt)], INK_W * 0.6, INK);
+  // the square glass parapet ring + the soaring mast/spire with its beacon
+  iso.box(cu - 0.12, cv - 0.12, cu + 0.12, cv + 0.12, Zt, Zt + 14, GL_L, { ink: false });
+  const mb = iso.P(cu, cv, Zt + 14);
+  iso.r.line(mb, [mb[0], mb[1] - 78 * RES], 1.7 * RES, GL_D); // the 124 m mast
+  iso.r.line([mb[0], mb[1] - 78 * RES], [mb[0], mb[1] - 92 * RES], 1.0 * RES, COLORS.glassLit);
+  return iso.build();
+}
+
+/** STATUE OF LIBERTY (1886, 93 m to the torch) — Bartholdi's colossus on Liberty
+ *  Island: the great eleven-point star FORT pedestal (Fort Wood) carrying the
+ *  tall granite plinth, then the verdigris-copper robed figure striding forward,
+ *  raised right arm + TORCH (the beacon), the spiked radiate crown, and the
+ *  tablet in the left arm. Read green-grey copper. 2×2 SW + headroom. */
+function statueLibertyTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 300 });
+  void seed;
+  const CU = COPPER; // weathered verdigris
+  const CU_L = lit(COPPER, 0.14);
+  const CU_D = shaded(COPPER, 0.08);
+  const ST = LIMESTONE;
+  const cu = 1.0;
+  const cv = 1.08;
+  iso.shadow(0.32, 0.5, 1.68, 1.66, 0.28, 0.24);
+  // the star-fort base (Fort Wood) — a low broad granite plinth with angled
+  // bastion points hinted by chamfered corners
+  iso.box(0.34, 0.5, 1.66, 1.72, 0, 26, GRANITE, { topC: lighten(GRANITE, 0.05) });
+  for (const [du, dv] of [[-0.16, -0.16], [0.16, -0.16], [-0.16, 0.16], [0.16, 0.16]] as const) {
+    iso.box(cu + du - 0.12, cv + dv - 0.12, cu + du + 0.12, cv + dv + 0.12, 18, 30, lighten(GRANITE, 0.03), { ink: false });
+  }
+  // the tall square granite PEDESTAL (Hunt's plinth) with its loggia banding
+  iso.box(cu - 0.3, cv - 0.3, cu + 0.3, cv + 0.3, 30, 96, ST);
+  gridFace(iso, 'r', cu + 0.3, cv - 0.26, cv + 0.26, 40, 88, 4, alpha(GLASS_DK, 0.85));
+  gridFace(iso, 'l', cv + 0.3, cu - 0.26, cu + 0.26, 40, 88, 4, alpha(GLASS_DK, 0.88));
+  for (const z of [50, 74] as const) iso.r.line(iso.P(cu - 0.3, cv + 0.3, z), iso.P(cu + 0.3, cv + 0.3, z), 0.8 * RES, lighten(ST, 0.14));
+  iso.box(cu - 0.32, cv - 0.32, cu + 0.32, cv + 0.32, 96, 104, lighten(ST, 0.06), { ink: false }); // cornice balcony
+  // ---- the figure: a tapering robed column of copper rising from the pedestal,
+  //      drapery folds suggested by vertical ink seams, shoulders, the head with
+  //      its radiate crown, the tablet (left) and the torch arm (right).
+  const fz0 = 104;
+  const fz1 = 176; // shoulders
+  // the robed body (a slightly tapering faceted column)
+  iso.r.poly([iso.P(cu - 0.17, cv + 0.17, fz0), iso.P(cu + 0.04, cv + 0.17, fz0), iso.P(cu + 0.02, cv + 0.08, fz1), iso.P(cu - 0.1, cv + 0.08, fz1)], CU_D); // left drape (shade)
+  iso.r.poly([iso.P(cu + 0.04, cv + 0.17, fz0), iso.P(cu + 0.17, cv - 0.04, fz0), iso.P(cu + 0.08, cv - 0.02, fz1), iso.P(cu + 0.02, cv + 0.08, fz1)], CU_L); // right drape (sun)
+  iso.r.polyline([iso.P(cu - 0.17, cv + 0.17, fz0), iso.P(cu - 0.1, cv + 0.08, fz1), iso.P(cu + 0.08, cv - 0.02, fz1), iso.P(cu + 0.17, cv - 0.04, fz0)], INK_W * 0.6, INK);
+  // drapery fold seams
+  for (const t of [0.3, 0.5, 0.7] as const) {
+    const xb = cu - 0.17 + 0.34 * t, yb = cv + 0.17 - 0.21 * t;
+    iso.r.line(iso.P(xb, yb, fz0 + 2), iso.P(cu - 0.1 + 0.18 * t, cv + 0.08 - 0.1 * t, fz1 - 2), 0.6 * RES, alpha(CU_D, 0.7));
+  }
+  // the shoulders / upper chest block
+  iso.box(cu - 0.1, cv - 0.02, cu + 0.06, cv + 0.1, fz1, fz1 + 14, CU, { ink: false });
+  // the HEAD + radiate crown
+  const [hx, hyB] = iso.P(cu - 0.02, cv + 0.04, fz1 + 14);
+  const headTop = hyB - 16 * RES;
+  iso.r.poly([[hx - 4 * RES, hyB], [hx + 4 * RES, hyB], [hx + 3 * RES, headTop], [hx - 3 * RES, headTop]], CU_L, CU_D); // head
+  iso.r.polyline([[hx - 4 * RES, hyB], [hx - 3 * RES, headTop], [hx + 3 * RES, headTop], [hx + 4 * RES, hyB]], INK_W * 0.5, INK);
+  // the seven crown spikes radiating from the head top
+  for (let k = 0; k < 7; k++) {
+    const a = -Math.PI * 0.5 + (k - 3) * 0.42;
+    iso.r.line([hx, headTop + 1 * RES], [hx + Math.cos(a) * 11 * RES, headTop + 1 * RES + Math.sin(a) * 11 * RES], 1.1 * RES, CU);
+  }
+  // the left arm holding the TABLET (a tilted slab held against the body)
+  const [tbx, tby] = iso.P(cu - 0.16, cv + 0.12, fz1 - 4);
+  iso.r.poly([[tbx, tby], [tbx - 9 * RES, tby - 5 * RES], [tbx - 11 * RES, tby - 16 * RES], [tbx - 2 * RES, tby - 11 * RES]], CU, CU_D); // tablet
+  iso.r.polyline([[tbx, tby], [tbx - 9 * RES, tby - 5 * RES], [tbx - 11 * RES, tby - 16 * RES], [tbx - 2 * RES, tby - 11 * RES]], INK_W * 0.5, INK, true);
+  // the raised right ARM + the TORCH high overhead (the beacon sits here)
+  const shoulderR = iso.P(cu + 0.06, cv + 0.0, fz1 + 6);
+  const torchBase: Pt = [shoulderR[0] + 7 * RES, shoulderR[1] - 40 * RES];
+  iso.r.line(shoulderR, torchBase, 2.6 * RES, CU); // the upraised arm
+  iso.r.polyline([shoulderR, torchBase], INK_W * 0.5, alpha(INK, 0.7));
+  // the torch cup + golden flame
+  iso.r.poly([[torchBase[0] - 3 * RES, torchBase[1]], [torchBase[0] + 3 * RES, torchBase[1]], [torchBase[0] + 2 * RES, torchBase[1] - 4 * RES], [torchBase[0] - 2 * RES, torchBase[1] - 4 * RES]], GOLDLEAF);
+  iso.r.poly([[torchBase[0] - 2 * RES, torchBase[1] - 4 * RES], [torchBase[0] + 2 * RES, torchBase[1] - 4 * RES], [torchBase[0], torchBase[1] - 13 * RES]], hex('#ffd873'));
+  iso.glint([torchBase[0], torchBase[1] - 7 * RES], 2.4 * RES);
+  return iso.build();
+}
+
+/** BROOKLYN BRIDGE (1883) — the great hybrid suspension/cable-stayed span: the
+ *  two TWIN GOTHIC stone towers with their paired pointed arches, the long
+ *  catenary main cables and the fan of diagonal stays, and the roadway deck
+ *  crossing the East River. Drawn spanning the footprint diagonal so it reads
+ *  as a river crossing. Grey granite + steel-grey cables. 4×4 SW + headroom. */
+function brooklynBridgeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 200 });
+  void seed;
+  const ST = hex('#a59c8d'); // the warm-grey Maine granite, greyed
+  const ST_D = hex('#857d70');
+  const CABLE = hex('#6f7782'); // steel cable grey
+  const DECK = hex('#7a766e');
+  // the river surface under the span
+  iso.quad(0.2, 0.2, 3.8, 3.8, 0, shaded(COLORS.water, 0.04));
+  iso.r.line(iso.P(0.4, 2.0, 0.3), iso.P(3.6, 2.0, 0.3), 1.0 * RES, alpha(COLORS.waterGlint, 0.4));
+  // the bridge runs along the footprint diagonal from the near corner (high v,
+  // the Manhattan anchor) toward the far corner — towers at 1/3 and 2/3.
+  // deck line endpoints (approach abutments) + the two tower centres
+  const aA = [0.5, 3.4] as const; // near (Manhattan) approach
+  const aB = [3.4, 0.5] as const; // far (Brooklyn) approach
+  const t1 = [1.45, 2.45] as const; // Manhattan-side tower
+  const t2 = [2.45, 1.45] as const; // Brooklyn-side tower
+  const deckZ = 26;
+  const towerH = 150;
+  const cableTop = 132;
+  // the suspended DECK (a long grey ribbon between the abutments)
+  iso.r.poly(
+    [iso.P(aA[0] - 0.12, aA[1] + 0.12, deckZ), iso.P(aB[0] - 0.12, aB[1] + 0.12, deckZ), iso.P(aB[0] + 0.12, aB[1] - 0.12, deckZ), iso.P(aA[0] + 0.12, aA[1] - 0.12, deckZ)],
+    DECK,
+    lit(DECK, 0.05),
+  );
+  iso.r.polyline([iso.P(aA[0], aA[1], deckZ), iso.P(aB[0], aB[1], deckZ)], INK_W * 0.6, alpha(INK, 0.7));
+  // the abutment masonry at each end
+  for (const a of [aA, aB] as const) iso.box(a[0] - 0.16, a[1] - 0.16, a[0] + 0.16, a[1] + 0.16, 0, deckZ + 6, ST);
+  // the main suspension CABLE: a catenary from abutment up over each tower top
+  // and down — drawn as two swooping polylines (one per tower span).
+  const sag = (p: readonly [number, number], q: readonly [number, number], topZ: number, n = 10): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= n; i++) {
+      const f = i / n;
+      const u = p[0] + (q[0] - p[0]) * f;
+      const v = p[1] + (q[1] - p[1]) * f;
+      // parabolic sag: high at ends, low at middle relative to topZ
+      const z = deckZ + 8 + (topZ - deckZ - 8) * (1 - 4 * f * (1 - f));
+      pts.push(iso.P(u, v, z));
+    }
+    return pts;
+  };
+  // ---- the two GOTHIC TOWERS (twin paired pointed arches) ----
+  for (const tc of [t1, t2] as const) {
+    iso.box(tc[0] - 0.18, tc[1] - 0.18, tc[0] + 0.18, tc[1] + 0.18, 0, towerH, ST, { leftC: ST_D, rightC: lit(ST, 0.06) });
+    // the two tall pointed-arch portals on the near (left) face
+    for (const dv of [-0.075, 0.075] as const) {
+      const av = tc[1] + dv;
+      iso.r.poly(
+        [iso.P(tc[0] - 0.18, av - 0.05, deckZ + 6), iso.P(tc[0] - 0.18, av + 0.05, deckZ + 6), iso.P(tc[0] - 0.18, av + 0.05, towerH * 0.52), iso.P(tc[0] - 0.18, av, towerH * 0.62), iso.P(tc[0] - 0.18, av - 0.05, towerH * 0.52)],
+        darken(ST_D, 0.22),
+      );
+    }
+    // a string-course + the flat granite cap
+    iso.r.line(iso.P(tc[0] - 0.18, tc[1] + 0.18, towerH * 0.68), iso.P(tc[0] + 0.18, tc[1] + 0.18, towerH * 0.68), 0.8 * RES, lighten(ST, 0.12));
+    iso.box(tc[0] - 0.2, tc[1] - 0.2, tc[0] + 0.2, tc[1] + 0.2, towerH, towerH + 5, lighten(ST, 0.06), { ink: false });
+  }
+  // draw the cables AFTER the near tower so they drape correctly over the tops:
+  // the catenary runs anchor → over tower1 → over tower2 → anchor.
+  for (const seg of [[aA, t1] as const, [t1, t2] as const, [t2, aB] as const]) {
+    iso.r.polyline(sag(seg[0], seg[1], cableTop), 1.4 * RES, CABLE);
+  }
+  // the fan of diagonal STAYS from each tower top down to the deck (the bridge's
+  // signature web) — a few rays each side
+  for (const tc of [t1, t2] as const) {
+    const top = iso.P(tc[0], tc[1], towerH);
+    for (const f of [0.35, 0.6, 0.85] as const) {
+      // stays toward each approach
+      iso.r.line(top, iso.P(tc[0] - (tc[0] - aA[0]) * f, tc[1] - (tc[1] - aA[1]) * f, deckZ + 2), 0.6 * RES, alpha(CABLE, 0.8));
+      iso.r.line(top, iso.P(tc[0] + (aB[0] - tc[0]) * f, tc[1] + (aB[1] - tc[1]) * f, deckZ + 2), 0.6 * RES, alpha(CABLE, 0.8));
+    }
+  }
+  // vertical suspender ropes from the main cable to the deck along the centre span
+  for (let i = 1; i < 9; i++) {
+    const f = i / 9;
+    const u = t1[0] + (t2[0] - t1[0]) * f;
+    const v = t1[1] + (t2[1] - t1[1]) * f;
+    const z = deckZ + 8 + (cableTop - deckZ - 8) * (1 - 4 * f * (1 - f));
+    iso.r.line(iso.P(u, v, z), iso.P(u, v, deckZ + 2), 0.4 * RES, alpha(CABLE, 0.6));
+  }
+  return iso.build();
+}
+
+/** GRAND CENTRAL TERMINAL (1913, Warren & Wetmore) — the Beaux-Arts station: a
+ *  broad granite-and-limestone block with the great triple-arch 42nd-St window
+ *  bays, paired columns, a heavy cornice, and the crowning sculptural group
+ *  (Mercury/Hercules/Minerva) over the central CLOCK. Read pale grey. Broad
+ *  3×2 SW + headroom (it is long & monumental, not tall). */
+function grandCentralTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 2, { swAnchor: true, headroom: 130 });
+  void seed;
+  const ST = LIMESTONE;
+  const u0 = 0.34, u1 = 2.66, v0 = 0.42, v1 = 1.66;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.24);
+  // rusticated granite base
+  iso.box(u0, v0, u1, v1, 0, 18, GRANITE);
+  // the main limestone mass
+  iso.box(u0 + 0.04, v0 + 0.04, u1 - 0.04, v1, 18, 84, ST);
+  // ---- the three great arched windows on the show (v1) face ----
+  for (const uc of [0.85, 1.5, 2.15] as const) {
+    const poly: Pt[] = [iso.P(uc - 0.26, v1, 26), iso.P(uc - 0.26, v1, 60)];
+    for (let j = 0; j <= 10; j++) {
+      const t = j / 10;
+      poly.push(iso.P(uc - 0.26 + 0.52 * t, v1, 60 + Math.sin(t * Math.PI) * 16));
+    }
+    poly.push(iso.P(uc + 0.26, v1, 60), iso.P(uc + 0.26, v1, 26));
+    iso.r.poly(poly, alpha(hex('#cfe2f0'), 0.5));
+    iso.r.polyline(poly, INK_W * 0.5, alpha(INK, 0.7));
+    // the paired columns flanking each arch
+    for (const du of [-0.3, -0.24, 0.24, 0.3] as const) iso.r.line(iso.P(uc + du, v1, 22), iso.P(uc + du, v1, 64), 1.3 * RES, lighten(ST, 0.16));
+  }
+  // heavy cornice + low attic
+  iso.box(u0, v0, u1, v1, 84, 92, lighten(ST, 0.06), { ink: false });
+  iso.box(u0 + 0.2, v0 + 0.1, u1 - 0.2, v1 - 0.06, 92, 100, ST, { ink: false });
+  // ---- the crowning sculptural GROUP over the central clock ----
+  const sc = 1.5;
+  const [scx, scy] = iso.P(sc, v1, 100);
+  // the great clock disc
+  const RR = 6 * RES;
+  const ring: Pt[] = [];
+  for (let i = 0; i <= 20; i++) { const a = (i / 20) * Math.PI * 2; ring.push([scx + Math.cos(a) * RR, scy - RR - 4 * RES + Math.sin(a) * RR]); }
+  iso.r.poly(ring, DIALSTONE);
+  iso.r.polyline(ring, INK_W * 0.6, INK, true);
+  iso.r.line([scx, scy - RR - 4 * RES], [scx, scy - RR - 8 * RES], 0.9 * RES, INK);
+  iso.r.line([scx, scy - RR - 4 * RES], [scx + 3 * RES, scy - RR - 4 * RES], 0.9 * RES, INK);
+  // the statue group (a central figure flanked by two reclining figures)
+  iso.r.line([scx, scy - RR - 8 * RES], [scx, scy - RR - 20 * RES], 2.4 * RES, lighten(ST, 0.08));
+  iso.r.poly([[scx - 9 * RES, scy - RR - 4 * RES], [scx - 3 * RES, scy - RR - 4 * RES], [scx - 4 * RES, scy - RR - 12 * RES]], lighten(ST, 0.06));
+  iso.r.poly([[scx + 9 * RES, scy - RR - 4 * RES], [scx + 3 * RES, scy - RR - 4 * RES], [scx + 4 * RES, scy - RR - 12 * RES]], lighten(ST, 0.06));
+  return iso.build();
+}
+
+/** 30 ROCKEFELLER PLAZA (1933, the RCA/GE/Comcast Building) — the great Art-Deco
+ *  limestone SLAB of Rockefeller Center: a thin broad tablet of stone with
+ *  strong unbroken vertical window strips, a series of slender setbacks up its
+ *  narrow ends, and a flat top. The signature is the SLAB proportion — wide, thin
+ *  and tall. Slim-in-depth 2×2 on big headroom. */
+function rockefellerTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 420 });
+  void seed;
+  const ST = LIMESTONE;
+  iso.shadow(0.34, 0.5, 1.66, 1.64, 0.3, 0.26);
+  // granite base
+  iso.box(0.3, 0.42, 1.7, 1.7, 0, 24, GRANITE);
+  // ---- the slab: WIDE on the v (left) face, THIN on the u (right) face ----
+  const u0 = 0.66, u1 = 1.34; // thin depth
+  const v0 = 0.34, v1 = 1.66; // broad width
+  iso.box(u0, v0, u1, v1, 24, 320, ST, { rightC: lit(ST, 0.05), leftC: shaded(ST, 0.04) });
+  // the strong continuous vertical window strips down the broad left face — the
+  // unbroken piers that give the RCA slab its soaring verticality
+  gridFace(iso, 'l', v1, u0 + 0.04, u1 - 0.04, 34, 312, 6, alpha(GLASS_DK, 0.92));
+  for (let i = 0; i <= 14; i++) {
+    const v = v0 + ((v1 - v0) * i) / 14;
+    iso.r.line(iso.P(u0, v, 30), iso.P(u0, v, 314), 0.7 * RES, lighten(ST, 0.13));
+  }
+  // the thin right (u1) face gets a couple of window columns too
+  gridFace(iso, 'r', u1, v0 + 0.06, v1 - 0.06, 34, 312, 3, alpha(GLASS_DK, 0.9));
+  // the slender setbacks stepping the narrow ENDS inward near the top (Deco)
+  for (const [iv0, iv1, zb, zt] of [[v0 + 0.12, v1 - 0.12, 320, 338], [v0 + 0.26, v1 - 0.26, 338, 356]] as const) {
+    iso.box(u0 + 0.02, iv0, u1 - 0.02, iv1, zb, zt, ST, { topC: lighten(ST, 0.06) });
+    gridFace(iso, 'l', iv1, u0 + 0.06, u1 - 0.06, zb + 2, zt - 2, 4, alpha(GLASS_DK, 0.85));
+  }
+  // a slim rooftop mast
+  const [mx, my] = iso.P(1.0, 1.0, 356);
+  iso.r.line([mx, my], [mx, my - 30 * RES], 1.2 * RES, STEEL_GLASS_D);
+  return iso.build();
+}
+
+/** THE METROPOLITAN MUSEUM OF ART (the Fifth-Ave facade, R.M. Hunt 1902) — the
+ *  great Beaux-Arts museum: a long limestone front with the monumental central
+ *  triple-arch entrance under paired columns + heavy attic, flanking arched wings
+ *  with the four uncarved stone "blocks" over the columns, and a low roof behind.
+ *  Broad pale grey, 3×3 SW + modest headroom. */
+function metMuseumTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 110 });
+  void seed;
+  const ST = hex('#cdc8bb'); // Indiana limestone (greyed)
+  const u0 = 0.36, u1 = 2.66, v0 = 0.5, v1 = 2.6;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.22);
+  iso.box(u0, v0, u1, v1, 0, 12, GRANITE);
+  iso.box(u0 + 0.04, v0 + 0.04, u1 - 0.04, v1, 12, 58, ST);
+  // the projecting central pavilion (the three great arches)
+  iso.box(2.48, 0.95, 2.74, 2.15, 6, 70, lighten(ST, 0.03));
+  for (const vc of [1.25, 1.55, 1.85] as const) {
+    const poly: Pt[] = [iso.P(2.74, vc - 0.13, 16), iso.P(2.74, vc - 0.13, 42)];
+    for (let j = 0; j <= 8; j++) { const t = j / 8; poly.push(iso.P(2.74, vc - 0.13 + 0.26 * t, 42 + Math.sin(t * Math.PI) * 13)); }
+    poly.push(iso.P(2.74, vc + 0.13, 42), iso.P(2.74, vc + 0.13, 16));
+    iso.r.poly(poly, alpha(GLASS_DK, 0.82));
+    iso.r.polyline(poly, INK_W * 0.5, alpha(INK, 0.7));
+  }
+  // the paired giant columns across the central pavilion + the four attic blocks
+  for (let v = 1.05; v < 2.12; v += 0.14) iso.r.line(iso.P(2.74, v, 8), iso.P(2.74, v, 58), 1.4 * RES, lighten(ST, 0.16));
+  iso.box(2.46, 0.93, 2.76, 2.17, 70, 78, lighten(ST, 0.06), { ink: false }); // attic
+  for (const vc of [1.1, 1.45, 1.7, 2.05] as const) {
+    const [bx, by] = iso.P(2.76, vc, 78);
+    iso.r.rect(bx - 2.4 * RES, by - 9 * RES, bx + 2.4 * RES, by, lighten(ST, 0.08)); // uncarved block
+  }
+  // the long flanking wings with tall arched windows
+  gridFace(iso, 'l', 2.6, 0.6, 0.92, 16, 50, 4, alpha(GLASS_DK, 0.85));
+  gridFace(iso, 'l', 2.6, 2.18, 2.54, 16, 50, 4, alpha(GLASS_DK, 0.85));
+  // cornice across the wings + the low glazed roof behind (the galleries)
+  iso.box(u0 + 0.04, v0 + 0.04, u1 - 0.04, v1, 58, 64, lighten(ST, 0.06), { ink: false });
+  iso.box(u0 + 0.3, v0 + 0.3, u1 - 0.5, v1 - 0.4, 58, 70, shaded(COLORS.glassSky, 0.06), { ink: false });
+  return iso.build();
+}
+
+/** THE WHITNEY MUSEUM OF AMERICAN ART (Renzo Piano, 2015, Gansevoort St) — the
+ *  asymmetric industrial-modern mass beside the High Line: stacked grey steel-
+ *  and-glass volumes that cantilever and step back toward the river, with broad
+ *  outdoor terraces, an external stair, and a glazed ground floor. Reads pale
+ *  grey-blue steel. A broad, low, sculptural 2×2 SW. */
+function whitneyTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 130 });
+  void seed;
+  const ST = hex('#9aa3ac'); // pale grey industrial steel
+  const GL = alpha(hex('#bcd2e2'), 0.6);
+  iso.shadow(0.34, 0.52, 1.66, 1.64, 0.24, 0.22);
+  // the glazed transparent ground floor (a glowing plinth)
+  iso.box(0.34, 0.5, 1.66, 1.7, 0, 18, alpha(hex('#cfe2f0'), 0.55), { topC: lighten(ST, 0.1) });
+  // the main asymmetric massing — a tall blank-clad block toward the back-left
+  iso.box(0.34, 0.5, 1.2, 1.7, 18, 96, ST, { leftC: shaded(ST, 0.06), rightC: lit(ST, 0.04) });
+  // a lower stepped volume to the front-right (cantilevering toward the river)
+  iso.box(1.2, 0.5, 1.66, 1.7, 18, 64, lighten(ST, 0.03));
+  iso.box(1.2, 0.5, 1.66, 1.7, 64, 72, lighten(ST, 0.08), { ink: false }); // its roof terrace slab
+  // the stepped outdoor TERRACES on the river side (the signature steel decks)
+  for (const [zb, depth] of [[72, 0.2], [84, 0.34], [50, 0.12]] as const) {
+    iso.box(1.2, 1.7 - depth, 1.66, 1.7, zb, zb + 4, lighten(ST, 0.06), { ink: false });
+    // terrace railings
+    iso.r.line(iso.P(1.2, 1.7, zb + 4), iso.P(1.66, 1.7, zb + 4), 0.6 * RES, alpha(INK, 0.6));
+  }
+  // big glazed window bands on the tall block (asymmetric ribbon windows)
+  gridFace(iso, 'l', 1.7, 0.42, 1.14, 30, 88, 5, GL);
+  gridFace(iso, 'r', 1.2, 0.56, 1.64, 30, 60, 3, GL);
+  // the external steel stair / escape running up the left face (diagonal ink)
+  for (let z = 24; z < 90; z += 16) iso.r.line(iso.P(0.34, 1.0, z), iso.P(0.34, 1.3, z + 12), 0.7 * RES, alpha(ST, 0.9));
+  // a rooftop mechanical box + a flagpole
+  iso.box(0.5, 0.66, 0.8, 0.96, 96, 106, shaded(ST, 0.08), { ink: false });
+  const [fx, fy] = iso.P(0.4, 0.6, 96);
+  iso.r.line([fx, fy], [fx, fy - 16 * RES], 0.7 * RES, INK);
+  return iso.build();
+}
+
+/** THE FRICK COLLECTION (Carrère & Hastings, 1914) — the Gilded-Age mansion on
+ *  Fifth Avenue: a low, wide, refined limestone palace, a rusticated base, tall
+ *  French windows behind a screen of pilasters, a deep cornice and balustraded
+ *  roofline, set back behind its garden wall + railing. Pale grey, broad LOW
+ *  2×2 SW. */
+function frickTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 70 });
+  void seed;
+  const ST = hex('#d0cbbe');
+  const u0 = 0.32, u1 = 1.7, v0 = 0.46, v1 = 1.72;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.2);
+  // the low garden wall + railing toward the avenue (front, v1)
+  iso.box(u0 - 0.02, v1 + 0.04, u1 + 0.02, v1 + 0.1, 0, 10, lighten(ST, 0.04), { ink: false });
+  for (let u = u0; u < u1; u += 0.1) iso.r.line(iso.P(u, v1 + 0.07, 10), iso.P(u, v1 + 0.07, 16), 0.5 * RES, alpha(INK, 0.55));
+  // rusticated base
+  iso.box(u0, v0, u1, v1, 0, 14, shaded(ST, 0.1));
+  // the main palace body (low + broad)
+  iso.box(u0 + 0.02, v0 + 0.02, u1 - 0.02, v1, 14, 50, ST);
+  // tall French windows behind a pilaster screen on the show face
+  iso.windowsLeft(v1, u0 + 0.12, u1 - 0.12, 20, 44, 8, alpha(hex('#cfe2f0'), 0.5), lighten(ST, 0.1));
+  for (let u = u0 + 0.1; u < u1 - 0.05; u += 0.16) iso.r.line(iso.P(u, v1, 16), iso.P(u, v1, 48), 1.0 * RES, lighten(ST, 0.14));
+  // a slightly projecting central pavilion
+  iso.box(0.78, v1 - 0.1, 1.24, v1, 14, 54, lighten(ST, 0.03));
+  // deep cornice + the balustraded roofline
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 50, 56, lighten(ST, 0.07), { ink: false });
+  for (let u = u0; u < u1; u += 0.09) iso.r.line(iso.P(u, v1 + 0.02, 56), iso.P(u, v1 + 0.02, 61), 0.5 * RES, alpha(lighten(ST, 0.1), 0.85)); // balusters
+  return iso.build();
+}
+
+/** METLIFE BUILDING (200 Park Ave, the former Pan Am Building, 1963) — the vast
+ *  precast-concrete slab that straddles Park Avenue behind Grand Central: a broad
+ *  tapered octagonal tower (chamfered short ends) of grey concrete with a dense
+ *  regular window grid and a flat top once bearing the rooftop heliport. The bulk
+ *  is the point. Slim-depth, broad, tall 2×2 on headroom. */
+function metLifeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 330 });
+  void seed;
+  const CC = hex('#a7a59e'); // precast concrete grey
+  iso.shadow(0.34, 0.5, 1.66, 1.64, 0.3, 0.26);
+  iso.box(0.3, 0.42, 1.7, 1.7, 0, 30, GRANITE); // the base podium
+  // the broad slab with chamfered (octagonal) short ends — drawn as a wide thin
+  // box with the corners cut. Broad on v, thin on u.
+  const u0 = 0.64, u1 = 1.36, v0 = 0.3, v1 = 1.7;
+  iso.box(u0, v0 + 0.12, u1, v1 - 0.12, 30, 300, CC, { rightC: lit(CC, 0.04), leftC: shaded(CC, 0.05) });
+  // the chamfer faces at each short end (the octagon)
+  iso.r.poly([iso.P(u0, v0 + 0.12, 30), iso.P(u1, v0 + 0.12, 30), iso.P(u1, v0 + 0.12, 300), iso.P(u0, v0 + 0.12, 300)], shaded(CC, 0.12));
+  iso.r.poly([iso.P(u0, v1 - 0.12, 30), iso.P(u1, v1 - 0.12, 30), iso.P(u1, v1 - 0.12, 300), iso.P(u0, v1 - 0.12, 300)], lit(CC, 0.02));
+  // the dense regular window grid (its monolithic skin) on the broad left face
+  gridFace(iso, 'l', v1 - 0.12, u0 + 0.04, u1 - 0.04, 40, 292, 5, alpha(GLASS_DK, 0.85));
+  for (let z = 46; z < 292; z += 12) iso.r.line(iso.P(u0, v0 + 0.12, z), iso.P(u0, v1 - 0.12, z), 0.4 * RES, alpha(lighten(CC, 0.1), 0.5));
+  for (let i = 1; i < 10; i++) { const v = v0 + 0.12 + ((v1 - v0 - 0.24) * i) / 10; iso.r.line(iso.P(u0, v, 40), iso.P(u0, v, 292), 0.4 * RES, alpha(darken(CC, 0.08), 0.5)); }
+  // the thin right face window columns
+  gridFace(iso, 'r', u1, v0 + 0.16, v1 - 0.16, 40, 292, 4, alpha(GLASS_DK, 0.82));
+  // flat top + the (former) heliport pad outline
+  iso.box(u0 - 0.02, v0 + 0.1, u1 + 0.02, v1 - 0.1, 300, 308, lighten(CC, 0.06), { ink: false });
+  const [hx, hy] = iso.P(1.0, 1.0, 308);
+  iso.r.line([hx - 5 * RES, hy], [hx + 5 * RES, hy], 0.6 * RES, alpha(COLORS.marking, 0.5));
+  return iso.build();
+}
+
+/** 432 PARK AVENUE (Rafael Viñoly, 2015, 426 m) — the pencil-thin supertall: an
+ *  almost-perfectly-square white concrete grid tube, a lattice of identical big
+ *  square windows, punctuated every twelfth floor by an OPEN double-height void
+ *  (left unglazed for wind). The slimmest, tallest read in the skyline — a slender
+ *  square shaft on a 2×2 footprint with the largest headroom of all. */
+function park432Tile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 560 });
+  void seed;
+  const WC = hex('#d6d2c8'); // off-white concrete (greyed)
+  const WC_D = hex('#aea99d');
+  iso.shadow(0.4, 0.56, 1.6, 1.56, 0.26, 0.24);
+  // a very slim square tube
+  const u0 = 0.78, u1 = 1.22, v0 = 0.78, v1 = 1.22;
+  iso.box(u0, v0, u1, v1, 0, 500, WC, { leftC: WC_D, rightC: lit(WC, 0.05), topC: lighten(WC, 0.1) });
+  // the signature square-window LATTICE: a regular grid of big square openings
+  // on both visible faces, with the concrete grid between reading as white piers
+  const cols = 6;
+  for (let z = 14; z < 492; z += 16) {
+    // skip a band every ~6th row for the open mechanical voids
+    const isVoid = Math.floor((z - 14) / 16) % 12 === 5 || Math.floor((z - 14) / 16) % 12 === 6;
+    const glass = isVoid ? alpha(hex('#1b2233'), 0.95) : alpha(GLASS_DK, 0.85);
+    for (let i = 0; i < cols; i++) {
+      const a = u0 + ((u1 - u0) * (i + 0.18)) / cols;
+      const b = u0 + ((u1 - u0) * (i + 0.82)) / cols;
+      iso.r.poly([iso.P(b, v1, z + 11), iso.P(a, v1, z + 11), iso.P(a, v1, z), iso.P(b, v1, z)], glass); // left face
+      const c = v0 + ((v1 - v0) * (i + 0.18)) / cols;
+      const d = v0 + ((v1 - v0) * (i + 0.82)) / cols;
+      iso.r.poly([iso.P(u1, d, z + 11), iso.P(u1, c, z + 11), iso.P(u1, c, z), iso.P(u1, d, z)], isVoid ? alpha(hex('#1b2233'), 0.92) : alpha(GLASS_DK, 0.82)); // right face
+    }
+  }
+  // the crisp concrete-grid piers (vertical) reinforcing the lattice read
+  for (let i = 0; i <= cols; i++) {
+    const u = u0 + ((u1 - u0) * i) / cols;
+    iso.r.line(iso.P(u, v1, 10), iso.P(u, v1, 494), 0.5 * RES, lighten(WC, 0.1));
+    const v = v0 + ((v1 - v0) * i) / cols;
+    iso.r.line(iso.P(u1, v, 10), iso.P(u1, v, 494), 0.5 * RES, darken(WC, 0.05));
+  }
+  // flat parapet cap
+  iso.box(u0 - 0.01, v0 - 0.01, u1 + 0.01, v1 + 0.01, 500, 506, lighten(WC, 0.08), { ink: false });
+  return iso.build();
+}
+
+/** THE VESSEL (Heatherwick, 2019, Hudson Yards) — the honeycomb of interlocking
+ *  copper-clad STAIRCASES: a tapering bronze lattice basket, wider at the top
+ *  than the base, built of stacked angled flights that read as a woven hive. A
+ *  sculptural, mid-height 1×1 (its silhouette alone identifies it). Bronze-grey. */
+function vesselTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 130 });
+  void seed;
+  const CU = hex('#a07e54'); // copper-bronze (greyed)
+  const CU_L = lit(hex('#a07e54'), 0.14);
+  const CU_D = hex('#7e6440');
+  const cu = 0.5, cv = 0.52;
+  iso.shadow(cu - 0.3, cv - 0.12, cu + 0.3, cv + 0.24, 0.2, 0.2);
+  // low plaza plinth
+  iso.box(cu - 0.32, cv - 0.3, cu + 0.32, cv + 0.3, 0, 6, GRANITE);
+  // the basket: stacked rings that WIDEN upward, each ring a faceted band, with
+  // the criss-cross stair flights drawn as diagonals between levels.
+  const [bx, byB] = iso.P(cu, cv, 6);
+  const levels = 7;
+  const ringPts = (rad: number, zPx: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 8; i++) { const a = (i / 8) * Math.PI * 2; pts.push([bx + Math.cos(a) * rad, byB - zPx + Math.sin(a) * rad * 0.5]); }
+    return pts;
+  };
+  const radAt = (l: number): number => (0.16 + l * 0.035) * (CELL_W / 2);
+  const zAt = (l: number): number => (8 + l * 14) * RES;
+  // draw from back to front: the body facets
+  for (let l = 0; l < levels; l++) {
+    const r0 = radAt(l), r1 = radAt(l + 1);
+    const z0 = zAt(l), z1 = zAt(l + 1);
+    // the outward-canting wall band of this tier
+    iso.r.poly([...ringPts(r0, z0).slice(0, 5), ...ringPts(r1, z1).slice(0, 5).reverse()], shaded(CU, 0.06), CU_L);
+    // the criss-cross stair diagonals (the honeycomb)
+    const a0 = ringPts(r0, z0), a1 = ringPts(r1, z1);
+    for (let i = 0; i < 4; i++) {
+      iso.r.line(a0[i]!, a1[i + 1]!, 0.7 * RES, alpha(CU_D, 0.85));
+      iso.r.line(a0[i + 1]!, a1[i]!, 0.7 * RES, alpha(CU_L, 0.8));
+    }
+    iso.r.polyline(ringPts(r1, z1), 0.7 * RES, alpha(CU_D, 0.7), true); // tier rim
+  }
+  // the bright top rim catching the light
+  iso.r.polyline(ringPts(radAt(levels), zAt(levels)).slice(1, 6), 1.0 * RES, alpha(lighten(CU_L, 0.16), 0.9));
+  iso.glint([bx + radAt(levels) * 0.4, byB - zAt(levels) + 2 * RES], 2 * RES);
+  return iso.build();
+}
+
+/** 30 HUDSON YARDS (2019, 387 m) — the tallest Hudson Yards tower: a faceted grey-
+ *  glass shaft that shears off near the top into the cantilevered triangular
+ *  OBSERVATION DECK ("Edge") jutting out over the street. Slim+tall 2×2 on big
+ *  headroom; the jutting wedge near the crown is the signature. */
+function hudsonYards30Tile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 430 });
+  void seed;
+  const GL = STEEL_GLASS;
+  const GL_D = STEEL_GLASS_D;
+  iso.shadow(0.34, 0.5, 1.66, 1.64, 0.3, 0.26);
+  iso.box(0.3, 0.42, 1.7, 1.7, 0, 26, GRANITE);
+  // the faceted shaft (a chamfered prism)
+  const u0 = 0.6, u1 = 1.4, v0 = 0.5, v1 = 1.5;
+  iso.box(u0, v0, u1, v1, 26, 340, GL, { leftC: GL_D, rightC: lit(GL, 0.05), topC: lighten(GL, 0.1) });
+  gridFace(iso, 'r', u1, v0 + 0.04, v1 - 0.04, 34, 332, 7, alpha(hex('#cfe2f0'), 0.5));
+  gridFace(iso, 'l', v1, u0 + 0.04, u1 - 0.04, 34, 332, 6, alpha(hex('#bcd2e2'), 0.5));
+  // strong vertical mullion accents
+  for (let i = 0; i <= 7; i++) { const v = v0 + ((v1 - v0) * i) / 7; iso.r.line(iso.P(u1, v, 34), iso.P(u1, v, 334), 0.5 * RES, lighten(GL, 0.14)); }
+  // the upper shaft shears: a setback then the crown block
+  iso.box(u0 + 0.06, v0 + 0.06, u1 - 0.06, v1 - 0.06, 340, 372, GL, { topC: lighten(GL, 0.08) });
+  // ---- the cantilevered triangular OBSERVATION DECK jutting from the corner ----
+  const [ex, ey] = iso.P(u1, v0, 318); // springing from the SE corner
+  iso.r.poly([[ex, ey], [ex + 20 * RES, ey + 4 * RES], [ex + 18 * RES, ey + 12 * RES], [ex, ey + 10 * RES]], lit(GL, 0.06), GL_D); // the deck slab
+  iso.r.polyline([[ex, ey], [ex + 20 * RES, ey + 4 * RES], [ex + 18 * RES, ey + 12 * RES]], INK_W * 0.5, INK);
+  // the glass balustrade up the deck edge
+  iso.r.line([ex + 20 * RES, ey + 4 * RES], [ex + 20 * RES, ey - 5 * RES], 0.6 * RES, alpha(hex('#cfe2f0'), 0.7));
+  // a slim crown mast
+  const [mx, my] = iso.P(1.0, 1.0, 372);
+  iso.r.line([mx, my], [mx, my - 34 * RES], 1.2 * RES, GL_D);
+  iso.r.line([mx, my - 34 * RES], [mx, my - 44 * RES], 0.9 * RES, COLORS.glassLit);
+  return iso.build();
+}
+
+/** LINCOLN CENTER (1962, the central plaza) — the three travertine modernist
+ *  concert halls round the fountain plaza: a row of tall colonnaded white-stone
+ *  fronts (Met Opera in the centre, broad and arched; Avery Fisher + the David
+ *  Koch theatre flanking), each with a screen of slender full-height piers and a
+ *  glazed glowing facade, framing the round plaza FOUNTAIN. Broad pale grey, 3×3
+ *  SW. */
+function lincolnCenterTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 110 });
+  void seed;
+  const ST = hex('#d4cfc2'); // travertine (greyed)
+  iso.shadow(0.4, 0.6, 2.62, 2.6, 0.24, 0.22);
+  // the raised plaza
+  iso.box(0.34, 0.5, 2.66, 2.66, 0, 8, lighten(GRANITE, 0.04), { topC: lighten(ST, 0.06) });
+  // ---- the central hall (Met Opera): tall, with five great arched bays ----
+  iso.box(1.0, 0.5, 2.0, 1.1, 8, 86, ST);
+  for (let i = 0; i < 5; i++) {
+    const uc = 1.1 + i * 0.18;
+    const poly: Pt[] = [iso.P(uc, 1.1, 16), iso.P(uc, 1.1, 56)];
+    for (let j = 0; j <= 6; j++) { const t = j / 6; poly.push(iso.P(uc + 0.12 * t, 1.1, 56 + Math.sin(t * Math.PI) * 14)); }
+    poly.push(iso.P(uc + 0.12, 1.1, 56), iso.P(uc + 0.12, 1.1, 16));
+    iso.r.poly(poly, alpha(hex('#e8c878'), 0.4)); // the warm-lit glazed lobby behind the arches
+    iso.r.polyline(poly, INK_W * 0.5, alpha(INK, 0.7));
+  }
+  iso.box(1.0, 0.5, 2.0, 1.1, 86, 92, lighten(ST, 0.06), { ink: false });
+  // ---- the two flanking halls (lower, colonnaded screens) ----
+  for (const [bu0, bu1, bv0, bv1] of [[0.4, 0.98, 0.6, 1.2], [2.02, 2.62, 0.6, 1.2]] as const) {
+    iso.box(bu0, bv0, bu1, bv1, 8, 62, lighten(ST, 0.02));
+    for (let u = bu0 + 0.06; u < bu1 - 0.02; u += 0.1) iso.r.line(iso.P(u, bv1, 14), iso.P(u, bv1, 58), 1.1 * RES, lighten(ST, 0.16)); // the full-height piers
+    gridFace(iso, 'l', bv1, bu0 + 0.06, bu1 - 0.06, 16, 56, 5, alpha(hex('#e8c878'), 0.4));
+    iso.box(bu0, bv0, bu1, bv1, 62, 68, lighten(ST, 0.06), { ink: false });
+  }
+  // the round plaza FOUNTAIN in front of the central hall
+  const [fx, fyB] = iso.P(1.5, 1.7, 8);
+  const FR = 0.34 * (CELL_W / 2);
+  const fr: Pt[] = [];
+  for (let i = 0; i <= 20; i++) { const a = (i / 20) * Math.PI * 2; fr.push([fx + Math.cos(a) * FR, fyB + Math.sin(a) * FR * 0.5]); }
+  iso.r.poly(fr, shaded(COLORS.water, 0.04));
+  iso.r.polyline(fr, 1.0 * RES, lighten(ST, 0.12), true);
+  // the central jet
+  iso.r.line([fx, fyB], [fx, fyB - 14 * RES], 1.4 * RES, alpha(COLORS.waterGlint, 0.7));
+  iso.glint([fx, fyB - 14 * RES], 2.2 * RES);
+  return iso.build();
+}
+
+/** UNITED NATIONS SECRETARIAT (1952, Harrison/Le Corbusier/Niemeyer) — the
+ *  pioneering glass curtain-wall SLAB on the East River: a thin tall rectangular
+ *  tablet whose two BROAD faces are sheer green-grey glass (the long elevations)
+ *  and whose two narrow ENDS are blank white-marble walls. Beside it the low
+ *  curved General Assembly with its shallow dome. Slim slab, 2×2 on headroom. */
+function unSecretariatTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 320 });
+  void seed;
+  const GL = hex('#7f93a0'); // the green-grey glass curtain wall
+  const GL_L = lighten(GL, 0.12);
+  const MB = hex('#cfcabc'); // the white-marble blank ends
+  iso.shadow(0.34, 0.5, 1.66, 1.64, 0.3, 0.26);
+  iso.box(0.3, 0.42, 1.7, 1.7, 0, 14, GRANITE); // plaza base
+  // ---- the slab: broad glass faces on v, blank marble ends on u ----
+  const u0 = 0.72, u1 = 1.28, v0 = 0.34, v1 = 1.66;
+  // the two glass long-faces
+  iso.box(u0, v0, u1, v1, 14, 290, GL, { leftC: shaded(GL, 0.04), rightC: lit(GL, 0.04), topC: lighten(GL, 0.08) });
+  // dense horizontal floor reflections + thin vertical mullions on the broad
+  // left (v1) face — the sheer glass read
+  for (let z = 24; z < 286; z += 8) iso.r.line(iso.P(u0, v0, z), iso.P(u0, v1, z), 0.4 * RES, alpha(GL_L, 0.45));
+  for (let i = 1; i < 14; i++) { const v = v0 + ((v1 - v0) * i) / 14; iso.r.line(iso.P(u0, v, 20), iso.P(u0, v, 286), 0.4 * RES, alpha(darken(GL, 0.1), 0.5)); }
+  // the blank white-marble END wall (the narrow u1 short face, toward the sun)
+  // overlaid as solid stone — the Secretariat's famous blank-marble ends.
+  iso.r.poly([iso.P(u1, v0, 14), iso.P(u1, v1, 14), iso.P(u1, v1, 290), iso.P(u1, v0, 290)], lit(MB, 0.03));
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 290, 298, lighten(MB, 0.06), { ink: false }); // thin top cap
+  iso.edge(iso.P(u1, v0, 14), iso.P(u1, v0, 298));
+  iso.edge(iso.P(u1, v1, 14), iso.P(u1, v1, 298));
+  // ---- the low General Assembly building beside it (curved, concave roof) ----
+  iso.box(0.34, 1.2, 0.66, 1.7, 0, 40, MB, { topC: lighten(MB, 0.08) });
+  const [gx, gyB] = iso.P(0.5, 1.7, 40);
+  // a shallow concave sweep + the small dome
+  iso.r.poly([[gx - 9 * RES, gyB], [gx + 9 * RES, gyB], [gx + 7 * RES, gyB - 5 * RES], [gx - 7 * RES, gyB - 5 * RES]], lighten(MB, 0.04));
+  const dome: Pt[] = [];
+  for (let i = 0; i <= 12; i++) { const a = Math.PI * (i / 12); dome.push([gx + Math.cos(a) * 6 * RES, gyB - 5 * RES - Math.sin(a) * 4 * RES]); }
+  iso.r.poly(dome, shaded(MB, 0.05), lit(MB, 0.05));
+  iso.r.polyline(dome, INK_W * 0.5, INK);
+  return iso.build();
+}
+
+/** YANKEE STADIUM (the 2009 ballpark, the Bronx) — the great open-air baseball
+ *  bowl: the tall limestone-clad outer FACADE with its arched window frieze
+ *  (echoing the 1923 original), the tiered grandstand decks sweeping round, the
+ *  bright green diamond + outfield, and the ring of light masts. Broad LOW 3×3
+ *  SW. */
+function yankeeStadiumTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 90 });
+  void seed;
+  const ST = hex('#cfc9bb'); // limestone facade (greyed)
+  const cu = 1.5, cv = 1.55;
+  iso.shadow(0.4, 0.6, 2.62, 2.6, 0.26, 0.22);
+  // the green field inside
+  iso.quad(0.6, 0.8, 2.5, 2.5, 0, shaded(COLORS.grass, 0.06));
+  // the outer bowl wall — an elliptical limestone ring drawn as a faceted band
+  const [bx, byB] = iso.P(cu, cv, 0);
+  const RW = 1.04 * (CELL_W / 2);
+  const RH = RW * 0.5;
+  const ring = (rad: number, z: number, sh: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 28; i++) { const a = (i / 28) * Math.PI * 2; pts.push([bx + Math.cos(a) * rad, byB - z + Math.sin(a) * rad * 0.5 * sh]); }
+    return pts;
+  };
+  // the outer facade wall (tall)
+  const outer0 = ring(RW, 4, 1);
+  const outer1 = ring(RW, 56, 1);
+  iso.r.poly([...outer0.slice(0, 15), ...outer1.slice(0, 15).reverse()], lit(ST, 0.03), shaded(ST, 0.06)); // front arc wall
+  void RH;
+  // the arched window frieze along the facade (the signature)
+  for (let i = 2; i < 13; i++) {
+    const a = (i / 28) * Math.PI * 2;
+    const px = bx + Math.cos(a) * RW * 0.99;
+    const py = byB - 30 + Math.sin(a) * RW * 0.5 * 0.99;
+    iso.r.poly([[px - 1.6 * RES, py + 8 * RES], [px + 1.6 * RES, py + 8 * RES], [px + 1.6 * RES, py - 4 * RES], [px, py - 8 * RES], [px - 1.6 * RES, py - 4 * RES]], alpha(GLASS_DK, 0.8));
+  }
+  iso.r.polyline(outer1.slice(0, 15), INK_W * 0.6, INK); // cornice rim
+  // the tiered grandstand decks (inner) sweeping round, stepping down to the field
+  for (const [rad, z, col] of [[0.86, 44, shaded(COLORS.concrete, 0.04)], [0.7, 30, shaded(COLORS.concrete, 0.0)], [0.56, 18, lighten(COLORS.concrete, 0.04)]] as const) {
+    const r0 = ring(rad * (CELL_W / 2), z, 1).slice(2, 16);
+    iso.r.polyline(r0, 2.2 * RES, col);
+  }
+  // the baseball DIAMOND (the infield) + base lines
+  const [dx, dyB] = iso.P(1.3, 1.9, 1);
+  iso.r.poly([[dx, dyB - 6 * RES], [dx + 9 * RES, dyB], [dx, dyB + 6 * RES], [dx - 9 * RES, dyB]], shaded(hex('#b08a52'), 0.05)); // dirt diamond
+  iso.r.polyline([[dx, dyB - 6 * RES], [dx + 9 * RES, dyB], [dx, dyB + 6 * RES], [dx - 9 * RES, dyB]], 0.6 * RES, alpha(COLORS.white, 0.7), true);
+  // the ring of tall light MASTS around the rim
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 - 0.2;
+    if (a > 0.2 && a < Math.PI - 0.2) continue; // only the visible front-ish ones
+    const mx = bx + Math.cos(a) * RW * 1.0;
+    const my = byB - 56 + Math.sin(a) * RW * 0.5;
+    iso.r.line([mx, my], [mx, my - 18 * RES], 0.7 * RES, STEEL_GLASS_D);
+    iso.r.rect(mx - 4 * RES, my - 22 * RES, mx + 4 * RES, my - 18 * RES, alpha(hex('#fff4d0'), 0.7)); // the lamp bank
+  }
+  return iso.build();
+}
+
+/** THE WONDER WHEEL (1920, Coney Island) — Deno's eccentric Ferris wheel: the
+ *  great steel ring with its spokes + the ring of swinging cars, on its A-frame
+ *  trusses by the boardwalk. Drawn as a big upright wheel; the rim cars + the
+ *  colour-cycle lights are the read. Slim 2×2 SW + headroom. */
+function wonderWheelTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 200 });
+  void seed;
+  const STL = hex('#8f9aa5'); // painted steel (greyed)
+  const cu = 1.0, cv = 1.1;
+  iso.shadow(cu - 0.4, cv - 0.1, cu + 0.4, cv + 0.3, 0.22, 0.2);
+  // a sandy boardwalk plinth
+  iso.box(0.4, 0.7, 1.6, 1.6, 0, 8, COLORS.sand, { topC: lighten(COLORS.sand, 0.06) });
+  // the A-frame support trusses straddling the wheel
+  const hub = iso.P(cu, cv, 150);
+  const baseL = iso.P(cu - 0.34, cv + 0.34, 8);
+  const baseR = iso.P(cu + 0.34, cv - 0.34, 8);
+  const baseF = iso.P(cu + 0.3, cv + 0.3, 8);
+  iso.r.line(baseL, hub, 2.2 * RES, shaded(STL, 0.08));
+  iso.r.line(baseR, hub, 2.2 * RES, lit(STL, 0.06));
+  iso.r.line(baseF, hub, 2.0 * RES, STL);
+  // ---- the great wheel ring (drawn facing the viewer, slightly foreshortened) ----
+  const [hx, hy] = hub;
+  const R = 0.62 * (CELL_W / 2);
+  const ZR = R * 0.96; // near-upright
+  const rim: Pt[] = [];
+  for (let i = 0; i <= 36; i++) { const a = (i / 36) * Math.PI * 2; rim.push([hx + Math.cos(a) * R, hy + Math.sin(a) * ZR]); }
+  // the spokes
+  for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; iso.r.line([hx, hy], [hx + Math.cos(a) * R, hy + Math.sin(a) * ZR], 0.5 * RES, alpha(STL, 0.8)); }
+  // two concentric rings (outer + inner track) — the eccentric wheel's twin rims
+  iso.r.polyline(rim, 1.6 * RES, lit(STL, 0.06), true);
+  const inner: Pt[] = rim.map(([x, y]): Pt => [hx + (x - hx) * 0.82, hy + (y - hy) * 0.82]);
+  iso.r.polyline(inner, 1.0 * RES, alpha(STL, 0.85), true);
+  // the ring of swinging cars on the rim (small bright pods)
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    const cx2 = hx + Math.cos(a) * R * 0.9;
+    const cy2 = hy + Math.sin(a) * ZR * 0.9;
+    iso.r.rect(cx2 - 2 * RES, cy2 - 1.4 * RES, cx2 + 2 * RES, cy2 + 2.6 * RES, alpha(i % 2 ? hex('#c44') : hex('#46c'), 0.85));
+  }
+  // the hub
+  iso.r.line([hx - 3 * RES, hy], [hx + 3 * RES, hy], 4 * RES, shaded(STL, 0.1));
+  iso.glint([hx, hy], 2.2 * RES);
+  return iso.build();
+}
+
+/** THE PARACHUTE JUMP (1939, Coney Island, "the Eiffel Tower of Brooklyn") — the
+ *  76 m open lattice STEEL tower: a tapering square truss mast flaring to the
+ *  twelve-armed radial top frame (where the parachute cables once hung), now lit
+ *  red. A slim red-grey lattice spike. 1×1 + big headroom. */
+function parachuteJumpTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 220 });
+  void seed;
+  const STL = hex('#9a8f8a'); // weathered steel (greyed, faintly warm)
+  const STL_D = hex('#7c726d');
+  const cu = 0.5, cv = 0.52;
+  iso.shadow(cu - 0.16, cv - 0.06, cu + 0.16, cv + 0.14, 0.16, 0.2);
+  // a small concrete pad
+  iso.box(cu - 0.16, cv - 0.16, cu + 0.16, cv + 0.16, 0, 8, COLORS.concrete);
+  // ---- the tapering open lattice mast (four legs converging) ----
+  const Z0 = 8, Z1 = 170;
+  const wb = 0.13, wt = 0.03;
+  const legs: [number, number][] = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+  const legTop: Pt[] = [];
+  const legBot: Pt[] = [];
+  for (const [sx, sy] of legs) {
+    const b = iso.P(cu + sx * wb, cv + sy * wb, Z0);
+    const t = iso.P(cu + sx * wt, cv + sy * wt, Z1);
+    legBot.push(b); legTop.push(t);
+    iso.r.line(b, t, 1.3 * RES, sx > 0 ? lit(STL, 0.06) : shaded(STL, 0.06));
+  }
+  // the X-bracing lattice between the front legs (the open truss read)
+  const frontPairs: [number, number][] = [[0, 1], [0, 2], [1, 3], [2, 3]];
+  for (const [iA, iB] of frontPairs) {
+    for (let s = 0; s < 7; s++) {
+      const f0 = s / 7, f1 = (s + 1) / 7;
+      const aA: Pt = [legBot[iA]![0] + (legTop[iA]![0] - legBot[iA]![0]) * f0, legBot[iA]![1] + (legTop[iA]![1] - legBot[iA]![1]) * f0];
+      const aB: Pt = [legBot[iB]![0] + (legTop[iB]![0] - legBot[iB]![0]) * f1, legBot[iB]![1] + (legTop[iB]![1] - legBot[iB]![1]) * f1];
+      iso.r.line(aA, aB, 0.5 * RES, alpha(STL_D, 0.7));
+    }
+  }
+  // ---- the radial TOP FRAME (the twelve arms the chutes hung from) ----
+  const [tx, ty] = iso.P(cu, cv, Z1);
+  const TR = 9 * RES;
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    iso.r.line([tx, ty], [tx + Math.cos(a) * TR, ty + Math.sin(a) * TR * 0.6], 0.8 * RES, STL);
+    // the little hanging tackle pip at each arm end
+    iso.r.line([tx + Math.cos(a) * TR, ty + Math.sin(a) * TR * 0.6], [tx + Math.cos(a) * TR, ty + Math.sin(a) * TR * 0.6 + 3 * RES], 0.6 * RES, STL_D);
+  }
+  // the central finial spike + the top warning light
+  iso.r.line([tx, ty], [tx, ty - 16 * RES], 1.1 * RES, STL_D);
+  iso.r.poly([[tx - 2 * RES, ty - 16 * RES], [tx + 2 * RES, ty - 16 * RES], [tx, ty - 22 * RES]], alpha(hex('#ff6a5a'), 0.9));
+  return iso.build();
+}
+
+// ===========================================================================
 //  REGISTRY — match against the REAL placed names in newyork.ts `named`.
 //  Order matters (first match wins). More-specific names first.
 // ===========================================================================
@@ -3260,5 +4071,175 @@ export const CITY_HEROES: BespokeHero[] = [
     seed: 5241,
     draw: heliportTile,
     light: { kind: 'stadiumFlood', topZ: 60, halfW: 1.0 },
+  },
+
+  // =========================================================================
+  //  ROUND 3 — the WORLD-FAMOUS NYC icons (placed in newyork.ts `named` by the
+  //  enrichment pass): One WTC, Liberty, the Brooklyn Bridge, Grand Central,
+  //  30 Rock, the Met / Whitney / Frick, MetLife, 432 Park, Hudson Yards
+  //  (Vessel + 30 HY), Lincoln Center, the UN, Yankee Stadium, Coney Island.
+  // =========================================================================
+  {
+    city: 'newyork',
+    key: 'one-world-trade-center',
+    // "One World Trade Center" / "1 WTC" — NOT the (gone) twin towers.
+    match: /One World Trade Center|1 World Trade Center/i,
+    foot: [2, 2],
+    seed: 5301,
+    draw: oneWtcTile,
+    // the tapering glass spike — a spire beacon caps the 1776-ft mast.
+    light: { kind: 'spireBeacon', topZ: 546, halfW: 0.5 },
+  },
+  {
+    city: 'newyork',
+    key: 'statue-of-liberty',
+    match: /Statue of Liberty|Liberty Enlightening/i,
+    foot: [2, 2],
+    seed: 5302,
+    draw: statueLibertyTile,
+    // the upraised torch is the beacon (its real light); floodlit copper below.
+    light: { kind: 'aerialBeacon', topZ: 240, halfW: 0.5 },
+  },
+  {
+    city: 'newyork',
+    key: 'brooklyn-bridge',
+    match: /Brooklyn Bridge/i,
+    foot: [4, 4],
+    seed: 5303,
+    draw: brooklynBridgeTile,
+    // the floodlit twin gothic towers + the necklace-lit cables.
+    light: { kind: 'facadeFlood', topZ: 150, halfW: 1.6 },
+  },
+  {
+    city: 'newyork',
+    key: 'grand-central-terminal',
+    match: /Grand Central Terminal/i,
+    foot: [3, 2],
+    seed: 5304,
+    draw: grandCentralTile,
+    // floodlit Beaux-Arts facade + the glowing clock/sculpture group.
+    light: { kind: 'facadeFlood', topZ: 120, halfW: 1.4 },
+  },
+  {
+    city: 'newyork',
+    key: 'rockefeller-center',
+    // 30 Rock / Rockefeller Plaza / Comcast Building.
+    match: /Rockefeller (Center|Plaza|Centre)|30 Rock|Comcast Building/i,
+    foot: [2, 2],
+    seed: 5305,
+    draw: rockefellerTile,
+    light: { kind: 'towerCrown', topZ: 356, halfW: 0.7 },
+  },
+  {
+    city: 'newyork',
+    key: 'metropolitan-museum-of-art',
+    // the Met — be specific so it doesn't grab other "museum" names.
+    match: /Metropolitan Museum/i,
+    foot: [3, 3],
+    seed: 5306,
+    draw: metMuseumTile,
+    light: { kind: 'facadeFlood', topZ: 78, halfW: 1.2 },
+  },
+  {
+    city: 'newyork',
+    key: 'whitney-museum',
+    match: /Whitney Museum/i,
+    foot: [2, 2],
+    seed: 5307,
+    draw: whitneyTile,
+    light: { kind: 'towerCrown', topZ: 106, halfW: 0.8 },
+  },
+  {
+    city: 'newyork',
+    key: 'frick-collection',
+    match: /Frick Collection|Frick Museum/i,
+    foot: [2, 2],
+    seed: 5308,
+    draw: frickTile,
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 0.9 },
+  },
+  {
+    city: 'newyork',
+    key: 'metlife-building',
+    // the MetLife Building / former Pan Am Building (NOT the MetLife Tower at
+    // Madison Sq — this is 200 Park).
+    match: /MetLife Building|Pan Am Building|200 Park/i,
+    foot: [2, 2],
+    seed: 5309,
+    draw: metLifeTile,
+    light: { kind: 'towerCrown', topZ: 300, halfW: 0.7 },
+  },
+  {
+    city: 'newyork',
+    key: '432-park-avenue',
+    match: /432 Park/i,
+    foot: [2, 2],
+    seed: 5310,
+    draw: park432Tile,
+    light: { kind: 'towerCrown', topZ: 500, halfW: 0.32 },
+  },
+  {
+    city: 'newyork',
+    key: 'vessel-hudson-yards',
+    match: /Vessel/i,
+    foot: [1, 1],
+    seed: 5311,
+    draw: vesselTile,
+    light: { kind: 'genericGlow', topZ: 100, halfW: 0.4 },
+  },
+  {
+    city: 'newyork',
+    key: '30-hudson-yards',
+    match: /30 Hudson Yards/i,
+    foot: [2, 2],
+    seed: 5312,
+    draw: hudsonYards30Tile,
+    light: { kind: 'spireBeacon', topZ: 372, halfW: 0.5 },
+  },
+  {
+    city: 'newyork',
+    key: 'lincoln-center',
+    match: /Lincoln Center|Lincoln Centre/i,
+    foot: [3, 3],
+    seed: 5313,
+    draw: lincolnCenterTile,
+    light: { kind: 'facadeFlood', topZ: 92, halfW: 1.3 },
+  },
+  {
+    city: 'newyork',
+    key: 'un-secretariat',
+    match: /United Nations (Secretariat|Headquarters)|U\.?N\.? Secretariat/i,
+    foot: [2, 2],
+    seed: 5314,
+    draw: unSecretariatTile,
+    light: { kind: 'towerCrown', topZ: 290, halfW: 0.7 },
+  },
+  {
+    city: 'newyork',
+    key: 'yankee-stadium',
+    match: /Yankee Stadium/i,
+    foot: [3, 3],
+    seed: 5315,
+    draw: yankeeStadiumTile,
+    light: { kind: 'stadiumFlood', topZ: 56, halfW: 1.6 },
+  },
+  {
+    city: 'newyork',
+    key: 'coney-wonder-wheel',
+    match: /Wonder Wheel/i,
+    foot: [2, 2],
+    seed: 5316,
+    draw: wonderWheelTile,
+    // a colour-cycling LED rim — the fairground wheel lit.
+    light: { kind: 'rimCycle', topZ: 150, halfW: 0.62 },
+  },
+  {
+    city: 'newyork',
+    key: 'coney-parachute-jump',
+    match: /Parachute Jump/i,
+    foot: [1, 1],
+    seed: 5317,
+    draw: parachuteJumpTile,
+    light: { kind: 'aerialBeacon', topZ: 170, halfW: 0.14 },
   },
 ];

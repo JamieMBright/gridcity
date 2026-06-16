@@ -2177,6 +2177,449 @@ function pacificHotelTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
+// =====================================================================
+// ROUND 3 — Lujiazui glass icons + the Bund banks + Hongqiao + Zhujiajiao
+// water-town + more lilong. Each resolves a PLACED name and builds its own
+// silhouette (Pudong jade-teal glass / Bund grey stone), per the owner brief.
+// =====================================================================
+
+// ---------------------------------------------------------------------
+// BOCOM FINANCIAL TOWERS (交通银行金融大厦) — TWO conjoined postmodern slabs
+// joined at a shared core: a taller and a shorter teal-glass shaft with
+// chamfered crowns and a low shared podium. 265 m — towers. 3×3, headroom.
+// ---------------------------------------------------------------------
+function bocomTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 320 });
+  void seed;
+  const SKIN = mix(JADE, STEELG, 0.25); // cool teal-steel curtain wall
+  iso.shadow(0.5, 0.5, 2.5, 2.5, 0.4, 0.22);
+  iso.box(0.5, 0.5, 2.5, 2.5, 0, 22, shaded(SKIN, 0.16), { ink: false }); // shared podium
+  // two conjoined shafts offset along the diamond, sharing a central seam
+  const shafts: Array<[number, number, number, number, number]> = [
+    [0.6, 0.6, 1.5, 1.94, 286], // taller north slab
+    [1.5, 1.06, 2.4, 2.4, 232], // shorter south slab
+  ];
+  for (const [a0, b0, a1, b1, H] of shafts) {
+    iso.box(a0, b0, a1, b1, 22, H, SKIN);
+    glassSkin(iso, a0, b0, a1, b1, 26, H, Math.round(H));
+    // strong vertical mullion piers (the postmodern ribbing)
+    for (let u = a0 + 0.12; u <= a1 - 0.05; u += 0.2) {
+      iso.r.line(iso.P(u, b1, 26), iso.P(u, b1, H), 1 * RES, alpha(shaded(SKIN, 0.22), 0.5));
+    }
+    // a chamfered notched crown
+    iso.box(a0 + 0.06, b0 + 0.06, a1 - 0.06, b1 - 0.06, H, H + 12, mix(SKIN, JADE_SKY, 0.45), { topC: top(JADE_L, 0.2) });
+    const [mx, myB] = iso.P((a0 + a1) / 2, (b0 + b1) / 2, H + 12);
+    iso.r.line([mx, myB], [mx, myB - 18 * RES], 1.3 * RES, STEELG);
+    iso.r.line([mx, myB - 14 * RES], [mx, myB - 20 * RES], 2.2 * RES, GOLD_HOT);
+  }
+  return iso.build();
+}
+
+// ---------------------------------------------------------------------
+// BANK OF CHINA TOWER, SHANGHAI (中国银行大厦) — a Nikken-Sekkei 53-storey
+// shaft with a distinctive STEPPED grey-granite-and-glass crown (a stack of
+// receding setbacks suggesting a Chinese cap). 2×2, headroom. Steel-grey.
+// ---------------------------------------------------------------------
+function bankOfChinaTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 290 });
+  void seed;
+  const SKIN = mix(STEELG, JADE, 0.3); // grey-teal granite/glass
+  const u0 = 0.52, u1 = 1.48, v0 = 0.56, v1 = 1.44;
+  const H = 250;
+  iso.shadow(u0, v0, u1, v1, 0.32, 0.22);
+  iso.box(u0 - 0.12, v0 - 0.12, u1 + 0.12, v1 + 0.12, 0, 20, shaded(SKIN, 0.16), { ink: false });
+  iso.box(u0, v0, u1, v1, 0, H, SKIN);
+  glassSkin(iso, u0, v0, u1, v1, 24, H, 31);
+  // deep vertical granite piers framing the glass
+  for (const u of [u0 + 0.02, (u0 + u1) / 2, u1 - 0.02]) {
+    iso.r.line(iso.P(u, v1, 22), iso.P(u, v1, H), 1.6 * RES, alpha(shaded(SKIN, 0.26), 0.7));
+  }
+  // the STEPPED crown: three receding granite setbacks (the Chinese "cap")
+  let z = H, hw = 0.48, hh = 0.44;
+  const cx = (u0 + u1) / 2, cy = (v0 + v1) / 2;
+  for (let i = 0; i < 3; i++) {
+    iso.box(cx - hw, cy - hh, cx + hw, cy + hh, z, z + 14, lighten(SKIN, 0.04 + i * 0.03));
+    z += 14; hw *= 0.7; hh *= 0.7;
+  }
+  const [mx, myB] = iso.P(cx, cy, z);
+  iso.r.line([mx, myB], [mx, myB - 26 * RES], 1.4 * RES, STEELG);
+  iso.r.line([mx, myB - 20 * RES], [mx, myB - 28 * RES], 2.4 * RES, GOLD_HOT);
+  return iso.build();
+}
+
+// ---------------------------------------------------------------------
+// CITIGROUP TOWER (花旗集团大厦) — a 180 m Pudong office shaft with a clean
+// flat top and a slim setback antenna mast; pale silver-teal curtain wall
+// with a chamfered corner. 3×3 (drawn wide), headroom. Silver-teal glass.
+// ---------------------------------------------------------------------
+function citigroupTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 250 });
+  void seed;
+  const SKIN = mix(JADE_SKY, STEELG, 0.4);
+  const u0 = 0.6, u1 = 2.4, v0 = 0.66, v1 = 2.34;
+  const H = 218;
+  iso.shadow(u0, v0, u1, v1, 0.36, 0.22);
+  iso.box(u0 - 0.08, v0 - 0.08, u1 + 0.08, v1 + 0.08, 0, 20, shaded(SKIN, 0.16), { ink: false });
+  iso.box(u0, v0, u1, v1, 0, H, SKIN);
+  glassSkin(iso, u0, v0, u1, v1, 24, H, 17);
+  // a vertical chamfer seam down the near corner (the cut corner)
+  iso.r.line(iso.P(u1, v1, 24), iso.P(u1, v1, H), 1.6 * RES, alpha(lit(SKIN, 0.12), 0.6));
+  // clean flat parapet + slim antenna mast
+  iso.box(u0 + 0.06, v0 + 0.06, u1 - 0.06, v1 - 0.06, H, H + 10, mix(SKIN, JADE_SKY, 0.5), { topC: top(JADE_L, 0.22) });
+  const [mx, myB] = iso.P((u0 + u1) / 2, (v0 + v1) / 2, H + 10);
+  iso.r.line([mx, myB], [mx, myB - 30 * RES], 1.4 * RES, STEELG);
+  iso.r.line([mx, myB - 24 * RES], [mx, myB - 32 * RES], 2.2 * RES, GOLD_HOT);
+  return iso.build();
+}
+
+// ---------------------------------------------------------------------
+// ONE LUJIAZUI (陆家嘴1号) — a slim 269 m glass office tower with a softly
+// curved/tapered prow and a crisp crown, by Lujiazui Central Park. 1×1,
+// tall via headroom. Jade-teal glass.
+// ---------------------------------------------------------------------
+function oneLujiazuiTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 300 });
+  void seed;
+  const u0 = 0.18, u1 = 0.82, v0 = 0.2, v1 = 0.8;
+  const H = 256;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.24);
+  iso.box(u0 - 0.06, v0 - 0.06, u1 + 0.06, v1 + 0.06, 0, 16, shaded(JADE, 0.16), { ink: false });
+  iso.box(u0, v0, u1, v1, 0, H, JADE);
+  glassSkin(iso, u0, v0, u1, v1, 20, H, 8);
+  // a softly rounded glass prow — a thin lit lens up the near corner
+  iso.r.line(iso.P(u1, v1, 20), iso.P(u1, v1, H), 1.8 * RES, alpha(lit(JADE_L, 0.14), 0.6));
+  // tapered crown: a short setback drum + cap
+  const cx = (u0 + u1) / 2, cy = (v0 + v1) / 2;
+  iso.box(cx - 0.22, cy - 0.22, cx + 0.22, cy + 0.22, H, H + 18, mix(JADE, JADE_SKY, 0.4), { topC: top(JADE_L, 0.22) });
+  const [mx, myB] = iso.P(cx, cy, H + 18);
+  iso.r.line([mx, myB], [mx, myB - 20 * RES], 1.3 * RES, STEELG);
+  iso.r.line([mx, myB - 16 * RES], [mx, myB - 22 * RES], 2 * RES, GOLD_HOT);
+  iso.glint([mx, myB - 4 * RES], 2 * RES);
+  return iso.build();
+}
+
+// ---------------------------------------------------------------------
+// SHANGHAI IFC (上海国金中心) — César Pelli's TWIN tapering towers (north
+// taller, south shorter) with curved-shoulder tops + lantern crowns over a
+// big mall podium, by the river opposite the Pearl. 2×2, headroom. Teal glass.
+// ---------------------------------------------------------------------
+function shanghaiIfcTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 320 });
+  void seed;
+  const SKIN = mix(JADE, JADE_SKY, 0.3);
+  iso.shadow(0.4, 0.4, 1.6, 1.6, 0.32, 0.22);
+  // broad shared mall podium
+  iso.box(0.4, 0.4, 1.6, 1.6, 0, 28, shaded(SKIN, 0.14));
+  glassSkin(iso, 0.4, 0.4, 1.6, 1.6, 6, 26, 3);
+  // two Pelli towers: each tapers in steps and rounds to a lantern crown
+  const towers: Array<[number, number, number, number]> = [
+    [0.52, 0.52, 286, 0.46], // north (taller)
+    [1.06, 1.06, 232, 0.4], // south (shorter)
+  ];
+  for (const [bcx, bcy, H, hw0] of towers) {
+    let z = 28, hw = hw0;
+    const segs = 5;
+    for (let i = 0; i < segs; i++) {
+      const z1 = 28 + ((H - 28) * (i + 1)) / segs;
+      iso.box(bcx - hw, bcy - hw, bcx + hw, bcy + hw, z, z1, SKIN);
+      glassSkin(iso, bcx - hw, bcy - hw, bcx + hw, bcy + hw, z + 2, z1, i * 4 + Math.round(H));
+      z = z1; hw *= 0.86;
+    }
+    // rounded lantern crown
+    const [tx, tyB] = iso.P(bcx, bcy, z);
+    const rPx = hw * 1.6 * (CELL_W / 2);
+    const crown: Pt[] = [];
+    for (let i = 0; i <= 16; i++) { const a = (i / 16) * Math.PI; crown.push([tx + Math.cos(a) * rPx, tyB - Math.sin(a) * rPx * 1.5]); }
+    iso.r.poly(crown, shaded(JADE_L, 0.06), lit(JADE_L, 0.08));
+    iso.r.polyline(crown, INK_W * 0.7, INK);
+    iso.r.line([tx, tyB - rPx * 1.5], [tx, tyB - rPx * 1.5 - 12 * RES], 1.3 * RES, GOLD_HOT);
+  }
+  return iso.build();
+}
+
+// ---------------------------------------------------------------------
+// TOMORROW SQUARE (明天广场) — Portman's striking Puxi tower: a square shaft
+// that ROTATES 45° partway up into a diamond, splitting into four blade-like
+// pinnacles around a notch (the People's-Square "rocket"). 3×3, very tall.
+// Silver-grey glass.
+// ---------------------------------------------------------------------
+function tomorrowSquareTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 320 });
+  void seed;
+  const SKIN = hex('#9fb0b8'); // cool silver-grey
+  const cx = 1.5, cy = 1.5;
+  iso.shadow(cx - 0.6, cy - 0.5, cx + 0.6, cy + 0.6, 0.4, 0.22);
+  iso.box(cx - 0.72, cy - 0.72, cx + 0.72, cy + 0.72, 0, 22, shaded(SKIN, 0.16), { ink: false }); // podium
+  // lower SQUARE shaft (aligned to the tile axes)
+  const Hbase = 150;
+  iso.box(cx - 0.5, cy - 0.5, cx + 0.5, cy + 0.5, 22, Hbase, SKIN);
+  glassSkin(iso, cx - 0.5, cy - 0.5, cx + 0.5, cy + 0.5, 26, Hbase, 12);
+  // the ROTATED diamond upper shaft (45°): drawn as a tapering prism whose
+  // plan is a square turned 45°, built from screen-space diamond rings.
+  const [gx, gyB] = iso.P(cx, cy, 0);
+  const Htop = 282;
+  const diamond = (z: number, rad: number): [Pt, Pt, Pt, Pt] => {
+    const cz = gyB - z * RES;
+    const rx = rad * (CELL_W / 2), ry = rad * (CELL_W / 2) * 0.5;
+    // a square rotated 45° projects to a tall diamond in iso
+    return [[gx, cz - ry * 1.4], [gx + rx, cz], [gx, cz + ry * 1.4], [gx - rx, cz]];
+  };
+  // four blade pinnacles: model as the diamond prism tapering + a top notch
+  const segs = 8;
+  for (let i = 0; i < segs; i++) {
+    const t0 = i / segs, t1 = (i + 1) / segs;
+    const z0 = Hbase + (Htop - Hbase) * t0, z1 = Hbase + (Htop - Hbase) * t1;
+    const r0 = 0.46 * (1 - 0.5 * t0), r1 = 0.46 * (1 - 0.5 * t1);
+    const d0 = diamond(z0, r0), d1 = diamond(z1, r1);
+    // left+right faces of the diamond prism
+    iso.r.poly([d0[3], d0[0], d1[0], d1[3]], lit(SKIN, 0.06));
+    iso.r.poly([d0[0], d0[1], d1[1], d1[0]], shaded(SKIN, 0.04));
+    iso.r.poly([d0[1], d0[2], d1[2], d1[1]], shaded(SKIN, 0.12));
+  }
+  // crisp silhouette ink up the diamond's outer edges
+  const dBot = diamond(Hbase, 0.46), dTop = diamond(Htop, 0.23);
+  iso.r.polyline([dBot[3], dTop[3], dTop[0], dBot[0]], INK_W, INK);
+  iso.r.line(dBot[1], dTop[1], INK_W, INK);
+  // the four blade pinnacles + central spike
+  for (const dx of [-0.18, 0.18]) {
+    const [px, pyB] = [dTop[0][0] + dx * (CELL_W / 2), dTop[0][1] + 4 * RES];
+    iso.r.line([px, pyB], [px, pyB - 26 * RES], 1.4 * RES, lighten(SKIN, 0.1));
+  }
+  iso.r.line([dTop[0][0], dTop[0][1]], [dTop[0][0], dTop[0][1] - 34 * RES], 1.6 * RES, STEELG);
+  iso.r.line([dTop[0][0], dTop[0][1] - 28 * RES], [dTop[0][0], dTop[0][1] - 36 * RES], 2.4 * RES, GOLD_HOT);
+  return iso.build();
+}
+
+// ---------------------------------------------------------------------
+// BUND BANK (reusable colonial range) — a grey granite/ashlar block with a
+// rusticated base, a giant order of pilasters across the front, a balustraded
+// or pedimented cornice, and a per-bank CROWN: a pediment, a corner cupola, a
+// stepped attic or a small dome. Serves the Bund banks (Yokohama Specie, Glen
+// Line, Banque de l'Indochine, Jardine Matheson, Palace Hotel). 2×2, headroom.
+//   crown: 0 balustrade · 1 pediment · 2 corner cupola · 3 stepped attic ·
+//          4 central dome (Palace Hotel red-brick + dome)
+// ---------------------------------------------------------------------
+function bundBankTile(seed: number, crown: number, brick: boolean): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: crown >= 2 ? 130 : 90 });
+  void seed;
+  const WALL = brick ? hex('#a8714f') : BUND; // Palace Hotel red brick vs grey ashlar
+  const WALL_D = brick ? hex('#894f33') : BUND_D;
+  const u0 = 0.36, u1 = 1.64, v0 = 0.4, v1 = 1.6;
+  const bodyH = 60;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  iso.box(u0, v0, u1, v1, 0, bodyH, WALL);
+  // rusticated granite two-storey base
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 18, GRANITE, { ink: false });
+  // giant order of engaged columns / pilasters on the front (piano nobile)
+  colonnade(iso, v1, u0 + 0.1, u1 - 0.1, 18, 50, 11, COLORS.white);
+  // window rows on the right return
+  iso.windowsRight(u1, v0 + 0.1, v1 - 0.1, 20, 52, 6, alpha(COLORS.glassDark, 0.85), lighten(WALL, 0.08));
+  // a couple of warm-lit windows (banking hall)
+  iso.windowsLeft(v1, u0 + 0.12, u1 - 0.12, 22, 34, 6, alpha(COLORS.glassLit, 0.5), undefined);
+  // cornice band
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, bodyH, bodyH + 5, lighten(WALL, 0.08), { topC: top(WALL, 0.3) });
+  const cx = (u0 + u1) / 2, cy = (v0 + v1) / 2;
+  if (crown === 0) {
+    // balustrade rail
+    for (let i = 0; i <= 12; i++) {
+      const u = u0 + ((u1 - u0) * i) / 12;
+      iso.r.line(iso.P(u, v1 + 0.03, bodyH), iso.P(u, v1 + 0.03, bodyH + 5), 0.7 * RES, alpha(WALL_D, 0.7));
+    }
+  } else if (crown === 1) {
+    // central pediment
+    iso.r.poly([iso.P(u0 + 0.3, v1, bodyH + 5), iso.P(u1 - 0.3, v1, bodyH + 5), iso.P(cx, v1, bodyH + 16)], lighten(WALL, 0.1));
+    iso.r.polyline([iso.P(u0 + 0.3, v1, bodyH + 5), iso.P(u1 - 0.3, v1, bodyH + 5), iso.P(cx, v1, bodyH + 16)], INK_W * 0.8, INK, true);
+  } else if (crown === 2) {
+    // a corner CUPOLA (Glen Line / Yokohama baroque corner turret)
+    const tu = u1 - 0.18, tv = v1 - 0.18;
+    iso.box(tu - 0.16, tv - 0.16, tu + 0.16, tv + 0.16, bodyH + 5, bodyH + 26, lighten(WALL, 0.04));
+    const [dx, dyB] = iso.P(tu, tv, bodyH + 26);
+    const rPx = 0.17 * (CELL_W / 2);
+    const dome: Pt[] = [];
+    for (let i = 0; i <= 16; i++) { const a = (i / 16) * Math.PI; dome.push([dx + Math.cos(a) * rPx, dyB - Math.sin(a) * rPx * 1.5]); }
+    iso.r.poly(dome, shaded(COPPER, 0.06), lit(COPPER, 0.06));
+    iso.r.polyline(dome, INK_W * 0.6, INK);
+    iso.r.line([dx, dyB - rPx * 1.5], [dx, dyB - rPx * 1.5 - 10 * RES], 1.1 * RES, GOLD_HOT);
+  } else if (crown === 3) {
+    // stepped attic storeys (Jardine Matheson's later upper floors)
+    iso.box(u0 + 0.16, v0 + 0.16, u1 - 0.16, v1 - 0.16, bodyH + 5, bodyH + 18, lighten(WALL, 0.05));
+    iso.box(u0 + 0.3, v0 + 0.3, u1 - 0.3, v1 - 0.3, bodyH + 18, bodyH + 28, lighten(WALL, 0.08));
+  } else {
+    // central DOME on a drum (Palace Hotel)
+    iso.box(cx - 0.16, cy - 0.16, cx + 0.16, cy + 0.16, bodyH + 5, bodyH + 20, lighten(WALL, 0.04));
+    const [dx, dyB] = iso.P(cx, cy, bodyH + 20);
+    const rPx = 0.2 * (CELL_W / 2);
+    const dome: Pt[] = [];
+    for (let i = 0; i <= 18; i++) { const a = (i / 18) * Math.PI; dome.push([dx + Math.cos(a) * rPx, dyB - Math.sin(a) * rPx * 1.3]); }
+    iso.r.poly(dome, shaded(COPPER, 0.06), lit(COPPER, 0.08));
+    iso.r.polyline(dome, INK_W * 0.7, INK);
+    const ty = dyB - rPx * 1.3;
+    iso.r.rect(dx - 2 * RES, ty - 5 * RES, dx + 2 * RES, ty + 1 * RES, lighten(WALL, 0.1));
+    iso.r.line([dx, ty - 5 * RES], [dx, ty - 14 * RES], 1.2 * RES, GOLD_HOT);
+  }
+  return iso.build();
+}
+
+// ---------------------------------------------------------------------
+// HONGQIAO TRANSPORT HUB (虹桥火车站 / 虹桥机场航站楼) — a MONSTER terminal:
+// a vast low travertine concourse with a great sweeping standing-seam wave
+// ROOF on slim columns, long ribbon glazing, and a tall control/clock pylon.
+// 5×5, drawn very wide. Pale stone + steel-grey wave roof.
+// ---------------------------------------------------------------------
+function hongqiaoTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(5, 5, { swAnchor: true, headroom: 120 });
+  void seed;
+  const STN = hex('#cfc8b8'); // travertine
+  const ROOF = hex('#94a0a8'); // steel wave roof
+  const u0 = 0.4, u1 = 4.6, v0 = 0.5, v1 = 4.5;
+  iso.shadow(u0, v0, u1, v1, 0.34, 0.2);
+  // the long low concourse block
+  iso.box(u0, v0 + 0.6, u1, v1, 0, 44, STN);
+  // ribbon glazing across the front
+  iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, 8, 40, 26, alpha(COLORS.glassLit, 0.42), lighten(STN, 0.06));
+  for (let z = 14; z < 42; z += 9) {
+    iso.box(u0 - 0.01, v1 - 0.01, u1 + 0.01, v1 + 0.01, z, z + 2.5, lighten(STN, 0.08), { ink: false });
+  }
+  // the great sweeping WAVE ROOF: a broad shallow vault floating above on a
+  // forest of slim columns, oversailing the front edge.
+  const colZ = 52;
+  for (let u = u0 + 0.4; u <= u1 - 0.2; u += 0.8) {
+    iso.box(u - 0.04, v1 - 0.3, u + 0.04, v1 - 0.22, 0, colZ, GRANITE, { ink: false });
+  }
+  const [ax, ayB] = iso.P(u0, v0 + 0.4, colZ);
+  const [bx, byB] = iso.P(u1, v0 + 0.4, colZ);
+  const [cx2, cyB2] = iso.P(u1, v1 + 0.1, colZ);
+  const [dx2, dyB2] = iso.P(u0, v1 + 0.1, colZ);
+  const wave = 20 * RES;
+  // a gently undulating front eave (the wave)
+  const eaveFront: Pt[] = [];
+  const N = 20;
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    eaveFront.push([dx2 + (cx2 - dx2) * t, dyB2 + (cyB2 - dyB2) * t - wave - Math.sin(t * Math.PI * 2) * 5 * RES]);
+  }
+  const eaveBack: Pt[] = [[bx, byB - wave * 1.3], [ax, ayB - wave * 1.3]];
+  iso.r.poly([...eaveFront, ...eaveBack], shaded(ROOF, 0.05), lit(ROOF, 0.08));
+  iso.r.polyline(eaveFront, INK_W * 0.9, INK);
+  // standing-seam lines fanning across the roof
+  for (let i = 2; i < N - 1; i += 2) {
+    iso.r.line(eaveFront[i]!, [ax + (bx - ax) * (i / N), ayB - wave * 1.3], 0.5 * RES, alpha(COLORS.white, 0.2));
+  }
+  // a tall control/clock pylon at one end
+  const pu = u1 - 0.6;
+  iso.box(pu - 0.14, v1 - 0.3, pu + 0.14, v1 - 0.04, 0, 92, lighten(STN, 0.04));
+  const [clx, cly] = iso.P(pu, v1 - 0.04, 82);
+  const RR = 3 * RES;
+  const ring: Pt[] = [];
+  for (let i = 0; i <= 16; i++) { const a = (i / 16) * Math.PI * 2; ring.push([clx + Math.cos(a) * RR, cly + Math.sin(a) * RR]); }
+  iso.r.poly(ring, COLORS.white); iso.r.polyline(ring, INK_W * 0.6, INK, true);
+  iso.r.line([clx, cly], [clx, cly - 2.2 * RES], 0.8 * RES, INK);
+  return iso.build();
+}
+
+// ---------------------------------------------------------------------
+// ZHUJIAJIAO WATER TOWN (朱家角古镇) — the canal old-town: a cluster of low
+// white-walled, dark-tiled Jiangnan houses with sweeping curved-ridge roofs
+// along a green CANAL, crossed by the humpbacked Fangsheng stone arch BRIDGE.
+// 3×3. Whitewash walls + grey-tile curved roofs + jade canal.
+// ---------------------------------------------------------------------
+function zhujiajiaoTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 80 });
+  void seed;
+  const WALL = hex('#ddd6c6'); // jiangnan whitewash
+  const TILE = hex('#5b5650'); // dark grey curved roof tile
+  const u0 = 0.4, u1 = 2.6, v0 = 0.4, v1 = 2.6;
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.2);
+  // the green canal running diagonally through the middle (a sunken jade strip)
+  iso.r.poly(
+    [iso.P(u0, 1.2, 0), iso.P(u1, 1.2, 0), iso.P(u1, 1.7, 0), iso.P(u0, 1.7, 0)],
+    shaded(JADE, 0.18),
+  );
+  // a row of canal-side houses on the FAR bank (small, tiled, curved ridges)
+  const house = (a: number, b: number, vv: number, h: number): void => {
+    iso.box(a, vv - 0.18, b, vv, 0, h, WALL);
+    // curved Jiangnan ridge: a low gable with upturned ends suggested by a peak
+    iso.gable(a, vv - 0.18, b, vv, h, 9, 'v', TILE, WALL);
+    const [ex, ey] = iso.P((a + b) / 2, vv, h + 9);
+    iso.r.line([ex - 5 * RES, ey + 2 * RES], [ex - 7 * RES, ey - 2 * RES], 1 * RES, TILE); // upturned eave tip
+    iso.r.line([ex + 5 * RES, ey + 2 * RES], [ex + 7 * RES, ey - 2 * RES], 1 * RES, TILE);
+    // a little dark lattice window + door reflecting in the canal
+    iso.r.poly([iso.P(a + 0.06, vv, 6), iso.P(a + 0.16, vv, 6), iso.P(a + 0.16, vv, 18), iso.P(a + 0.06, vv, 18)], alpha(hex('#3a4a44'), 0.85));
+  };
+  house(u0 + 0.05, u0 + 0.7, 1.16, 34);
+  house(u0 + 0.75, u0 + 1.4, 1.16, 40);
+  house(u0 + 1.45, u1 - 0.1, 1.16, 32);
+  // a row on the NEAR bank too
+  house(u0 + 0.2, u0 + 0.85, v1, 30);
+  house(u0 + 0.9, u0 + 1.6, v1, 36);
+  house(u0 + 1.7, u1, v1, 30);
+  // THE humpbacked stone ARCH BRIDGE crossing the canal (Fangsheng Bridge)
+  const bu = u0 + 1.5;
+  const [b0x, b0y] = iso.P(bu, 1.7, 0);
+  const [b1x, b1y] = iso.P(bu, 1.2, 0);
+  const apexY = Math.min(b0y, b1y) - 26 * RES;
+  const archMidX = (b0x + b1x) / 2;
+  const span: Pt[] = [];
+  for (let i = 0; i <= 12; i++) {
+    const t = i / 12;
+    const x = b0x + (b1x - b0x) * t;
+    const y = b0y + (b1y - b0y) * t - Math.sin(t * Math.PI) * 26 * RES;
+    span.push([x, y]);
+  }
+  iso.r.polyline(span, 4 * RES, lit(hex('#b9b2a0'), 0.06)); // the pale stone hump
+  iso.r.polyline(span, 4.6 * RES, alpha(INK, 0.5));
+  iso.r.polyline(span, 3 * RES, lit(hex('#cfc8b6'), 0.1));
+  // the arch reflection / opening under the hump
+  void archMidX; void apexY;
+  iso.r.line([span[6]![0], span[6]![1] + 2 * RES], [span[6]![0], span[6]![1] + 16 * RES], 1 * RES, alpha(shaded(JADE, 0.3), 0.6));
+  return iso.build();
+}
+
+// ---------------------------------------------------------------------
+// LILONG / SHIKUMEN BLOCK (reusable, variant) — a denser longtang block of
+// joined stone-gate terraces along an alley, with a brick pailou alley-gate
+// at the front. Distinct from the existing shikumenTile (a single terrace):
+// this draws an L of two terrace rows + the entry arch, for Tianzifang /
+// Xintiandi / the Jing'an lilong. 2×2. Grey qing-brick + red-brown trim.
+// ---------------------------------------------------------------------
+function lilongBlockTile(seed: number, withGate: boolean): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 80 });
+  void seed;
+  const BRK = hex('#9a958a'); // grey qing-brick
+  const BRK2 = hex('#a59f93');
+  const TRIM = hex('#8a4a36'); // stone-gate red-brown trim
+  const ROOF = hex('#564f46');
+  const u0 = 0.36, u1 = 1.64, v0 = 0.4, v1 = 1.6;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // back terrace row (along u, set back)
+  const rowFront = (a: number, b: number, vA: number, vB: number, h: number, units: number): void => {
+    for (let i = 0; i < units; i++) {
+      const ua = a + ((b - a) * i) / units;
+      const ub = a + ((b - a) * (i + 1)) / units;
+      iso.box(ua, vA, ub - 0.008, vB, 0, h, mix(BRK, BRK2, i % 2));
+      iso.gable(ua, vA, ub - 0.008, vB, h, 10, 'v', ROOF, BRK);
+      // stone-gate doorway with a small pedimented lintel
+      const du = (ua + ub) / 2;
+      iso.r.poly([iso.P(du - 0.06, vB, 0), iso.P(du + 0.06, vB, 0), iso.P(du + 0.06, vB, 14), iso.P(du - 0.06, vB, 14)], shaded(TRIM, 0.06));
+      iso.r.poly([iso.P(du - 0.08, vB, 14), iso.P(du + 0.08, vB, 14), iso.P(du, vB, 19)], lit(TRIM, 0.08));
+      // a lit upstairs window
+      iso.r.poly([iso.P(du - 0.045, vB, 22), iso.P(du + 0.045, vB, 22), iso.P(du + 0.045, vB, 31), iso.P(du - 0.045, vB, 31)], alpha(COLORS.glassLit, 0.55));
+    }
+  };
+  rowFront(u0, u1, v0, v0 + 0.5, 38, 3); // back row
+  rowFront(u0, u1, v1 - 0.5, v1, 34, 3); // front row (the visible alley terrace)
+  if (withGate) {
+    // a brick PAILOU alley-gate (the lane entrance) at the near-right
+    const gu = u1 - 0.2;
+    iso.box(gu - 0.05, v1 - 0.5, gu - 0.02, v1, 0, 46, lighten(BRK, 0.04));
+    iso.box(gu + 0.18, v1 - 0.5, gu + 0.21, v1, 0, 46, lighten(BRK, 0.04));
+    iso.box(gu - 0.07, v1 - 0.5, gu + 0.23, v1 - 0.46, 40, 50, TRIM, { ink: false }); // lintel beam
+    // a small horizontal name-plaque
+    iso.r.rect(iso.P(gu + 0.08, v1, 44)[0] - 5 * RES, iso.P(gu + 0.08, v1, 44)[1] - 4 * RES, iso.P(gu + 0.08, v1, 44)[0] + 5 * RES, iso.P(gu + 0.08, v1, 44)[1] + 1 * RES, lighten(GOLD, 0.1));
+  }
+  return iso.build();
+}
+
 export const CITY_HEROES: BespokeHero[] = [
   // --- PUDONG marquee supertalls -----------------------------------------
   {
@@ -2930,5 +3373,171 @@ export const CITY_HEROES: BespokeHero[] = [
     seed: 1926,
     draw: pacificHotelTile,
     light: { kind: 'towerCrown', topZ: 134, halfW: 0.6 },
+  },
+
+  // --- ROUND 3: Lujiazui glass icons --------------------------------------
+  {
+    // 交通银行金融大厦 — Bocom Financial Towers (twin conjoined slabs)
+    city: 'shanghai',
+    key: 'bocom-financial-towers',
+    match: /交通银行金融|交银金融|Bocom/,
+    foot: [3, 3],
+    seed: 2002,
+    draw: bocomTile,
+    light: { kind: 'towerCrown', topZ: 298, halfW: 1.2 },
+  },
+  {
+    // 中国银行大厦 — Bank of China Tower, Shanghai (stepped granite crown)
+    city: 'shanghai',
+    key: 'bank-of-china-tower-shanghai',
+    match: /中国银行大厦|中银大厦/,
+    foot: [2, 2],
+    seed: 2000,
+    draw: bankOfChinaTile,
+    light: { kind: 'towerCrown', topZ: 290, halfW: 0.8 },
+  },
+  {
+    // 花旗集团大厦 — Citigroup Tower (flat-top Pudong office shaft + mast)
+    city: 'shanghai',
+    key: 'citigroup-tower',
+    match: /花旗集团|花旗银行|Citigroup/,
+    foot: [3, 3],
+    seed: 2005,
+    draw: citigroupTile,
+    light: { kind: 'towerCrown', topZ: 228, halfW: 1.2 },
+  },
+  {
+    // 陆家嘴1号 — One Lujiazui (slim curved-prow glass tower)
+    city: 'shanghai',
+    key: 'one-lujiazui',
+    match: /陆家嘴1号|陆家嘴一号|One Lujiazui/,
+    foot: [1, 1],
+    seed: 2008,
+    draw: oneLujiazuiTile,
+    light: { kind: 'towerCrown', topZ: 274, halfW: 0.34 },
+  },
+  {
+    // 上海国金中心 — Shanghai IFC (Pelli twin towers + mall podium)
+    city: 'shanghai',
+    key: 'shanghai-ifc',
+    match: /国金中心|国际金融中心|IFC/,
+    foot: [2, 2],
+    seed: 2010,
+    draw: shanghaiIfcTile,
+    light: { kind: 'towerCrown', topZ: 300, halfW: 0.9 },
+  },
+  {
+    // 明天广场 — Tomorrow Square (the rotated-diamond Portman "rocket")
+    city: 'shanghai',
+    key: 'tomorrow-square',
+    match: /明天广场/,
+    foot: [3, 3],
+    seed: 2003,
+    draw: tomorrowSquareTile,
+    light: { kind: 'spireBeacon', topZ: 300, halfW: 1.0 },
+  },
+
+  // --- ROUND 3: the Bund banks (grey colonial stone) ----------------------
+  {
+    // 横滨正金银行大楼 — Yokohama Specie Bank (baroque corner cupola)
+    city: 'shanghai',
+    key: 'yokohama-specie-bank',
+    match: /横滨正金/,
+    foot: [2, 2],
+    seed: 1924,
+    draw: (s) => bundBankTile(s, 2, false),
+    light: { kind: 'facadeFlood', topZ: 86, halfW: 1.0 },
+  },
+  {
+    // 格林邮船大楼 — Glen Line Building (1922 stone range, pediment crown)
+    city: 'shanghai',
+    key: 'glen-line-building',
+    match: /格林邮船|字林大楼/,
+    foot: [2, 2],
+    seed: 1922,
+    draw: (s) => bundBankTile(s, 1, false),
+    light: { kind: 'facadeFlood', topZ: 76, halfW: 1.0 },
+  },
+  {
+    // 东方汇理银行大楼 — Banque de l'Indochine (balustraded stone bank)
+    city: 'shanghai',
+    key: 'banque-de-l-indochine-building',
+    match: /东方汇理/,
+    foot: [2, 2],
+    seed: 1914,
+    draw: (s) => bundBankTile(s, 0, false),
+    light: { kind: 'facadeFlood', topZ: 65, halfW: 1.0 },
+  },
+  {
+    // 怡和洋行大楼 — Jardine Matheson Building (stepped-attic stone bank)
+    city: 'shanghai',
+    key: 'jardine-matheson-building',
+    match: /怡和洋行/,
+    foot: [2, 2],
+    seed: 1922,
+    draw: (s) => bundBankTile(s, 3, false),
+    light: { kind: 'facadeFlood', topZ: 88, halfW: 1.0 },
+  },
+  {
+    // 汇中饭店 — Palace Hotel (Sassoon, the red-brick domed north Peace Hotel)
+    city: 'shanghai',
+    key: 'palace-hotel',
+    match: /汇中饭店|宫殿饭店/,
+    foot: [2, 2],
+    seed: 1908,
+    draw: (s) => bundBankTile(s, 4, true),
+    light: { kind: 'facadeFlood', topZ: 90, halfW: 1.0 },
+  },
+
+  // --- ROUND 3: Hongqiao hub, Zhujiajiao water-town, more lilong ----------
+  {
+    // 虹桥火车站 / 虹桥机场航站楼 — Hongqiao transport hub (wave-roof terminal)
+    city: 'shanghai',
+    key: 'hongqiao-terminal',
+    match: /虹桥火车站|虹桥站/,
+    foot: [5, 5],
+    seed: 2010,
+    draw: hongqiaoTile,
+    light: { kind: 'stadiumFlood', topZ: 72, halfW: 2.0 },
+  },
+  {
+    // 朱家角古镇 — Zhujiajiao water town (canal houses + Fangsheng arch bridge)
+    city: 'shanghai',
+    key: 'zhujiajiao-water-town',
+    match: /朱家角/,
+    foot: [3, 3],
+    seed: 1571,
+    draw: zhujiajiaoTile,
+    light: { kind: 'genericGlow', topZ: 50, halfW: 1.3 },
+  },
+  {
+    // 田子坊 — Tianzifang lilong (longtang terraces + alley pailou gate)
+    city: 'shanghai',
+    key: 'lilong-tianzifang',
+    match: /田子坊/,
+    foot: [2, 2],
+    seed: 1930,
+    draw: (s) => lilongBlockTile(s, true),
+    light: { kind: 'genericGlow', topZ: 50, halfW: 1.0 },
+  },
+  {
+    // 新天地里弄 — Xintiandi shikumen lilong block
+    city: 'shanghai',
+    key: 'lilong-xintiandi',
+    match: /新天地里弄|新天地石库门/,
+    foot: [2, 2],
+    seed: 1926,
+    draw: (s) => lilongBlockTile(s, false),
+    light: { kind: 'genericGlow', topZ: 50, halfW: 1.0 },
+  },
+  {
+    // 静安别墅 — Jing'an Villa lilong (a classic longtang block)
+    city: 'shanghai',
+    key: 'lilong-jingan',
+    match: /静安别墅/,
+    foot: [2, 2],
+    seed: 1932,
+    draw: (s) => lilongBlockTile(s, true),
+    light: { kind: 'genericGlow', topZ: 50, halfW: 1.0 },
   },
 ];

@@ -30,6 +30,7 @@
 import type { BespokeHero } from './registry';
 import {
   CELL_W,
+  FLOOR_H,
   INK,
   INK_W,
   Iso,
@@ -39,7 +40,7 @@ import {
   top,
 } from '../iso';
 import { COLORS } from '../palette';
-import { alpha, darken, hex, lighten, type Pt, type RGBA } from '../raster';
+import { alpha, darken, hex, lighten, mix, type Pt, type RGBA } from '../raster';
 
 // --- shared Cape Town palette -------------------------------------------------
 // Whitewash + Bath-stone sandstone is the heritage civic stock; the Bo-Kaap
@@ -1470,6 +1471,481 @@ function pierheadTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 }
 
 // =====================================================================
+// ROUND 3 — the WORLD-FAMOUS Cape Town landmarks still absent from the placed
+// list (the enrichment wave adds their names): the CAPE TOWN STADIUM (the 2010
+// World Cup bowl at Green Point), the EDWARDIAN CITY HALL on the Grand Parade,
+// the V&A WATERFRONT CLOCK TOWER (the little red Victorian octagon), the SLAVE
+// LODGE (one of the oldest buildings), the PARLIAMENT precinct (National
+// Assembly + NCOP) and TUYNHUYS (the Presidency) in the Company's Gardens — plus
+// a clutch of further notable buildings toward the ~90 target. Same Cape palette.
+// =====================================================================
+
+// =====================================================================
+// CAPE TOWN STADIUM — the 2010 FIFA World Cup arena at Green Point: a huge
+// circular BOWL wrapped in a translucent woven-fibreglass + glass MEMBRANE that
+// glows like a paper lantern at dusk, sitting in the green Common under Signal
+// Hill. The smooth luminous drum capped by a thin cable-net roof ring is the
+// read — Cape Town's biggest modern silhouette. 3×3 (a monster, wide + tall).
+// =====================================================================
+function capeTownStadiumTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 150 });
+  void seed;
+  const MEM = hex('#e6e9ee'); // the pale woven membrane skin
+  const MEM_D = hex('#c7ccd6');
+  const cx = 1.5, cy = 1.5;
+  iso.shadow(cx - 1.25, cy - 0.5, cx + 1.25, cy + 1.2, 0.3, 0.22);
+  // the green Common apron the bowl sits in
+  iso.box(cx - 1.45, cy - 1.0, cx + 1.45, cy + 1.35, 0, 2, shaded(COLORS.grass, 0.06), { ink: false });
+  // the elliptical drum: build as stacked rings (an iso ellipse extruded up).
+  const rx = 1.16 * (CELL_W / 2); // screen-x radius
+  const ry = 1.16 * (FLOOR_H / 2); // screen-y radius (iso squash)
+  const [ccx, ccyB] = iso.P(cx, cy, 0);
+  const bowlZ = 92;
+  const ccyT = ccyB - bowlZ * RES;
+  const ringPts = (yc: number, s = 1): Pt[] => {
+    const p: Pt[] = [];
+    for (let i = 0; i <= 36; i++) {
+      const a = (i / 36) * Math.PI * 2;
+      p.push([ccx + Math.cos(a) * rx * s, yc + Math.sin(a) * ry * s]);
+    }
+    return p;
+  };
+  // the curved outer membrane wall — front half as a tall band, faceted into
+  // vertical louvre panels that catch the dusk light unevenly (the lantern read)
+  const N = 28;
+  for (let i = 0; i < N; i++) {
+    const a0 = Math.PI * (i / N); // front semicircle (screen-lower half)
+    const a1 = Math.PI * ((i + 1) / N);
+    const x0 = ccx + Math.cos(a0) * rx, x1 = ccx + Math.cos(a1) * rx;
+    const yb0 = ccyB + Math.sin(a0) * ry, yb1 = ccyB + Math.sin(a1) * ry;
+    const yt0 = ccyT + Math.sin(a0) * ry * 0.96, yt1 = ccyT + Math.sin(a1) * ry * 0.96;
+    // alternate panel tint so the woven skin reads as faceted, brighter to the right
+    const face = i / N; // 0 left → 1 right
+    const base = mix(MEM_D, MEM, face);
+    iso.r.poly([[x0, yt0], [x1, yt1], [x1, yb1], [x0, yb0]], i % 2 ? lit(base, 0.05) : base);
+    iso.r.line([x0, yt0], [x0, yb0], 0.5 * RES, alpha(INK, 0.4));
+  }
+  // a glowing horizontal mid-band (the lit concourse ring seen through the skin)
+  iso.r.polyline(ringPts(ccyB - bowlZ * RES * 0.5), 1.2 * RES, alpha(COLORS.glassLit, 0.5));
+  // the top rim ring (the cable-net roof edge) + the dish of the inner roof
+  iso.r.poly(ringPts(ccyT), top(MEM, 0.18));
+  iso.r.polyline(ringPts(ccyT), INK_W, INK, true);
+  // the inner roof void (the open oculus over the pitch) — a darker inset ellipse
+  iso.r.poly(ringPts(ccyT + 4 * RES, 0.62), shaded(hex('#cfd4dc'), 0.1));
+  iso.r.polyline(ringPts(ccyT + 4 * RES, 0.62), INK_W * 0.7, alpha(INK, 0.7), true);
+  // a glint of the pitch floodlights inside the bowl
+  iso.glint([ccx, ccyT + 6 * RES], 3 * RES);
+  // the outer base ink ring (the bowl footprint)
+  iso.r.polyline(ringPts(ccyB), INK_W * 0.85, INK, true);
+  return iso.build();
+}
+
+// =====================================================================
+// CAPE TOWN CITY HALL — the 1905 EDWARDIAN baroque pile on the Grand Parade,
+// honey BATH-STONE: a long symmetrical facade with rusticated arcaded ground
+// floor, giant order pilasters, a balustraded parapet topped by urns, and the
+// signature central CLOCK TOWER (a slim campanile with a domed lantern — the
+// "Cape Town Big Ben", whose carillon rang Mandela's 1990 release speech).
+// 3×3 (wide, the tower towers).
+// =====================================================================
+function cityHallTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 170 });
+  void seed;
+  const u0 = 0.4, u1 = 2.6, v0 = 0.5, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // the grey cobbled Grand Parade apron in front
+  iso.box(u0 - 0.08, v1, u1 + 0.08, v1 + 0.2, 0, 2, shaded(COLORS.pavement, 0.06), { ink: false });
+  // the long honey-sandstone body, three storeys
+  const bodyZ = 56;
+  iso.box(u0, v0, u1, v1, 0, bodyZ, SAND, { leftC: shaded(SAND_D, 0.06), rightC: lit(SAND, 0.05) });
+  // rusticated arcaded ground floor (a row of round-arched openings)
+  for (let i = 0; i < 8; i++) {
+    const u = u0 + 0.12 + i * 0.3;
+    const poly: Pt[] = [iso.P(u, v1, 4), iso.P(u, v1, 14)];
+    for (let j = 0; j <= 6; j++) { const t = j / 6; poly.push(iso.P(u + 0.18 * t, v1, 14 + Math.sin(t * Math.PI) * 6)); }
+    poly.push(iso.P(u + 0.18, v1, 14), iso.P(u + 0.18, v1, 4));
+    iso.r.poly(poly, alpha(COLORS.glassDark, 0.82));
+  }
+  // a string-course over the arcade, then two upper window rows w/ white frames
+  iso.r.line(iso.P(u0, v1, 24), iso.P(u1, v1, 24), 1.2 * RES, lighten(SAND, 0.16));
+  iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, 28, 38, 8, alpha(COLORS.glassDark, 0.82), WASH);
+  iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, 42, bodyZ - 4, 8, alpha(COLORS.glassDark, 0.82), WASH);
+  iso.windowsRight(u1, v0 + 0.1, v1 - 0.1, 28, bodyZ - 4, 7, alpha(COLORS.glassDark, 0.82), WASH);
+  // the balustraded parapet with little urn finials
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, bodyZ, bodyZ + 6, lighten(SAND, 0.12), { topC: top(SAND, 0.22) });
+  for (let i = 0; i <= 7; i++) {
+    const [ux, uy] = iso.P(u0 + 0.14 + i * 0.32, v1 + 0.03, bodyZ + 6);
+    iso.r.rect(ux - 1.1 * RES, uy - 5 * RES, ux + 1.1 * RES, uy, lit(SAND, 0.1));
+  }
+  // a central pedimented frontispiece (the grand entrance bay)
+  const fu0 = u0 + 0.86, fu1 = u1 - 0.86;
+  colonnade(iso, v1 + 0.02, fu0, fu1, 4, 40, 4, lighten(SAND, 0.1));
+  pediment(iso, v1 + 0.04, fu0, fu1, bodyZ + 6, 12, lighten(SAND, 0.14));
+  // the signature CLOCK TOWER (a slim campanile rising behind the centre)
+  const tcx = (u0 + u1) / 2, tcv = v0 + 0.5;
+  const tw = 0.2;
+  const TZ = 124;
+  iso.box(tcx - tw, tcv - tw, tcx + tw, tcv + tw, bodyZ, TZ, SAND);
+  // belfry string-courses
+  iso.r.line(iso.P(tcx - tw, tcv + tw, bodyZ + 30), iso.P(tcx + tw, tcv + tw, bodyZ + 30), 1 * RES, lighten(SAND, 0.16));
+  // the clock face high on the tower
+  const [clx, cly] = iso.P(tcx, tcv + tw, TZ - 18);
+  iso.r.poly(circlePts(clx, cly, 3.6 * RES), WASH);
+  iso.r.polyline(circlePts(clx, cly, 3.6 * RES), INK_W * 0.6, INK, true);
+  iso.r.line([clx, cly], [clx, cly - 2.6 * RES], 0.9 * RES, INK);
+  iso.r.line([clx, cly], [clx + 1.8 * RES, cly + 0.6 * RES], 0.9 * RES, INK);
+  // an open arcaded belfry stage + a small domed lantern cupola + finial
+  iso.box(tcx - tw - 0.02, tcv - tw - 0.02, tcx + tw + 0.02, tcv + tw + 0.02, TZ, TZ + 6, lighten(SAND, 0.12));
+  const dome = domeAt(iso, tcx, tcv, TZ + 6, 4.6 * RES, 1.25, hex('#6f7d72'), { ribs: 4 });
+  iso.r.line([dome.tipX, dome.tipY], [dome.tipX, dome.tipY - 12 * RES], 1.2 * RES, GILT);
+  iso.glint([dome.tipX, dome.tipY - 4 * RES], 2.2 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// V&A WATERFRONT CLOCK TOWER — the tiny but iconic 1882 red Victorian-Gothic
+// OCTAGONAL tower at the Alfred Basin: a slender red-and-cream banded octagon in
+// three diminishing stages, a clock on the upper stage, gothic windows, a steep
+// pointed roof + finial, standing on the quay edge over the harbour water. The
+// little red landmark of every Waterfront postcard. 1×1 (slim, tall).
+// =====================================================================
+function vaClockTowerTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 170 });
+  void seed;
+  const RED = hex('#b6452f'); // the tower's oxblood red
+  const RED_D = hex('#984026');
+  const CREAM = hex('#e8d6a8'); // the cream banding
+  const cx = 0.52, cy = 0.54;
+  iso.shadow(cx - 0.18, cy - 0.08, cx + 0.2, cy + 0.22, 0.3, 0.22);
+  // the harbour water lapping the quay around the base
+  iso.box(cx - 0.4, cy - 0.34, cx + 0.34, cy + 0.34, 0, 2, shaded(HARBOUR, 0.04), { ink: false });
+  // a small stone quay plinth
+  iso.box(cx - 0.18, cy - 0.16, cx + 0.18, cy + 0.16, 0, 8, GRANITE);
+  // the slender OCTAGONAL tower as a faceted prism (approximate the octagon with
+  // a narrow square + chamfer reads — drawn as a slim banded box with corner ink)
+  const rPx = 0.13 * (CELL_W / 2);
+  const [bx] = iso.P(cx, cy, 8);
+  // three diminishing stages
+  const stages: Array<[number, number, number]> = [
+    [8, 56, 1.0],
+    [56, 92, 0.86],
+    [92, 116, 0.72],
+  ];
+  for (let s = 0; s < stages.length; s++) {
+    const [z0, z1, sc] = stages[s]!;
+    const r = rPx * sc;
+    const [, y0] = iso.P(cx, cy, z0);
+    const [, y1] = iso.P(cx, cy, z1);
+    // left + right faces (the octagon reads via the two visible faces + chamfer)
+    iso.r.poly([[bx - r, y0], [bx - r, y1], [bx, y1], [bx, y0]], shaded(RED, 0.05));
+    iso.r.poly([[bx, y0], [bx, y1], [bx + r, y1], [bx + r, y0]], lit(RED, 0.04));
+    // cream string-course bands at each stage division
+    iso.r.poly([[bx - r, y1], [bx + r, y1], [bx + r * 0.92, y1 + 3 * RES], [bx - r * 0.92, y1 + 3 * RES]], CREAM);
+    // a thin cream mid-band within the stage
+    const ym = (y0 + y1) / 2;
+    iso.r.line([bx - r, ym], [bx + r, ym], 1 * RES, alpha(CREAM, 0.8));
+    iso.r.polyline([[bx - r, y0], [bx - r, y1]], INK_W * 0.6, INK);
+    iso.r.polyline([[bx + r, y0], [bx + r, y1]], INK_W * 0.6, INK);
+    iso.r.line([bx, y0], [bx, y1], 0.5 * RES, alpha(INK, 0.45)); // near chamfer edge
+  }
+  void RED_D;
+  // gothic pointed windows on the lower stage (front face)
+  for (const off of [-0.5, 0.5] as const) {
+    const wx = bx + off * rPx * 0.7;
+    const [, wy0] = iso.P(cx, cy, 20);
+    const [, wy1] = iso.P(cx, cy, 42);
+    iso.r.poly([[wx - 2 * RES, wy0], [wx + 2 * RES, wy0], [wx + 2 * RES, wy1], [wx, wy1 + 4 * RES], [wx - 2 * RES, wy1]], alpha(COLORS.glassLit, 0.6));
+  }
+  // the clock face on the upper stage
+  const [, cyy] = iso.P(cx, cy, 104);
+  iso.r.poly(circlePts(bx, cyy, 3.2 * RES), CREAM);
+  iso.r.polyline(circlePts(bx, cyy, 3.2 * RES), INK_W * 0.6, INK, true);
+  iso.r.line([bx, cyy], [bx, cyy - 2.4 * RES], 0.9 * RES, INK);
+  iso.r.line([bx, cyy], [bx + 1.6 * RES, cyy], 0.9 * RES, INK);
+  // the steep pointed octagonal roof + finial (the read)
+  const rTop = rPx * 0.72;
+  const [, ry0] = iso.P(cx, cy, 116);
+  iso.r.poly([[bx - rTop, ry0], [bx + rTop, ry0], [bx, ry0 - 22 * RES]], shaded(ROOFSL, 0.04));
+  iso.r.poly([[bx - rTop, ry0], [bx, ry0 - 22 * RES], [bx - rTop * 0.2, ry0 - 5 * RES]], lit(ROOFSL, 0.06));
+  iso.r.polyline([[bx - rTop, ry0], [bx + rTop, ry0], [bx, ry0 - 22 * RES]], INK_W * 0.7, INK, true);
+  iso.r.line([bx, ry0 - 22 * RES], [bx, ry0 - 28 * RES], 1 * RES, GILT);
+  iso.glint([bx, ry0 - 26 * RES], 1.8 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// SLAVE LODGE — one of Cape Town's oldest buildings (c.1679, VOC slave lodge,
+// later the Old Supreme Court, now an Iziko museum): a long low TWO-STOREY
+// whitewashed range at the corner of Adderley & Wale, a plain classical facade
+// with a pedimented centre, sash windows + green shutters and a low hipped roof.
+// Sober, broad and old — the antithesis of a tower. 2×2 (wide, low).
+// =====================================================================
+function slaveLodgeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 80 });
+  void seed;
+  const u0 = 0.34, u1 = 1.66, v0 = 0.42, v1 = 1.6;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // the long whitewashed two-storey body
+  const bodyZ = 34;
+  iso.box(u0, v0, u1, v1, 0, bodyZ, WASH, { leftC: shaded(WASH_D, 0.05), rightC: lit(WASH, 0.05) });
+  // a plinth / dado band
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 6, shaded(WASH_D, 0.08), { ink: false });
+  // two storeys of green-shuttered sash windows on both visible faces
+  iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 9, 16, 8, alpha(COLORS.glassDark, 0.8), TEAL);
+  iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 21, 30, 8, alpha(COLORS.glassDark, 0.8), TEAL);
+  iso.windowsRight(u1, v0 + 0.08, v1 - 0.08, 9, 30, 6, alpha(COLORS.glassDark, 0.8), TEAL);
+  // a string-course between the floors
+  iso.r.line(iso.P(u0, v1, 18), iso.P(u1, v1, 18), 1 * RES, WASH_D);
+  // a central pedimented entrance bay with a couple of slim columns
+  const fu0 = u0 + 0.52, fu1 = u1 - 0.52;
+  colonnade(iso, v1 + 0.02, fu0, fu1, 5, 22, 4, lighten(WASH, 0.06));
+  pediment(iso, v1 + 0.04, fu0, fu1, bodyZ, 8, WASH);
+  // a low hipped slate roof
+  iso.hip(u0, v0, u1, v1, bodyZ, 11, ROOFSL);
+  return iso.build();
+}
+
+// =====================================================================
+// PARLIAMENT (NATIONAL ASSEMBLY) — the 1884 Cape colonial Parliament on the
+// Company's Gardens: a grand symmetrical neoclassical block in cream + red
+// (plastered cream over red brick), a giant Corinthian PORTICO with pediment up
+// a flight of steps, flanking wings and a low central dome/lantern over the
+// debating chamber. The seat of South Africa's legislature. 3×3 (wide, grand).
+// =====================================================================
+function parliamentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 120 });
+  void seed;
+  const CREAM = hex('#ecdcb8'); // plastered cream
+  const CREAM_D = hex('#d3c096');
+  const u0 = 0.4, u1 = 2.6, v0 = 0.5, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // a green garden apron (the Company's Gardens)
+  iso.box(u0 - 0.08, v1, u1 + 0.08, v1 + 0.18, 0, 2, shaded(COLORS.grass, 0.06), { ink: false });
+  // the long cream body w/ red-brick base reveal
+  const bodyZ = 52;
+  iso.box(u0, v0, u1, v1, 0, bodyZ, CREAM, { leftC: shaded(CREAM_D, 0.05), rightC: lit(CREAM, 0.05) });
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 12, hex('#a85842'), { ink: false }); // brick plinth
+  // upper window rows w/ white architraves
+  iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, 16, 26, 8, alpha(COLORS.glassDark, 0.82), WASH);
+  iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, 30, 44, 8, alpha(COLORS.glassDark, 0.82), WASH);
+  iso.windowsRight(u1, v0 + 0.1, v1 - 0.1, 16, 44, 7, alpha(COLORS.glassDark, 0.82), WASH);
+  // a cornice + balustrade
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, bodyZ, bodyZ + 5, lighten(CREAM, 0.1), { topC: top(CREAM, 0.2) });
+  // the giant central CORINTHIAN PORTICO up a flight of steps (the signature)
+  const pu0 = u0 + 0.78, pu1 = u1 - 0.78;
+  // the steps
+  for (let s = 0; s < 4; s++) {
+    iso.box(pu0 - 0.04 - s * 0.03, v1 + 0.02 + s * 0.04, pu1 + 0.04 + s * 0.03, v1 + 0.06 + s * 0.05, 0, 3 + s * 2, shaded(WASH_D, 0.04), { ink: false });
+  }
+  colonnade(iso, v1 + 0.04, pu0, pu1, 8, 46, 6, WASH);
+  iso.box(pu0 - 0.04, v1 - 0.02, pu1 + 0.04, v1 + 0.04, 46, 52, WASH);
+  pediment(iso, v1 + 0.06, pu0 - 0.04, pu1 + 0.04, 52, 14, WASH);
+  // a low central dome + lantern over the chamber, set back
+  const dome = domeAt(iso, (u0 + u1) / 2, v0 + 0.7, bodyZ + 5, 0.2 * (CELL_W / 2), 0.92, hex('#7a8a7e'), { ribs: 5 });
+  iso.box((u0 + u1) / 2 - 0.05, v0 + 0.65, (u0 + u1) / 2 + 0.05, v0 + 0.75, 0, 0, CREAM, { ink: false });
+  iso.r.line([dome.tipX, dome.tipY], [dome.tipX, dome.tipY - 10 * RES], 1.2 * RES, GILT);
+  iso.glint([dome.tipX, dome.tipY - 3 * RES], 2 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// NATIONAL COUNCIL OF PROVINCES — the upper-house wing of the Parliament
+// complex (the 1980s Senate addition): a more modern but still cream classical-
+// derived block, lower and plainer than the National Assembly, a flat parapet,
+// regular fenestration and a small flag-mast group on the roof. Reads as the
+// quieter sibling beside Parliament. 2×2.
+// =====================================================================
+function ncopTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 90 });
+  void seed;
+  const CREAM = hex('#e6d7b6');
+  const u0 = 0.36, u1 = 1.64, v0 = 0.44, v1 = 1.58;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  const bodyZ = 46;
+  iso.box(u0, v0, u1, v1, 0, bodyZ, CREAM, { leftC: shaded(CREAM, 0.08), rightC: lit(CREAM, 0.05) });
+  // a rusticated base band
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 10, shaded(CREAM, 0.12), { ink: false });
+  // three regular window rows w/ recessed reveals
+  for (let r = 0; r < 3; r++) {
+    const zb = 14 + r * 11;
+    iso.windowsLeft(v1, u0 + 0.07, u1 - 0.07, zb, zb + 7, 7, alpha(COLORS.glassDark, 0.8), WASH);
+    iso.windowsRight(u1, v0 + 0.07, v1 - 0.07, zb, zb + 7, 7, alpha(COLORS.glassDark, 0.8), WASH);
+  }
+  // a flat parapet cornice
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, bodyZ, bodyZ + 5, lighten(CREAM, 0.1), { topC: top(CREAM, 0.2) });
+  // a small group of three flag-masts on the roof (Parliament precinct flags)
+  for (let i = 0; i < 3; i++) {
+    const [fx, fy] = iso.P(u0 + 0.5 + i * 0.3, v0 + 0.5, bodyZ + 5);
+    iso.r.line([fx, fy], [fx, fy - 22 * RES], 0.9 * RES, hex('#8a9a8f'));
+    iso.r.poly([[fx, fy - 22 * RES], [fx + 7 * RES, fy - 20 * RES], [fx, fy - 17 * RES]], i === 1 ? hex('#3aa64a') : (i === 0 ? STRIPE_R : GILT));
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// TUYNHUYS — the President's Cape Town office in the Company's Gardens: the
+// quintessential CAPE-DUTCH-meets-Cape-Regency facade — a long low ochre-and-
+// white range with a famous projecting central bay under a swan-necked baroque
+// PEDIMENT, tall shuttered French windows opening onto a balcony, a slate hip
+// roof and the rose-garden forecourt. Elegant, horizontal, presidential.
+// 3×3 (wide, low, grand garden setting).
+// =====================================================================
+function tuynhuysTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 95 });
+  void seed;
+  const OCHRE = hex('#e3c88a'); // the Tuynhuys soft ochre
+  const OCHRE_D = hex('#c9ac6c');
+  const u0 = 0.42, u1 = 2.58, v0 = 0.5, v1 = 2.5;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // the rose-garden forecourt (green w/ a formal path)
+  iso.box(u0 - 0.1, v1, u1 + 0.1, v1 + 0.26, 0, 2, shaded(COLORS.grass, 0.06), { ink: false });
+  iso.box((u0 + u1) / 2 - 0.12, v1, (u0 + u1) / 2 + 0.12, v1 + 0.26, 0, 3, shaded(COLORS.pavement, 0.04), { ink: false });
+  // the long low ochre body
+  const bodyZ = 36;
+  iso.box(u0, v0, u1, v1, 0, bodyZ, OCHRE, { leftC: shaded(OCHRE_D, 0.05), rightC: lit(OCHRE, 0.05) });
+  // white quoins / cornice
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, bodyZ, bodyZ + 4, WASH, { topC: top(WASH, 0.2) });
+  // tall white-shuttered French windows across the front (two registers)
+  iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, 8, 20, 9, alpha(COLORS.glassDark, 0.8), WASH);
+  iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, 23, 33, 9, alpha(COLORS.glassDark, 0.8), WASH);
+  iso.windowsRight(u1, v0 + 0.1, v1 - 0.1, 10, 33, 7, alpha(COLORS.glassDark, 0.8), WASH);
+  // the projecting central BAY with the swan-necked baroque pediment + balcony
+  const cu = (u0 + u1) / 2;
+  iso.box(cu - 0.34, v1 - 0.04, cu + 0.34, v1 + 0.1, 0, bodyZ + 6, lighten(OCHRE, 0.06));
+  // the balcony slab
+  iso.box(cu - 0.4, v1 + 0.06, cu + 0.4, v1 + 0.12, 20, 22, WASH, { ink: false });
+  // the swan-neck (broken-scroll) pediment over the centre bay
+  const [bx, byB] = iso.P(cu, v1 + 0.1, bodyZ + 6);
+  const ped: Pt[] = [
+    [bx - 9 * RES, byB], [bx - 9 * RES, byB - 3 * RES],
+    [bx - 5 * RES, byB - 9 * RES], [bx - 7 * RES, byB - 12 * RES], // left scroll curl
+    [bx - 2 * RES, byB - 11 * RES], [bx, byB - 14 * RES], [bx + 2 * RES, byB - 11 * RES],
+    [bx + 7 * RES, byB - 12 * RES], [bx + 5 * RES, byB - 9 * RES], // right scroll curl
+    [bx + 9 * RES, byB - 3 * RES], [bx + 9 * RES, byB],
+  ];
+  iso.r.poly(ped, lit(WASH, 0.04));
+  iso.r.polyline(ped, INK_W * 0.7, INK, true);
+  // a central finial urn in the broken scroll
+  iso.r.poly(circlePts(bx, byB - 11 * RES, 1.8 * RES), lit(OCHRE, 0.1));
+  // the slate hip roof
+  iso.hip(u0, v0, u1, v1, bodyZ + 4, 12, ROOFSL);
+  return iso.build();
+}
+
+// =====================================================================
+// TWO OCEANS AQUARIUM — the V&A Waterfront aquarium: a chunky low waterfront
+// shed with a big curved-glass entrance front, blue maritime cladding, a wave-
+// like canopy roof and harbour water at the quay. Reads as a modern public
+// attraction on the water. 2×2 (wide, low).
+// =====================================================================
+function aquariumTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 90 });
+  void seed;
+  const BLUE = hex('#3f7bb0'); // maritime blue cladding
+  const u0 = 0.36, u1 = 1.64, v0 = 0.44, v1 = 1.58;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // harbour water lapping the quay front
+  iso.box(u0 - 0.08, v1, u1 + 0.08, v1 + 0.2, 0, 2, shaded(HARBOUR, 0.04), { ink: false });
+  // the low blue-clad body
+  const bodyZ = 32;
+  iso.box(u0, v0, u1, v1, 0, bodyZ, BLUE, { leftC: shaded(BLUE, 0.08), rightC: lit(BLUE, 0.05) });
+  // a horizontal aqua-band livery
+  iso.r.line(iso.P(u0, v1, 20), iso.P(u1, v1, 20), 1.6 * RES, alpha(hex('#5fc6d6'), 0.85));
+  // the big curved-GLASS entrance front (a tall glazed bay)
+  iso.box(u0 + 0.3, v1 - 0.04, u1 - 0.3, v1 + 0.04, 0, bodyZ + 8, alpha(COLORS.glassLit, 0.6), { ink: true });
+  for (let i = 0; i < 6; i++) {
+    const u = u0 + 0.34 + i * 0.16;
+    iso.r.line(iso.P(u, v1 + 0.04, 4), iso.P(u, v1 + 0.04, bodyZ + 6), 0.5 * RES, alpha(COLORS.steelDark, 0.6));
+  }
+  // a wave-like canopy roof (a shallow curved ridge)
+  const [lx, lyB] = iso.P(u0, v1, bodyZ);
+  const [rx, ryB] = iso.P(u1, v1, bodyZ);
+  iso.r.poly([[lx, lyB], [(lx + rx) / 2, (lyB + ryB) / 2 - 12 * RES], [rx, ryB], [rx, ryB - 4 * RES], [(lx + rx) / 2, (lyB + ryB) / 2 - 16 * RES], [lx, lyB - 4 * RES]], lit(hex('#5fa3c6'), 0.05));
+  // a small marlin / fish weathervane motif on the roof crest
+  const [fx, fy] = [(lx + rx) / 2, (lyB + ryB) / 2 - 16 * RES];
+  iso.r.line([fx - 5 * RES, fy], [fx + 5 * RES, fy - 2 * RES], 1 * RES, GILT);
+  iso.glint([fx, fy - 1 * RES], 1.8 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// NELSON MANDELA GATEWAY TO ROBBEN ISLAND — the museum + ferry terminal at the
+// Clock Tower Precinct from which boats leave for Robben Island: a modern low
+// glass-and-steel pavilion on the quay, a long glazed waterfront frontage, a
+// flat oversailing roof and the jetty / gangway reaching into the harbour. A
+// place of memory on the water. 2×2 (wide, low).
+// =====================================================================
+function mandelaGatewayTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 90 });
+  void seed;
+  const u0 = 0.36, u1 = 1.64, v0 = 0.44, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // a broad strip of harbour water + a jetty reaching out (the ferry departure)
+  iso.box(u0 - 0.1, v1, u1 + 0.1, v1 + 0.34, 0, 2, shaded(HARBOUR, 0.05), { ink: false });
+  iso.box((u0 + u1) / 2 - 0.1, v1 + 0.04, (u0 + u1) / 2 + 0.1, v1 + 0.34, 2, 5, hex('#8a7d63'), { ink: false }); // jetty deck
+  // the low glass-and-steel pavilion
+  const bodyZ = 30;
+  iso.box(u0, v0, u1, v1, 0, bodyZ, alpha(GLASSCT, 0.72), { leftC: alpha(shaded(GLASSCT, 0.08), 0.72), rightC: alpha(lit(GLASSCT_L, 0.05), 0.72) });
+  // a continuous glazed waterfront frontage (mullioned)
+  iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, 6, bodyZ - 4, 11, alpha(COLORS.glassLit, 0.6), COLORS.steelDark);
+  // a steel base + a flat oversailing roof slab
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 5, COLORS.steelDark, { ink: false });
+  iso.box(u0 - 0.06, v0 - 0.06, u1 + 0.06, v1 + 0.06, bodyZ, bodyZ + 4, COLORS.steel, { topC: top(COLORS.steel, 0.16) });
+  // a tall slim entrance pylon w/ signage stripe (the gateway marker)
+  iso.box(u0 + 0.06, v0 + 0.06, u0 + 0.2, v0 + 0.2, 0, bodyZ + 28, WASH);
+  iso.r.line(iso.P(u0 + 0.13, v0 + 0.2, bodyZ), iso.P(u0 + 0.13, v0 + 0.2, bodyZ + 26), 3 * RES, alpha(STRIPE_R, 0.8));
+  return iso.build();
+}
+
+// =====================================================================
+// MOSTERT'S MILL — the 1796 Dutch-style WINDMILL on the Groote Schuur estate
+// (the oldest surviving windmill in South Africa): a tapering whitewashed stone
+// tower-mill with a thatched conical cap and four big lattice SAILS (the
+// Cross), set on a green slope. The turning cross of sails is the unmistakable
+// read. 1×1 (slim tower + broad sails).
+// =====================================================================
+function windmillTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 150 });
+  void seed;
+  const cx = 0.5, cy = 0.56;
+  iso.shadow(cx - 0.2, cy - 0.1, cx + 0.2, cy + 0.2, 0.3, 0.22);
+  // green slope apron
+  iso.box(cx - 0.36, cy - 0.2, cx + 0.34, cy + 0.3, 0, 2, shaded(COLORS.grass, 0.06), { ink: false });
+  // the tapering whitewashed tower (a trapezoid: wider base, narrower top)
+  const TZ = 70;
+  const rB = 0.16 * (CELL_W / 2), rT = 0.1 * (CELL_W / 2);
+  const [bx, byB] = iso.P(cx, cy, 0);
+  const [, tyB] = iso.P(cx, cy, TZ);
+  iso.r.poly([[bx - rB, byB], [bx - rT, tyB], [bx, tyB], [bx, byB]], shaded(WASH, 0.05));
+  iso.r.poly([[bx, byB], [bx, tyB], [bx + rT, tyB], [bx + rB, byB]], lit(WASH, 0.04));
+  iso.r.polyline([[bx - rB, byB], [bx - rT, tyB]], INK_W * 0.6, INK);
+  iso.r.polyline([[bx + rB, byB], [bx + rT, tyB]], INK_W * 0.6, INK);
+  // a small dark door + window
+  iso.r.rect(bx - 2 * RES, byB - 10 * RES, bx + 2 * RES, byB, alpha(COLORS.glassDark, 0.8));
+  // the thatched conical CAP
+  iso.r.poly([[bx - rT * 1.15, tyB], [bx + rT * 1.15, tyB], [bx, tyB - 16 * RES]], hex('#9a7d52'));
+  iso.r.polyline([[bx - rT * 1.15, tyB], [bx + rT * 1.15, tyB], [bx, tyB - 16 * RES]], INK_W * 0.6, INK, true);
+  // the four lattice SAILS (the cross) radiating from the cap front
+  const [hx, hy] = [bx, tyB - 4 * RES]; // hub
+  const R = 30 * RES;
+  for (let k = 0; k < 4; k++) {
+    const a = (k / 4) * Math.PI * 2 + 0.5; // a slight tilt so it reads dynamic
+    const ex = hx + Math.cos(a) * R, ey = hy + Math.sin(a) * R * 0.62;
+    // the stock (arm)
+    iso.r.line([hx, hy], [ex, ey], 1.4 * RES, hex('#6f5a3a'));
+    // a few lattice cross-bars (the sail frame)
+    for (let s = 1; s <= 3; s++) {
+      const t = s / 3.4;
+      const px = hx + Math.cos(a) * R * t, py = hy + Math.sin(a) * R * 0.62 * t;
+      const pa = a + Math.PI / 2;
+      iso.r.line([px - Math.cos(pa) * 4 * RES, py - Math.sin(pa) * 4 * RES * 0.62], [px + Math.cos(pa) * 4 * RES, py + Math.sin(pa) * 4 * RES * 0.62], 0.7 * RES, alpha(hex('#7a6442'), 0.85));
+    }
+  }
+  iso.r.poly(circlePts(hx, hy, 2.4 * RES, 0.62), ROOFSL); // hub cap
+  return iso.build();
+}
+
+// =====================================================================
 // THE REGISTRY — placed-name → bespoke sprite + bespoke electrification light.
 // `match` is tested against Cape Town's placed `named` strings (see
 // src/data/cities/capetown.ts); first match wins. `foot` MUST equal what each
@@ -2160,6 +2636,174 @@ export const CITY_HEROES: BespokeHero[] = [
     foot: [1, 1],
     seed: 5372,
     draw: (seed) => longStreetTile(seed, hex('#b15a44')),
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 0.9 },
+  },
+
+  // ================= ROUND 3 — WORLD-FAMOUS ICONS (enrichment) =================
+  {
+    // the 2010 World Cup arena at Green Point — Cape Town's biggest silhouette.
+    city: 'capetown',
+    key: 'cape-town-stadium',
+    match: /Cape Town Stadium|Green Point Stadium|DHL Stadium/i,
+    foot: [3, 3],
+    seed: 5373,
+    draw: (seed) => capeTownStadiumTile(seed),
+    // the woven membrane glows like a lantern; the bowl rim floodlit
+    light: { kind: 'stadiumFlood', topZ: 96, halfW: 1.7 },
+  },
+  {
+    // the Edwardian Grand Parade city hall + its carillon clock tower.
+    city: 'capetown',
+    key: 'cape-town-city-hall',
+    match: /Cape Town City Hall|City Hall/i,
+    foot: [3, 3],
+    seed: 5374,
+    draw: (seed) => cityHallTile(seed),
+    // floodlit honey-stone facade + the lit clock-tower lantern
+    light: { kind: 'facadeFlood', topZ: 138, halfW: 1.5 },
+  },
+  {
+    // the little red Victorian octagon — every Waterfront postcard.
+    city: 'capetown',
+    key: 'va-clock-tower',
+    match: /Clock Tower/i,
+    foot: [1, 1],
+    seed: 5375,
+    draw: (seed) => vaClockTowerTile(seed),
+    // the lit clock + a warm lantern glow on the red tower
+    light: { kind: 'facadeFlood', topZ: 138, halfW: 0.4 },
+  },
+  {
+    // one of Cape Town's oldest buildings (VOC slave lodge → Old Supreme Court).
+    city: 'capetown',
+    key: 'slave-lodge',
+    match: /Slave Lodge/i,
+    foot: [2, 2],
+    seed: 5376,
+    draw: (seed) => slaveLodgeTile(seed),
+    light: { kind: 'facadeFlood', topZ: 44, halfW: 1.3 },
+  },
+  {
+    // Parliament — the National Assembly, seat of SA's legislature.
+    city: 'capetown',
+    key: 'national-assembly',
+    match: /National Assembly|Houses of Parliament|Parliament of South Africa/i,
+    foot: [3, 3],
+    seed: 5377,
+    draw: (seed) => parliamentTile(seed),
+    light: { kind: 'facadeFlood', topZ: 78, halfW: 1.5 },
+  },
+  {
+    // the upper house wing beside Parliament.
+    city: 'capetown',
+    key: 'national-council-of-provinces',
+    match: /National Council of Provinces|NCOP/i,
+    foot: [2, 2],
+    seed: 5378,
+    draw: (seed) => ncopTile(seed),
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 1.3 },
+  },
+  {
+    // Tuynhuys — the President's Cape Town office, the Cape-Dutch facade.
+    city: 'capetown',
+    key: 'tuynhuys',
+    match: /Tuynhuys|Tuinhuys/i,
+    foot: [3, 3],
+    seed: 5379,
+    draw: (seed) => tuynhuysTile(seed),
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.5 },
+  },
+
+  // ================= ROUND 3 — FURTHER NOTABLE BUILDINGS (toward ~90) =================
+  {
+    // the V&A Waterfront aquarium where the two oceans meet.
+    city: 'capetown',
+    key: 'two-oceans-aquarium',
+    match: /Two Oceans Aquarium/i,
+    foot: [2, 2],
+    seed: 5380,
+    draw: (seed) => aquariumTile(seed),
+    light: { kind: 'facadeFlood', topZ: 44, halfW: 1.3 },
+  },
+  {
+    // the ferry terminal + museum for Robben Island.
+    city: 'capetown',
+    key: 'mandela-gateway-robben-island',
+    match: /Nelson Mandela Gateway|Robben Island/i,
+    foot: [2, 2],
+    seed: 5381,
+    draw: (seed) => mandelaGatewayTile(seed),
+    light: { kind: 'facadeFlood', topZ: 58, halfW: 1.3 },
+  },
+  {
+    // Mostert's Mill — the 1796 Dutch windmill, oldest in South Africa.
+    city: 'capetown',
+    key: 'mosterts-mill',
+    match: /Mostert'?s Mill/i,
+    foot: [1, 1],
+    seed: 5382,
+    draw: (seed) => windmillTile(seed),
+    // a warm glow on the whitewashed tower (a lit heritage monument)
+    light: { kind: 'genericGlow', topZ: 70, halfW: 0.6 },
+  },
+  {
+    // the Foreshore Media24/Naspers tower (93 m), part of the CBD skyline.
+    city: 'capetown',
+    key: 'naspers-centre',
+    match: /Naspers|Media24/i,
+    foot: [1, 1],
+    seed: 5383,
+    draw: (seed) => foreshoreTowerTile(seed, 150, true, GLASSCT),
+    light: { kind: 'towerCrown', topZ: 150, halfW: 0.9 },
+  },
+  {
+    // Southern Sun Cape Sun — a 105 m City Bowl hotel tower.
+    city: 'capetown',
+    key: 'southern-sun-cape-sun',
+    match: /Cape Sun/i,
+    foot: [1, 1],
+    seed: 5384,
+    draw: (seed) => foreshoreTowerTile(seed, 134, true, hex('#cdb88f')),
+    light: { kind: 'towerCrown', topZ: 134, halfW: 0.9 },
+  },
+  {
+    // Centre for the Book — the domed Edwardian building by the Gardens.
+    city: 'capetown',
+    key: 'centre-for-the-book',
+    match: /Centre for the Book/i,
+    foot: [2, 2],
+    seed: 5385,
+    draw: (seed) => neoclassicalTile(seed, false),
+    light: { kind: 'facadeFlood', topZ: 52, halfW: 1.3 },
+  },
+  {
+    // the Western Cape High Court (the old Supreme Court range).
+    city: 'capetown',
+    key: 'western-cape-high-court',
+    match: /Western Cape Division|High Court/i,
+    foot: [2, 2],
+    seed: 5386,
+    draw: (seed) => grandBlockTile(seed, SANDP, false),
+    light: { kind: 'facadeFlood', topZ: 64, halfW: 1.3 },
+  },
+  {
+    // Desmond & Leah Tutu House — the 1812 Old Granary, Cape heritage.
+    city: 'capetown',
+    key: 'desmond-leah-tutu-house',
+    match: /Desmond and Leah Tutu House|Old Granary/i,
+    foot: [1, 1],
+    seed: 5387,
+    draw: (seed) => capeDutchHouseTile(seed),
+    light: { kind: 'facadeFlood', topZ: 44, halfW: 0.9 },
+  },
+  {
+    // SA Heritage Resources Agency — a heritage Harrington-Street townhouse.
+    city: 'capetown',
+    key: 'sahra-harrington-house',
+    match: /South African Heritage Resources/i,
+    foot: [1, 1],
+    seed: 5388,
+    draw: (seed) => longStreetTile(seed, SAND),
     light: { kind: 'facadeFlood', topZ: 56, halfW: 0.9 },
   },
 ];
