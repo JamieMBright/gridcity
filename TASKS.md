@@ -514,10 +514,14 @@ green) → IMPROVING it, not rebuilding. Build-ready sub-tasks:
       dedicated start/replay button. (LessonsPage.tsx.)
 - [x] MORE/CLEARER lessons: `objective` on every gated step + clearer copy m1-m5; new 6th
       lesson "Sun & Store" (solar farm + battery storage + firming); curriculum data-driven.
-- [~] GATES: tsc/eslint clean; vitest green (missions 19/19; only pre-existing env
-      perf-flakes fail under full-suite contention, pass in isolation); build OK; campaign
-      e2e (4 functional) green incl. new gating. DESIGN GATE screenshots in progress.
-      London untouched (tutorials are own scenarios; no map/atlas change).
+- [x] GATES: tsc/eslint clean; vitest green (missions 19/19; only pre-existing env
+      perf-flakes — security 50ms budget, landmarks atlas timeout — fail under full-suite
+      contention, all pass in isolation); build OK; campaign e2e (4 functional) green incl.
+      new gating + 6/6 SHOTS green (they ASSERT next disabled-while-pending / enabled-when-done).
+      DESIGN GATE done: preview/w7e-{lessons,step-pending,step-done}-{desktop,mobile}.png —
+      inspected + critiqued; the pinned-objective/buttons fix resolved a phone-landscape
+      off-screen-controls bug; both viewports read clearly. London untouched (tutorials are
+      own scenarios; no map/atlas change).
 **GAME FUNCTIONALITY / GRAPHICS / HUD (re-raise — verify each actually works)**
 - [ ] Tile footprint pre-determined so side-by-side bids can't EXPLODE OUT on
       award (was marked done — re-verify against the turbine-footprint bug above).
