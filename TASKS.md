@@ -41,9 +41,16 @@ parallelisable waves; the main session keeps the keep-alive drumbeat + integrate
   NYC-enrich pilot = NO-OP (all 79 NYC heroes already placed via the placement-gap fix).
   → **913/1200 across 12 cities** (HK 103, Cairo 90, Paris 88, Athens 84, London 82, NYC 79,
   Shanghai 76, Cape Town 72, Berlin 71, Sydney 70, NE 67, Pune 31).
-- 🔄 BATCH 6 IN PROGRESS (combined DRAW+PLACE toward 100): London R3, Paris R3 (+enrich
-  Panthéon/Pompidou/gares into named[]), NE R2 (+place the DRAWN Tyne Bridge/Angel/Durham
-  via named[] add), Cairo enrich (place the DRAWN Cairo Tower + famous via named[]).
+- ✅ BATCH 6 LANDED (aee6f4c) — MILESTONE: **London 100 + Paris 105** (owner must-haves at
+  the 100 standard), Sydney 103, NE 89. London R3 drew+placed 18 (SAVE_VERSION 15→16); Paris
+  drew+enriched the 17 famous (Panthéon/Pompidou/Montparnasse/gares/Grande Arche/Stade de
+  France…); NE enriched so Tyne Bridge/Angel/Durham now render. → **1003/1200 across 12 cities**
+  (London 100, Paris 105, Sydney 103, HK 103, Cairo 90, NE 89, Athens 84, NYC 79, Shanghai 76,
+  Cape Town 72, Berlin 71, Pune 31). Full e2e validating (London is default city + changed).
+- ⏭ NEXT (toward 100 for the rest): Berlin (enrich+draw Fernsehturm/Tempelhof/Olympiastadion),
+  Shanghai (Bund banks/Pudong towers), NYC (One WTC/Statue/Brooklyn Bridge/Grand Central),
+  Cape Town, + finish Cairo/NE/Athens to 100. Pune ≈capped at its ~33 OSM count.
+  Then: per-hero night light-show in-game verification; the playtest re-raise (W7); operating models (W8).
 - KEY LEARNINGS: (1) the placement-gap fix already renders every drawn hero whose name is
   in named[]; the only gap is famous landmarks ABSENT from the OSM named[] (drawn but
   unplaced) → fix = add them to src/data/cities/<city>.ts named[] (enrichment). (2) Dense
