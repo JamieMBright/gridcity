@@ -6,6 +6,12 @@ import { defineConfig } from '@playwright/test';
 // browser is used instead.
 const sandboxChromium = !process.env.CI;
 
+// Dev-server port: 5199 by default, overridable via PW_PORT so parallel
+// worktree agents (each a fresh, non-reused server) don't collide on the
+// same port. baseURL + the webServer command both read this.
+const PORT = Number(process.env.PW_PORT) || 5199;
+const BASE_URL = `http://localhost:${PORT}`;
+
 export default defineConfig({
   testDir: 'e2e',
   ...(sandboxChromium ? { globalSetup: './e2e/global-setup.ts' } : {}),
@@ -20,7 +26,7 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   retries: 1,
   use: {
-    baseURL: 'http://localhost:5199',
+    baseURL: BASE_URL,
     // small viewport: the canvas renders under software WebGL, and frame
     // cost dominates e2e runtime
     viewport: { width: 1100, height: 700 },
@@ -36,8 +42,8 @@ export default defineConfig({
     },
   },
   webServer: {
-    command: 'npm run dev -- --port 5199 --strictPort',
-    url: 'http://localhost:5199',
+    command: `npm run dev -- --port ${PORT} --strictPort`,
+    url: BASE_URL,
     // ALWAYS a fresh server: a lingering dev server once served a stale
     // module graph and masked real failures. Local runs must behave
     // exactly like a clean-checkout run.
