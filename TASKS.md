@@ -12,6 +12,20 @@
 
 ## Open
 
+### 📱 OWNER ASK (2026-06-16 20:48): a BETTER iPhone home-screen logo
+Owner asked if I had their notes on "a better iPhone logo" — I do NOT (lost to
+compaction; nothing in TASKS/ROADMAP/docs). Capturing here so it sticks.
+- CURRENT STATE: the iPhone home-screen icon is the OLD pylon-bolt
+  `public/apple-touch-icon.png` (restored after the "Node" redesign was rejected
+  2026-06-13). W7a added a new `BoltMark` (bolt on a blue rounded tile) but used
+  it only for the in-app wordmark — the iPhone/PWA install icon was left unchanged.
+- [ ] **Action a better iPhone home-screen icon** once the owner confirms the
+  direction. Options to offer: (A) promote the new W7a bolt-on-blue BoltMark to
+  apple-touch-icon (180px) + icon-512/maskable + manifest; (B) a fresh bespoke
+  design; (C) something they describe. iOS ignores SVG → must ship a 180px PNG +
+  512px + maskable; update the web manifest + iOS metas; design-gate on a real
+  home-screen mock. AWAITING owner direction on what "better" should look like.
+
 ### 🎆 OWNER DIRECTIVE (2026-06-16 18:49): drive ALL remaining waves + FIX the night lights
 Owner picked ALL waves (W7 playtest, night-light fidelity, W8 operating models, W9/W10
 polish+economy) — "work through them in priority order as separate green, design-gated PRs
