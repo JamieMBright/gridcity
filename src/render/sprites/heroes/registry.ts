@@ -33,6 +33,16 @@ import type { CityFabric } from '../buildingSprites';
 import type { HeroLightSpec } from '../../heroLights';
 import { CITY_HEROES as LONDON_HEROES } from './london';
 import { CITY_HEROES as PARIS_HEROES } from './paris';
+import { CITY_HEROES as NEWYORK_HEROES } from './newyork';
+import { CITY_HEROES as SYDNEY_HEROES } from './sydney';
+import { CITY_HEROES as HONGKONG_HEROES } from './hongkong';
+import { CITY_HEROES as BERLIN_HEROES } from './berlin';
+import { CITY_HEROES as SHANGHAI_HEROES } from './shanghai';
+import { CITY_HEROES as CAPETOWN_HEROES } from './capetown';
+import { CITY_HEROES as CAIRO_HEROES } from './cairo';
+import { CITY_HEROES as ATHENS_HEROES } from './athens';
+import { CITY_HEROES as PUNE_HEROES } from './pune';
+import { CITY_HEROES as NORTHEAST_HEROES } from './northeast';
 
 /** One hand-authored bespoke hero for a specific city. */
 export interface BespokeHero {
@@ -61,6 +71,16 @@ export interface BespokeHero {
 const CITY_HERO_MODULES: Partial<Record<CityFabric, BespokeHero[]>> = {
   london: LONDON_HEROES,
   paris: PARIS_HEROES,
+  newyork: NEWYORK_HEROES,
+  sydney: SYDNEY_HEROES,
+  hongkong: HONGKONG_HEROES,
+  berlin: BERLIN_HEROES,
+  shanghai: SHANGHAI_HEROES,
+  capetown: CAPETOWN_HEROES,
+  cairo: CAIRO_HEROES,
+  athens: ATHENS_HEROES,
+  pune: PUNE_HEROES,
+  northeast: NORTHEAST_HEROES,
 };
 
 const EMPTY: readonly BespokeHero[] = Object.freeze([]);
