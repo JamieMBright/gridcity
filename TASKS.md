@@ -12,7 +12,43 @@
 
 ## Open
 
-### 🏁 OWNER DIRECTIVE (2026-06-16 16:12): "Finish, test, critique all you're doing, then merge when ready."
+### 🎆 OWNER DIRECTIVE (2026-06-16 18:49): drive ALL remaining waves + FIX the night lights
+Owner picked ALL waves (W7 playtest, night-light fidelity, W8 operating models, W9/W10
+polish+economy) — "work through them in priority order as separate green, design-gated PRs
+while you're away." PLUS specific design feedback on the night lights:
+> "The night lights don't look great from the images you've sent. Just looks like a red
+> light. Think more fairy lights. The London Eye was a good example."
+- [ ] **NIGHT-LIGHT FAIRY-LIGHTS REDESIGN (FIRST — owner actively unhappy):** the current
+      hero lights read as a flat coloured GLOW BLOB + a dominant RED beacon. Owner wants the
+      **fairy-lights idiom** — many small warm/multicolour TWINKLING POINTS (festoon/string
+      lights), like the London Eye's `rimCycle` (28 discrete cycling points = the GOOD
+      reference). FIX: in src/render/heroLights.ts shift the halo-blob effects (towerCrown/
+      facadeFlood/genericGlow/stadiumFlood/archGlow) to point-light FIELDS; de-emphasise the
+      red aircraft beacon (warm it / shrink it); deepen night sky so points pop. USE THE
+      DESIGN SKILLS (environment-art + color-theory). Design-gate: re-run herolights, inspect,
+      iterate until it genuinely reads as fairy lights; verify the other cities at night too.
+- [ ] **W7 playtest** (auth/menu, vans, turbine, severe-weather v2, tutorials 1-5) — next PR.
+- [ ] **W8 per-country operating models** (FR/AU/HK/BR seams) — then.
+- [ ] **W9/W10 polish + economy** (thin-river glint, NE Alnwick; RAV/revenue) — then.
+PRIORITY ORDER (mine, owner can redirect): night-lights → W7 → W8 → W9/W10.
+
+### 🏁 OWNER DIRECTIVE (2026-06-16 16:12): "Finish, test, critique all you're doing, then merge when ready." — ✅ DISCHARGED (18:49)
+**✅ DONE + LIVE IN PRODUCTION.** PR #63 merged to main (merge commit df320e7); Vercel
+production deploy READY on df320e7 (target=production). The other cities + hero/HUD work
+are now visible on the app. CI `test` job green; local tsc/eslint/vitest 711 + full e2e
+56 passed/0 failed; London byte-stable.
+- FINISH ✅ 1131 bespoke heroes; TEN cities at 100 (London/Paris/NYC/Cairo/Sydney/Berlin/
+  Shanghai/HK/Athens/NE); Cape Town 88 + Pune 31 at their researched ceilings (owner-allowed).
+- TEST ✅ full e2e green (56 passed, 0 fail).
+- CRITIQUE ✅ design-gate done; Giza-on-trees fixed (pyramids on sand, verified). NIGHT
+  LIGHT-SHOW verified in-game (herolights gate, servedCustomers 5055): Shard apex beam,
+  Gherkin/Parliament/BT-Tower glow all render; far-view uncluttered. CAVEATS (polish, not
+  defects): St Paul's + O2 read muted; scene is late-dusk not deep night; only London
+  night-verified so far → folded into a NIGHT-LIGHT FIDELITY polish item.
+- MERGE ✅ df320e7, deployed.
+NEXT: post-merge backlog (W7 playtest / night-light fidelity / W8 operating models /
+W9-W10 polish+economy) — awaiting owner steer on priority (asked 18:49).
+
 THE plan to close out this branch (PR #63) to PRODUCTION:
 1. FINISH heroes: Batch 8 (NYC/Cairo/Shanghai/Athens → 100), then NE 89→100. Every city
    with ≥100 notable buildings reaches 100; Cape Town (~88) + Pune (~31) at their real ceilings.
