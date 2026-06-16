@@ -2160,6 +2160,1074 @@ function greatHallTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
+// #####################################################################
+// ROUND 3 — the harbour POINTS, the ROCKS heritage, the monuments and the
+// CBD commercial stock. Each a NEW bespoke draw fn (no reuse of the round-1/2
+// fns), each a bespoke night light. Rich-blue harbour + warm sandstone.
+// #####################################################################
+
+// =====================================================================
+// MRS MACQUARIE'S CHAIR — the famous carved-sandstone SEAT on the rocky point
+// of the Domain, hewn by convicts for the Governor's wife: a low curved stone
+// bench on a sandstone shelf jutting into the harbour, a lone Moreton Bay fig
+// behind, the rich blue water wrapping the headland. 2×2, low. NEW draw.
+// =====================================================================
+function macquariesChairTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 70 });
+  void seed;
+  // the point is mostly water + a grassy/rocky promontory in the SW corner
+  iso.floor(shaded(HARBOUR, 0.05), lit(HARBOUR, 0.06));
+  const u0 = 0.3, u1 = 1.5, v0 = 0.4, v1 = 1.6;
+  // a few warm glints on the water round the point
+  for (const [gu, gv] of [[1.7, 0.7], [1.5, 1.8], [0.5, 1.85]] as const) {
+    iso.r.line(iso.P(gu, gv, 0), iso.P(gu + 0.34, gv, 0), 1.2 * RES, alpha(COLORS.waterGlint, 0.5));
+  }
+  // the grassy headland shelf
+  iso.box(u0, v0, u1, v1, 0, 5, shaded(COLORS.grass, 0.06), { ink: false });
+  // a carved sandstone rock platform the chair sits on (front-right, harbour edge)
+  iso.box(u1 - 0.6, v1 - 0.6, u1 + 0.04, v1 + 0.04, 0, 9, SAND, { topC: top(SAND, 0.14) });
+  iso.box(u1 - 0.66, v1 + 0.02, u1 + 0.06, v1 + 0.18, 0, 5, shaded(SAND, 0.08), { ink: false }); // the rock ledge dropping to water
+  // the CHAIR: a low curved stone bench — a back slab + a seat, the signature
+  // sweeping exedra cut from the rock
+  const cu = u1 - 0.3, cv = v1 - 0.28;
+  iso.box(cu - 0.26, cv - 0.04, cu + 0.26, cv + 0.02, 9, 14, lighten(SAND, 0.05), { ink: false }); // seat slab
+  // the curved high back (a low arc of stone behind the seat)
+  const [bx, byB] = iso.P(cu, cv - 0.06, 14);
+  const back: Pt[] = [];
+  for (let i = 0; i <= 12; i++) {
+    const t = i / 12;
+    back.push([bx - 14 * RES + 28 * RES * t, byB - Math.sin(t * Math.PI) * 9 * RES - 2 * RES]);
+  }
+  iso.r.poly([[bx - 14 * RES, byB], ...back, [bx + 14 * RES, byB]], SAND, shaded(SAND, 0.08));
+  iso.r.polyline(back, INK_W * 0.7, INK);
+  // incised seat banding
+  iso.r.line(iso.P(cu - 0.24, cv, 13.5), iso.P(cu + 0.24, cv, 13.5), 0.6 * RES, alpha(SAND_D, 0.7));
+  // a lone Moreton Bay fig behind on the grass (a dark rounded canopy on a trunk)
+  const [tx, tyB] = iso.P(u0 + 0.4, v0 + 0.5, 4);
+  iso.r.line([tx, tyB], [tx, tyB - 16 * RES], 2 * RES, hex('#5a4632'));
+  const fig: Pt[] = [];
+  for (let i = 0; i <= 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    fig.push([tx + Math.cos(a) * 14 * RES, tyB - 24 * RES + Math.sin(a) * 11 * RES]);
+  }
+  iso.r.poly(fig, shaded(COLORS.grass, 0.2), lit(COLORS.grass, 0.04));
+  iso.r.polyline(fig, INK_W * 0.6, INK, true);
+  return iso.build();
+}
+
+// =====================================================================
+// QUEEN VICTORIA MONUMENT — the bronze statue of the seated Queen on a tall
+// stone PLINTH that stands before the QVB: a draped seated figure, sceptre +
+// orb, on a moulded sandstone pedestal with bronze plaques, a little chained
+// kerb around it. 1×1, modest headroom. NEW draw.
+// =====================================================================
+function queenVictoriaMonumentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 90 });
+  void seed;
+  const cu = 0.5, cv = 0.54;
+  iso.floor(shaded(hex('#8f8a82'), 0.05), lit(hex('#9a948c'), 0.04)); // a paved forecourt
+  iso.shadow(cu - 0.2, cv - 0.12, cu + 0.2, cv + 0.2, 0.3, 0.22);
+  // the stepped sandstone pedestal
+  iso.box(cu - 0.24, cv - 0.24, cu + 0.24, cv + 0.24, 0, 8, shaded(SAND, 0.06), { ink: false });
+  iso.box(cu - 0.18, cv - 0.18, cu + 0.18, cv + 0.18, 8, 40, SAND, { topC: top(SAND, 0.14) });
+  // a bronze plaque on the front face
+  iso.r.poly([iso.P(cu - 0.1, cv + 0.18, 16), iso.P(cu + 0.1, cv + 0.18, 16), iso.P(cu + 0.1, cv + 0.18, 30), iso.P(cu - 0.1, cv + 0.18, 30)], alpha(hex('#5a6b54'), 0.85));
+  // moulded cornice cap of the plinth
+  iso.box(cu - 0.2, cv - 0.2, cu + 0.2, cv + 0.2, 40, 45, lighten(SAND, 0.06), { ink: false });
+  // the seated bronze figure (a draped mass + a crowned head), verdigris bronze
+  const BRO = hex('#5f8f78');
+  const [fx, fyB] = iso.P(cu, cv, 45);
+  // the body/drapery — a broad trapezoid narrowing to the shoulders
+  iso.r.poly([
+    [fx - 8 * RES, fyB], [fx + 8 * RES, fyB],
+    [fx + 6 * RES, fyB - 22 * RES], [fx - 6 * RES, fyB - 22 * RES],
+  ], BRO, shaded(BRO, 0.1));
+  iso.r.polyline([[fx - 8 * RES, fyB], [fx - 6 * RES, fyB - 22 * RES], [fx + 6 * RES, fyB - 22 * RES], [fx + 8 * RES, fyB]], INK_W * 0.7, INK);
+  // lap/knees ledge
+  iso.r.line([fx - 8 * RES, fyB - 6 * RES], [fx + 8 * RES, fyB - 6 * RES], 0.7 * RES, alpha(darken(BRO, 0.2), 0.6));
+  // the head + a small crown
+  iso.r.poly((() => { const c: Pt[] = []; for (let i = 0; i <= 12; i++) { const a = (i / 12) * Math.PI * 2; c.push([fx + Math.cos(a) * 3.4 * RES, fyB - 27 * RES + Math.sin(a) * 4 * RES]); } return c; })(), lit(BRO, 0.06));
+  iso.r.poly([[fx - 4 * RES, fyB - 30 * RES], [fx + 4 * RES, fyB - 30 * RES], [fx + 3 * RES, fyB - 34 * RES], [fx - 3 * RES, fyB - 34 * RES]], GILT);
+  // the sceptre held to one side
+  iso.r.line([fx + 6 * RES, fyB - 4 * RES], [fx + 9 * RES, fyB - 26 * RES], 1 * RES, lit(BRO, 0.08));
+  iso.glint([fx, fyB - 27 * RES], 1.2 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// ROCKS HERITAGE HOUSE — the colonial-villa stock of The Rocks / Potts Point /
+// Darling Point (Lindesay, Bidura, Bellevue, Biloela House, Fairfax House,
+// Swifts, Redleaf…): a stuccoed two-storey colonial house. Variants:
+//   'verandah'  a deep iron-lace two-tier verandah (Bellevue / Biloela)
+//   'gothic'    castellated Gothic with a porch tower (Lindesay / Bidura)
+//   'italianate' a low hipped Italianate with a belvedere (Fairfax / Redleaf)
+// 2×2, low. NEW draw (distinct from villaTile — iron-lace + belvedere reads).
+// =====================================================================
+type RocksKind = 'verandah' | 'gothic' | 'italianate';
+function rocksHouseTile(seed: number, kind: RocksKind): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 100 });
+  void seed;
+  const u0 = 0.4, u1 = 1.6, v0 = 0.44, v1 = 1.56;
+  iso.floor(shaded(COLORS.grass, 0.08), lit(COLORS.grass, 0.05));
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  const WALL = kind === 'gothic' ? hex('#dfcda6') : hex('#ece0c4'); // cream stucco
+  const GL = alpha(hex('#33414e'), 0.8);
+  iso.box(u0, v0, u1, v1, 0, 38, WALL);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 7, shaded(WALL, 0.1), { ink: false });
+
+  if (kind === 'verandah') {
+    // a low hipped slate roof + a deep TWO-TIER iron-lace verandah across the front
+    iso.hip(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 38, 10, ROOFSL);
+    // verandah posts (two storeys)
+    for (let i = 0; i <= 6; i++) {
+      const u = u0 + 0.1 + ((u1 - 0.2 - u0) * i) / 6;
+      iso.r.line(iso.P(u, v1 + 0.06, 4), iso.P(u, v1 + 0.06, 36), 1.1 * RES, i % 2 ? COLORS.white : lighten(COLORS.white, 0.04));
+    }
+    // the iron-lace frieze valances (two delicate bands)
+    for (const z of [20, 36] as const) {
+      iso.r.line(iso.P(u0 + 0.08, v1 + 0.06, z), iso.P(u1 - 0.08, v1 + 0.06, z), 1.4 * RES, alpha(COLORS.white, 0.85));
+      // little lace dags
+      for (let i = 0; i < 9; i++) {
+        const u = u0 + 0.12 + i * 0.14;
+        const p = iso.P(u, v1 + 0.06, z);
+        iso.r.line([p[0], p[1]], [p[0], p[1] + 2.4 * RES], 0.5 * RES, alpha(COLORS.white, 0.7));
+      }
+    }
+    iso.windowsLeft(v1, u0 + 0.12, u1 - 0.12, 12, 30, 4, GL, WALL);
+  } else if (kind === 'gothic') {
+    // castellated Gothic-Revival: a battlemented parapet + a porch entrance
+    // tower + label-moulded windows (Lindesay / Bidura)
+    iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 38, 43, lighten(WALL, 0.05), { ink: false });
+    for (let i = 0; i < 8; i++) {
+      const u = u0 + 0.1 + i * 0.18;
+      iso.box(u, v1 - 0.01, u + 0.1, v1 + 0.04, 43, 47, WALL, { ink: false });
+    }
+    // a square porch tower (front-left)
+    const tu = u0 + 0.42, tv = v1 - 0.3;
+    iso.box(tu - 0.18, tv - 0.18, tu + 0.18, tv + 0.18, 0, 54, lighten(WALL, 0.03));
+    for (let i = 0; i < 3; i++) {
+      const u = tu - 0.14 + i * 0.14;
+      iso.box(u, tv + 0.18, u + 0.08, tv + 0.22, 54, 58, WALL, { ink: false });
+    }
+    // a pointed-arch porch opening + label windows
+    iso.r.poly([iso.P(tu - 0.1, tv + 0.18, 6), iso.P(tu + 0.1, tv + 0.18, 6), iso.P(tu + 0.1, tv + 0.18, 26), iso.P(tu, tv + 0.18, 34), iso.P(tu - 0.1, tv + 0.18, 26)], alpha(hex('#2c3a4a'), 0.86));
+    iso.windowsLeft(v1, u0 + 0.7, u1 - 0.12, 14, 30, 3, GL, WALL);
+  } else {
+    // Italianate: a low hipped terracotta roof + a square BELVEDERE lantern on
+    // the ridge + a bracketed-eaves verandah (Fairfax House / Redleaf / Swifts)
+    iso.hip(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 38, 9, TERRA);
+    colonnade(iso, v1, u0 + 0.1, u1 - 0.1, 7, 30, 6, COLORS.white);
+    iso.windowsLeft(v1, u0 + 0.14, u1 - 0.14, 14, 28, 5, GL, WALL);
+    // the belvedere tower (a small glazed lantern crowning the roof)
+    const cu = (u0 + u1) / 2, cv = (v0 + v1) / 2;
+    iso.box(cu - 0.16, cv - 0.16, cu + 0.16, cv + 0.16, 47, 64, lighten(WALL, 0.04));
+    iso.windowsLeft(cv + 0.16, cu - 0.13, cu + 0.13, 50, 60, 3, alpha(GILT_HOT, 0.6), WALL);
+    iso.hip(cu - 0.18, cv - 0.18, cu + 0.18, cv + 0.18, 64, 8, TERRA);
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// DALGETY'S BOND STORE — the Rocks' great Victorian sandstone WAREHOUSE: a
+// tall narrow bond-store with a deep hipped roof, rows of small loading
+// windows and a timber loading bay with a hoist beam projecting from the gable.
+// 2×2, taller than a house. NEW draw.
+// =====================================================================
+function bondStoreTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 110 });
+  void seed;
+  const u0 = 0.42, u1 = 1.58, v0 = 0.46, v1 = 1.54;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // a rusticated sandstone base + a tall ashlar warehouse body
+  iso.box(u0, v0, u1, v1, 0, 64, SAND);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 12, shaded(SAND, 0.14), { ink: false });
+  // four storeys of small segmental loading windows on the flank
+  for (let row = 0; row < 4; row++) {
+    iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, 16 + row * 13, 16 + row * 13 + 7, 4, alpha(hex('#2f3a44'), 0.82), SAND);
+  }
+  // a vertical line of LOADING DOORS up the centre of the front, with a timber
+  // hoist beam projecting at the top (the bond-store signature)
+  const lu = (u0 + u1) / 2;
+  for (let row = 0; row < 4; row++) {
+    iso.r.poly([iso.P(lu - 0.08, v1, 16 + row * 13), iso.P(lu + 0.08, v1, 16 + row * 13), iso.P(lu + 0.08, v1, 16 + row * 13 + 9), iso.P(lu - 0.08, v1, 16 + row * 13 + 9)], alpha(hex('#3a2e22'), 0.85));
+  }
+  // a stone string-course banding
+  iso.r.line(iso.P(u0, v1, 30), iso.P(u1, v1, 30), 0.8 * RES, SAND_D);
+  // the deep hipped slate roof
+  iso.hip(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 64, 18, ROOFSL);
+  // the projecting timber hoist beam over the loading doors
+  const hb = iso.P(lu, v1, 70);
+  iso.r.line([hb[0], hb[1]], [hb[0], hb[1] + 8 * RES], 1.6 * RES, TIMBER_D);
+  iso.r.line([hb[0] - 1 * RES, hb[1] + 8 * RES], [hb[0] + 1 * RES, hb[1] + 8 * RES], 1 * RES, INK); // the pulley
+  return iso.build();
+}
+
+// =====================================================================
+// MAN O' WAR STEPS — the ceremonial sandstone LANDING STAIRS beside the Opera
+// House: a broad flight of stone steps descending into the rich blue harbour,
+// flanked by low stone wing-walls with iron lamp standards, a small landing
+// platform at the water. 2×2, low. NEW draw.
+// =====================================================================
+function manOWarStepsTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 60 });
+  void seed;
+  iso.floor(shaded(HARBOUR, 0.05), lit(HARBOUR, 0.06));
+  for (const [gu, gv] of [[1.6, 1.7], [0.5, 1.85]] as const) {
+    iso.r.line(iso.P(gu, gv, 0), iso.P(gu + 0.3, gv, 0), 1.1 * RES, alpha(COLORS.waterGlint, 0.5));
+  }
+  const u0 = 0.4, u1 = 1.6;
+  // a sandstone quay terrace at the back (high ground, low v)
+  iso.box(u0, 0.4, u1, 0.9, 0, 18, SAND, { topC: top(SAND, 0.12) });
+  // the broad flight of STEPS cascading toward the water (front, +v)
+  for (let i = 0; i < 6; i++) {
+    const v = 0.9 + i * 0.12;
+    iso.box(u0 + 0.05, v, u1 - 0.05, v + 0.12, 0, 16 - i * 2.6, shaded(SAND, 0.04 + i * 0.02), { topC: top(SAND, 0.12 - i * 0.01) });
+  }
+  // low stone wing-walls flanking the steps
+  for (const wu of [u0, u1] as const) {
+    iso.box(wu - 0.04, 0.9, wu + 0.04, 1.5, 0, 19, lighten(SAND, 0.04));
+    // an iron lamp standard atop each wing-wall
+    const lp = iso.P(wu, 0.96, 19);
+    iso.r.line([lp[0], lp[1]], [lp[0], lp[1] - 16 * RES], 1 * RES, hex('#3a3f46'));
+    iso.r.poly((() => { const c: Pt[] = []; for (let i = 0; i <= 10; i++) { const a = (i / 10) * Math.PI * 2; c.push([lp[0] + Math.cos(a) * 2.4 * RES, lp[1] - 18 * RES + Math.sin(a) * 2.8 * RES]); } return c; })(), alpha(GILT_HOT, 0.85));
+    iso.glint([lp[0], lp[1] - 18 * RES], 1.2 * RES);
+  }
+  // a small timber landing platform at the foot in the water
+  iso.box(u0 + 0.2, 1.5, u1 - 0.2, 1.62, 0, 4, shaded(TIMBER, 0.1), { ink: false });
+  return iso.build();
+}
+
+// =====================================================================
+// STEEL POINT BATTERY / 1801 FORT — the colonial harbour FORTIFICATION on its
+// rocky point (Bradleys Head / Georges Head batteries, Fort Denison's class):
+// a low sandstone gun battery — a curved rampart wall with embrasures, old
+// muzzle-loading CANNON on the parapet, a powder-magazine block behind. 2×2,
+// low + squat. `martello` adds a round Martello-style tower (1801 Fort). NEW.
+// =====================================================================
+function batteryTile(seed: number, martello: boolean): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: martello ? 110 : 64 });
+  void seed;
+  iso.floor(shaded(HARBOUR, 0.05), lit(HARBOUR, 0.06));
+  const u0 = 0.34, u1 = 1.66, v0 = 0.4, v1 = 1.6;
+  // the rocky sandstone point
+  iso.box(u0, v0, u1, v1, 0, 7, shaded(SAND, 0.08), { ink: false });
+  // the low battery RAMPART — a thick curved sandstone wall facing the harbour
+  // (front, +v), with embrasure notches
+  iso.box(u0 + 0.06, v1 - 0.34, u1 - 0.06, v1 - 0.1, 7, 26, SAND, { topC: top(SAND, 0.12) });
+  // embrasure notches along the parapet top
+  for (let i = 0; i < 6; i++) {
+    const u = u0 + 0.16 + i * 0.22;
+    iso.box(u, v1 - 0.13, u + 0.1, v1 - 0.07, 22, 28, lighten(SAND, 0.04), { ink: false });
+  }
+  // old muzzle-loading CANNON on the terreplein behind the wall
+  for (const cu of [u0 + 0.4, u0 + 0.9, u1 - 0.34] as const) {
+    const [gx, gyB] = iso.P(cu, v1 - 0.42, 9);
+    // the iron barrel angled up over the parapet
+    iso.r.line([gx - 3 * RES, gyB], [gx + 8 * RES, gyB - 8 * RES], 2.2 * RES, hex('#33383f'));
+    // the wooden garrison carriage
+    iso.r.poly([[gx - 5 * RES, gyB], [gx + 1 * RES, gyB], [gx + 1 * RES, gyB + 3 * RES], [gx - 5 * RES, gyB + 3 * RES]], hex('#5a4632'));
+  }
+  // the sandstone powder-magazine block behind (low, thick-walled)
+  iso.box(u0 + 0.2, v0 + 0.06, u0 + 0.8, v0 + 0.5, 7, 28, shaded(SAND, 0.03));
+  iso.hip(u0 + 0.18, v0 + 0.04, u0 + 0.82, v0 + 0.52, 28, 8, ROOFSL);
+  if (martello) {
+    // a round Martello-style tower on the point (1801 Fort) — a squat circular
+    // sandstone drum with a parapet
+    const cx = u1 - 0.42, cy = v0 + 0.5;
+    const [dx, dyB] = iso.P(cx, cy, 7);
+    const drum = (z: number, r: number): Pt[] => { const c: Pt[] = []; for (let i = 0; i <= 18; i++) { const a = (i / 18) * Math.PI * 2; c.push([dx + Math.cos(a) * r, dyB - z * RES + Math.sin(a) * r * 0.5]); } return c; };
+    // the cylindrical body (drawn as stacked ellipse rings)
+    iso.r.poly([...drum(0, 11 * RES), ...drum(64, 11 * RES).reverse()], SAND, shaded(SAND, 0.1));
+    iso.r.poly(drum(64, 11 * RES), lighten(SAND, 0.05));
+    iso.r.polyline(drum(0, 11 * RES).slice(0, 10), INK_W * 0.7, INK);
+    // a battlemented parapet ring
+    iso.r.poly(drum(70, 12.5 * RES), lighten(SAND, 0.06));
+    iso.r.polyline(drum(70, 12.5 * RES), INK_W * 0.6, INK, true);
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// YININMADYEMI – THOU DIDST LET FALL — the Hyde Park Aboriginal war MEMORIAL:
+// a striking arrangement of giant black STANDING SPEARS / BULLETS and fallen
+// shells on a low plinth, by Tony Albert. Tall slim black-and-gold forms.
+// 1×1, modest headroom. NEW draw.
+// =====================================================================
+function yininmadyemiTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 90 });
+  void seed;
+  const cu = 0.5, cv = 0.54;
+  iso.floor(shaded(COLORS.grass, 0.09), lit(COLORS.grass, 0.05));
+  iso.shadow(cu - 0.22, cv - 0.12, cu + 0.22, cv + 0.2, 0.3, 0.22);
+  // a low pale-stone plinth
+  iso.box(cu - 0.26, cv - 0.26, cu + 0.26, cv + 0.26, 0, 6, lighten(SAND, 0.04), { ink: false });
+  const BK = hex('#2b2f36'); // matte black bronze
+  // four STANDING shells (tall slim upright cylinders) at varied heights + a
+  // gold cap band on each — the upright "bullets"
+  const standers: ReadonlyArray<readonly [number, number, number]> = [
+    [cu - 0.12, cv - 0.04, 58], [cu + 0.02, cv + 0.06, 50], [cu + 0.14, cv - 0.08, 44], [cu - 0.04, cv + 0.14, 38],
+  ];
+  for (const [u, v, h] of standers) {
+    iso.box(u - 0.035, v - 0.035, u + 0.035, v + 0.035, 6, 6 + h, BK, { topC: lighten(BK, 0.1) });
+    // a gold band near the top (the cartridge head)
+    iso.r.line(iso.P(u - 0.035, v + 0.035, 6 + h - 8), iso.P(u + 0.035, v + 0.035, 6 + h - 8), 1.4 * RES, GILT_HOT);
+    // a pointed tip
+    const tp = iso.P(u, v, 6 + h);
+    iso.r.poly([[tp[0] - 1.8 * RES, tp[1]], [tp[0] + 1.8 * RES, tp[1]], [tp[0], tp[1] - 6 * RES]], lighten(BK, 0.12));
+  }
+  // three FALLEN shells lying on the plinth (short angled cylinders)
+  for (const [u, v] of [[cu + 0.16, cv + 0.12], [cu - 0.2, cv + 0.04]] as const) {
+    const [fx, fyB] = iso.P(u, v, 6);
+    iso.r.line([fx - 6 * RES, fyB], [fx + 6 * RES, fyB - 2 * RES], 3 * RES, BK);
+    iso.r.line([fx + 4 * RES, fyB - 1.4 * RES], [fx + 6 * RES, fyB - 2 * RES], 2 * RES, GILT);
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// CRUISING YACHT CLUB — the harbourside yacht-club + MARINA (Cruising Yacht
+// Club of Australia / Royal Motor Yacht Club, Rushcutters Bay): a low modern
+// clubhouse with a wide glazed harbour frontal + flag mast, fronted by floating
+// MARINA pontoons bristling with white yacht masts on the blue water. 3×3. NEW.
+// =====================================================================
+function yachtClubTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 110 });
+  void seed;
+  iso.floor(shaded(HARBOUR, 0.05), lit(HARBOUR, 0.06));
+  for (const [gu, gv] of [[2.6, 2.2], [0.6, 2.5], [2.7, 0.7]] as const) {
+    iso.r.line(iso.P(gu, gv, 0), iso.P(gu + 0.4, gv, 0), 1.2 * RES, alpha(COLORS.waterGlint, 0.45));
+  }
+  // the clubhouse on the shore (back, low v)
+  const u0 = 0.4, u1 = 2.6, v0 = 0.42, v1 = 1.3;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.2);
+  iso.box(u0, v0, u1, v1, 0, 30, hex('#e7ddca')); // pale rendered clubhouse
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 7, shaded(hex('#e7ddca'), 0.1), { ink: false });
+  // a wide glazed harbour-facing frontage (the club bar/dining glass)
+  iso.r.poly([iso.P(u0 + 0.1, v1, 8), iso.P(u1 - 0.1, v1, 8), iso.P(u1 - 0.1, v1, 26), iso.P(u0 + 0.1, v1, 26)], alpha(COLORS.glassLit, 0.55));
+  // a flat roof + a slim parapet, and the club FLAG MAST
+  iso.box(u0 - 0.04, v0 - 0.04, u1 + 0.04, v1 + 0.04, 30, 34, lighten(hex('#e7ddca'), 0.06), { ink: false });
+  const fm = iso.P(u0 + 0.4, v0 + 0.4, 34);
+  iso.r.line([fm[0], fm[1]], [fm[0], fm[1] - 34 * RES], 1 * RES, COLORS.white);
+  iso.r.poly([[fm[0], fm[1] - 34 * RES], [fm[0] + 12 * RES, fm[1] - 30 * RES], [fm[0], fm[1] - 26 * RES]], alpha(hex('#2f6fb0'), 0.9)); // a blue burgee
+  // the floating MARINA: timber pontoon fingers reaching into the water (front)
+  for (const fu of [0.7, 1.3, 1.9, 2.5] as const) {
+    iso.box(fu - 0.04, v1 + 0.1, fu + 0.04, 2.7, 0, 3, shaded(TIMBER, 0.08), { ink: false });
+    // moored yachts: pairs of slim white masts along each finger
+    for (let i = 0; i < 4; i++) {
+      const v = v1 + 0.3 + i * 0.32;
+      const [mx, myB] = iso.P(fu + 0.1, v, 3);
+      iso.r.line([mx, myB], [mx, myB - (22 + (i % 3) * 6) * RES], 0.7 * RES, alpha(COLORS.white, 0.9));
+      // a little hull
+      iso.r.poly([[mx - 3 * RES, myB], [mx + 3 * RES, myB], [mx + 2 * RES, myB + 2 * RES], [mx - 2 * RES, myB + 2 * RES]], hex('#dfe5ea'));
+    }
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// ROSE BAY SEAPLANE BASE — Sydney's historic flying-boat terminal: a small
+// Art-Deco terminal pavilion on the bay with a slipway, a moored yellow-and-
+// white floatplane (a SEAPLANE on the water — high wing, twin floats, prop).
+// 2×2, low. NEW draw — the seaplane is the hero read.
+// =====================================================================
+function seaplaneBaseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 70 });
+  void seed;
+  iso.floor(shaded(HARBOUR, 0.05), lit(HARBOUR, 0.06));
+  // the Art-Deco terminal pavilion on the shore (back)
+  const u0 = 0.4, u1 = 1.2, v0 = 0.42, v1 = 0.9;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.2);
+  iso.box(u0, v0, u1, v1, 0, 22, hex('#eae3d2'));
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 6, shaded(hex('#eae3d2'), 0.1), { ink: false });
+  iso.box(u0 + 0.06, v0 + 0.06, u1 - 0.06, v1 - 0.06, 22, 28, lighten(hex('#eae3d2'), 0.05)); // a stepped Deco parapet tier
+  iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 8, 18, 3, alpha(COLORS.glassLit, 0.5), hex('#eae3d2'));
+  // a concrete slipway running down into the water
+  iso.box(u1 - 0.1, v1, u1 + 0.4, 1.5, 0, 3, shaded(hex('#c9c1ad'), 0.06), { ink: false });
+  // the moored SEAPLANE on the water (front-right) — a high-wing floatplane
+  const pu = 1.5, pv = 1.5;
+  const [px, pyB] = iso.P(pu, pv, 4);
+  const PL = hex('#e8c25a'), PLW = hex('#f4ede0');
+  // the two floats on the water
+  iso.r.poly([[px - 12 * RES, pyB + 3 * RES], [px + 12 * RES, pyB + 1 * RES], [px + 11 * RES, pyB + 4 * RES], [px - 11 * RES, pyB + 6 * RES]], hex('#c9b15a'));
+  // the fuselage
+  iso.r.poly([[px - 13 * RES, pyB - 4 * RES], [px + 12 * RES, pyB - 6 * RES], [px + 14 * RES, pyB - 4 * RES], [px - 12 * RES, pyB - 2 * RES]], PLW, shaded(PLW, 0.08));
+  iso.r.polyline([[px - 13 * RES, pyB - 4 * RES], [px + 12 * RES, pyB - 6 * RES]], INK_W * 0.6, INK);
+  // the strut + high wing over the fuselage
+  iso.r.line([px, pyB - 5 * RES], [px, pyB - 11 * RES], 0.8 * RES, hex('#6a5a44'));
+  iso.r.poly([[px - 15 * RES, pyB - 12 * RES], [px + 13 * RES, pyB - 13 * RES], [px + 13 * RES, pyB - 10 * RES], [px - 15 * RES, pyB - 9 * RES]], PL, shaded(PL, 0.08));
+  // the tail fin + the nose prop
+  iso.r.poly([[px - 13 * RES, pyB - 4 * RES], [px - 16 * RES, pyB - 4 * RES], [px - 15 * RES, pyB - 10 * RES], [px - 12 * RES, pyB - 6 * RES]], PL);
+  iso.r.line([px + 13 * RES, pyB - 8 * RES], [px + 13 * RES, pyB - 2 * RES], 1.4 * RES, alpha(COLORS.white, 0.6)); // prop disc
+  iso.glint([px - 2 * RES, pyB - 6 * RES], 1.2 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// CONTEMPORARY GALLERY — the white-cube art venues (White Rabbit Gallery /
+// Artbank Sydney / Mary MacKillop Place Museum): a converted brick-and-render
+// warehouse/institution with a clean modern parapet, a big glazed entry and a
+// banner. 2×2, low. `brick` keeps the warehouse brick; else rendered white. NEW.
+// =====================================================================
+function galleryTile(seed: number, brick: boolean): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 90 });
+  void seed;
+  const u0 = 0.4, u1 = 1.6, v0 = 0.44, v1 = 1.56;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  const WALL = brick ? hex('#a85f48') : hex('#e9e4dc'); // warehouse brick / white render
+  iso.box(u0, v0, u1, v1, 0, 44, WALL);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 9, shaded(WALL, 0.12), { ink: false });
+  // a clean modern parapet
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 44, 50, lighten(WALL, 0.05), { ink: false });
+  // upper-floor windows (gallery clerestory)
+  if (brick) {
+    for (let i = 0; i < 4; i++) {
+      const u = u0 + 0.12 + i * 0.32;
+      iso.r.poly([iso.P(u, v1, 22), iso.P(u + 0.2, v1, 22), iso.P(u + 0.2, v1, 40), iso.P(u, v1, 40)], alpha(hex('#2f3a44'), 0.8));
+    }
+  } else {
+    iso.windowsLeft(v1, u0 + 0.12, u1 - 0.12, 22, 40, 4, alpha(COLORS.glassDark, 0.78), WALL);
+  }
+  // a tall glazed entry bay + a vertical banner beside it (the gallery read)
+  iso.r.poly([iso.P(u0 + 0.16, v1, 8), iso.P(u0 + 0.5, v1, 8), iso.P(u0 + 0.5, v1, 36), iso.P(u0 + 0.16, v1, 36)], alpha(COLORS.glassLit, 0.5));
+  iso.r.poly([iso.P(u1 - 0.34, v1, 12), iso.P(u1 - 0.24, v1, 12), iso.P(u1 - 0.24, v1, 44), iso.P(u1 - 0.34, v1, 44)], alpha(hex('#c0392b'), 0.85)); // banner
+  iso.gleam(iso.P(u0 + 0.33, v1, 36), iso.P(u0 + 0.33, v1, 10), 1 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// HERITAGE INSTITUTION (sandstone, smaller) — Stanton Library / Tempe House /
+// Boronia House / Hotel Hollywood / Yasmar / Hollowforth: a modest two-storey
+// Victorian sandstone/render institution with a hipped roof, a parapet and a
+// pedimented entrance. 2×2, low. `render` uses pale render not sandstone. NEW.
+// =====================================================================
+function heritageInstitutionTile(seed: number, render: boolean): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 80 });
+  void seed;
+  const u0 = 0.42, u1 = 1.58, v0 = 0.46, v1 = 1.54;
+  iso.floor(shaded(COLORS.grass, 0.08), lit(COLORS.grass, 0.05));
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  const WALL = render ? hex('#e3dcc8') : SAND;
+  iso.box(u0, v0, u1, v1, 0, 40, WALL);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 8, shaded(WALL, 0.1), { ink: false });
+  // two rows of sash windows
+  for (let row = 0; row < 2; row++) {
+    iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, 12 + row * 14, 12 + row * 14 + 8, 5, alpha(hex('#33414e'), 0.8), WALL);
+  }
+  // a moulded parapet + a hipped slate roof behind
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 40, 45, lighten(WALL, 0.05), { ink: false });
+  iso.hip(u0 + 0.06, v0 + 0.06, u1 - 0.06, v1 - 0.4, 45, 12, ROOFSL);
+  // a pedimented central entrance porch
+  const cu = (u0 + u1) / 2;
+  iso.box(cu - 0.18, v1 - 0.06, cu + 0.18, v1, 0, 26, lighten(WALL, 0.03));
+  colonnade(iso, v1, cu - 0.16, cu + 0.16, 6, 24, 3, COLORS.white);
+  pediment(iso, v1, cu - 0.2, cu + 0.2, 26, 8, WALL);
+  return iso.build();
+}
+
+// =====================================================================
+// HARBOUR CAROUSEL — the Darling Harbour heritage CAROUSEL: a round merry-go-
+// round under a scalloped candy-striped conical canopy on slim posts, a centre
+// pole + finial, painted horses hinted on the platform. Festive. 1×1. NEW draw.
+// =====================================================================
+function carouselTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 80 });
+  void seed;
+  const cu = 0.5, cv = 0.52;
+  iso.shadow(cu - 0.28, cv - 0.16, cu + 0.28, cv + 0.24, 0.28, 0.22);
+  // a round platform deck
+  const [dx, dyB] = iso.P(cu, cv, 6);
+  const disc = (z: number, r: number, sq = 0.5): Pt[] => { const c: Pt[] = []; for (let i = 0; i <= 20; i++) { const a = (i / 20) * Math.PI * 2; c.push([dx + Math.cos(a) * r, dyB - z * RES + Math.sin(a) * r * sq]); } return c; };
+  iso.r.poly([...disc(0, 15 * RES), ...disc(6, 15 * RES).reverse()], shaded(hex('#d8c8a8'), 0.06));
+  iso.r.poly(disc(6, 15 * RES), lighten(hex('#e6d8b8'), 0.04));
+  // slim posts round the rim
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const bx = dx + Math.cos(a) * 13 * RES, by = dyB - 6 * RES + Math.sin(a) * 6.5 * RES;
+    if (Math.sin(a) < -0.3) continue; // hide far posts
+    iso.r.line([bx, by], [bx, by - 22 * RES], 0.9 * RES, COLORS.white);
+    // a hinted horse (a small bright block) on alternating posts
+    if (i % 2 === 0) iso.r.rect(bx - 2 * RES, by - 10 * RES, bx + 2 * RES, by - 5 * RES, alpha(hex('#c0392b'), 0.8));
+  }
+  // the scalloped candy-striped CONICAL canopy
+  const apex: Pt = [dx, dyB - 50 * RES];
+  const rimZ = 28, rimR = 16 * RES;
+  for (let i = 0; i < 12; i++) {
+    const a0 = (i / 12) * Math.PI * 2, a1 = ((i + 1) / 12) * Math.PI * 2;
+    const col = i % 2 ? hex('#d23b2e') : hex('#f4ede0');
+    iso.r.poly([
+      apex,
+      [dx + Math.cos(a0) * rimR, dyB - rimZ * RES + Math.sin(a0) * rimR * 0.5],
+      [dx + Math.cos(a1) * rimR, dyB - rimZ * RES + Math.sin(a1) * rimR * 0.5],
+    ], shaded(col, 0.04));
+  }
+  // the scalloped rim valance
+  iso.r.polyline(disc(rimZ, rimR), 1.2 * RES, alpha(GILT_HOT, 0.8), true);
+  // centre pole finial
+  iso.r.line([dx, dyB - 50 * RES], [dx, dyB - 58 * RES], 1 * RES, GILT_HOT);
+  iso.glint([dx, dyB - 58 * RES], 1.4 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// GIANT BILLBOARD — the famous Kings Cross COCA-COLA SIGN (and the like): a
+// huge illuminated advertising HOARDING on a steel gantry above a building
+// parapet, a glowing red-and-white panel. 1×1, tall headroom. NEW draw.
+// =====================================================================
+function billboardTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 150 });
+  void seed;
+  const u0 = 0.2, u1 = 0.82, v0 = 0.28, v1 = 0.82;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.22);
+  // the host building parapet (a plain dark block)
+  iso.box(u0, v0, u1, v1, 0, 40, hex('#6c6f78'));
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 8, shaded(hex('#6c6f78'), 0.12), { ink: false });
+  iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 12, 34, 4, alpha(COLORS.glassLit, 0.35), hex('#6c6f78'));
+  // the steel gantry legs rising above the parapet
+  const fz = 44, tz = 120;
+  for (const gu of [u0 + 0.06, u1 - 0.06] as const) {
+    iso.r.line(iso.P(gu, v0 + 0.18, fz), iso.P(gu, v0 + 0.18, tz), 1 * RES, STEELB_L);
+    iso.r.line(iso.P(gu, v1 - 0.06, fz), iso.P(gu, v1 - 0.06, tz), 0.8 * RES, shaded(STEELB, 0.1));
+  }
+  // the big glowing BILLBOARD panel facing the viewer (the +v face)
+  const [ax, ay] = iso.P(u0 + 0.02, v1, tz - 4);
+  const [bx, by] = iso.P(u1 - 0.02, v1, tz - 4);
+  const panelH = 52 * RES;
+  iso.r.poly([[ax, ay], [bx, by], [bx, by - panelH], [ax, ay - panelH]], alpha(hex('#d2302a'), 0.92)); // the red field
+  // a white swoosh / wordmark band
+  iso.r.poly([[ax + 2 * RES, ay - panelH * 0.55], [bx - 2 * RES, by - panelH * 0.62], [bx - 2 * RES, by - panelH * 0.42], [ax + 2 * RES, ay - panelH * 0.35]], alpha(COLORS.white, 0.92));
+  iso.r.polyline([[ax, ay], [bx, by], [bx, by - panelH], [ax, ay - panelH]], INK_W * 0.7, INK, true);
+  // a warm glow halo
+  iso.gleam([ax, ay - panelH / 2], [bx, by - panelH / 2], 2.4 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// SERVICE RESERVOIR — Ashfield / Waverley reservoirs: a great covered service
+// reservoir. `elevated` is a steel ELEVATED water TOWER on legs (Waverley); the
+// ground variant is a long earth-banked covered tank with vent pipes (Ashfield).
+// 2×2. NEW draw. Working DNO/water-grid infrastructure — fits the game's soul.
+// =====================================================================
+function reservoirTile(seed: number, elevated: boolean): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: elevated ? 160 : 60 });
+  void seed;
+  const u0 = 0.4, u1 = 1.6, v0 = 0.44, v1 = 1.56;
+  iso.floor(shaded(COLORS.grass, 0.08), lit(COLORS.grass, 0.05));
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  if (elevated) {
+    // an elevated steel water tower: four braced legs carrying a big cylindrical
+    // tank with a domed top (the suburban "spaceship on legs")
+    const cu = (u0 + u1) / 2, cv = (v0 + v1) / 2;
+    const legZ = 96;
+    for (const [du, dv] of [[-0.32, 0.32], [0.32, 0.32], [0.32, -0.32], [-0.32, -0.32]] as const) {
+      iso.r.line(iso.P(cu + du, cv + dv, 0), iso.P(cu + du * 0.5, cv + dv * 0.5, legZ), 1.6 * RES, STEELB);
+    }
+    // cross-bracing
+    iso.r.line(iso.P(cu - 0.32, cv + 0.32, 40), iso.P(cu + 0.32, cv + 0.32, 70), 0.7 * RES, alpha(STEELB_L, 0.7));
+    iso.r.line(iso.P(cu + 0.32, cv + 0.32, 40), iso.P(cu - 0.32, cv + 0.32, 70), 0.7 * RES, alpha(STEELB_L, 0.7));
+    // the cylindrical tank
+    const [tx, tyB] = iso.P(cu, cv, legZ);
+    const tankR = 16 * RES;
+    const ring = (z: number, r: number): Pt[] => { const c: Pt[] = []; for (let i = 0; i <= 18; i++) { const a = (i / 18) * Math.PI * 2; c.push([tx + Math.cos(a) * r, tyB - z * RES + Math.sin(a) * r * 0.42]); } return c; };
+    iso.r.poly([...ring(0, tankR), ...ring(40, tankR).reverse()], hex('#8a93a0'), shaded(hex('#8a93a0'), 0.12));
+    iso.r.poly(ring(40, tankR), lighten(hex('#9aa3b0'), 0.04));
+    iso.r.polyline(ring(0, tankR).slice(0, 10), INK_W * 0.7, INK);
+    // a low domed lid + a vent finial
+    const lid = iso.P(cu, cv, legZ + 40);
+    iso.r.poly([...ring(40, tankR), [lid[0], lid[1] - 8 * RES]], lighten(hex('#9aa3b0'), 0.06));
+    iso.r.line([lid[0], lid[1] - 8 * RES], [lid[0], lid[1] - 16 * RES], 0.9 * RES, STEELB_L);
+  } else {
+    // a long low covered service reservoir: a turf-banked rectangular tank with
+    // a flat top, a low retaining wall and a row of vent pipes
+    iso.box(u0, v0, u1, v1, 0, 14, shaded(COLORS.grass, 0.14), { topC: lit(COLORS.grass, 0.04) }); // turfed mound
+    iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 8, shaded(hex('#9a948c'), 0.06), { ink: false }); // concrete retaining wall
+    // the flat concrete deck on top
+    iso.quad(u0 + 0.05, v0 + 0.05, u1 - 0.05, v1 - 0.05, 14, shaded(hex('#b6b0a4'), 0.04));
+    // a row of vent pipes/access hatches on the deck
+    for (const [vu, vv] of [[u0 + 0.4, v0 + 0.4], [u0 + 0.8, v0 + 0.7], [u1 - 0.4, v0 + 0.5]] as const) {
+      iso.box(vu - 0.04, vv - 0.04, vu + 0.04, vv + 0.04, 14, 20, hex('#6c6f78'), { ink: false });
+      const vt = iso.P(vu, vv, 20);
+      iso.r.line([vt[0], vt[1]], [vt[0], vt[1] - 4 * RES], 1 * RES, STEELB_L);
+    }
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// GRAIN SILOS — the harbourside "Underground grain silos" / industrial silo
+// cluster: a row of tall cylindrical concrete SILOS with a headhouse, the
+// classic port-terminal silhouette. 2×2, tall. NEW draw.
+// =====================================================================
+function grainSilosTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 130 });
+  void seed;
+  const u0 = 0.36, u1 = 1.64, v0 = 0.42, v1 = 1.58;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  const CON = hex('#cdc7b8'); // weathered concrete
+  const siloH = 96;
+  const r = 0.17 * (CELL_W / 2);
+  // a tall headhouse ELEVATOR tower at the BACK (low v) so it never occludes the
+  // silos in front of it
+  const hu = (u0 + u1) / 2;
+  iso.box(hu - 0.16, v0, hu + 0.16, v0 + 0.34, 0, siloH + 34, shaded(CON, 0.08));
+  iso.box(hu - 0.18, v0 - 0.02, hu + 0.18, v0 + 0.36, siloH + 34, siloH + 42, lighten(CON, 0.04), { ink: false });
+  // a single capsule-silo drawer (a fat cylinder with a rounded top cap)
+  const silo = (cu: number, cv: number, shadeI: number): void => {
+    const [cx, cyB] = iso.P(cu, cv, 0);
+    iso.r.poly([
+      [cx - r, cyB], [cx - r, cyB - siloH * RES],
+      [cx + r, cyB - siloH * RES], [cx + r, cyB],
+    ], shadeI % 2 ? CON : shaded(CON, 0.05), shaded(CON, 0.1));
+    iso.r.poly((() => { const c: Pt[] = []; for (let k = 0; k <= 10; k++) { const a = Math.PI * (k / 10); c.push([cx + Math.cos(a) * r, cyB - siloH * RES - Math.sin(a) * 6 * RES]); } return c; })(), lighten(CON, 0.06));
+    iso.r.line([cx - r, cyB], [cx - r, cyB - siloH * RES], INK_W * 0.5, alpha(INK, 0.7));
+    iso.r.line([cx + r, cyB], [cx + r, cyB - siloH * RES], INK_W * 0.5, alpha(INK, 0.5));
+  };
+  // TWO ranks of three silos (a proper port-terminal cluster). Draw the BACK
+  // rank first, then the FRONT rank so it overlaps correctly.
+  const cols = 3;
+  for (let i = 0; i < cols; i++) {
+    const cu = u0 + 0.26 + ((u1 - 0.52 - u0) * i) / (cols - 1);
+    silo(cu, v0 + 0.62, i); // back rank
+  }
+  for (let i = 0; i < cols; i++) {
+    const cu = u0 + 0.4 + ((u1 - 0.52 - u0) * i) / (cols - 1);
+    silo(cu, v1 - 0.1, i + 1); // front rank, offset half a step
+  }
+  // a conveyor gallery sloping up from the front silos to the headhouse
+  iso.r.line(iso.P(u0 + 0.5, v1 - 0.1, siloH + 6), iso.P(hu, v0 + 0.2, siloH + 34), 2.2 * RES, hex('#8a8576'));
+  return iso.build();
+}
+
+// =====================================================================
+// MUSEUM SHIP — the heritage vessels moored as museum exhibits (MV Cape Don,
+// S 4058 lighter, the harbour fleet): a small working SHIP at a wharf — a low
+// black hull, a white deckhouse with bridge + funnel, a mast with a flag.
+// 2×2, low. NEW draw (smaller/older than the destroyer hero). NEW.
+// =====================================================================
+function museumShipTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 80 });
+  void seed;
+  iso.floor(shaded(HARBOUR, 0.05), lit(HARBOUR, 0.06));
+  // a timber wharf edge at the back
+  iso.box(0.3, 0.4, 1.7, 0.62, 0, 6, shaded(TIMBER, 0.1), { ink: false });
+  // the HULL — a low black ship lying alongside (runs along u). Draw it as a
+  // solid box-hull with a raked bow so it reads as a vessel sitting in the
+  // water, not a deckhouse floating on the surface.
+  const vN = 1.24, vF = 0.96; // near (toward viewer) + far gunwale lines
+  const bowU = 0.3, sternU = 1.66, hullZ0 = 2, deckZ = 18;
+  const HULL = hex('#2c2f34');
+  // the NEAR hull side (the big black flank the viewer sees, dropping to water)
+  iso.r.poly([
+    iso.P(bowU + 0.08, vN, hullZ0), iso.P(sternU, vN, hullZ0),
+    iso.P(sternU, vN, deckZ), iso.P(bowU + 0.08, vN, deckZ),
+  ], HULL, shaded(HULL, 0.06));
+  // the raked BOW wedge (near side sweeping up to the stem)
+  iso.r.poly([iso.P(bowU + 0.08, vN, hullZ0), iso.P(bowU - 0.04, (vN + vF) / 2, hullZ0 + 4), iso.P(bowU + 0.02, (vN + vF) / 2, deckZ), iso.P(bowU + 0.08, vN, deckZ)], shaded(HULL, 0.04));
+  // the rounded stern transom
+  iso.r.poly([iso.P(sternU, vN, hullZ0), iso.P(sternU + 0.06, (vN + vF) / 2, hullZ0 + 2), iso.P(sternU + 0.04, (vN + vF) / 2, deckZ), iso.P(sternU, vN, deckZ)], shaded(HULL, 0.08));
+  // a red boot-topping waterline stripe along the near hull
+  iso.r.line(iso.P(bowU + 0.06, vN, hullZ0 + 3), iso.P(sternU, vN, hullZ0 + 3), 1.2 * RES, alpha(hex('#b03a2e'), 0.85));
+  // the white DECK on top of the hull
+  iso.quad(bowU + 0.04, vF, sternU, vN, deckZ, lighten(hex('#d8dde2'), 0.04));
+  // a thin sheer/gunwale line capping the near hull edge
+  iso.r.line(iso.P(bowU + 0.04, vN, deckZ), iso.P(sternU, vN, deckZ), INK_W * 0.6, INK);
+  // reset the deckhouse reference line to the new hull
+  const v = (vN + vF) / 2 + 0.02;
+  // the white deckhouse + bridge (midships)
+  iso.box(0.7, v - 0.14, 1.2, v - 0.02, deckZ, deckZ + 18, hex('#e6ebef'));
+  iso.box(0.82, v - 0.12, 1.05, v - 0.04, deckZ + 18, deckZ + 26, COLORS.white); // the bridge
+  iso.windowsLeft(v - 0.02, 0.74, 1.16, deckZ + 4, deckZ + 14, 4, alpha(hex('#33414e'), 0.7), hex('#e6ebef'));
+  // a buff funnel with a black top
+  iso.box(0.9, v - 0.1, 1.02, v - 0.04, deckZ + 26, deckZ + 40, hex('#d9c27a'), { ink: false });
+  iso.box(0.9, v - 0.1, 1.02, v - 0.04, deckZ + 40, deckZ + 44, hex('#2c2f34'), { ink: false });
+  // a foremast with a flag
+  const mp = iso.P(0.55, v - 0.1, deckZ);
+  iso.r.line([mp[0], mp[1]], [mp[0], mp[1] - 30 * RES], 1 * RES, hex('#6a5a44'));
+  iso.r.poly([[mp[0], mp[1] - 30 * RES], [mp[0] + 9 * RES, mp[1] - 27 * RES], [mp[0], mp[1] - 24 * RES]], alpha(hex('#c0392b'), 0.85));
+  return iso.build();
+}
+
+// =====================================================================
+// AIRPORT TERMINAL — the Kingsford Smith terminals (T2 domestic / T3 Qantas):
+// a long horizontal terminal SHED with a sweeping curved roof on a glazed
+// concourse wall, an airbridge/finger and a parked AIRLINER tail at the gate.
+// An airport is a MONSTER — 5×5, long + low. NEW draw.
+// =====================================================================
+function airportTerminalTile(seed: number, qantas: boolean): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(5, 5, { swAnchor: true, headroom: 120 });
+  void seed;
+  // a vast grey apron
+  iso.floor(shaded(hex('#7e7c78'), 0.05), lit(hex('#8a8884'), 0.04));
+  const u0 = 0.4, u1 = 4.6, v0 = 0.5, v1 = 2.4; // a long terminal at the back
+  iso.shadow(u0, v0, u1, v1, 0.18, 0.2);
+  // taxiway lane markings on the apron (front)
+  for (const lv of [3.4, 4.1] as const) {
+    iso.r.line(iso.P(u0, lv, 0.5), iso.P(u1, lv, 0.5), 0.7 * RES, alpha(hex('#d8c25a'), 0.5));
+  }
+  // the long glazed concourse body
+  iso.box(u0, v0, u1, v1, 0, 34, hex('#c9cdd2'));
+  iso.box(u0 - 0.04, v0 - 0.04, u1 + 0.04, v1 + 0.04, 0, 9, shaded(hex('#c9cdd2'), 0.1), { ink: false });
+  // a long continuous glazed curtain wall (the concourse glass)
+  iso.r.poly([iso.P(u0 + 0.1, v1, 8), iso.P(u1 - 0.1, v1, 8), iso.P(u1 - 0.1, v1, 30), iso.P(u0 + 0.1, v1, 30)], alpha(COLORS.glassLit, 0.5));
+  for (let i = 0; i <= 22; i++) {
+    const u = u0 + 0.1 + ((u1 - 0.2 - u0) * i) / 22;
+    iso.r.line(iso.P(u, v1, 8), iso.P(u, v1, 30), 0.4 * RES, alpha(STEELB_L, 0.5));
+  }
+  // the sweeping curved metal ROOF (a low barrel arching along u, oversailing)
+  const roofZ = 34;
+  const N = 24;
+  const front: Pt[] = [], back: Pt[] = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    const u = u0 - 0.1 + (u1 - u0 + 0.2) * t;
+    const z = roofZ + Math.sin(t * Math.PI) * 18;
+    front.push(iso.P(u, v1 + 0.1, z));
+    back.push(iso.P(u, v0 - 0.1, z + 4));
+  }
+  iso.r.poly([...back, ...front.slice().reverse()], qantas ? hex('#b6bcc4') : hex('#c2c8d0'), shaded(hex('#b6bcc4'), 0.08));
+  iso.r.polyline(front, INK_W * 0.8, INK);
+  iso.r.polyline(back, INK_W * 0.5, alpha(INK, 0.6));
+  // a control/stair tower accent at one end
+  iso.box(u1 - 0.5, v0 + 0.1, u1 - 0.2, v0 + 0.5, 0, 56, hex('#aeb4bc'));
+  iso.box(u1 - 0.54, v0 + 0.06, u1 - 0.16, v0 + 0.54, 56, 62, lighten(hex('#aeb4bc'), 0.05), { ink: false });
+  // an AIRLINER nosed up to a gate at the front: a white fuselage + tall tail fin
+  const pu = 2.4, pv = 3.4;
+  const [px, pyB] = iso.P(pu, pv, 2);
+  // fuselage along u
+  iso.r.poly([[px - 30 * RES, pyB - 5 * RES], [px + 24 * RES, pyB - 7 * RES], [px + 30 * RES, pyB - 4 * RES], [px + 24 * RES, pyB - 1 * RES], [px - 28 * RES, pyB + 1 * RES]], lighten(COLORS.white, 0.02), shaded(COLORS.white, 0.06));
+  iso.r.polyline([[px - 30 * RES, pyB - 5 * RES], [px + 24 * RES, pyB - 7 * RES], [px + 30 * RES, pyB - 4 * RES]], INK_W * 0.6, INK);
+  // cabin windows
+  iso.r.line([px - 24 * RES, pyB - 4 * RES], [px + 18 * RES, pyB - 6 * RES], 0.6 * RES, alpha(hex('#33414e'), 0.6));
+  // the tall tail fin at the stern (the airline-tail read), red for Qantas
+  iso.r.poly([[px - 30 * RES, pyB - 5 * RES], [px - 24 * RES, pyB - 5 * RES], [px - 22 * RES, pyB - 22 * RES], [px - 30 * RES, pyB - 18 * RES]], qantas ? alpha(hex('#c0392b'), 0.92) : alpha(hex('#2f6fb0'), 0.9));
+  // a wing sweeping toward the viewer + an airbridge from the terminal
+  iso.r.poly([[px - 2 * RES, pyB - 2 * RES], [px + 10 * RES, pyB + 10 * RES], [px + 16 * RES, pyB + 10 * RES], [px + 6 * RES, pyB - 3 * RES]], shaded(COLORS.white, 0.1));
+  iso.r.line(iso.P(2.4, v1, 16), [px + 6 * RES, pyB - 8 * RES], 2 * RES, hex('#9aa0a8')); // airbridge
+  return iso.build();
+}
+
+// =====================================================================
+// SIRIUS — the Rocks' famous BRUTALIST public-housing complex: a stepped stack
+// of raw-concrete cubic modules cascading down the slope below the Bridge, the
+// signature interlocking boxes with deep-set windows (one with the "SOS" sign).
+// 3×3. NEW draw — a unique cubist silhouette.
+// =====================================================================
+function siriusTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 150 });
+  void seed;
+  const CON = hex('#c4bdae'); // raw precast concrete
+  iso.shadow(0.4, 0.4, 2.6, 2.6, 0.22, 0.22);
+  // a cascade of cubic modules at decreasing heights toward the harbour (+v),
+  // stepping in u as well — the interlocking-box read
+  type Box = readonly [number, number, number, number, number]; // u0 v0 u1 v1 zTop
+  const boxes: Box[] = [
+    [0.5, 0.5, 1.7, 1.7, 116], // the big back stack
+    [1.5, 0.7, 2.5, 1.9, 96],
+    [0.7, 1.4, 1.8, 2.5, 80],
+    [1.7, 1.7, 2.6, 2.7, 60],
+    [0.9, 2.1, 1.7, 2.8, 44],
+  ];
+  // draw back-to-front (low v first)
+  for (const [a, b, c, d, zt] of boxes) {
+    iso.box(a, b, c, d, 0, zt, CON, { topC: top(CON, 0.12) });
+    // deep-set window cells punched in a grid on the front + side faces
+    const rows = Math.floor(zt / 16);
+    for (let r = 0; r < rows; r++) {
+      const z = 8 + r * 16;
+      if (z > zt - 6) break;
+      // front face (v=d)
+      for (let i = 0; i < Math.round((c - a) / 0.28); i++) {
+        const u = a + 0.12 + i * 0.28;
+        if (u > c - 0.08) break;
+        iso.r.poly([iso.P(u, d, z), iso.P(u + 0.14, d, z), iso.P(u + 0.14, d, z + 9), iso.P(u, d, z + 9)], alpha(hex('#33414e'), 0.7));
+      }
+    }
+  }
+  // the rooftop module crowns (little lighter caps reading as the stepped tops)
+  for (const [a, b, c, d, zt] of boxes) {
+    iso.box(a + 0.04, b + 0.04, c - 0.04, d - 0.04, zt, zt + 4, lighten(CON, 0.06), { ink: false });
+  }
+  // a hint of the famous illuminated "SOS" sign in a top window of the back stack
+  const [sx, sy] = iso.P(1.0, 1.7, 96);
+  iso.r.rect(sx - 5 * RES, sy - 8 * RES, sx + 5 * RES, sy - 2 * RES, alpha(hex('#e8c25a'), 0.85));
+  return iso.build();
+}
+
+// =====================================================================
+// INTERNATIONAL TOWERS — the THREE Barangaroo office towers (Rogers): a row of
+// three tapering glass towers of stepped heights with the signature exposed
+// vertical service "spine" fins down one face + a notched crown. 3×3, very
+// tall. NEW draw — the trio read is the hero.
+// =====================================================================
+function internationalTowersTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 360 });
+  void seed;
+  iso.shadow(0.4, 0.4, 2.6, 2.6, 0.4, 0.26);
+  // a shared podium
+  iso.box(0.4, 0.4, 2.6, 2.6, 0, 20, shaded(SAND, 0.06), { ink: false });
+  // the three towers, stepped heights, set on a diagonal so all three read
+  const towers: ReadonlyArray<readonly [number, number, number]> = [
+    [0.95, 1.9, 320], // Tower 1 (tallest), front-left
+    [1.7, 1.3, 264], // Tower 2
+    [2.25, 0.8, 232], // Tower 3, back-right
+  ];
+  for (const [cu, cv, h] of towers) {
+    const hw = 0.3, hd = 0.26;
+    towerShaft(iso, cu, cv, hw, hd, 20, h, GLASSB, { taper: 0.12, litGlass: true });
+    // the exposed vertical service-spine fins down the +u face (Rogers signature)
+    for (let i = 0; i < 3; i++) {
+      const fv = cv - hd + 0.06 + i * ((2 * hd - 0.12) / 2);
+      iso.r.line(iso.P(cu + hw + 0.02, fv, 20), iso.P(cu + hw + 0.02, fv, h + 18), 1.2 * RES, alpha(STEELB_L, 0.8));
+    }
+    // a notched lighter crown
+    iso.box(cu - hw * 0.7, cv - hd * 0.7, cu + hw * 0.7, cv + hd * 0.7, h, h + 14, lighten(GLASSB, 0.08), { ink: false });
+    const tp = iso.P(cu, cv, h + 14);
+    iso.r.line([tp[0], tp[1]], [tp[0], tp[1] - 12 * RES], 0.8 * RES, STEELB_L); // a slim mast
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// ICC SYDNEY — the International Convention Centre at Darling Harbour: a broad
+// low modern complex — a big rectilinear exhibition HALL + a faceted theatre
+// box + a stepped convention block, expansive metal-and-glass, on the water.
+// 5×5, broad + low (a MONSTER footprint). NEW draw.
+// =====================================================================
+function iccTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(5, 5, { swAnchor: true, headroom: 110 });
+  void seed;
+  iso.floor(shaded(HARBOUR, 0.05), lit(HARBOUR, 0.06));
+  const META = hex('#aeb6c0'); // pale metal cladding
+  const GL = alpha(COLORS.glassLit, 0.5);
+  // the big rectilinear EXHIBITION hall (the largest box, back-left)
+  iso.shadow(0.4, 0.4, 4.6, 4.0, 0.2, 0.2);
+  iso.box(0.4, 0.5, 2.7, 3.4, 0, 52, META, { topC: top(META, 0.1) });
+  iso.box(0.36, 0.46, 2.74, 3.44, 0, 10, shaded(META, 0.1), { ink: false });
+  // banded metal cladding + a glazed base
+  for (let z = 16; z < 50; z += 10) iso.r.line(iso.P(0.4, 3.4, z), iso.P(2.7, 3.4, z), 0.5 * RES, alpha(shaded(META, 0.16), 0.6));
+  iso.r.poly([iso.P(0.5, 3.4, 8), iso.P(2.6, 3.4, 8), iso.P(2.6, 3.4, 18), iso.P(0.5, 3.4, 18)], GL);
+  // the stepped CONVENTION block (mid, taller, glazed)
+  iso.box(2.6, 1.0, 3.9, 3.0, 0, 64, hex('#9aa6b4'));
+  iso.r.poly([iso.P(2.6, 3.0, 10), iso.P(3.9, 3.0, 10), iso.P(3.9, 3.0, 58), iso.P(2.6, 3.0, 58)], alpha(COLORS.glassDark, 0.7));
+  for (let z = 18; z < 58; z += 9) iso.r.line(iso.P(2.6, 3.0, z), iso.P(3.9, 3.0, z), 0.4 * RES, alpha(COLORS.white, 0.3));
+  // the faceted THEATRE box (front-right, an angular dark-glass mass)
+  iso.box(3.7, 2.6, 4.6, 3.8, 0, 44, hex('#5a6b80'));
+  // a faceted/tilted parapet on the theatre
+  const [tx, ty] = iso.P(3.7, 3.8, 44);
+  const [tx2, ty2] = iso.P(4.6, 3.8, 44);
+  iso.r.poly([[tx, ty], [tx2, ty2], [tx2, ty2 - 12 * RES], [tx, ty - 6 * RES]], lighten(hex('#5a6b80'), 0.08));
+  iso.r.poly([iso.P(3.7, 3.8, 8), iso.P(4.6, 3.8, 8), iso.P(4.6, 3.8, 40), iso.P(3.7, 3.8, 40)], alpha(COLORS.glassLit, 0.45));
+  // a broad public colonnade/awning along the waterfront (front edge)
+  for (let i = 0; i <= 8; i++) {
+    const u = 0.6 + i * 0.24;
+    iso.r.line(iso.P(u, 3.5, 0), iso.P(u, 3.5, 12), 0.8 * RES, alpha(STEELB_L, 0.7));
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// WESTFIELD SYDNEY — the upmarket CBD shopping centre under Sydney Tower on
+// Pitt Street Mall: a substantial modern retail+office podium with a curved
+// glazed corner, deep awnings over the mall, a tower stub above. 4×4. NEW draw.
+// =====================================================================
+function westfieldSydneyTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(4, 4, { swAnchor: true, headroom: 150 });
+  void seed;
+  const u0 = 0.4, u1 = 3.6, v0 = 0.44, v1 = 3.56;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  const STONE = hex('#cfc7b6'); // pale stone-and-glass
+  // the retail podium block
+  iso.box(u0, v0, u1, v1, 0, 56, STONE);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 10, shaded(STONE, 0.1), { ink: false });
+  // a tall fully-glazed CORNER bay (the Pitt St Mall corner) on the +u/+v corner
+  iso.r.poly([iso.P(u1, v1 - 0.6, 10), iso.P(u1, v1, 10), iso.P(u1, v1, 54), iso.P(u1, v1 - 0.6, 54)], alpha(COLORS.glassLit, 0.5));
+  iso.r.poly([iso.P(u1 - 0.6, v1, 10), iso.P(u1, v1, 10), iso.P(u1, v1, 54), iso.P(u1 - 0.6, v1, 54)], alpha(COLORS.glassLit, 0.5));
+  // ranks of upper retail/office glazing on the long flank
+  for (let row = 0; row < 3; row++) {
+    iso.windowsLeft(v1, u0 + 0.1, u1 - 0.7, 16 + row * 13, 16 + row * 13 + 8, 6, alpha(COLORS.glassDark, 0.72), STONE);
+  }
+  // a deep cantilevered awning over the mall frontage
+  iso.box(u0 - 0.1, v1, u1 + 0.02, v1 + 0.14, 12, 15, hex('#8a8576'), { ink: false });
+  // a parapet + a glazed office tower STUB rising above the podium
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 56, 62, lighten(STONE, 0.05), { ink: false });
+  towerShaft(iso, u0 + 1.1, v0 + 1.0, 0.5, 0.5, 62, 128, GLASSB, { taper: 0.1, litGlass: true });
+  return iso.build();
+}
+
+// =====================================================================
+// 1 BLIGH STREET — the elliptical all-glass Circular Quay office tower: an
+// OVAL-plan double-skin glass shaft, gently bowed, with a sloped glazed top
+// and a sky-garden notch. 2×2, very tall + slim. NEW draw — the ellipse reads.
+// =====================================================================
+function blighStreetTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 300 });
+  void seed;
+  const cu = 1.0, cv = 1.02, h = 244;
+  iso.shadow(cu - 0.28, cv - 0.18, cu + 0.28, cv + 0.3, 0.4, 0.26);
+  iso.box(cu - 0.34, cv - 0.34, cu + 0.34, cv + 0.34, 0, 16, shaded(SAND, 0.06), { ink: false }); // podium plaza
+  // the ELLIPTICAL glass shaft — draw as a vertical "lens" prism: an oval
+  // section extruded up. Approximate via a smooth oval silhouette + a shaded
+  // back half for depth.
+  const [bx, byB] = iso.P(cu, cv, 16);
+  const rx = 0.3 * (CELL_W / 2) * 1.4, ryV = 0.3 * (CELL_W / 2) * 0.6;
+  const oval = (z: number): Pt[] => {
+    const c: Pt[] = [];
+    for (let i = 0; i <= 22; i++) { const a = (i / 22) * Math.PI * 2; c.push([bx + Math.cos(a) * rx, byB - z * RES + Math.sin(a) * ryV]); }
+    return c;
+  };
+  // the body as a filled band between base oval and top oval
+  iso.r.poly([...oval(16), ...oval(h).reverse()], GLASSB_L, GLASSB);
+  // the lit/curved-glass front sheen (a brighter vertical lens down the middle)
+  iso.r.poly([
+    [bx - rx * 0.4, byB], [bx + rx * 0.4, byB],
+    [bx + rx * 0.4, byB - h * RES], [bx - rx * 0.4, byB - h * RES],
+  ], alpha(lighten(GLASSB_L, 0.12), 0.5));
+  // horizontal floor-band glazing lines on the FRONT-facing half only (a gentle
+  // arc per floor) so the shaft reads as a smooth curved-glass cylinder rather
+  // than a stack of rings
+  const frontArc = (z: number): Pt[] => {
+    const c: Pt[] = [];
+    for (let i = 0; i <= 11; i++) { const a = Math.PI * (i / 11); c.push([bx + Math.cos(a) * rx, byB - z * RES + Math.sin(a) * ryV]); }
+    return c;
+  };
+  for (let z = 28; z < h - 8; z += 11) {
+    iso.r.polyline(frontArc(z), 0.4 * RES, alpha(COLORS.white, 0.16));
+  }
+  // crisp side contours
+  iso.r.line([bx - rx, byB], [bx - rx, byB - h * RES], INK_W * 0.7, INK);
+  iso.r.line([bx + rx, byB], [bx + rx, byB - h * RES], INK_W * 0.55, alpha(INK, 0.7));
+  // a sloped glazed top cap (the tilted roof) + a slim mast
+  const topF = oval(h);
+  iso.r.poly(topF, lighten(GLASSB_L, 0.1));
+  const tp = iso.P(cu, cv, h);
+  iso.r.line([tp[0] + rx * 0.5, tp[1] - 2 * RES], [tp[0] + rx * 0.5, tp[1] - 16 * RES], 0.8 * RES, STEELB_L);
+  return iso.build();
+}
+
+// =====================================================================
+// GREENLAND CENTRE — the slim Art-Deco-crowned residential supertower on
+// Bathurst St: a very tall slender shaft with a stepped, illuminated crystalline
+// CROWN of setbacks (a modern Art-Deco "candle"). 1×1, the tallest of this batch.
+// NEW draw.
+// =====================================================================
+function greenlandCentreTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 420 });
+  void seed;
+  const u = 0.5, v = 0.52, h = 320;
+  iso.shadow(u - 0.16, v - 0.1, u + 0.16, v + 0.18, 0.42, 0.26);
+  iso.box(u - 0.28, v - 0.28, u + 0.28, v + 0.28, 0, 16, shaded(SAND, 0.06), { ink: false });
+  // the slim shaft
+  const body = hex('#5a7ea8');
+  towerShaft(iso, u, v, 0.17, 0.17, 16, h, body, { taper: 0.06, litGlass: true });
+  // a stepped Art-Deco CROWN: three diminishing setback tiers + a lit spire
+  let z = h, hw = 0.14;
+  for (const dz of [22, 18, 14] as const) {
+    iso.box(u - hw, v - hw, u + hw, v + hw, z, z + dz, lighten(body, 0.06), { topC: top(body, 0.16) });
+    // a glowing crown band
+    iso.r.line(iso.P(u - hw, v + hw, z + dz - 3), iso.P(u + hw, v + hw, z + dz - 3), 1 * RES, alpha(GILT_HOT, 0.7));
+    z += dz; hw *= 0.7;
+  }
+  const tp = iso.P(u, v, z);
+  iso.r.line([tp[0], tp[1]], [tp[0], tp[1] - 30 * RES], 1.2 * RES, STEELB_L);
+  iso.r.line([tp[0], tp[1] - 30 * RES], [tp[0], tp[1] - 46 * RES], 0.7 * RES, STEELB_L);
+  iso.glint([tp[0], tp[1] - 18 * RES], 1.6 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// ONE CENTRAL PARK — the iconic Chippendale tower with VERTICAL GARDENS up its
+// facade and the cantilevered sky-HELIOSTAT: twin residential blocks clad in
+// green living-wall panels, the taller carrying a dramatic cantilevered
+// reflector shelf near the top. 3×3, tall. NEW draw — the green walls + the
+// cantilever are the unmistakable read.
+// =====================================================================
+function oneCentralParkTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 260 });
+  void seed;
+  iso.shadow(0.4, 0.5, 2.6, 2.6, 0.34, 0.26);
+  iso.box(0.4, 0.5, 2.6, 2.6, 0, 22, shaded(SAND, 0.06), { ink: false }); // the retail podium
+  const GLS = hex('#7c93ad');
+  const GRN = hex('#5f8f5a'); // the living-wall greenery
+  // the taller East tower (front-left) + the shorter West tower (back-right)
+  const towers: ReadonlyArray<readonly [number, number, number]> = [
+    [1.1, 1.85, 200],
+    [1.95, 1.1, 160],
+  ];
+  towers.forEach(([cu, cv, h], idx) => {
+    const hw = 0.34, hd = 0.3;
+    towerShaft(iso, cu, cv, hw, hd, 22, h, GLS, { litGlass: true });
+    // vertical garden panels climbing the front + side faces (patches of green
+    // with trailing tendrils — the famous botanic facade)
+    for (let z = 30; z < h - 10; z += 22) {
+      // green band on the front face (v = cv+hd)
+      iso.r.poly([iso.P(cu - hw, cv + hd, z), iso.P(cu + hw, cv + hd, z), iso.P(cu + hw, cv + hd, z + 12), iso.P(cu - hw, cv + hd, z + 12)], alpha(GRN, 0.6));
+      // trailing tendrils
+      for (let i = 0; i < 5; i++) {
+        const u = cu - hw + 0.04 + i * ((2 * hw - 0.08) / 4);
+        const p = iso.P(u, cv + hd, z + 12);
+        iso.r.line([p[0], p[1]], [p[0], p[1] + 5 * RES], 0.5 * RES, alpha(shaded(GRN, 0.1), 0.7));
+      }
+      // green on the side face (u = cu+hw)
+      iso.r.poly([iso.P(cu + hw, cv - hd, z), iso.P(cu + hw, cv + hd, z), iso.P(cu + hw, cv + hd, z + 12), iso.P(cu + hw, cv - hd, z + 12)], alpha(shaded(GRN, 0.06), 0.5));
+    }
+    // crown
+    iso.box(cu - hw * 0.8, cv - hd * 0.8, cu + hw * 0.8, cv + hd * 0.8, h, h + 10, lighten(GLS, 0.06), { ink: false });
+    // the dramatic cantilevered HELIOSTAT shelf near the top of the TALLER tower
+    if (idx === 0) {
+      const shelfZ = h - 24;
+      const [sx, sy] = iso.P(cu + hw, cv + hd, shelfZ);
+      // a long reflector deck cantilevering out over the lower tower side
+      iso.r.poly([[sx, sy], [sx + 30 * RES, sy - 10 * RES], [sx + 30 * RES, sy - 4 * RES], [sx, sy + 6 * RES]], hex('#8a8f98'), shaded(hex('#8a8f98'), 0.1));
+      // the angled mirror panels catching warm light
+      for (let i = 0; i < 5; i++) {
+        const t = i / 4;
+        const mx = sx + 5 * RES + t * 22 * RES, my = sy - 2 * RES - t * 8 * RES;
+        iso.r.line([mx, my], [mx + 3 * RES, my - 5 * RES], 1.4 * RES, alpha(GILT_HOT, 0.8));
+      }
+    }
+  });
+  return iso.build();
+}
+
+// =====================================================================
+// STRAND ARCADE — the great Victorian shopping ARCADE: a long narrow heritage
+// retail block with a richly modelled facade — paired arched windows, a deep
+// cornice and a tiled mansard roof; the glazed barrel-vault skylight ridge of
+// the internal arcade hints along the roofline. 3×3, low-rise + ornate. NEW.
+// =====================================================================
+function strandArcadeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 110 });
+  void seed;
+  const u0 = 0.5, u1 = 2.5, v0 = 0.9, v1 = 2.1; // a LONG narrow block
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  const STONE = hex('#d8c8a4'); // warm painted-stucco facade
+  iso.box(u0, v0, u1, v1, 0, 58, STONE);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 12, shaded(STONE, 0.12), { ink: false }); // ground retail base (darker)
+  // a shopfront glazing band at street level
+  iso.r.poly([iso.P(u0 + 0.05, v1, 4), iso.P(u1 - 0.05, v1, 4), iso.P(u1 - 0.05, v1, 12), iso.P(u0 + 0.05, v1, 12)], alpha(COLORS.glassLit, 0.5));
+  // three storeys of PAIRED arched windows down the long flank
+  for (let row = 0; row < 3; row++) {
+    const zb = 16 + row * 14;
+    for (let i = 0; i < 7; i++) {
+      const u = u0 + 0.14 + i * 0.32;
+      // a pair of round-arched windows
+      for (const du of [0, 0.13] as const) {
+        const poly: Pt[] = [iso.P(u + du, v1, zb), iso.P(u + du, v1, zb + 7)];
+        for (let j = 0; j <= 4; j++) { const t = j / 4; poly.push(iso.P(u + du + 0.05 * t, v1, zb + 7 + Math.sin(t * Math.PI) * 3)); }
+        poly.push(iso.P(u + du + 0.05, v1, zb + 7), iso.P(u + du + 0.05, v1, zb));
+        iso.r.poly(poly, alpha(hex('#2f3a44'), 0.8));
+      }
+    }
+  }
+  // a deep moulded cornice + balustraded parapet
+  iso.box(u0 - 0.05, v0 - 0.05, u1 + 0.05, v1 + 0.05, 58, 64, lighten(STONE, 0.08), { topC: top(STONE, 0.2) });
+  // the tiled mansard roof + the glazed arcade SKYLIGHT ridge running down it
+  iso.hip(u0 + 0.04, v0 + 0.04, u1 - 0.04, v1 - 0.04, 64, 12, hex('#5a4a4a'));
+  const [rax, ray] = iso.P(u0 + 0.2, (v0 + v1) / 2, 74);
+  const [rbx, rby] = iso.P(u1 - 0.2, (v0 + v1) / 2, 74);
+  iso.r.line([rax, ray], [rbx, rby], 2.2 * RES, alpha(GILT_HOT, 0.55)); // glowing glazed roof ridge
+  return iso.build();
+}
+
 // =====================================================================
 // REGISTRY — first match wins; order MARQUEE → towers → heritage → others.
 // =====================================================================
@@ -2858,5 +3926,354 @@ export const CITY_HEROES: BespokeHero[] = [
     seed: 4613,
     draw: (seed) => powerStationTile(seed),
     light: { kind: 'genericGlow', topZ: 150, halfW: 0.5 },
+  },
+
+  // ============================================================
+  // ROUND 3 — HARBOUR POINTS, MONUMENTS, ROCKS HERITAGE (placed)
+  // ============================================================
+  {
+    city: 'sydney',
+    key: 'mrs-macquaries-chair',
+    match: /Macquarie'?s? Chair/i,
+    foot: [2, 2],
+    seed: 4620,
+    draw: (seed) => macquariesChairTile(seed),
+    // a soft warm uplight on the carved seat + the lone fig at dusk
+    light: { kind: 'facadeFlood', topZ: 30, halfW: 0.9 },
+  },
+  {
+    city: 'sydney',
+    key: 'queen-victoria-monument',
+    match: /Queen Victoria Monument/i,
+    foot: [1, 1],
+    seed: 4621,
+    draw: (seed) => queenVictoriaMonumentTile(seed),
+    // a floodlit statue + the gilt sceptre catching the light
+    light: { kind: 'facadeFlood', topZ: 78, halfW: 0.5 },
+  },
+  {
+    // Lindesay & Bidura — castellated Gothic-Revival villas of Darling Point /
+    // Glebe.
+    city: 'sydney',
+    key: 'lindesay',
+    match: /^Lindesay$|^Bidura$/i,
+    foot: [2, 2],
+    seed: 4622,
+    draw: (seed) => rocksHouseTile(seed, 'gothic'),
+    light: { kind: 'facadeFlood', topZ: 58, halfW: 1.0 },
+  },
+  {
+    // Bellevue & Biloela House — iron-lace verandahed colonial houses.
+    city: 'sydney',
+    key: 'bellevue-house',
+    match: /^Bellevue$|Biloela House/i,
+    foot: [2, 2],
+    seed: 4623,
+    draw: (seed) => rocksHouseTile(seed, 'verandah'),
+    light: { kind: 'facadeFlood', topZ: 40, halfW: 1.0 },
+  },
+  {
+    // Fairfax House, Redleaf, Swifts, Tranby — Italianate belvedere villas of
+    // the eastern harbour.
+    city: 'sydney',
+    key: 'fairfax-house',
+    match: /Fairfax House|^Redleaf$|^Swifts$|^Tranby$/i,
+    foot: [2, 2],
+    seed: 4624,
+    draw: (seed) => rocksHouseTile(seed, 'italianate'),
+    light: { kind: 'facadeFlood', topZ: 64, halfW: 1.0 },
+  },
+  {
+    city: 'sydney',
+    key: 'dalgetys-bond-store',
+    match: /Dalgety'?s?\b.*Bond Store|Bond Store/i,
+    foot: [2, 2],
+    seed: 4625,
+    draw: (seed) => bondStoreTile(seed),
+    light: { kind: 'facadeFlood', topZ: 82, halfW: 1.0 },
+  },
+  {
+    city: 'sydney',
+    key: 'man-o-war-steps',
+    match: /Man O'? War Steps/i,
+    foot: [2, 2],
+    seed: 4626,
+    draw: (seed) => manOWarStepsTile(seed),
+    // the iron lamp standards glow warm at the water's edge
+    light: { kind: 'facadeFlood', topZ: 28, halfW: 0.9 },
+  },
+  {
+    city: 'sydney',
+    key: 'steel-point-battery',
+    match: /Steel Point Battery/i,
+    foot: [2, 2],
+    seed: 4627,
+    draw: (seed) => batteryTile(seed, false),
+    light: { kind: 'facadeFlood', topZ: 28, halfW: 1.0 },
+  },
+  {
+    // 1801 Fort — a colonial Martello-style harbour fortification.
+    city: 'sydney',
+    key: '1801-fort',
+    match: /1801 Fort/i,
+    foot: [2, 2],
+    seed: 4628,
+    draw: (seed) => batteryTile(seed, true),
+    light: { kind: 'facadeFlood', topZ: 64, halfW: 1.0 },
+  },
+  {
+    city: 'sydney',
+    key: 'yininmadyemi',
+    match: /Yininmadyemi/i,
+    foot: [1, 1],
+    seed: 4629,
+    draw: (seed) => yininmadyemiTile(seed),
+    // the gold cartridge bands glow against the matte-black shells
+    light: { kind: 'facadeFlood', topZ: 64, halfW: 0.5 },
+  },
+
+  // ============================================================
+  // ROUND 3 — HARBOUR LEISURE & WATERFRONT (placed)
+  // ============================================================
+  {
+    // the harbourside yacht clubs (Cruising Yacht Club of Australia + the Royal
+    // Motor Yacht Club) with their marinas.
+    city: 'sydney',
+    key: 'cruising-yacht-club',
+    match: /Cruising Yacht Club|Royal Motor Yacht Club|Yacht Club of Australia/i,
+    foot: [3, 3],
+    seed: 4630,
+    draw: (seed) => yachtClubTile(seed),
+    light: { kind: 'facadeFlood', topZ: 34, halfW: 1.6 },
+  },
+  {
+    city: 'sydney',
+    key: 'rose-bay-seaplane-base',
+    match: /Rose Bay Seaplane Base|Seaplane Base/i,
+    foot: [2, 2],
+    seed: 4631,
+    draw: (seed) => seaplaneBaseTile(seed),
+    light: { kind: 'facadeFlood', topZ: 28, halfW: 1.0 },
+  },
+  {
+    city: 'sydney',
+    key: 'darling-harbour-carousel',
+    match: /Darling Harbour Carousel|Carousel/i,
+    foot: [1, 1],
+    seed: 4632,
+    draw: (seed) => carouselTile(seed),
+    // a festive colour-cycling fairground rim
+    light: { kind: 'rimCycle', topZ: 58, halfW: 0.5 },
+  },
+  {
+    city: 'sydney',
+    key: 'coca-cola-billboard',
+    match: /Coca-?Cola Billboard|Billboard/i,
+    foot: [1, 1],
+    seed: 4633,
+    draw: (seed) => billboardTile(seed),
+    // the giant illuminated hoarding blazing red over the Cross
+    light: { kind: 'facadeFlood', topZ: 120, halfW: 0.5 },
+  },
+
+  // ============================================================
+  // ROUND 3 — CONTEMPORARY GALLERIES & SMALLER HERITAGE (placed)
+  // ============================================================
+  {
+    // White Rabbit Gallery — a converted brick warehouse contemporary gallery.
+    city: 'sydney',
+    key: 'white-rabbit-gallery',
+    match: /White Rabbit Gallery/i,
+    foot: [2, 2],
+    seed: 4634,
+    draw: (seed) => galleryTile(seed, true),
+    light: { kind: 'facadeFlood', topZ: 50, halfW: 1.0 },
+  },
+  {
+    // Artbank Sydney + Mary MacKillop Place Museum — rendered modern art venues.
+    city: 'sydney',
+    key: 'artbank-sydney',
+    match: /Artbank Sydney|MacKillop Place/i,
+    foot: [2, 2],
+    seed: 4635,
+    draw: (seed) => galleryTile(seed, false),
+    light: { kind: 'facadeFlood', topZ: 50, halfW: 1.0 },
+  },
+  {
+    // Stanton Library — a suburban civic library (sandstone-and-render).
+    city: 'sydney',
+    key: 'stanton-library',
+    match: /Stanton Library/i,
+    foot: [2, 2],
+    seed: 4636,
+    draw: (seed) => heritageInstitutionTile(seed, false),
+    light: { kind: 'facadeFlood', topZ: 45, halfW: 1.0 },
+  },
+  {
+    // Tempe House, Boronia House, Yasmar, Hollowforth — colonial render houses.
+    city: 'sydney',
+    key: 'tempe-house',
+    match: /Tempe House|Boronia House|^Yasmar$|^Hollowforth$/i,
+    foot: [2, 2],
+    seed: 4637,
+    draw: (seed) => heritageInstitutionTile(seed, true),
+    light: { kind: 'facadeFlood', topZ: 45, halfW: 1.0 },
+  },
+  {
+    // Hotel Hollywood + the Sydney Bus Museum — modest heritage civic stock.
+    city: 'sydney',
+    key: 'hotel-hollywood',
+    match: /Hotel Hollywood|Sydney Bus Museum/i,
+    foot: [2, 2],
+    seed: 4638,
+    draw: (seed) => heritageInstitutionTile(seed, false),
+    light: { kind: 'facadeFlood', topZ: 45, halfW: 1.0 },
+  },
+
+  // ============================================================
+  // ROUND 3 — WATER & PORT INFRASTRUCTURE (placed) — the DNO/utility soul
+  // ============================================================
+  {
+    // Ashfield Reservoir — a ground-level covered service reservoir.
+    city: 'sydney',
+    key: 'ashfield-reservoir',
+    match: /Ashfield Reservoir/i,
+    foot: [2, 2],
+    seed: 4640,
+    draw: (seed) => reservoirTile(seed, false),
+    light: { kind: 'genericGlow', topZ: 20, halfW: 1.0 },
+  },
+  {
+    // Waverley Reservoir (Elevated) — a steel elevated water tower on legs.
+    city: 'sydney',
+    key: 'waverley-reservoir',
+    match: /Waverley Reservoir/i,
+    foot: [2, 2],
+    seed: 4641,
+    draw: (seed) => reservoirTile(seed, true),
+    light: { kind: 'aerialBeacon', topZ: 150, halfW: 0.6 },
+  },
+  {
+    city: 'sydney',
+    key: 'underground-grain-silos',
+    match: /grain silos|Grain Silos/i,
+    foot: [2, 2],
+    seed: 4642,
+    draw: (seed) => grainSilosTile(seed),
+    light: { kind: 'facadeFlood', topZ: 100, halfW: 1.0 },
+  },
+  {
+    // the museum-fleet vessels — MV Cape Don, the S 4058 lighter, etc.
+    city: 'sydney',
+    key: 'mv-cape-don',
+    match: /MV Cape Don|^S 4058$/i,
+    foot: [2, 2],
+    seed: 4643,
+    draw: (seed) => museumShipTile(seed),
+    light: { kind: 'aerialBeacon', topZ: 62, halfW: 1.0 },
+  },
+
+  // ============================================================
+  // ROUND 3 — AIRPORT (placed — a MONSTER footprint)
+  // ============================================================
+  {
+    // Terminal 2 — the domestic terminal (Jetstar / Virgin), blue tail.
+    city: 'sydney',
+    key: 'airport-terminal-2',
+    match: /Terminal 2\b/i,
+    foot: [5, 5],
+    seed: 4644,
+    draw: (seed) => airportTerminalTile(seed, false),
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 2.2 },
+  },
+  {
+    // Terminal 3 — the Qantas / REX terminal, red tail.
+    city: 'sydney',
+    key: 'airport-terminal-3',
+    match: /Terminal 3\b/i,
+    foot: [5, 5],
+    seed: 4645,
+    draw: (seed) => airportTerminalTile(seed, true),
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 2.2 },
+  },
+
+  // ============================================================
+  // ROUND 3 — CBD COMMERCIAL STOCK (research-backed; dormant until the
+  // matching name is placed, in the same ready-when-placed pattern as QVB /
+  // the heritage banks above — the draw + light are complete either way).
+  // ============================================================
+  {
+    city: 'sydney',
+    key: 'sirius-building',
+    match: /^Sirius\b|Sirius Building/i,
+    foot: [3, 3],
+    seed: 4650,
+    draw: (seed) => siriusTile(seed),
+    light: { kind: 'facadeFlood', topZ: 116, halfW: 1.6 },
+  },
+  {
+    city: 'sydney',
+    key: 'international-towers',
+    match: /International Towers/i,
+    foot: [3, 3],
+    seed: 4651,
+    draw: (seed) => internationalTowersTile(seed),
+    light: { kind: 'towerCrown', topZ: 320, halfW: 1.6 },
+  },
+  {
+    city: 'sydney',
+    key: 'icc-sydney',
+    match: /International Convention Centre|^ICC Sydney$/i,
+    foot: [5, 5],
+    seed: 4652,
+    draw: (seed) => iccTile(seed),
+    light: { kind: 'facadeFlood', topZ: 64, halfW: 2.2 },
+  },
+  {
+    city: 'sydney',
+    key: 'westfield-sydney',
+    match: /Westfield Sydney/i,
+    foot: [4, 4],
+    seed: 4653,
+    draw: (seed) => westfieldSydneyTile(seed),
+    light: { kind: 'towerCrown', topZ: 128, halfW: 1.9 },
+  },
+  {
+    city: 'sydney',
+    key: '1-bligh-street',
+    match: /1 Bligh Street/i,
+    foot: [2, 2],
+    seed: 4654,
+    draw: (seed) => blighStreetTile(seed),
+    light: { kind: 'towerCrown', topZ: 244, halfW: 0.7 },
+  },
+  {
+    city: 'sydney',
+    key: 'greenland-centre',
+    match: /Greenland Centre/i,
+    foot: [1, 1],
+    seed: 4655,
+    draw: (seed) => greenlandCentreTile(seed),
+    light: { kind: 'towerCrown', topZ: 360, halfW: 0.5 },
+  },
+  {
+    city: 'sydney',
+    key: 'one-central-park',
+    match: /One Central Park|Central Park\b/i,
+    foot: [3, 3],
+    seed: 4656,
+    draw: (seed) => oneCentralParkTile(seed),
+    // the cantilevered heliostat reflecting warm light + lit sky-garden
+    light: { kind: 'towerCrown', topZ: 200, halfW: 1.6 },
+  },
+  {
+    city: 'sydney',
+    key: 'strand-arcade',
+    match: /Strand Arcade/i,
+    foot: [3, 3],
+    seed: 4657,
+    draw: (seed) => strandArcadeTile(seed),
+    // the glazed arcade roof-ridge glowing from within
+    light: { kind: 'facadeFlood', topZ: 64, halfW: 1.6 },
   },
 ];

@@ -1560,6 +1560,788 @@ function abbayeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 }
 
 // =====================================================================
+// FAMOUS-ICON ROUND (enrichment wave): the world-famous Paris landmarks that
+// were absent from the placed `named` list. Each a bespoke draw + bespoke light.
+// =====================================================================
+
+// =====================================================================
+// PANTHÉON — Soufflot's neoclassical mausoleum on the Montagne Sainte-Geneviève:
+// a Greek-cross stone body fronted by a huge Corinthian portico + pediment, a
+// tall colonnaded DRUM and the great ribbed LEAD-GREY dome crowned by a lantern.
+// Like a grey-domed sibling of the Invalides. 2×2.
+// =====================================================================
+function pantheonTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 200 });
+  void seed;
+  const u0 = 0.4, u1 = 1.6, v0 = 0.42, v1 = 1.58;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.24);
+  // the cruciform stone base (windowless walls — the Panthéon's blank facades)
+  iso.box(u0, v0, u1, v1, 0, 48, LIME);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 10, shaded(LIME, 0.12), { ink: false });
+  // the great Corinthian portico across the front (the famous pronaos)
+  colonnade(iso, v1, u0 + 0.12, u1 - 0.12, 10, 44, 12, COLORS.white);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 48, 53, lighten(LIME, 0.08), { topC: top(LIME, 0.3) });
+  pediment(iso, v1, u0 + 0.14, u1 - 0.14, 53, 13, LIME);
+  // the tall colonnaded drum over the crossing
+  const cx = (u0 + u1) / 2, cy = (v0 + v1) / 2 - 0.04;
+  iso.box(cx - 0.38, cy - 0.38, cx + 0.38, cy + 0.38, 53, 78, lighten(LIME, 0.03));
+  const [drx, dryB] = iso.P(cx, cy + 0.38, 0);
+  const DR = 0.4 * (CELL_W / 2);
+  for (let i = 0; i <= 11; i++) {
+    const a = (i / 11) * Math.PI;
+    const px = drx + Math.cos(a) * DR;
+    const py = dryB - 65 * RES + Math.sin(a) * DR * 0.46;
+    iso.r.line([px, py - 9 * RES], [px, py + 9 * RES], 1.2 * RES, a < Math.PI * 0.45 ? lit(COLORS.white, 0.1) : COLORS.white);
+  }
+  iso.box(cx - 0.32, cy - 0.32, cx + 0.32, cy + 0.32, 78, 86, shaded(LIME, 0.06), { ink: false }); // attic balustrade ring
+  // the great ribbed LEAD dome + stone lantern (no gold — a sober grey-lead read)
+  const { tipX, tipY } = domeAt(iso, cx, cy, 86, DR * 0.9, 1.12, LEADG, { ribs: 8, bulb: true });
+  iso.r.rect(tipX - 2.6 * RES, tipY - 13 * RES, tipX + 2.6 * RES, tipY + 1 * RES, lighten(LIME, 0.12)); // lantern
+  iso.r.line([tipX, tipY - 13 * RES], [tipX, tipY - 22 * RES], 1.2 * RES, LIME_D); // finial
+  iso.glint([tipX, tipY - 7 * RES], 2.2 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// CENTRE POMPIDOU — Rogers & Piano high-tech: a transparent rectangular box
+// with the STRUCTURE and SERVICES thrown OUTSIDE — white cross-braced frame,
+// the glazed diagonal ESCALATOR tube snaking up the front, and the famous
+// COLOUR-CODED ducts (blue air / green water / yellow electrics / red circulation).
+// 2×2.
+// =====================================================================
+function pompidouTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 130 });
+  void seed;
+  const STEEL = hex('#dfe3e6'); // white structural steel
+  const STEEL_D = hex('#b6bcc2');
+  const GLASSB = hex('#7fa6c8');
+  const PIPE_BLUE = hex('#3f7fd0');
+  const PIPE_GREEN = hex('#3fae7a');
+  const PIPE_YEL = hex('#e7c245');
+  const PIPE_RED = hex('#d8533f');
+  const u0 = 0.34, u1 = 1.66, v0 = 0.4, v1 = 1.6;
+  const H = 96;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // a small open piazza (the sloping Place Beaubourg) on the front
+  iso.box(u0 - 0.04, v1, u1 + 0.04, v1 + 0.16, 0, 2, shaded(LIME, 0.2), { ink: false });
+  // the glazed box — read as glass through a white frame
+  iso.box(u0, v0, u1, v1, 0, H, alpha(GLASSB, 0.9), { topC: top(STEEL, 0.2) });
+  // the white exo-structure: storey floor bands + cross-braces on the front face
+  for (let f = 0; f <= 5; f++) {
+    const z = (H * f) / 5;
+    iso.r.line(iso.P(u0, v1, z), iso.P(u1, v1, z), 1.4 * RES, f % 1 === 0 ? STEEL : STEEL_D);
+  }
+  // diagonal cross-bracing (the gerberette trusses) on the front face
+  for (let i = 0; i < 5; i++) {
+    const ua = u0 + (i * (u1 - u0)) / 5, ub = u0 + ((i + 1) * (u1 - u0)) / 5;
+    const z0 = (H * i) / 5, z1 = (H * (i + 1)) / 5;
+    iso.r.line(iso.P(ua, v1, z0), iso.P(ub, v1, z1), 0.8 * RES, alpha(STEEL, 0.8));
+    iso.r.line(iso.P(ub, v1, z0), iso.P(ua, v1, z1), 0.8 * RES, alpha(STEEL, 0.8));
+  }
+  // the signature glazed ESCALATOR tube climbing diagonally across the front
+  const tube: Pt[] = [
+    iso.P(u0 + 0.06, v1 + 0.02, 4), iso.P(u1 - 0.1, v1 + 0.02, H - 6),
+    iso.P(u1 - 0.02, v1 + 0.02, H - 6), iso.P(u0 + 0.14, v1 + 0.02, 4),
+  ];
+  iso.r.poly(tube, alpha(GLASSB, 0.95), lit(STEEL, 0.1));
+  iso.r.polyline(tube, INK_W * 0.7, INK, true);
+  // rungs in the tube
+  for (let i = 1; i < 8; i++) {
+    const t = i / 8;
+    iso.r.line(
+      iso.P(u0 + 0.06 + (u1 - u0 - 0.16) * t, v1 + 0.02, 4 + (H - 10) * t),
+      iso.P(u0 + 0.1 + (u1 - u0 - 0.16) * t, v1 + 0.02, 4 + (H - 10) * t),
+      0.6 * RES, alpha(STEEL, 0.7),
+    );
+  }
+  // the COLOUR-CODED service ducts running up the RIGHT (rear) face — Pompidou's signature
+  const pipes = [PIPE_BLUE, PIPE_GREEN, PIPE_YEL, PIPE_RED];
+  for (let i = 0; i < 4; i++) {
+    const v = v0 + 0.12 + i * 0.26;
+    iso.box(u1 - 0.005, v - 0.04, u1 + 0.06, v + 0.04, 6, H - 4, pipes[i]!, { ink: false });
+  }
+  // a couple of big round duct mouths on top (the rooftop plant)
+  for (const [pu, pv, col] of [[u0 + 0.3, v0 + 0.3, PIPE_BLUE], [u0 + 0.7, v0 + 0.5, STEEL_D]] as const) {
+    const [mx, my] = iso.P(pu, pv, H);
+    iso.r.line([mx, my - 8 * RES], [mx, my], 3 * RES, col as RGBA);
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// TOUR MONTPARNASSE — the lone 210 m bronze-black glass monolith that stands
+// apart from every other Paris building: a slim slab with gently curved long
+// faces, a uniform dark curtain wall and a flat plant-room crown. Slim 1×1 with
+// big headroom — it spikes far above the fabric.
+// =====================================================================
+function montparnasseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 360 });
+  void seed;
+  const GLASS = hex('#2c333f'); // bronze-smoked near-black glass
+  const GLASS_L = hex('#454e5d');
+  const MULL = hex('#1c222b');
+  const u = 0.5, v = 0.52, b = 0.26, H = 250;
+  iso.shadow(u - b, v - b * 0.4, u + b, v + b, 0.5, 0.3);
+  // a low granite plaza base
+  iso.box(u - 0.34, v - 0.34, u + 0.34, v + 0.34, 0, 8, shaded(hex('#5a5f66'), 0.1), { ink: false });
+  // the great dark slab — long axis along v so the broad curved face reads
+  iso.box(u - b, v - b * 0.62, u + b, v + b * 0.62, 8, H, GLASS, {
+    leftC: shaded(GLASS, 0.18),
+    rightC: GLASS_L,
+    topC: shaded(GLASS, 0.28),
+  });
+  // dense vertical mullions on both visible faces (the curtain-wall grid)
+  for (let i = 1; i < 11; i++) {
+    const t = i / 11;
+    iso.r.line(iso.P(u - b + 2 * b * t, v + b * 0.62, 10), iso.P(u - b + 2 * b * t, v + b * 0.62, H - 4), 0.5 * RES, alpha(MULL, 0.55));
+  }
+  for (let i = 1; i < 7; i++) {
+    const t = i / 7;
+    iso.r.line(iso.P(u + b, v - b * 0.62 + 1.24 * b * t, 10), iso.P(u + b, v - b * 0.62 + 1.24 * b * t, H - 4), 0.5 * RES, alpha(MULL, 0.45));
+  }
+  // faint horizontal floor bands
+  for (let f = 1; f < 16; f++) {
+    const z = 10 + ((H - 14) * f) / 16;
+    iso.r.line(iso.P(u - b, v + b * 0.62, z), iso.P(u + b, v + b * 0.62, z), 0.4 * RES, alpha(GLASS_L, 0.3));
+  }
+  // a subtle warm sky-reflection catch down the lit (right) face
+  iso.gleam(iso.P(u + b, v - b * 0.5, H - 20), iso.P(u + b, v + b * 0.5, 40), 0.9 * RES);
+  // flat plant-room crown + a tiny mast
+  iso.box(u - b * 0.92, v - b * 0.56, u + b * 0.92, v + b * 0.56, H, H + 10, MULL, { ink: false });
+  const [tx, ty] = iso.P(u, v, H + 10);
+  iso.r.line([tx, ty], [tx, ty - 14 * RES], 1 * RES, alpha(COLORS.white, 0.7));
+  return iso.build();
+}
+
+// =====================================================================
+// HÔTEL DE VILLE — Ballu's Renaissance-Revival city hall: a long ornate stone
+// facade studded with statue niches and dormers under steep blue-grey roofs,
+// rising at the centre to a tall pavilion carrying the great CLOCK and an
+// ornate roof-lantern, with matching corner pavilions + their own roofs. 2×2.
+// =====================================================================
+function hotelDeVilleTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 150 });
+  void seed;
+  const ROOF = hex('#46566b'); // bluish slate
+  const u0 = 0.32, u1 = 1.68, v0 = 0.42, v1 = 1.58;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.24);
+  // the long ornate stone body
+  iso.box(u0, v0, u1, v1, 0, 52, LIME);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 11, shaded(LIME, 0.12), { ink: false });
+  // two storeys of tall arched windows + a statue niche rhythm on the front
+  iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 14, 28, 9, alpha(COLORS.glassLit, 0.55), COLORS.white);
+  iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 32, 46, 9, alpha(COLORS.glassLit, 0.5), COLORS.white);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 52, 56, lighten(LIME, 0.08), { topC: top(LIME, 0.3) });
+  // steep slate mansard with dormers over the wings
+  iso.gable(u0, v0, u1, v1, 56, 18, 'u', ROOF, LIME);
+  for (let i = 0; i < 6; i++) {
+    const u = u0 + 0.16 + i * 0.24;
+    const [dx, dy] = iso.P(u, v1, 60);
+    iso.r.poly([[dx - 2 * RES, dy], [dx + 2 * RES, dy], [dx + 2 * RES, dy - 5 * RES], [dx, dy - 8 * RES], [dx - 2 * RES, dy - 5 * RES]], lit(ROOF, 0.08));
+    iso.r.rect(dx - 1 * RES, dy - 4 * RES, dx + 1 * RES, dy, alpha(COLORS.glassDark, 0.8));
+  }
+  // corner pavilions, taller, with their own steep pyramidal roofs
+  for (const cu of [u0 + 0.14, u1 - 0.14] as const) {
+    iso.box(cu - 0.16, v1 - 0.34, cu + 0.16, v1, 0, 64, LIME);
+    iso.hip(cu - 0.18, v1 - 0.36, cu + 0.18, v1 + 0.02, 64, 18, ROOF);
+    const ap = iso.P(cu, v1 - 0.17, 82);
+    iso.r.line(ap, [ap[0], ap[1] - 4 * RES], 0.9 * RES, GILT);
+  }
+  // the dominant CENTRAL pavilion — a tall ornate stone mass that towers over
+  // the wings (so the city hall reads as a civic monument, not just fabric)
+  const cx = (u0 + u1) / 2, cy = v1 - 0.22;
+  iso.box(cx - 0.24, cy - 0.24, cx + 0.24, cy, 0, 98, lighten(LIME, 0.03));
+  // the great gilt clock face high on the front
+  const [clx, cly] = iso.P(cx, cy, 78);
+  const RR = 5.4 * RES;
+  const ring: Pt[] = [];
+  for (let i = 0; i <= 18; i++) { const a = (i / 18) * Math.PI * 2; ring.push([clx + Math.cos(a) * RR, cly - RR + Math.sin(a) * RR]); }
+  iso.r.poly(ring, GILT_HOT);
+  iso.r.polyline(ring, INK_W * 0.7, INK, true);
+  iso.r.line([clx, cly - RR], [clx, cly - RR - 3 * RES], 1 * RES, INK);
+  iso.r.line([clx, cly - RR], [clx + 2.4 * RES, cly - RR + 1 * RES], 1 * RES, INK);
+  // statue niches flanking the clock
+  for (const su of [cx - 0.16, cx + 0.16] as const) {
+    const [sx, syB] = iso.P(su, cy, 50);
+    iso.r.poly([[sx - 1.4 * RES, syB], [sx + 1.4 * RES, syB], [sx + 0.8 * RES, syB - 11 * RES], [sx - 0.8 * RES, syB - 11 * RES]], lighten(LIME, 0.06));
+  }
+  // a tall steep ornate roof + lantern crowning the central pavilion
+  iso.hip(cx - 0.26, cy - 0.26, cx + 0.26, cy + 0.02, 98, 22, ROOF);
+  const [lx, lyB] = iso.P(cx, cy - 0.12, 120);
+  iso.r.rect(lx - 2.8 * RES, lyB - 12 * RES, lx + 2.8 * RES, lyB, lighten(LIME, 0.1));
+  iso.r.line([lx, lyB - 12 * RES], [lx, lyB - 24 * RES], 1.2 * RES, GILT);
+  iso.glint([lx, lyB - 6 * RES], 2.2 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// LA SORBONNE — the Chapelle Sainte-Ursule de la Sorbonne: a baroque college
+// chapel with a pedimented stone facade and a tall drummed LEAD dome + lantern,
+// fronting the long ranges of the university. 2×2.
+// =====================================================================
+function sorbonneTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 150 });
+  void seed;
+  const u0 = 0.4, u1 = 1.6, v0 = 0.44, v1 = 1.56;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // the long college ranges (a quiet stone block with regular windows)
+  iso.box(u0, v0, u1, v1, 0, 50, LIME);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 10, shaded(LIME, 0.12), { ink: false });
+  iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, 14, 42, 10, alpha(COLORS.glassDark, 0.8), COLORS.white);
+  iso.gable(u0, v0, u1, v1, 50, 12, 'u', ZINC, LIME);
+  // the chapel's pedimented temple-front projecting on the front-left
+  const fu = u0 + 0.42;
+  iso.box(fu - 0.26, v1 - 0.14, fu + 0.26, v1, 0, 54, lighten(LIME, 0.04));
+  colonnade(iso, v1, fu - 0.22, fu + 0.22, 8, 44, 6, COLORS.white);
+  pediment(iso, v1, fu - 0.24, fu + 0.24, 54, 12, LIME);
+  // the tall drummed LEAD dome over the crossing (the Sorbonne's signature) —
+  // raised well above the college ranges so it reads as the dome of the Latin Quarter
+  const cx = u0 + 0.62, cy = (v0 + v1) / 2;
+  iso.box(cx - 0.22, cy - 0.22, cx + 0.22, cy + 0.22, 50, 92, lighten(LIME, 0.03)); // tall drum
+  // ring of drum columns
+  for (let i = 0; i <= 6; i++) {
+    const a = (i / 6) * Math.PI;
+    const [px, pyB] = iso.P(cx, cy + 0.22, 0);
+    const x = px + Math.cos(a) * 0.22 * (CELL_W / 2);
+    const y = pyB - 80 * RES + Math.sin(a) * 0.22 * (CELL_W / 2) * 0.46;
+    iso.r.line([x, y - 8 * RES], [x, y + 7 * RES], 1 * RES, a < Math.PI * 0.45 ? lit(COLORS.white, 0.08) : COLORS.white);
+  }
+  iso.box(cx - 0.2, cy - 0.2, cx + 0.2, cy + 0.2, 92, 98, shaded(LIME, 0.06), { ink: false }); // attic ring
+  const { tipX, tipY } = domeAt(iso, cx, cy, 98, 0.26 * (CELL_W / 2), 1.22, LEADG, { ribs: 7, bulb: true });
+  iso.r.rect(tipX - 2.2 * RES, tipY - 11 * RES, tipX + 2.2 * RES, tipY + 1 * RES, lighten(LIME, 0.1)); // lantern
+  iso.r.line([tipX, tipY - 11 * RES], [tipX, tipY - 20 * RES], 1 * RES, LIME_D);
+  iso.glint([tipX, tipY - 6 * RES], 2 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// INSTITUT DE FRANCE — Le Vau's Collège des Quatre-Nations: a sweeping CONCAVE
+// Baroque facade whose curved wings embrace a central pavilion carrying the
+// famous saucer DOME of the Académie française, flanked by two pedimented
+// pavilions. The river-facing crescent. 2×1 (broad + shallow).
+// =====================================================================
+function institutDeFranceTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 1, { swAnchor: true, headroom: 150 });
+  void seed;
+  const u0 = 0.22, u1 = 1.78, v = 0.72;
+  iso.shadow(u0, 0.4, u1, v + 0.2, 0.18, 0.2);
+  // the concave crescent of wings — drawn as a shallow arc of stone bays
+  const N = 11;
+  for (let i = 0; i < N; i++) {
+    const t = i / (N - 1);
+    const u = u0 + (u1 - u0) * t;
+    // concave: ends step forward (toward v larger), centre recedes
+    const bulge = (Math.cos((t - 0.5) * Math.PI)) * 0.12;
+    const vv = v - 0.18 + bulge;
+    const h = 46 + Math.sin(t * Math.PI) * 6;
+    iso.box(u - 0.05, vv, u + 0.05, vv + 0.16, 0, h, i % 2 ? LIME : lighten(LIME, 0.04));
+  }
+  // the two flanking pavilions (ends), pedimented + taller
+  for (const cu of [u0 + 0.1, u1 - 0.1] as const) {
+    iso.box(cu - 0.13, v - 0.06, cu + 0.13, v + 0.12, 0, 58, lighten(LIME, 0.03));
+    pediment(iso, v + 0.12, cu - 0.14, cu + 0.14, 58, 12, LIME);
+    iso.hip(cu - 0.14, v - 0.07, cu + 0.14, v + 0.13, 58, 12, ZINC);
+  }
+  // the central domed pavilion (the Mazarin dome — the building's whole identity),
+  // raised tall so the saucer dome clearly tops the riverfront crescent
+  const cx = (u0 + u1) / 2;
+  iso.box(cx - 0.18, v - 0.22, cx + 0.18, v - 0.02, 0, 60, LIME);
+  colonnade(iso, v - 0.02, cx - 0.15, cx + 0.15, 10, 54, 4, COLORS.white);
+  pediment(iso, v - 0.02, cx - 0.16, cx + 0.16, 60, 10, LIME);
+  iso.box(cx - 0.16, v - 0.2, cx + 0.16, v - 0.04, 70, 88, lighten(LIME, 0.04)); // tall drum
+  // little drum buttress columns
+  for (let i = 0; i <= 5; i++) {
+    const a = (i / 5) * Math.PI;
+    const [px, pyB] = iso.P(cx, v - 0.04, 0);
+    const x = px + Math.cos(a) * 0.16 * (CELL_W / 2);
+    const y = pyB - 78 * RES + Math.sin(a) * 0.16 * (CELL_W / 2) * 0.46;
+    iso.r.line([x, y - 6 * RES], [x, y + 6 * RES], 0.9 * RES, a < Math.PI * 0.45 ? lit(COLORS.white, 0.08) : COLORS.white);
+  }
+  const { tipX, tipY } = domeAt(iso, cx, v - 0.12, 88, 0.2 * (CELL_W / 2), 0.95, LEADG, { ribs: 7, bulb: true });
+  // gilt lantern + finial
+  iso.r.rect(tipX - 2.2 * RES, tipY - 10 * RES, tipX + 2.2 * RES, tipY + 1 * RES, lighten(LIME, 0.1));
+  iso.r.line([tipX, tipY - 10 * RES], [tipX, tipY - 18 * RES], 1 * RES, GILT);
+  iso.glint([tipX, tipY - 5 * RES], 2 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// CONCIERGERIE — the medieval royal palace on the Seine quay: a long fortified
+// stone range with the TWIN ROUND towers (Tour de César + Tour d'Argent) and the
+// square Tour de l'Horloge carrying Paris's first public clock, all under steep
+// conical/pyramidal lead roofs. 2×1 (a riverfront wall).
+// =====================================================================
+function conciergerieTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 1, { swAnchor: true, headroom: 130 });
+  void seed;
+  const ST = hex('#c9bfa6');
+  const ROOF = hex('#3f4a5a');
+  const u0 = 0.18, u1 = 1.82, v0 = 0.46, v1 = 0.86;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // the long curtain range with machicolation + small windows
+  iso.box(u0, v0, u1, v1, 0, 40, ST);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 8, shaded(ST, 0.12), { ink: false });
+  iso.windowsLeft(v1, u0 + 0.1, u1 - 0.1, 16, 32, 10, alpha(COLORS.glassDark, 0.85), ST);
+  iso.gable(u0, v0, u1, v1, 40, 10, 'u', ROOF, ST);
+  // a round tower with a tall conical pepperpot roof
+  const roundTower = (cu: number, h: number, r = 0.15): void => {
+    iso.box(cu - r, v1 - r * 1.5, cu + r, v1 + r * 0.2, 0, h, ST);
+    iso.box(cu - r - 0.02, v1 - r * 1.5 - 0.02, cu + r + 0.02, v1 + r * 0.2 + 0.02, h, h + 4, lighten(ST, 0.06), { ink: false }); // machicolated ring
+    const apex = iso.P(cu, v1 - r * 0.65, h + 34);
+    const c0 = iso.P(cu - r, v1 + r * 0.2, h + 4);
+    const c1 = iso.P(cu + r, v1 + r * 0.2, h + 4);
+    const c2 = iso.P(cu + r, v1 - r * 1.5, h + 4);
+    iso.r.poly([c0, c1, apex], shaded(ROOF, 0.06));
+    iso.r.poly([c1, c2, apex], lit(ROOF, 0.06));
+    iso.r.polyline([c0, apex, c2], INK_W * 0.6, INK);
+    iso.r.line(apex, [apex[0], apex[1] - 4 * RES], 0.9 * RES, GILT);
+  };
+  // the famous twin round towers near the left (Tour d'Argent + Tour de César)
+  roundTower(u0 + 0.26, 74);
+  roundTower(u0 + 0.56, 74);
+  // the square Tour de l'Horloge with its gilt clock, on the right corner
+  const tu = u1 - 0.22, th = 92;
+  iso.box(tu - 0.15, v1 - 0.3, tu + 0.15, v1, 0, th, ST);
+  const [clx, cly] = iso.P(tu, v1, 66);
+  const RR = 3.6 * RES;
+  const cr: Pt[] = [];
+  for (let i = 0; i <= 16; i++) { const a = (i / 16) * Math.PI * 2; cr.push([clx + Math.cos(a) * RR, cly - RR + Math.sin(a) * RR]); }
+  iso.r.poly(cr, GILT_HOT);
+  iso.r.polyline(cr, INK_W * 0.6, INK, true);
+  // a steep slate cap + finial on the clock tower
+  iso.hip(tu - 0.16, v1 - 0.32, tu + 0.16, v1 + 0.02, th, 16, ROOF);
+  const ap = iso.P(tu, v1 - 0.15, th + 16);
+  iso.r.line(ap, [ap[0], ap[1] - 6 * RES], 1 * RES, GILT);
+  iso.glint([clx, cly - RR], 2 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// SAINTE-CHAPELLE — Saint Louis's reliquary chapel: a tall, narrow High-Gothic
+// jewel-box that is almost ALL glass between slim buttresses, crowned by the
+// breathtakingly tall, slender, crocketed FLÈCHE. Slim 1×1, big headroom — the
+// spire spikes far above the island.
+// =====================================================================
+function sainteChapelleTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 320 });
+  void seed;
+  const ST = hex('#cfc7b3'); // pale gothic limestone
+  const ROOF = hex('#46566b');
+  const GLOW = hex('#c97a8a'); // rose-glass warmth at dusk
+  const u = 0.5, v = 0.5, b = 0.22, H = 112;
+  iso.shadow(u - b, v - b * 0.4, u + b, v + b, 0.4, 0.26);
+  // the tall narrow chapel body — read as glass between slim stone piers
+  iso.box(u - b, v - b, u + b, v + b, 0, H, alpha(GLOW, 0.55), { topC: top(ST, 0.2) });
+  // slim buttress piers up the visible faces
+  for (let i = 0; i <= 4; i++) {
+    const t = i / 4;
+    iso.r.line(iso.P(u - b + 2 * b * t, v + b, 4), iso.P(u - b + 2 * b * t, v + b, H - 4), 1.1 * RES, i % 2 ? lit(ST, 0.06) : ST);
+  }
+  for (let i = 0; i <= 3; i++) {
+    const t = i / 3;
+    iso.r.line(iso.P(u + b, v - b + 2 * b * t, 4), iso.P(u + b, v - b + 2 * b * t, H - 4), 1.1 * RES, ST);
+  }
+  // tall lancet window tops (pointed arches) glowing rose
+  for (let i = 0; i < 3; i++) {
+    const uu = u - b + 0.06 + i * (2 * b - 0.12) / 2;
+    const [ax, ay] = iso.P(uu, v + b, H - 8);
+    iso.r.poly([[ax - 2.4 * RES, ay], [ax + 2.4 * RES, ay], [ax, ay - 8 * RES]], alpha(GLOW, 0.8));
+  }
+  // a steep lead roof ridge
+  iso.gable(u - b, v - b, u + b, v + b, H, 14, 'v', ROOF, ST);
+  // the soaring crocketed FLÈCHE — a very tall slim spire (the signature)
+  const [sx, syB] = iso.P(u, v, H + 14);
+  const tipY = syB - 130 * RES;
+  iso.r.poly([[sx - 4 * RES, syB], [sx + 4 * RES, syB], [sx, tipY]], lit(ROOF, 0.04));
+  iso.r.polyline([[sx - 4 * RES, syB], [sx, tipY], [sx + 4 * RES, syB]], INK_W * 0.6, INK);
+  // crockets — little barbs up the spire edges
+  for (let i = 1; i < 7; i++) {
+    const t = i / 7;
+    const ex = sx + 4 * RES * (1 - t), ey = syB - 130 * RES * t;
+    iso.r.line([ex, ey], [ex + 2.2 * RES, ey + 0.6 * RES], 0.8 * RES, GILT);
+    iso.r.line([2 * sx - ex, ey], [2 * sx - ex - 2.2 * RES, ey + 0.6 * RES], 0.8 * RES, GILT);
+  }
+  iso.r.line([sx, tipY], [sx, tipY - 8 * RES], 1 * RES, GILT_HOT); // finial cross stem
+  iso.glint([sx, tipY], 2 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// PETIT PALAIS — Girault's Belle-Époque art museum: a low Beaux-Arts stone
+// palace with a grand arched ENTRANCE PORCH under a flat-saucer LEAD dome, an
+// Ionic colonnade wrapping the wings, and a gilded wrought-iron gate. 2×2.
+// =====================================================================
+function petitPalaisTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 90 });
+  void seed;
+  const u0 = 0.36, u1 = 1.64, v0 = 0.44, v1 = 1.56;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // the low wings
+  iso.box(u0, v0, u1, v1, 0, 38, LIME);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 9, shaded(LIME, 0.12), { ink: false });
+  // an Ionic colonnade wrapping the front wings
+  colonnade(iso, v1, u0 + 0.08, u1 - 0.08, 8, 34, 16, COLORS.white);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 38, 43, lighten(LIME, 0.08), { topC: top(LIME, 0.3) });
+  // the grand central entrance porch — a tall arched bay projecting on the front
+  const cx = (u0 + u1) / 2, cy = v1 - 0.12;
+  iso.box(cx - 0.22, cy - 0.06, cx + 0.22, cy + 0.12, 0, 50, lighten(LIME, 0.04));
+  // the big round-headed arch
+  const arch: Pt[] = [iso.P(cx - 0.16, cy + 0.12, 6), iso.P(cx - 0.16, cy + 0.12, 28)];
+  for (let j = 0; j <= 10; j++) { const t = j / 10; arch.push(iso.P(cx - 0.16 + 0.32 * t, cy + 0.12, 28 + Math.sin(t * Math.PI) * 12)); }
+  arch.push(iso.P(cx + 0.16, cy + 0.12, 28), iso.P(cx + 0.16, cy + 0.12, 6));
+  iso.r.poly(arch, alpha(COLORS.glassDark, 0.85));
+  iso.r.polyline(arch, INK_W * 0.6, INK, true);
+  // the flat-saucer LEAD dome over the porch
+  iso.box(cx - 0.2, cy - 0.08, cx + 0.2, cy + 0.1, 50, 56, lighten(LIME, 0.04));
+  const { tipX, tipY } = domeAt(iso, cx, cy + 0.01, 56, 0.24 * (CELL_W / 2), 0.55, LEADG, { ribs: 7 });
+  iso.r.line([tipX, tipY], [tipX, tipY - 8 * RES], 1.2 * RES, GILT); // finial
+  // gilt railing pips along the parapet (the famous golden gate read)
+  for (let i = 0; i <= 8; i++) {
+    const [gx, gy] = iso.P(u0 + 0.1 + i * (u1 - u0 - 0.2) / 8, v1, 44);
+    iso.r.line([gx, gy], [gx, gy - 3 * RES], 0.7 * RES, GILT_HOT);
+  }
+  iso.glint([tipX, tipY - 3 * RES], 2 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// PALAIS DE CHAILLOT — the 1937 Trocadéro palace: TWO sweeping curved
+// colonnaded stone wings (the pavillons de Paris & de Passy) that frame a wide
+// empty terrace between them — the gap deliberately FRAMES the Eiffel view. Gilt
+// inscriptions band the friezes. 2×2 (with an open centre).
+// =====================================================================
+function chaillotTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 90 });
+  void seed;
+  const u0 = 0.3, u1 = 1.7, v0 = 0.42, v1 = 1.58;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.2);
+  // the wide terrace floor (the famous esplanade, open in the middle)
+  iso.box(u0, v0, u1, v1, 0, 6, shaded(LIME, 0.14), { ink: false });
+  iso.quad(u0 + 0.2, v0 + 0.2, u1 - 0.2, v1 - 0.2, 6, top(LIME, 0.36)); // bright terrace deck
+  // a curved colonnaded wing as an arc of columned bays
+  const wing = (sign: number): void => {
+    const N = 9;
+    for (let i = 0; i < N; i++) {
+      const t = i / (N - 1);
+      // arc sweeping from the centre-back out toward a front corner
+      const cu = (u0 + u1) / 2 + sign * (0.18 + t * 0.5);
+      const cv = v1 - 0.12 - Math.sin(t * Math.PI * 0.5) * 0.5;
+      iso.box(cu - 0.05, cv - 0.05, cu + 0.05, cv + 0.07, 6, 40, i % 2 ? LIME : lighten(LIME, 0.05));
+      // column shafts hint
+      iso.r.line(iso.P(cu, cv + 0.07, 8), iso.P(cu, cv + 0.07, 36), 0.7 * RES, COLORS.white);
+    }
+    // the gilt frieze band capping the wing
+    const eu = (u0 + u1) / 2 + sign * 0.68, ev = v1 - 0.12 - 0.5;
+    const cu0 = (u0 + u1) / 2 + sign * 0.18;
+    iso.r.line(iso.P(cu0, v1 - 0.05, 41), iso.P(eu, ev + 0.02, 41), 1.4 * RES, GILT_HOT);
+    // a corner pavilion block at the wing's outer end
+    iso.box(eu - 0.1, ev - 0.06, eu + 0.1, ev + 0.08, 6, 48, LIME);
+    iso.box(eu - 0.11, ev - 0.07, eu + 0.11, ev + 0.09, 48, 52, ZINC, { ink: false });
+  };
+  wing(-1);
+  wing(1);
+  // a couple of gilt statues on the terrace edge (the Trocadéro golden figures)
+  for (const su of [(u0 + u1) / 2 - 0.5, (u0 + u1) / 2 + 0.5] as const) {
+    const [stx, sty] = iso.P(su, v1 - 0.16, 6);
+    iso.r.poly([[stx - 1.4 * RES, sty], [stx + 1.4 * RES, sty], [stx + 0.8 * RES, sty - 9 * RES], [stx - 0.8 * RES, sty - 9 * RES]], GILT);
+    iso.glint([stx, sty - 7 * RES], 1.6 * RES);
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// LA GRANDE ARCHE DE LA DÉFENSE — von Spreckelsen's hollow CUBE: a colossal
+// open-centred marble-and-glass cube (a 20th-c. Arc de Triomphe) standing on the
+// historic axis, with the soft suspended "cloud" canopy slung within the void.
+// 2×2 with headroom — a clean monumental silhouette.
+// =====================================================================
+function grandeArcheTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 180 });
+  void seed;
+  const MARBLE = hex('#e9eaec'); // white Carrara cladding
+  const MARBLE_D = hex('#c4c7cc');
+  const GLASS = hex('#8fb0cc');
+  const u0 = 0.42, u1 = 1.58, v0 = 0.44, v1 = 1.56;
+  const H = 132, T = 0.2; // cube height + frame thickness (in u/v units)
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.24);
+  // the parvis slab the cube stands on
+  iso.box(u0 - 0.06, v0 - 0.06, u1 + 0.06, v1 + 0.06, 0, 6, shaded(MARBLE, 0.14), { ink: false });
+  // the cube as a thick square frame: two side piers + top + bottom lintel,
+  // leaving the centre VOID (the hole that makes it the Grande Arche).
+  // left pier (front-left leg)
+  iso.box(u0, v1 - T, u1, v1, 6, H, MARBLE, { rightC: lit(MARBLE, 0.1), leftC: shaded(MARBLE, 0.14) });
+  // right pier (the far leg, drawn behind)
+  iso.box(u0, v0, u1, v0 + T, 6, H, MARBLE_D, { ink: true });
+  // the glazed inner reveals of the two legs (the office windows lining the hole)
+  iso.windowsLeft(v1 - T, u0 + 0.06, u1 - 0.06, 12, H - 8, 8, alpha(GLASS, 0.7), MARBLE);
+  // bottom lintel (the base bridge across the legs) + top roof slab
+  iso.box(u0, v0, u1, v1, 6, 6 + T * 60, MARBLE_D, { ink: false });
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, H - T * 60, H, MARBLE, { topC: top(MARBLE, 0.3) });
+  // the deep square VOID read: a dark inner opening between the legs/lintels
+  const void0 = iso.P(u0 + 0.18, v1 - T - 0.02, 6 + T * 60);
+  const voidPts: Pt[] = [
+    iso.P(u0 + 0.16, v1 - T, 6 + T * 60), iso.P(u1 - 0.16, v1 - T, 6 + T * 60),
+    iso.P(u1 - 0.16, v1 - T, H - T * 60), iso.P(u0 + 0.16, v1 - T, H - T * 60),
+  ];
+  void void0;
+  iso.r.poly(voidPts, alpha(hex('#3a4250'), 0.55));
+  // grid lines cladding the front faces (the marble panel joints)
+  for (let i = 1; i < 6; i++) {
+    const z = 6 + ((H - 12) * i) / 6;
+    iso.r.line(iso.P(u0, v1, z), iso.P(u1, v1, z), 0.4 * RES, alpha(MARBLE_D, 0.5));
+  }
+  // the suspended "nuage" canopy slung in the void (a soft pale membrane)
+  const nuage: Pt[] = [
+    iso.P(u0 + 0.24, v1 - T - 0.01, 44), iso.P(u1 - 0.24, v1 - T - 0.01, 50),
+    iso.P(u1 - 0.3, v1 - T - 0.01, 62), iso.P(u0 + 0.3, v1 - T - 0.01, 56),
+  ];
+  iso.r.poly(nuage, alpha(COLORS.white, 0.5));
+  iso.gleam(iso.P(u1, v0, H), iso.P(u1, v1, H), 0.9 * RES); // catch on the top-right edge
+  return iso.build();
+}
+
+// =====================================================================
+// STADE DE FRANCE — the great national stadium at Saint-Denis: a vast elliptical
+// bowl ringed by a FLOATING elliptical roof (the "saturn" canopy) carried on a
+// ring of slim masts, glowing from the floodlit pitch within. A monster venue. 3×3.
+// =====================================================================
+function stadeDeFranceTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 110 });
+  void seed;
+  const STEEL = hex('#c3c9cf');
+  const ROOF = hex('#9aa3ab');
+  const cx = 1.5, cy = 1.5;
+  iso.shadow(0.4, 0.4, 2.6, 2.6, 0.22, 0.2);
+  const RU = 1.0; // ellipse radius in tile units (u), screen ellipse is 2:1
+  const ellipse = (rad: number, z: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 40; i++) {
+      const a = (i / 40) * Math.PI * 2;
+      pts.push(iso.P(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad, z));
+    }
+    return pts;
+  };
+  // the outer bowl wall (raked concrete tiers) as a stack of rings
+  iso.r.poly(ellipse(RU, 0), shaded(STEEL, 0.14)); // ground footprint
+  // bowl outer skin
+  const outerLow = ellipse(RU, 4), outerHigh = ellipse(RU * 0.96, 40);
+  for (let i = 0; i < 40; i++) {
+    iso.r.poly([outerLow[i]!, outerLow[i + 1]!, outerHigh[i + 1]!, outerHigh[i]!], i < 20 ? lit(STEEL, 0.06) : shaded(STEEL, 0.1));
+  }
+  iso.r.polyline(ellipse(RU, 4), INK_W * 0.8, INK, true);
+  // the glowing pitch + seating bowl inside (floodlit green)
+  iso.r.poly(ellipse(RU * 0.82, 40), shaded(STEEL, 0.2)); // inner upper rim
+  iso.r.poly(ellipse(RU * 0.5, 18), alpha(hex('#3f7d4a'), 0.9)); // the lit pitch
+  iso.r.poly(ellipse(RU * 0.66, 30), alpha(hex('#243042'), 0.6)); // seating shadow band
+  // the FLOATING elliptical roof ring (the saturn canopy) hovering above the rim
+  const roofZ = 64;
+  const roofOuter = ellipse(RU * 1.06, roofZ), roofInner = ellipse(RU * 0.74, roofZ);
+  for (let i = 0; i < 40; i++) {
+    iso.r.poly([roofOuter[i]!, roofOuter[i + 1]!, roofInner[i + 1]!, roofInner[i]!], i < 20 ? lit(ROOF, 0.08) : ROOF);
+  }
+  iso.r.polyline(roofOuter, INK_W * 0.8, INK, true);
+  iso.r.polyline(roofInner, INK_W * 0.7, INK, true); // the inner oculus rim
+  // slim masts carrying the roof + a sparkle of floodlights on the inner edge
+  for (let i = 0; i < 40; i += 5) {
+    const a = (i / 40) * Math.PI * 2;
+    const base = iso.P(cx + Math.cos(a) * RU * 1.0, cy + Math.sin(a) * RU * 1.0, 40);
+    const tip = iso.P(cx + Math.cos(a) * RU * 1.06, cy + Math.sin(a) * RU * 1.06, roofZ);
+    iso.r.line(base, tip, 0.7 * RES, alpha(STEEL, 0.8));
+  }
+  for (let i = 0; i < 40; i += 4) {
+    const a = (i / 40) * Math.PI * 2;
+    const [fx, fy] = iso.P(cx + Math.cos(a) * RU * 0.74, cy + Math.sin(a) * RU * 0.74, roofZ);
+    iso.glint([fx, fy], 1.6 * RES);
+  }
+  return iso.build();
+}
+
+// =====================================================================
+// GALERIES LAFAYETTE — the Boulevard Haussmann flagship store: a Haussmann
+// stone block crowned by the famous Art-Nouveau steel-and-STAINED-GLASS corner
+// CUPOLA (a great glowing neo-Byzantine dome of coloured glass) with flagpoles.
+// 2×2.
+// =====================================================================
+function galeriesLafayetteTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 120 });
+  void seed;
+  const u0 = 0.36, u1 = 1.64, v0 = 0.44, v1 = 1.56;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // the Haussmann department-store block (big glazed shopfronts at street level)
+  iso.box(u0, v0, u1, v1, 0, 56, LIME);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 14, alpha(COLORS.glassLit, 0.6), { ink: false }); // lit shopfronts
+  iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 18, 50, 10, alpha(COLORS.glassLit, 0.5), COLORS.white);
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 56, 61, lighten(LIME, 0.08), { topC: top(LIME, 0.3) });
+  // ornate mansard with the gold "GALERIES LAFAYETTE" frieze band
+  iso.gable(u0, v0, u1, v1, 61, 12, 'u', ZINC, LIME);
+  iso.r.line(iso.P(u0, v1, 58), iso.P(u1, v1, 58), 1.6 * RES, GILT_HOT);
+  // the great STAINED-GLASS cupola on the corner (the icon) — a glowing coloured dome
+  const cx = u0 + 0.5, cy = v0 + 0.5;
+  iso.box(cx - 0.22, cy - 0.22, cx + 0.22, cy + 0.22, 56, 72, lighten(LIME, 0.04)); // drum the dome sits on
+  const [dx, dyB] = iso.P(cx, cy, 72);
+  const rPx = 0.26 * (CELL_W / 2), rise = rPx * 1.5;
+  // coloured-glass dome built as tinted gores so it reads stained-glass
+  const tints = [hex('#caa24a'), hex('#9c6f3e'), hex('#b5894a'), hex('#d8b65c')];
+  const gores = 8;
+  for (let g = 0; g < gores; g++) {
+    const a0 = (g / gores) * Math.PI, a1 = ((g + 1) / gores) * Math.PI;
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 6; i++) { const a = a0 + (a1 - a0) * (i / 6); pts.push([dx + Math.cos(a) * rPx, dyB - Math.sin(a) * rise]); }
+    pts.push([dx + Math.cos(a1) * rPx * 0.05, dyB - rise * 0.96]);
+    iso.r.poly(pts, alpha(tints[g % tints.length]!, 0.9));
+  }
+  iso.r.polyline([[dx - rPx, dyB], ...Array.from({ length: 13 }, (_, i): Pt => { const a = (i / 12) * Math.PI; return [dx + Math.cos(a) * rPx, dyB - Math.sin(a) * rise]; })], INK_W * 0.8, INK);
+  // a gilt lantern + finial + two flagpoles
+  const tipY = dyB - rise;
+  iso.r.rect(dx - 2 * RES, tipY - 8 * RES, dx + 2 * RES, tipY + 1 * RES, GILT_HOT);
+  iso.r.line([dx, tipY - 8 * RES], [dx, tipY - 16 * RES], 1 * RES, GILT);
+  for (const fu of [u1 - 0.16, u1 - 0.34] as const) {
+    const [fx, fy] = iso.P(fu, v1 - 0.05, 61);
+    iso.r.line([fx, fy], [fx, fy - 16 * RES], 0.7 * RES, alpha(COLORS.white, 0.8));
+  }
+  iso.glint([dx, tipY - 4 * RES], 2.2 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// OPÉRA BASTILLE — Ott's 1989 modern opera house: a big curved DRUM-fronted
+// glass-and-stone mass, its convex façade a grid of grey granite squares and
+// dark glass, stepped setbacks and the great glazed foyer glowing at dusk. 2×2.
+// =====================================================================
+function operaBastilleTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 110 });
+  void seed;
+  const STONE = hex('#aeb4ba'); // grey granite cladding
+  const STONE_D = hex('#8d949b');
+  const GLASS = hex('#5c7488');
+  const u0 = 0.34, u1 = 1.66, v0 = 0.4, v1 = 1.6;
+  const H = 84;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // the main mass
+  iso.box(u0, v0, u1, v1, 0, H, STONE, { rightC: lit(STONE, 0.08), leftC: shaded(STONE, 0.14), topC: top(STONE, 0.24) });
+  // the convex curved glass FRONT drum (the signature) bulging on the v1 face
+  const N = 12;
+  const front: Pt[] = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    const u = u0 + 0.1 + (u1 - u0 - 0.2) * t;
+    const bulge = Math.sin(t * Math.PI) * 0.16; // convex toward viewer
+    front.push(iso.P(u, v1 + bulge, H - 6));
+  }
+  for (let i = 0; i <= N; i++) {
+    const t = (N - i) / N;
+    const u = u0 + 0.1 + (u1 - u0 - 0.2) * t;
+    const bulge = Math.sin(t * Math.PI) * 0.16;
+    front.push(iso.P(u, v1 + bulge, 4));
+  }
+  iso.r.poly(front, alpha(GLASS, 0.88));
+  iso.r.polyline(front, INK_W * 0.7, INK, true);
+  // the granite-square grid + glass mullions across the curved front
+  for (let i = 1; i < N; i++) {
+    const t = i / N;
+    const u = u0 + 0.1 + (u1 - u0 - 0.2) * t;
+    const bulge = Math.sin(t * Math.PI) * 0.16;
+    iso.r.line(iso.P(u, v1 + bulge, 6), iso.P(u, v1 + bulge, H - 8), 0.6 * RES, t < 0.5 ? alpha(STONE_D, 0.6) : alpha(GLASS, 0.6));
+  }
+  for (let f = 1; f < 6; f++) {
+    const z = (H * f) / 6;
+    const band: Pt[] = [];
+    for (let i = 0; i <= N; i++) { const t = i / N; const u = u0 + 0.1 + (u1 - u0 - 0.2) * t; band.push(iso.P(u, v1 + Math.sin(t * Math.PI) * 0.16, z)); }
+    iso.r.polyline(band, 0.5 * RES, alpha(STONE_D, 0.5));
+  }
+  // a glowing glazed foyer slot at the base + a stepped setback crown
+  iso.box(u0 + 0.12, v1 - 0.04, u1 - 0.12, v1 + 0.04, 4, 18, alpha(COLORS.glassLit, 0.7), { ink: false });
+  iso.box(u0 + 0.14, v0 + 0.14, u1 - 0.14, v1 - 0.5, H, H + 14, STONE_D); // flytower setback behind
+  iso.gleam(iso.P(u1, v0 + 0.1, H), iso.P(u1, v1 - 0.1, H), 0.9 * RES);
+  return iso.build();
+}
+
+// =====================================================================
+// GARE (terminus family) — a grand Paris railway terminus: a long Beaux-Arts
+// stone head-house with a great arched lunette window, an arched glazed
+// TRAIN-SHED glowing behind, and (per variant) a parapet of statues, twin
+// pavilions, or a CLOCK CAMPANILE. `variant`: 'nord' | 'est' | 'lyon'. 2×2.
+// =====================================================================
+function gareTile(seed: number, variant: 'nord' | 'est' | 'lyon'): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: variant === 'lyon' ? 180 : 110 });
+  void seed;
+  const u0 = 0.32, u1 = 1.68, v0 = 0.4, v1 = 1.6;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // the arched glazed train-shed behind the head-house (glowing iron-and-glass)
+  iso.box(u0 + 0.18, v0 + 0.2, u1 - 0.18, v1 - 0.62, 0, 38, shaded(COLORS.glassSky, 0.08), { ink: false });
+  const shedV = (v0 + 0.2 + v1 - 0.62) / 2;
+  for (let i = 0; i <= 14; i++) {
+    const u = u0 + 0.24 + ((u1 - u0 - 0.48) * i) / 14;
+    const [bx, by] = iso.P(u, shedV, 38);
+    iso.r.line([bx, by], [bx, by - 24 * RES], 0.8 * RES, i % 3 === 0 ? alpha(COLORS.glassLit, 0.7) : alpha(COLORS.glassSky, 0.85));
+  }
+  const [sx0, sy0] = iso.P(u0 + 0.24, shedV, 38);
+  const [sx1] = iso.P(u1 - 0.24, shedV, 38);
+  iso.r.line([sx0, sy0 - 24 * RES], [sx1, sy0 - 24 * RES], 1.4 * RES, alpha(COLORS.glassLit, 0.7)); // ridge
+  // the stone head-house facade block (tall + monumental so it clears the fabric)
+  iso.box(u0, v1 - 0.6, u1, v1, 0, 68, LIME);
+  iso.box(u0 - 0.02, v1 - 0.62, u1 + 0.02, v1 + 0.02, 0, 13, shaded(LIME, 0.12), { ink: false });
+  // the great arched LUNETTE window dominating the facade
+  const cx = (u0 + u1) / 2;
+  const lun: Pt[] = [iso.P(cx - 0.34, v1, 16), iso.P(cx - 0.34, v1, 40)];
+  for (let j = 0; j <= 12; j++) { const t = j / 12; lun.push(iso.P(cx - 0.34 + 0.68 * t, v1, 40 + Math.sin(t * Math.PI) * 20)); }
+  lun.push(iso.P(cx + 0.34, v1, 40), iso.P(cx + 0.34, v1, 16));
+  iso.r.poly(lun, alpha(COLORS.glassLit, 0.6));
+  iso.r.polyline(lun, INK_W * 0.7, INK, true);
+  // radiating glazing bars in the lunette
+  const [lcx, lcy] = iso.P(cx, v1, 40);
+  for (let i = 0; i <= 8; i++) { const a = Math.PI * (i / 8); iso.r.line([lcx, lcy], [lcx + Math.cos(a) * 0.34 * (CELL_W / 2), lcy - Math.sin(a) * 20 * RES], 0.5 * RES, alpha(LIME, 0.5)); }
+  // side bays with tall windows
+  iso.windowsLeft(v1, u0 + 0.06, cx - 0.38, 16, 46, 3, alpha(COLORS.glassDark, 0.8), COLORS.white);
+  iso.windowsLeft(v1, cx + 0.38, u1 - 0.06, 16, 46, 3, alpha(COLORS.glassDark, 0.8), COLORS.white);
+  iso.box(u0 - 0.03, v1 - 0.62, u1 + 0.03, v1 + 0.03, 68, 75, lighten(LIME, 0.06), { topC: top(LIME, 0.28) });
+
+  if (variant === 'nord') {
+    // Gare du Nord: a tall attic gable + a parapet crowned by allegorical STATUES
+    pediment(iso, v1, cx - 0.4, cx + 0.4, 75, 18, LIME);
+    for (let i = 0; i <= 8; i++) {
+      const [stx, sty] = iso.P(u0 + 0.12 + i * (u1 - u0 - 0.24) / 8, v1, 75);
+      iso.r.poly([[stx - 1.6 * RES, sty], [stx + 1.6 * RES, sty], [stx + 0.9 * RES, sty - 13 * RES], [stx - 0.9 * RES, sty - 13 * RES]], lighten(LIME, 0.08));
+      iso.r.line([stx, sty - 13 * RES], [stx, sty - 17 * RES], 0.8 * RES, LIME_D);
+    }
+  } else if (variant === 'est') {
+    // Gare de l'Est: a tall central pedimented gable + a great clock + twin end pavilions
+    pediment(iso, v1, cx - 0.4, cx + 0.4, 75, 20, LIME);
+    const [clx, cly] = iso.P(cx, v1, 82);
+    const RR = 4.4 * RES, cr: Pt[] = [];
+    for (let i = 0; i <= 16; i++) { const a = (i / 16) * Math.PI * 2; cr.push([clx + Math.cos(a) * RR, cly - RR + Math.sin(a) * RR]); }
+    iso.r.poly(cr, COLORS.white); iso.r.polyline(cr, INK_W * 0.6, INK, true);
+    iso.r.line([clx, cly - RR], [clx, cly - RR - 2.6 * RES], 0.9 * RES, INK);
+    iso.r.line([clx, cly - RR], [clx + 2 * RES, cly - RR + 1 * RES], 0.9 * RES, INK);
+    for (const cu of [u0 + 0.14, u1 - 0.14] as const) {
+      iso.box(cu - 0.13, v1 - 0.32, cu + 0.13, v1, 0, 84, LIME);
+      iso.hip(cu - 0.15, v1 - 0.34, cu + 0.15, v1 + 0.02, 84, 16, ZINC);
+    }
+  } else {
+    // Gare de Lyon: the famous tall CLOCK CAMPANILE (the Tour de l'Horloge) on the right
+    const tu = u1 - 0.18, tv = v1 - 0.2, th = 150;
+    iso.box(tu - 0.13, tv - 0.13, tu + 0.13, tv + 0.13, 0, th, lighten(LIME, 0.03));
+    // four clock faces near the top (show the two visible ones)
+    for (const [fv, fu] of [[tv + 0.13, tu], [tv, tu + 0.13]] as const) {
+      const [clx, cly] = iso.P(fu, fv, th - 16);
+      const RR = 3.4 * RES, cr: Pt[] = [];
+      for (let i = 0; i <= 16; i++) { const a = (i / 16) * Math.PI * 2; cr.push([clx + Math.cos(a) * RR, cly - RR + Math.sin(a) * RR]); }
+      iso.r.poly(cr, GILT_HOT); iso.r.polyline(cr, INK_W * 0.6, INK, true);
+      iso.r.line([clx, cly - RR], [clx, cly - RR - 2 * RES], 0.9 * RES, INK);
+      iso.r.line([clx, cly - RR], [clx + 1.6 * RES, cly - RR + 1 * RES], 0.9 * RES, INK);
+    }
+    // a steep pavilion roof + finial crowning the campanile
+    iso.hip(tu - 0.14, tv - 0.14, tu + 0.14, tv + 0.14, th, 18, ZINC);
+    const ap = iso.P(tu, tv, th + 18);
+    iso.r.line(ap, [ap[0], ap[1] - 8 * RES], 1 * RES, GILT_HOT);
+    iso.glint(iso.P(tu + 0.13, tv, th - 16), 2 * RES);
+    // a central pediment on the head-house
+    pediment(iso, v1, cx - 0.34, cx + 0.34, 75, 14, LIME);
+  }
+  return iso.build();
+}
+
+// =====================================================================
 // REGISTRY
 // =====================================================================
 export const CITY_HEROES: BespokeHero[] = [
@@ -2398,5 +3180,160 @@ export const CITY_HEROES: BespokeHero[] = [
     seed: 1012,
     draw: (seed) => abbayeTile(seed),
     light: { kind: 'facadeFlood', topZ: 84, halfW: 1.0 },
+  },
+
+  // ---- FAMOUS ICONS (enrichment wave): world-famous landmarks now placed ----
+  {
+    city: 'paris',
+    key: 'pantheon',
+    match: /Panth[ée]on/i,
+    foot: [2, 2],
+    seed: 510101,
+    draw: (seed) => pantheonTile(seed),
+    light: { kind: 'facadeFlood', topZ: 200, halfW: 1.2 },
+  },
+  {
+    city: 'paris',
+    key: 'centre-pompidou',
+    match: /(?:Centre (?:Georges[- ])?Pompidou|Beaubourg)/i,
+    foot: [2, 2],
+    seed: 197719,
+    draw: (seed) => pompidouTile(seed),
+    light: { kind: 'towerCrown', topZ: 96, halfW: 1.2 },
+  },
+  {
+    city: 'paris',
+    key: 'tour-montparnasse',
+    match: /Tour Montparnasse|Tour Maine-Montparnasse/i,
+    foot: [1, 1],
+    seed: 210210,
+    draw: (seed) => montparnasseTile(seed),
+    light: { kind: 'towerCrown', topZ: 250, halfW: 0.3 },
+  },
+  {
+    city: 'paris',
+    key: 'hotel-de-ville-paris',
+    match: /H[ôo]tel de Ville/i,
+    foot: [2, 2],
+    seed: 135700,
+    draw: (seed) => hotelDeVilleTile(seed),
+    light: { kind: 'facadeFlood', topZ: 150, halfW: 1.3 },
+  },
+  {
+    city: 'paris',
+    key: 'la-sorbonne',
+    match: /Sorbonne/i,
+    foot: [2, 2],
+    seed: 125701,
+    draw: (seed) => sorbonneTile(seed),
+    light: { kind: 'facadeFlood', topZ: 150, halfW: 1.2 },
+  },
+  {
+    city: 'paris',
+    key: 'institut-de-france',
+    match: /Institut de France|Coll[èe]ge des Quatre-Nations/i,
+    foot: [2, 1],
+    seed: 166201,
+    draw: (seed) => institutDeFranceTile(seed),
+    light: { kind: 'facadeFlood', topZ: 120, halfW: 1.3 },
+  },
+  {
+    city: 'paris',
+    key: 'conciergerie',
+    match: /Conciergerie/i,
+    foot: [2, 1],
+    seed: 130101,
+    draw: (seed) => conciergerieTile(seed),
+    light: { kind: 'facadeFlood', topZ: 110, halfW: 1.3 },
+  },
+  {
+    city: 'paris',
+    key: 'sainte-chapelle',
+    match: /Sainte-Chapelle/i,
+    foot: [1, 1],
+    seed: 124801,
+    draw: (seed) => sainteChapelleTile(seed),
+    light: { kind: 'spireBeacon', topZ: 230, halfW: 0.3 },
+  },
+  {
+    city: 'paris',
+    key: 'petit-palais',
+    match: /Petit Palais/i,
+    foot: [2, 2],
+    seed: 190001,
+    draw: (seed) => petitPalaisTile(seed),
+    light: { kind: 'facadeFlood', topZ: 90, halfW: 1.3 },
+  },
+  {
+    city: 'paris',
+    key: 'palais-de-chaillot',
+    match: /(?:Palais de Chaillot|Trocad[ée]ro)/i,
+    foot: [2, 2],
+    seed: 193701,
+    draw: (seed) => chaillotTile(seed),
+    light: { kind: 'facadeFlood', topZ: 70, halfW: 1.4 },
+  },
+  {
+    city: 'paris',
+    key: 'grande-arche-de-la-defense',
+    match: /(?:Grande Arche|Arche de la D[ée]fense)/i,
+    foot: [2, 2],
+    seed: 198901,
+    draw: (seed) => grandeArcheTile(seed),
+    light: { kind: 'archGlow', topZ: 132, halfW: 1.2 },
+  },
+  {
+    city: 'paris',
+    key: 'stade-de-france',
+    match: /Stade de France/i,
+    foot: [3, 3],
+    seed: 199801,
+    draw: (seed) => stadeDeFranceTile(seed),
+    light: { kind: 'stadiumFlood', topZ: 64, halfW: 1.7 },
+  },
+  {
+    city: 'paris',
+    key: 'galeries-lafayette-haussmann',
+    match: /Galeries Lafayette/i,
+    foot: [2, 2],
+    seed: 189401,
+    draw: (seed) => galeriesLafayetteTile(seed),
+    light: { kind: 'facadeFlood', topZ: 110, halfW: 1.3 },
+  },
+  {
+    city: 'paris',
+    key: 'opera-bastille',
+    match: /Op[ée]ra Bastille/i,
+    foot: [2, 2],
+    seed: 198902,
+    draw: (seed) => operaBastilleTile(seed),
+    light: { kind: 'towerCrown', topZ: 84, halfW: 1.3 },
+  },
+  {
+    city: 'paris',
+    key: 'gare-du-nord',
+    match: /Gare du Nord/i,
+    foot: [2, 2],
+    seed: 186401,
+    draw: (seed) => gareTile(seed, 'nord'),
+    light: { kind: 'facadeFlood', topZ: 110, halfW: 1.3 },
+  },
+  {
+    city: 'paris',
+    key: 'gare-de-l-est',
+    match: /Gare de l'Est/i,
+    foot: [2, 2],
+    seed: 184901,
+    draw: (seed) => gareTile(seed, 'est'),
+    light: { kind: 'facadeFlood', topZ: 110, halfW: 1.3 },
+  },
+  {
+    city: 'paris',
+    key: 'gare-de-lyon',
+    match: /Gare de Lyon/i,
+    foot: [2, 2],
+    seed: 190101,
+    draw: (seed) => gareTile(seed, 'lyon'),
+    light: { kind: 'aerialBeacon', topZ: 168, halfW: 1.3 },
   },
 ];

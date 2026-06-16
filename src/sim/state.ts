@@ -445,7 +445,13 @@ export function seedScenario(state: GameState, ctx: SimContext): void {
 // Bankside set, the Regent's-Park terraces, the palaces and department stores).
 // Their hero footprints now stamp protected London tiles, so map geometry —
 // and thus the heroTable baked into saves — changed; bump so old saves rebuild.
-export const SAVE_VERSION = 15;
+// v16 (W3 round 3): 18 MORE bespoke London heroes placed (82 → 100, the
+// doctrine target) — the listed City/West-End blocks, the council estates +
+// stucco terraces, a college, a Crown Court, the Chelsea Flower Show marquees
+// and the King's Cross Coal Drops. New hero footprints stamp more London
+// tiles ⇒ map geometry + the baked heroTable changed again; bump so old saves
+// rebuild their hero placement from the committed names.
+export const SAVE_VERSION = 16;
 
 /** Guard for untrusted save payloads; lives beside SAVE_VERSION so the two
  *  can never drift apart again (a stale guard silently discarded saves). */
@@ -490,7 +496,7 @@ export function isSaveData(d: unknown): d is SaveData {
 }
 
 export interface SaveData {
-  v: 15;
+  v: 16;
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;

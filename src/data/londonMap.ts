@@ -391,6 +391,43 @@ export const NAMED_PLACES: Array<{ x: number; y: number; name: string }> = [
   { x: 95, y: 89, name: 'SIS Building' }, // Vauxhall Cross, the MI6 ziggurat
   { x: 129, y: 86, name: 'Tobacco Dock' }, // Wapping, the great brick warehouse
   { x: 91, y: 100, name: 'Lots Road Power Station' }, // Chelsea, the twin chimneys
+
+  // --- NEW bespoke heroes (W3 round 3): the long tail toward the 100/city
+  //     standard — the listed City/West-End blocks, the council estates and
+  //     grand stucco terraces, a college, a Crown Court, the Chelsea Flower
+  //     Show marquees and the King's Cross Coal Drops. The central Whitehall/
+  //     Piccadilly/Buckingham quarter is SATURATED (Buckingham/Abbey/Parliament
+  //     + Westminster civics + the Thames leave no free footprint there — R2
+  //     flagged 5 infeasible), so the Whitehall grandees (Old War Office, GOGGS,
+  //     FCDO, Whitehall Court, Burlington, Royal Mews) are placed on the nearest
+  //     free OUTER fringe of their true positions and the set spreads to the
+  //     wider map. Every footprint vetted on open LAND, no overlap. ------------
+  // City of London — Liverpool Street / the Barbican fringe
+  { x: 122, y: 74, name: 'Andaz Liverpool Street' }, // the Great Eastern Hotel, Bishopsgate
+  { x: 124, y: 70, name: 'Crescent House' }, // Golden Lane Estate, by the Barbican
+  // Whitehall / Westminster grandees — on the free fringe of their true seats
+  { x: 106, y: 73, name: 'Old War Office' }, // Whitehall (now Raffles), four corner domes
+  { x: 102, y: 93, name: 'Government Offices Great George Street' }, // HM Treasury, off Parliament Sq
+  { x: 114, y: 103, name: 'Foreign and Commonwealth Office' }, // the grand Italianate FO
+  { x: 109, y: 99, name: 'Whitehall Court' }, // the turreted Embankment skyline
+  { x: 94, y: 86, name: 'Royal Mews' }, // the royal stables by Buckingham Palace
+  // Mayfair / Piccadilly (west of the saturated core)
+  { x: 90, y: 75, name: 'Burlington House' }, // the Royal Academy, Piccadilly
+  // Somers Town / King's Cross (the north)
+  { x: 119, y: 65, name: 'Ossulston Estate' }, // the LCC's monumental social housing
+  { x: 119, y: 57, name: 'Coal Drops Yard' }, // the King's Cross goods-yard sheds
+  // Paddington Green (the west) — the college
+  { x: 99, y: 66, name: 'City of Westminster College' }, // the angular glass campus
+  // Bayswater / South Kensington — the grand stucco terraces
+  { x: 90, y: 72, name: 'The Lancasters' }, // the Hyde Park stucco palace front
+  { x: 88, y: 84, name: 'Cranley Gardens' }, // the South Ken Italianate terrace
+  // the south bank — Battersea / Chelsea / Southwark / Newington
+  { x: 97, y: 103, name: 'Albion Riverside' }, // Foster's bowed riverside block, Battersea
+  { x: 102, y: 104, name: 'Chelsea Flower Show' }, // the RHS Great Pavilion marquees
+  { x: 108, y: 107, name: 'Inner London Crown Court' }, // the Sessions House, Newington
+  { x: 124, y: 108, name: 'Caroline Gardens' }, // the Peckham almshouses + chapel
+  // Wapping / St Katharine Docks — by Tower Bridge
+  { x: 129, y: 89, name: 'Tower Hotel' }, // the Brutalist hotel east of Tower Bridge
 ];
 
 // NOTE: EXISTING_GENERATION (the seeded estuary CCGTs / Lea peaker / Essex
