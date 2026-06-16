@@ -111,11 +111,32 @@ function blit(
   py: number,
   tint?: number,
 ): void {
-  const frame = atlas.frames.get(name);
-  if (!frame) return;
   const tr = tint === undefined ? 1 : ((tint >> 16) & 0xff) / 255;
   const tg = tint === undefined ? 1 : ((tint >> 8) & 0xff) / 255;
   const tb = tint === undefined ? 1 : (tint & 0xff) / 255;
+  // BESPOKE heroes (W2b) ride their OWN tight buffers, off the shared sheet —
+  // blit straight from the hero buffer (stride = its own width).
+  const hero = atlas.heroes.get(name);
+  if (hero) {
+    for (let yy = 0; yy < hero.h; yy++) {
+      for (let xx = 0; xx < hero.w; xx++) {
+        const so = (yy * hero.w + xx) * 4;
+        const sa = (hero.pixels[so + 3] ?? 0) / 255;
+        if (sa <= 0) continue;
+        const dx = px + hero.ox + xx;
+        const dy = py + hero.oy + yy;
+        if (dx < 0 || dx >= W || dy < 0 || dy >= H) continue;
+        const o = (dy * W + dx) * 4;
+        img[o] = (hero.pixels[so] ?? 0) * tr * sa + (img[o] ?? 0) * (1 - sa);
+        img[o + 1] = (hero.pixels[so + 1] ?? 0) * tg * sa + (img[o + 1] ?? 0) * (1 - sa);
+        img[o + 2] = (hero.pixels[so + 2] ?? 0) * tb * sa + (img[o + 2] ?? 0) * (1 - sa);
+        img[o + 3] = 255;
+      }
+    }
+    return;
+  }
+  const frame = atlas.frames.get(name);
+  if (!frame) return;
   for (let yy = 0; yy < frame.h; yy++) {
     for (let xx = 0; xx < frame.w; xx++) {
       const so = ((frame.y + yy) * atlas.width + frame.x + xx) * 4;
@@ -273,7 +294,10 @@ export function renderCityCrop(
         // lift a headroom hero by its reserved sky so its floor stays pinned,
         // mirroring the game renderer; SKY shifts the whole crop down so a
         // tall hero near the top edge isn't clipped.
-        const hr = pass === 'structure' ? (atlas.frames.get(name)?.headroom ?? 0) : 0;
+        const hr =
+          pass === 'structure'
+            ? (atlas.heroes.get(name)?.headroom ?? atlas.frames.get(name)?.headroom ?? 0)
+            : 0;
         const py = (cx + cy) * HH + SKY - hr;
         blit(atlas, name, img, W, H, px, py, SEASON ? seasonTintFor(name, SEASON) : undefined);
       }

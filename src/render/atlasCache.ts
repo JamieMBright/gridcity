@@ -41,12 +41,24 @@ function fingerprint(): string {
   // its cached sheet is reused, not rebaked. (The heroes' draw fns live in
   // landmarkSprites, already hashed above, so the key list is enough.)
   const heroKeys = bespokeHeroesFor(activeFabric()).map((h) => h.key).sort();
-  if (heroKeys.length > 0) sources.push(`heroes:${heroKeys.join(',')}`);
+  // 'offatlas' token (W2b): heroes now ride their own buffers, NOT the packed
+  // sheet — so a city-with-heroes cache from the in-sheet era (W2) must rebake.
+  // Heroless fabrics (London) append nothing ⇒ exact historical fingerprint kept.
+  if (heroKeys.length > 0) sources.push(`heroes-offatlas:${heroKeys.join(',')}`);
   // djb2 over the concatenated sources
   let h = 5381;
   const s = sources.join('\n');
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
   return `a${h.toString(36)}:${sources.length}`;
+}
+
+interface StoredHero {
+  pixels: ArrayBuffer;
+  w: number;
+  h: number;
+  ox: number;
+  oy: number;
+  headroom: number;
 }
 
 interface StoredAtlas {
@@ -55,6 +67,8 @@ interface StoredAtlas {
   height: number;
   frames: Array<[string, AtlasFrame]>;
   pixels: ArrayBuffer;
+  /** W2b off-sheet bespoke heroes (absent in old/heroless cache entries). */
+  heroes?: Array<[string, StoredHero]>;
 }
 
 function openDb(): Promise<IDBDatabase | undefined> {
@@ -85,6 +99,12 @@ async function readCache(db: IDBDatabase, key: string, slot: string): Promise<Sp
           height: v.height,
           pixels: new Uint8ClampedArray(v.pixels),
           frames: new Map(v.frames),
+          heroes: new Map(
+            (v.heroes ?? []).map(([k, h]) => [
+              k,
+              { pixels: new Uint8ClampedArray(h.pixels), w: h.w, h: h.h, ox: h.ox, oy: h.oy, headroom: h.headroom },
+            ]),
+          ),
         });
       };
       req.onerror = () => resolve(undefined);
@@ -103,6 +123,11 @@ function writeCache(db: IDBDatabase, key: string, slot: string, atlas: SpriteAtl
       frames: [...atlas.frames.entries()],
       // copy into a tightly-sized buffer for structured clone
       pixels: atlas.pixels.slice().buffer,
+      // W2b off-sheet heroes — each its own tight buffer (structured-clone copy)
+      heroes: [...atlas.heroes.entries()].map(([k, h]) => [
+        k,
+        { pixels: h.pixels.slice().buffer, w: h.w, h: h.h, ox: h.ox, oy: h.oy, headroom: h.headroom },
+      ]),
     };
     db.transaction(STORE, 'readwrite').objectStore(STORE).put(stored, slot);
   } catch {

@@ -157,30 +157,40 @@ describe('hero registry — placement via buildCityFromData', () => {
 // buildAtlas per fabric keeps each test short so the worker reporter never
 // times out on a single long-running build.
 describe('hero registry — atlas stays under the mobile-GPU ceiling', () => {
-  it('Paris atlas (the only fabric with heroes) stays <= 4096 on BOTH axes + bakes its hero frames', () => {
+  it('Paris heroes ride their OWN buffers OFF the <= 4096 sheet (W2b overflow-proof)', () => {
     const prev = activeFabric();
     try {
       applyCityFabric('paris');
       const atlas = buildAtlas();
       expect(atlas.width, 'paris atlas width').toBeLessThanOrEqual(4096);
       expect(atlas.height, 'paris atlas height').toBeLessThanOrEqual(4096);
+      // every Paris hero IS baked — but as its OWN off-sheet buffer, not a sheet frame
       for (const hero of bespokeHeroesFor('paris')) {
-        expect(atlas.frames.has(frameIdFor(hero.city, hero.key)), `paris missing ${hero.key}`).toBe(true);
+        const id = frameIdFor(hero.city, hero.key);
+        expect(atlas.heroes.has(id), `paris missing hero buffer ${hero.key}`).toBe(true);
+        const hb = atlas.heroes.get(id)!;
+        expect(hb.w, `paris hero ${hero.key} buffer w`).toBeGreaterThan(0);
+        expect(hb.pixels.length, `paris hero ${hero.key} buffer size`).toBe(hb.w * hb.h * 4);
+        expect(atlas.frames.has(id), `paris hero ${hero.key} must NOT be in the packed sheet`).toBe(false);
       }
+      // the packed sheet carries ZERO hero frames — THIS is what makes the
+      // sheet immune to overflow no matter how many heroes W3/W4 add (100/city
+      // would have overflowed a single 4096 sheet; 2 already hit Paris 4014).
+      expect([...atlas.frames.keys()].filter((k) => k.startsWith('hero_'))).toHaveLength(0);
     } finally {
       applyCityFabric(prev);
     }
   }, 30000);
 
-  it('London (empty registry) stays <= 4096 and bakes NO hero_ frame', () => {
+  it('London (empty registry) stays <= 4096 and bakes NO hero (sheet OR buffer)', () => {
     const prev = activeFabric();
     try {
       applyCityFabric('london');
       const atlas = buildAtlas();
       expect(atlas.width, 'london atlas width').toBeLessThanOrEqual(4096);
       expect(atlas.height, 'london atlas height').toBeLessThanOrEqual(4096);
-      const heroFrames = [...atlas.frames.keys()].filter((k) => k.startsWith('hero_'));
-      expect(heroFrames).toHaveLength(0);
+      expect([...atlas.frames.keys()].filter((k) => k.startsWith('hero_'))).toHaveLength(0);
+      expect(atlas.heroes.size, 'london has no off-sheet heroes').toBe(0);
     } finally {
       applyCityFabric(prev);
     }

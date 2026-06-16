@@ -3001,6 +3001,23 @@ export class MapRenderer {
       this.frameSize.set(name, { w: f.w, h: f.h });
       this.frameOffset.set(name, { ox: f.ox, oy: f.oy, headroom: f.headroom });
     }
+    // BESPOKE heroes (W2b): each rides its OWN texture, off the shared sheet, so
+    // a city can carry up to ~100 bespoke heroes without overflowing the 4096
+    // atlas (2 already pushed Paris's sheet to 4014/4096). Sparse + static, so
+    // per-hero textures cost negligibly vs the batched tile layer.
+    for (const [name, hb] of atlas.heroes) {
+      const hc = document.createElement('canvas');
+      hc.width = hb.w;
+      hc.height = hb.h;
+      const hctx = hc.getContext('2d');
+      if (!hctx) continue;
+      hctx.putImageData(new ImageData(hb.pixels, hb.w, hb.h), 0, 0);
+      const tex = Texture.from(hc);
+      tex.source.scaleMode = 'linear';
+      this.textures.set(name, tex);
+      this.frameSize.set(name, { w: hb.w, h: hb.h });
+      this.frameOffset.set(name, { ox: hb.ox, oy: hb.oy, headroom: hb.headroom });
+    }
   }
 
   private tileFromClient(map: CityMap, clientX: number, clientY: number): TileHover | undefined {

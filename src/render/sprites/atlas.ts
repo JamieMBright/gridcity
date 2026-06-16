@@ -149,6 +149,27 @@ export interface SpriteAtlas {
   pixels: Uint8ClampedArray<ArrayBuffer>;
   /** Sprite name → its rectangle on the sheet (+ trim offset). */
   frames: Map<string, AtlasFrame>;
+  /** BESPOKE per-city heroes, baked to their OWN tight buffers — NOT packed
+   *  into the shared sheet (W2b). Heroes are sparse (≤~100/city) + large + static,
+   *  so a per-hero texture keeps the shared sheet under the 4096px ceiling no
+   *  matter how many heroes a city carries (100 sprites would overflow a single
+   *  sheet — 2 already pushed Paris to 4014/4096). Empty for a heroless fabric
+   *  (London) ⇒ byte-identical. Each value is a tight w×h RGBA buffer + the
+   *  trim offset (added back at placement, exactly like a frame). */
+  heroes: Map<string, HeroBuf>;
+}
+
+/** A bespoke hero baked to its own tight texture buffer (off the shared sheet). */
+export interface HeroBuf {
+  /** Tight RGBA8 buffer, row-major, exactly w×h (the trimmed art). */
+  pixels: Uint8ClampedArray<ArrayBuffer>;
+  w: number;
+  h: number;
+  /** Transparent margin trimmed off the original canvas left/top (add back at placement). */
+  ox: number;
+  oy: number;
+  /** Iso headroom baked in (extra sky above the footprint; the renderer lifts by it). */
+  headroom: number;
 }
 
 interface Cell {
@@ -203,6 +224,51 @@ function trimmedExtent(
   };
 }
 
+/** Compute a Cell (trimmed extent + stride + auto-detected headroom) from a
+ *  raw sprite buffer. Shared by the sheet packer (`set`) and the off-sheet hero
+ *  baker (`buildHeroBufs`). dims mirror the Iso constructor (sw = SW-anchored
+ *  landmark blocks). A hero's Iso may have added HEADROOM — extra sky rows above
+ *  the footprint so it can exceed the footprint-derived height cap; infer it
+ *  from the ACTUAL buffer height vs the footprint height (dims.w is the true row
+ *  stride, unaffected by headroom). 0 for every ordinary sprite ⇒ byte-identical. */
+function makeCell(
+  pixels: Uint8ClampedArray<ArrayBuffer>,
+  wTiles: number,
+  hTiles: number,
+  sw: boolean,
+): Cell {
+  const dims = sw ? swAnchorDims(wTiles, hTiles) : isoDims(wTiles, hTiles);
+  const totalH = pixels.length / 4 / dims.w;
+  const headroom = Math.max(0, Math.round(totalH - dims.h));
+  return { pixels, ...trimmedExtent(pixels, dims.w, totalH), stride: dims.w, headroom };
+}
+
+/** Bake the ACTIVE fabric's BESPOKE heroes to their OWN tight buffers (W2b),
+ *  OFF the shared sheet so 100 heroes/city never overflow the 4096 packer. Each
+ *  hero's trimmed art is copied into a tight w×h buffer; the renderer makes a
+ *  per-hero Texture from it and the preview blits it directly. Empty for a
+ *  heroless fabric (London) ⇒ atlas.heroes is empty ⇒ byte-identical. */
+function buildHeroBufs(): Map<string, HeroBuf> {
+  const heroes = new Map<string, HeroBuf>();
+  for (const hero of bespokeHeroesFor(activeFabric())) {
+    const c = makeCell(hero.draw(hero.seed), hero.foot[0], hero.foot[1], true);
+    const tight = new Uint8ClampedArray(c.w * c.h * 4);
+    for (let row = 0; row < c.h; row++) {
+      const src = ((c.oy + row) * c.stride + c.ox) * 4;
+      tight.set(c.pixels.subarray(src, src + c.w * 4), row * c.w * 4);
+    }
+    heroes.set(frameIdFor(hero.city, hero.key), {
+      pixels: tight,
+      w: c.w,
+      h: c.h,
+      ox: c.ox,
+      oy: c.oy,
+      headroom: c.headroom,
+    });
+  }
+  return heroes;
+}
+
 function buildSpriteCells(): Map<string, Cell> {
   const m = new Map<string, Cell>();
   const set = (
@@ -212,17 +278,7 @@ function buildSpriteCells(): Map<string, Cell> {
     hTiles = 1,
     sw = false,
   ): void => {
-    // dims mirror the Iso constructor (sw = SW-anchored landmark blocks). A
-    // hero's Iso may have added HEADROOM — extra sky rows above the footprint
-    // so it can exceed the footprint-derived height cap. Infer it from the
-    // ACTUAL buffer height vs the footprint height (dims.w is the true row
-    // stride, unaffected by headroom): the scan must cover the full canvas or
-    // the floor at the new bottom is missed, and the renderer lifts placement
-    // by this same headroom. 0 for every ordinary sprite ⇒ byte-identical.
-    const dims = sw ? swAnchorDims(wTiles, hTiles) : isoDims(wTiles, hTiles);
-    const totalH = pixels.length / 4 / dims.w;
-    const headroom = Math.max(0, Math.round(totalH - dims.h));
-    m.set(name, { pixels, ...trimmedExtent(pixels, dims.w, totalH), stride: dims.w, headroom });
+    m.set(name, makeCell(pixels, wTiles, hTiles, sw));
   };
   // ground pass (flat tiles, no structures)
   for (let i = 0; i < 4; i++) set(`ground_grass_${i}`, groundGrassTile(i + 1));
@@ -361,14 +417,10 @@ function buildSpriteCells(): Map<string, Cell> {
   // doesn't know the stage.
   set('construction', constructionTile(244, 3));
   for (let s = 0; s < 4; s++) set(`construction_${s}`, constructionTile(244, s));
-  // per-city BESPOKE heroes (the spine that breaks the 255-value enum ceiling).
-  // Only the ACTIVE fabric's heroes bake, so each fabric's sheet stays lean and
-  // London — whose registry is EMPTY — appends NOTHING and is byte-identical.
-  // Each is an SW-anchored multi-tile hero keyed `hero_<city>_<key>`; headroom
-  // is auto-detected from the buffer like every other hero.
-  for (const hero of bespokeHeroesFor(activeFabric())) {
-    set(frameIdFor(hero.city, hero.key), hero.draw(hero.seed), hero.foot[0], hero.foot[1], true);
-  }
+  // BESPOKE per-city heroes do NOT bake into this shared sheet anymore (W2b) —
+  // they go to their own tight buffers via buildHeroBufs(), so 100 heroes/city
+  // can't overflow the 4096 packer. (Keeping them here capped the city at a
+  // handful: 2 already pushed Paris to 4014/4096.)
   return m;
 }
 
@@ -507,5 +559,6 @@ export function buildAtlas(): SpriteAtlas {
       pixels.set(cell.pixels.subarray(src, src + cell.w * 4), dst);
     }
   }
-  return { width, height, pixels, frames };
+  // bespoke heroes ride their OWN buffers, off this packed sheet (W2b).
+  return { width, height, pixels, frames, heroes: buildHeroBufs() };
 }
