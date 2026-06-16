@@ -125,6 +125,43 @@ export async function updatePassword(password: string): Promise<string | undefin
   return error?.message;
 }
 
+/** Change a SIGNED-IN user's password from the settings popup: re-authenticate
+ *  with the current password first (so a walked-away session can't be hijacked
+ *  into a new password), then set the new one. Returns undefined on success or
+ *  a friendly error string. */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<string | undefined> {
+  const sb = supabase();
+  if (!sb) return 'online play is not configured';
+  const { data } = await sb.auth.getSession();
+  const email = data.session?.user.email;
+  if (!email) return 'not signed in';
+  if (newPassword.length < 6) return 'new password is too weak — use at least 6 characters';
+  // verify the current password by re-signing in (refreshes the session too)
+  const { error: reauth } = await sb.auth.signInWithPassword({
+    email,
+    password: currentPassword,
+  });
+  if (reauth) {
+    const msg = reauth.message.toLowerCase();
+    if (msg.includes('invalid') || msg.includes('credentials')) {
+      return 'current password is incorrect';
+    }
+    return reauth.message;
+  }
+  const { error } = await sb.auth.updateUser({ password: newPassword });
+  if (error) {
+    const msg = error.message.toLowerCase();
+    if (msg.includes('different') || msg.includes('same')) {
+      return 'new password must differ from the current one';
+    }
+    return error.message;
+  }
+  return undefined;
+}
+
 /** Claim/refresh the public username (leaderboard identity). */
 export async function ensureUsername(username: string): Promise<string | undefined> {
   const sb = supabase();

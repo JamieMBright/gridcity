@@ -12,7 +12,6 @@ import {
   requestCode,
   resetPassword,
   signInWithPassword,
-  signOut,
   signUpWithPassword,
   verifyCode,
   type OnlineUser,
@@ -73,28 +72,41 @@ const card: React.CSSProperties = {
   margin: '0 auto',
 };
 
-// Sign in / Create account segmented toggle.
+// Sign in / Create account TAB filter — a segmented control, NOT a button
+// (owner, 2026-06-15: the old tabs highlighted the SAME orange as the "sign
+// in" ACTION button, which was confusing). The whole row is a recessed dark
+// track; the ACTIVE tab is a solid PALE infill pill (slate-tinted, never
+// orange) so it reads as a filter selector distinct from the orange gradient
+// CTA below it.
 const toggleRow: React.CSSProperties = {
   display: 'flex',
-  gap: 6,
+  gap: 4,
   width: '100%',
   maxWidth: 320,
-  margin: '0 auto 4px',
+  margin: '0 auto 8px',
+  padding: 4,
+  borderRadius: 10,
+  background: 'rgba(8, 11, 26, 0.6)',
+  border: '1px solid rgba(125, 135, 180, 0.22)',
+  boxSizing: 'border-box',
 };
 
 const toggleBtn = (active: boolean): React.CSSProperties => ({
   flex: 1,
-  padding: '6px 0',
-  borderRadius: 8,
-  border: `1px solid ${active ? theme.orange : theme.navyLight}`,
-  background: active ? 'rgba(255, 138, 30, 0.1)' : 'rgba(8, 11, 26, 0.5)',
-  color: active ? theme.orange : theme.slate,
+  padding: '7px 0',
+  borderRadius: 7,
+  border: 'none',
+  // active = solid pale infill (raised pill); inactive = transparent on the track
+  background: active ? 'rgba(210, 217, 236, 0.92)' : 'transparent',
+  color: active ? theme.navy : theme.slate,
+  boxShadow: active ? '0 1px 4px rgba(0,0,0,0.35)' : 'none',
   fontFamily: theme.font,
   fontSize: 11,
   fontWeight: 700,
   letterSpacing: '0.06em',
   textTransform: 'uppercase',
   cursor: 'pointer',
+  transition: 'background 0.12s ease, color 0.12s ease',
 });
 
 // Subtle inline text link (forgot password, fallback toggle).
@@ -229,21 +241,38 @@ export function AccountPanel({ showBoard = true }: { showBoard?: boolean } = {})
     setNotice(undefined);
   };
 
+  // Enable gates — shared between the action button's `disabled` and the
+  // Enter-to-submit handler, so Enter can never fire a submission the button
+  // itself wouldn't accept (owner: "ENTER triggers the sign-in button").
+  const canSignIn = phase !== 'busy' && email.includes('@') && password.length >= 1;
+  const canSignUp =
+    phase !== 'busy' && email.includes('@') && password.length >= 6 && username.trim().length >= 3;
+  const canSendCode = phase !== 'busy' && email.includes('@');
+
+  // Pressing Enter in any field submits the active flow (gated as the button).
+  const onEnter = (e: React.KeyboardEvent): void => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (mode === 'signin') {
+      if (canSignIn) void doSignIn();
+    } else if (mode === 'signup') {
+      if (canSignUp) void doSignUp();
+    } else if (mode === 'otp') {
+      if (phase === 'codeSent') void confirm();
+      else if (canSendCode) void sendCode();
+    }
+  };
+
   return (
     <div style={{ marginTop: 6 }}>
       {!checked ? null : user ? (
-        <div style={{ fontSize: 12 }}>
-          <span style={{ color: theme.ok }}>
-            ⚡ signed in as {user.username ?? user.email} — saves sync to the cloud
-          </span>
-          <button
-            style={{ ...smallBtn, marginLeft: 10, padding: '2px 10px', color: theme.slate, borderColor: theme.navyLight }}
-            onClick={() => {
-              void signOut().then(() => setUser(undefined));
-            }}
-          >
-            sign out
-          </button>
+        <div style={{ fontSize: 12, textAlign: 'center', lineHeight: 1.5 }}>
+          <div style={{ color: theme.ok }}>
+            ⚡ signed in as {user.username ?? user.email}
+          </div>
+          <div style={{ color: theme.slate, fontSize: 11 }}>
+            saves sync to the cloud · sign out &amp; change password in ⚙ settings
+          </div>
         </div>
       ) : mode === 'otp' && phase === 'codeSent' ? (
         <div style={card}>
@@ -258,6 +287,7 @@ export function AccountPanel({ showBoard = true }: { showBoard?: boolean } = {})
               value={code}
               inputMode="numeric"
               onChange={(e) => setCode(e.target.value)}
+              onKeyDown={onEnter}
               aria-label="one-time code"
             />
           </div>
@@ -283,6 +313,7 @@ export function AccountPanel({ showBoard = true }: { showBoard?: boolean } = {})
               value={email}
               type="email"
               onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={onEnter}
               aria-label="email"
             />
           </div>
@@ -293,14 +324,11 @@ export function AccountPanel({ showBoard = true }: { showBoard?: boolean } = {})
               placeholder="username (public)"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              onKeyDown={onEnter}
               aria-label="username"
             />
           </div>
-          <button
-            style={smallBtn}
-            disabled={phase === 'busy' || !email.includes('@')}
-            onClick={() => void sendCode()}
-          >
+          <button style={smallBtn} disabled={!canSendCode} onClick={() => void sendCode()}>
             {phase === 'busy' ? 'sending…' : 'email me a code'}
           </button>
           <div style={{ textAlign: 'center', marginTop: 8 }}>
@@ -331,6 +359,7 @@ export function AccountPanel({ showBoard = true }: { showBoard?: boolean } = {})
               type="email"
               autoComplete="email"
               onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={onEnter}
               aria-label="email"
             />
           </div>
@@ -342,6 +371,7 @@ export function AccountPanel({ showBoard = true }: { showBoard?: boolean } = {})
                 placeholder="username (public)"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                onKeyDown={onEnter}
                 aria-label="username"
               />
             </div>
@@ -355,6 +385,7 @@ export function AccountPanel({ showBoard = true }: { showBoard?: boolean } = {})
               type="password"
               autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
               onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={onEnter}
               aria-label="password"
             />
           </div>
@@ -362,7 +393,7 @@ export function AccountPanel({ showBoard = true }: { showBoard?: boolean } = {})
             <button
               style={smallBtn}
               aria-label="submit sign in"
-              disabled={phase === 'busy' || !email.includes('@') || password.length < 1}
+              disabled={!canSignIn}
               onClick={() => void doSignIn()}
             >
               {phase === 'busy' ? 'signing in…' : 'sign in'}
@@ -370,12 +401,8 @@ export function AccountPanel({ showBoard = true }: { showBoard?: boolean } = {})
           ) : (
             <button
               style={smallBtn}
-              disabled={
-                phase === 'busy' ||
-                !email.includes('@') ||
-                password.length < 6 ||
-                username.trim().length < 3
-              }
+              aria-label="submit create account"
+              disabled={!canSignUp}
               onClick={() => void doSignUp()}
             >
               {phase === 'busy' ? 'creating…' : 'create account'}
