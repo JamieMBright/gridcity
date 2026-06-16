@@ -7,6 +7,7 @@ import { pushSettings } from '../online/cloud';
 import type { SimSpeed } from '../sim/protocol';
 import { ALLOWANCE_Y1_K, inRebuildYear } from '../sim/scenario/story';
 import { assetCapexK } from '../sim/regulation/bill';
+import { BoltMark } from './BoltMark';
 import { SearchBox } from './SearchBox';
 import { fmtMoneyK, panelStyle, theme } from './theme';
 import { useUnlockGate } from './unlocks';
@@ -864,17 +865,16 @@ function Wordmark() {
         cursor: 'pointer',
         textAlign: 'left',
         whiteSpace: 'nowrap',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
       }}
     >
-      <img
-        src="/icon-192.png"
-        alt=""
-        width={26}
-        height={26}
-        style={{ verticalAlign: -6, marginRight: 8, borderRadius: 6 }}
-      />
-      <span style={{ color: theme.orange }}>ELECTRI</span>
-      <span style={{ color: theme.slate }}>CITY</span>
+      <BoltMark size={24} />
+      <span>
+        <span style={{ color: theme.orange }}>ELECTRI</span>
+        <span style={{ color: theme.slate }}>CITY</span>
+      </span>
     </button>
   );
 }

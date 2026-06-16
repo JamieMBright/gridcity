@@ -427,18 +427,30 @@ TOWER, proportionally, each one bespoke."
       heroes to light.
 
 ### 🔁 PLAYTEST RE-RAISE + NEW FEEDBACK (owner, 2026-06-15 13:30) — "previous feedback that doesn't feel well implemented; some slipped or wasn't verified" → ACTUALLY implement AND VERIFY each (re-opens the 2026-06-13 TUTORIAL OVERHAUL + GAME/UX BUGS sections below; this is the authoritative restatement).
-**AUTH / SETTINGS / MENU**
-- [ ] Password field: ENTER triggers the sign-in button.
-- [ ] Sign-in / Create-account TAB filters currently highlight the SAME as the
-      action "sign in" button → confusing. Make the tab filters a solid pale
-      infill, visually distinct from the action button.
-- [ ] Settings menu: sign-out is off-centre; add CHANGE PASSWORD (old / new /
-      confirm-new / submit). Consider making Settings its own popup (cleaner?).
-- [ ] Remove the SQUARE icon from the main menu (owner dislikes the square home
-      icon). Use the lightning BOLT from between the ELECTRI⚡CITY wordmark on a
-      blue background — super simple.
-- [ ] LOGIN didn't really work (re-raise — end-to-end auth, ties to Supabase
-      Site-URL + styled callback).
+**AUTH / SETTINGS / MENU** — W7a IN PROGRESS (worktree branch worktree-agent-a7e6a536f978986df)
+- [x] Password field: ENTER triggers the sign-in button. (AccountPanel: email +
+      password + username inputs submit the active flow on Enter via a shared
+      onEnter handler, gated on the same enable conditions as the button. The OTP
+      email + code inputs do likewise.)
+- [x] Sign-in / Create-account TAB filters currently highlight the SAME as the
+      action "sign in" button → confusing. Made the tab filters a SEGMENTED
+      control with a solid PALE infill for the active tab (slate-tinted, raised
+      pill in a recessed track) — visually distinct from the orange gradient
+      action button.
+- [x] Settings menu: sign-out is off-centre; add CHANGE PASSWORD (old / new /
+      confirm-new / submit). Settings is now its OWN centred popup (SettingsPanel)
+      with a centred signed-in row + sign-out, audio/colour-blind toggles, and an
+      inline change-password form (current / new / confirm) for signed-in users
+      (reauth via signInWithPassword then updatePassword).
+- [x] Remove the SQUARE icon from the main menu (owner dislikes the square home
+      icon). Replaced /icon-192.png in the StartMenu + both wordmarks (App + Hud)
+      with a simple lightning BOLT on a blue rounded background (BoltMark, drawn
+      from the wordmark bolt path) — super simple.
+- [~] LOGIN didn't really work (re-raise — end-to-end auth, ties to Supabase
+      Site-URL + styled callback). Code path verified end-to-end (sign-up → confirm
+      → sign-in → signed-in state); AuthCallback already styles the recovery/confirm
+      redirect. Supabase Site-URL/redirect-allowlist is a DASHBOARD config (noted
+      for the owner — cannot be set from code).
 **TUTORIAL 1 — onshore wind**
 - [ ] Highlight on the onshore-wind button must VANISH the moment it's clicked
       (same bug on the dist-sub/33kV-line highlight — disappear on click).
