@@ -24,20 +24,25 @@ when I load London."
 - [x] **SHIPPED to prod:** PR #64 squash-merged to main (00686ef); Vercel prod deploy
   READY. So the next crash is captured with a full stack + shows a graceful screen.
 
-#### 🔴 LIVE: London-load crash (owner blocked) — awaiting trace
-- Owner save = `northeast` v16 (valid, 1.6KB). Boots into northeast; "new game →
-  London" crashes. Happens on PROD (likely iPhone); NOT reproducible here.
-- RULED OUT: stale save (v16 ok); dev city-switch northeast→london (no crash, worker
-  ready); atlas >4096 overflow (heroes ride off-sheet buffers, packer guarded); stale
-  cached atlas missing-frame (renderer GUARDS every textures.get → skips, no throw);
-  unguarded renderer derefs (none found).
-- BLOCKER: sandbox egress-locked — 403 (host_not_allowed) to prod+preview, Supabase
-  cert errors; can't load the live build or emulate the iOS GPU. → can't reproduce.
-- [ ] **NEXT: read the real trace** from `client_errors` once the owner reloads the
-  new build + retries London, then fix the root cause precisely. Polling the table on
-  the keep-alive heartbeat. (If it stays EMPTY after a hard reload → iOS memory kill,
-  not a JS exception → optimise London's footprint instead.)
-- [x] cityload.spec.ts guard added (4a76e92) — switching into London never crashes (dev).
+#### ✅ RESOLVED: London-load crash — fixed + shipped (#65, prod 7de71d6, deploy READY)
+Did NOT need the live trace: built an "every playable city" e2e that REPRODUCED the
+crash on cairo, then traced TWO distinct renderer crashes on city load / switch:
+1. **ImageData IndexSizeError** — a sprite/hero buffer whose length != 4*w*h. Root:
+   the cairo `grand-egyptian-museum` hero declared foot [3,3] but draws a 2x2
+   museumBlock (w768 vs real 512 → fractional height). Fixed footprint → [2,2].
+2. **City-switch teardown RACE** — init() awaits the atlas bake; a scenario switch can
+   destroy() the renderer mid-await, so the post-bake `boatLayer.addChild(...)` hit a
+   null layer ("Cannot read properties of null (reading 'addChild')"). TIMING-dependent
+   → why it hit the owner's iPhone (NE save → new-game London) but never the tests.
+   Re-check this.destroyed after the bake. ← the LIKELY owner crash.
+- [x] DEFENSIVE NET: `MapRenderer.safeImageData()` never hands a mismatched buffer to
+  ImageData — repairs (pad/truncate) + reports the sprite to client_errors. A malformed
+  graphic can no longer hard-crash, and the bad source is findable from prod.
+- [x] SHIPPED: PR #65 squash-merged to main (7de71d6); Vercel prod deploy READY/live.
+- [x] cityload.spec.ts loads + switches ALL 12 cities; green incl. `--retries=0`.
+- [ ] WATCH: client_errors after the owner reloads — confirm no residual crash.
+- NOTE: race-guard lives on main via #65 but not yet on THIS batch branch's MapRenderer;
+  the eventual batch→main merge keeps main's guard (3-way merge, no regression).
 
 ### 🧪 OWNER ASK (2026-06-16 21:55): expand Playwright to EVERY button + EVERY map
 Owner: "expand your playwright testing to include every button and every map etc."
