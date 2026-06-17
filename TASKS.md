@@ -184,7 +184,20 @@ tsc/eslint/vitest/build + `bash tools/e2e-shards.sh 'panels|flows|bootpaths'`.
       auto-connect toggle (placed sub lays its own circuits). (4604800)
 - [x] **T3 — visible van-launch step** — m3 seeds fleetSize=0; new step raises vans
       0→1 (Fleet panel) then the storm step shows the van leave the depot. (4604800)
-- [ ] GATES all green + tutorial e2e extended; PR to main; screenshots both viewports.
+- [x] GATES all green + tutorial e2e extended; PR to main; screenshots both viewports.
+      (DONE WAVE α — verification + design-gate closeout. The WP1 feature code shipped
+      in PR #70 (b849071); this pass RE-VERIFIES it on current main and closes the gate:
+      tsc -b 0 · eslint 0 · vitest 812/812 (86 files) incl. the one-wind / app-suppression
+      / progressive-disclosure / mission tests. Tutorial e2e already covers the gated
+      bid step + the vanish-on-click ("bouncing arrow … VANISHES the moment it is
+      clicked"); e2e/campaign.spec.ts SHOTS suite was EXTENDED to capture the required
+      design-gate set at BOTH viewports — preview/wp1-spotlight-{desktop,mobile}.png
+      (arrow up over the ringed onshore-wind button, screen dimmed), preview/
+      wp1-spotlight-gone-{desktop,mobile}.png (arrow + dim gone after the click, tender
+      not yet placed → proves vanish-on-CLICK), preview/wp1-spotlight-closeup-
+      {desktop,mobile}.png (zoomed arrow+target). Images judged: cosy dusk palette holds,
+      arrow legible + gently bobbing, spotlight reads, HUD de-cluttered (no minimap/
+      market ticker), and the "BUILDING …" label sits clear of the notes. PR to main.)
 
 ### 🧾 LEDGER RECONCILE (2026-06-17) — honest audit of every open/partial item vs the shipped code (origin/main @ 2099b94, PRs #63–#66)
 The owner flagged that the ledger had drifted untrustworthy (~134 unchecked items, many
@@ -887,22 +900,49 @@ TOWER, proportionally, each one bespoke."
       redirect. Supabase Site-URL/redirect-allowlist is a DASHBOARD config (noted
       for the owner — cannot be set from code).
 **TUTORIAL 1 — onshore wind**
-- [ ] Highlight on the onshore-wind button must VANISH the moment it's clicked
+- [x] Highlight on the onshore-wind button must VANISH the moment it's clicked
       (same bug on the dist-sub/33kV-line highlight — disappear on click).
-      (left: Spotlight.tsx re-measures live but has NO explicit hide/fade-on-click logic
-      — genuinely OPEN. Proposed WAVE α.)
-- [~] Guided play: darken everything except the target + highlight it; AFTER the
+      (DONE + VERIFIED WAVE α: src/ui/Spotlight.tsx `useSpotlightRect` binds
+      pointerdown+click listeners to the measured target and returns a `clicked`
+      latch; Tutorial.tsx L96 `showSpot = spotRect && !spotClicked` drops the
+      spotlight + arrow the instant the target is pressed — NOT when the goal
+      latches. e2e/campaign.spec.ts "bouncing arrow … VANISHES the moment it is
+      clicked" arms the tool, asserts the arrow `toHaveCount(0)`, AND proves the
+      tender is still unplaced — so it's vanish-on-CLICK. Applies to every spotlit
+      target (the `spot` key drives it), incl. dist-sub/33 kV. Gates green.)
+- [x] Guided play: darken everything except the target + highlight it; AFTER the
       click, highlight the suitable LAND to click next. Make guided-play a
       standing feature (e.g. award/bid bubbles pop to draw attention).
-      (done: the darken+ring spotlight IS implemented (Spotlight.tsx + MissionStep.spot).
-      Left: highlighting suitable LAND after a click + the attention bubbles — OPEN.)
-- [ ] Highlight design: add an ARROW pointing at the target with a BOUNCING anim.
-      (left: Spotlight draws only an orange border ring — no arrow/bounce. OPEN, WAVE α.)
-- [ ] Allow only ONE onshore-wind facility (simplicity).
-      (left: no limit enforced in missions.ts/commands.ts — genuinely OPEN, WAVE α.)
-- [ ] Make them actually click ▶▶▶; when a bid lands, show it, then tell them to
+      (DONE + VERIFIED WAVE α: the darken+ring spotlight is a standing feature
+      (Spotlight.tsx + every MissionStep.spot). Suitable LAND after the button
+      click is shaded by the renderer's suitability overlay (MapRenderer
+      `siteErrorAt`-driven green/red), and award/bid/application sites pop animated
+      attention bubbles via MapRenderer `sitePins` (icon: 'tender'|'application'|
+      'overdue'|'building', eased on real time). Both halves present.)
+- [x] Highlight design: add an ARROW pointing at the target with a BOUNCING anim.
+      (DONE + VERIFIED WAVE α + DESIGN-GATED: Spotlight.tsx `BounceArrow` +
+      `ArrowKeyframes` draw a ▼ glyph in theme.orange with a soft drop-shadow,
+      placed on whichever side has room and bobbing ~4px on a 1s ease-in-out loop
+      (cosy, not frantic — honours the no-flashing mandate). data-testid
+      "spotlight-arrow". Design-gate screenshots captured at desktop +
+      phone-landscape: preview/wp1-spotlight-{desktop,mobile}.png (arrow up) +
+      preview/wp1-spotlight-gone-{desktop,mobile}.png (vanished after click).)
+- [x] Allow only ONE onshore-wind facility (simplicity).
+      (DONE + VERIFIED WAVE α: src/sim/commands.ts `SINGLE_ONSHORE_MISSIONS` =
+      {m1-first-light, m5-bill}; a 2nd windOnshore designation is refused when an
+      onshore tender is already open/awarded OR an onshore gen is already built
+      ("this lesson uses one onshore wind farm…"). Sandbox + other missions
+      unaffected. tests/missions.test.ts "only ONE onshore-wind farm" — m1 refuses
+      a 2nd tender, a BUILT gen blocks a fresh designation in m5, and london allows
+      as many as you like. Deterministic (gated on state.scenarioId only).)
+- [x] Make them actually click ▶▶▶; when a bid lands, show it, then tell them to
       click ▶▶7d to gather all bids.
-      (left: not separately verified as a discrete gated step — keep open pending check.)
+      (DONE + VERIFIED WAVE α: missions.ts M1 step 3 is a discrete GATED step —
+      "Run time forward with ▶▶▶ and watch the INBOX fill with bids", objective
+      "Let time run until a developer bids", `done: bids.length>0`, `auto:true` so
+      it self-advances when the first bid lands; spot:'inbox' + unlocks hud:inbox.
+      Step 4 then surfaces the bids ("Read a BID before you award it") and gates on
+      AWARD. e2e/campaign.spec.ts runs the clock at 16x and polls bids>0 then awards.)
 - [x] Teach a BID: all offer the same 100 MW unit but differ on £ — the white
       £/MWh goes on customers' ENERGY bill; the curtail £ is compensation you pay
       if you cut them, landing on the STANDING-CHARGE part. Lower is better on both.
@@ -941,10 +981,17 @@ TOWER, proportionally, each one bespoke."
       stays "armed for the next run". Left for playtest: confirm click-same-point-twice ends.)
 - [x] After placing, click the turbine to INSPECT its connection voltage.
       (done: missions.ts M2 step 3 — "INSPECT the turbines to see their connection voltage".)
-- [~] Teach demolish line + dist-sub, turn AUTO-CONNECT on (needs a HOTKEY),
+- [x] Teach demolish line + dist-sub, turn AUTO-CONNECT on (needs a HOTKEY),
       re-place the dist sub to auto-connect.
-      (done: demolish is an always-unlocked tool + taught; left: no AUTO-CONNECT HOTKEY
-      exists and no step teaches toggling it / re-placing to auto-connect — OPEN, WAVE α.)
+      (DONE + VERIFIED WAVE α: AUTO-CONNECT HOTKEY = 'A' (App.tsx onKey L156-158
+      → setAutoConnect(!autoConnect)); the build-palette toggle carries
+      data-spot="autoconnect" (BuildPalette L152) and MapView L134 stamps
+      spec.autoConnect onto sub builds → commands.ts `autoConnectSub` runs a
+      circuit from each bay to the nearest matching asset, all in one undo step.
+      missions.ts M6 step 4 teaches it explicitly: "Turn on AUTO-CONNECT (the
+      toggle in the build palette, or just press A) … drop a dist substation … the
+      wires lay themselves", spot:'autoconnect'. Documented in HotkeyHelp L79 +
+      LessonsPage m6 curriculum ("auto-connect"). Demolish is always-unlocked.)
 - [x] MULTI-TILE installs must be selectable on ANY of their tiles — run the line
       from any tile the farm occupies, not only the originally-clicked tile (the
       farm bleeds beyond its auctioned tile).
@@ -955,11 +1002,24 @@ TOWER, proportionally, each one bespoke."
       tutorial" button on the 6/6 step tile.
       (done: W7e — the victory card is gated on `tutorialDone`, set only by the "finish
       tutorial ✓" button on the last step tile; never auto-ends on the connect goal.)
-- [ ] Prevent unrelated APPLICATIONS spawning during tutorials (confusing).
-      (left: no code blocks app spawn during missions — genuinely OPEN, WAVE α.)
-- [ ] HIDE unnecessary overlay info during tutorials (introduce it over lessons).
-      (left: no mission-specific HUD-hiding logic (the step strip can minimise, but
-      non-essential HUD isn't suppressed) — genuinely OPEN, WAVE α.)
+- [x] Prevent unrelated APPLICATIONS spawning during tutorials (confusing).
+      (DONE + VERIFIED WAVE α: src/sim/tick.ts gates the RANDOM spawners on
+      `const inMission = state.scenarioId !== 'london'` — `maybeSpawnApplications`
+      (L564) AND `rollFaults` (L458) return [] in a mission, and innovation pitches
+      + H&S/litigation + the Heathrow scheme are all london-only. Scripted lesson
+      beats survive: m3's storm fault is injected directly (tripSeededLine, not the
+      roll) and m4's data-centre is pushed by seed(). tests/missions.test.ts
+      "tutorials suppress unrelated applications" — m1/m5/m6 get ZERO unsolicited
+      apps/pitches/faults over 30 weeks, london still spawns, m3's storm still fires.)
+- [x] HIDE unnecessary overlay info during tutorials (introduce it over lessons).
+      (DONE + VERIFIED WAVE α: progressive HUD disclosure — src/ui/unlocks.ts
+      `useUnlockGate` + missions.ts `missionUnlocks` show ONLY the `hud:`/tool keys
+      a mission has unlocked up to the CURRENT step; the build rail, mobile chrome
+      and HUD chips all filter through it. Non-essential ambient chrome (hud:minimap,
+      hud:market) is hidden in every tutorial by default and surfaced only where a
+      lesson needs it (m5 introduces hud:market). Sandbox shows everything.
+      tests/missions.test.ts "progressive disclosure" asserts the per-step cumulative
+      sets; e2e/campaign.spec.ts asserts gas/grid-sub/132 absent at the wind step.)
 - [x] Remove the "skip tutorial" option from the steps (tutorial is the only play).
       (done: W7e — no skip-whole-tutorial button; replaced with ◂back / next▸ + finish.)
 - [x] Confusion: the dist sub is 33 kV/LV immediately → add a PRIOR lesson
@@ -979,10 +1039,24 @@ TOWER, proportionally, each one bespoke."
       to see their connection voltage. That is too high for a 33 kV line…".)
 - [~] The "BUILDING Offshore Wind" top label blocks the tutorial notes → let the
       notes DOMINATE more of the screen + hide as steps execute (recallable).
-      (done in part: the step strip minimises to a recallable pill; left: not separately
-      confirmed the BUILDING label no longer blocks the notes — playtest-verify.)
-- [ ] Teach UNDERGROUND cables (happier locals, less coastline interference).
-      (left: M2 never introduces underground cables as a build option — genuinely OPEN, WAVE α.)
+      (done: the step strip minimises to a recallable pill, and BuildLabelChip.tsx
+      was re-anchored — desktop top:50 centred / mobile top-left beside the rail
+      (clear of the centred market ticker), pointer-events:none. The notes strip
+      (top:56, maxHeight 64vh, flex with pinned objective+nav) dominates and tucks.
+      Left for owner playtest-verify: a final eyeball that the chip never overlaps
+      the notes header on the shortest phone-landscape — design-gate screenshots in
+      preview/w7e-step-*.png cover it; flagging for main-thread integration check.)
+- [x] Teach UNDERGROUND cables (happier locals, less coastline interference).
+      (DONE + VERIFIED WAVE α: missions.ts M2 step 5 introduces it in-flow — "The
+      33 kV link runs right past the seafront cottages, and OVERHEAD pylons there
+      blight the view and rile the locals. In the LINES & CABLES tool, switch from
+      OVERHEAD to UNDERGROUND (or press U) — a buried CABLE costs more but keeps the
+      coastline clear and the neighbours happy." Objective "Wire the homes with a
+      33 kV UNDERGROUND cable", gated on a level-33 build === 'underground' serving
+      customers; spot:'line-build' rings the overhead/underground toggle (data-spot
+      in BuildPalette L644). 'U' hotkey flips the armed line's build (App.tsx
+      L159-167); commands.ts builds/prices underground cables + convertLine/
+      undergroundSection. LessonsPage m2 curriculum lists "underground cables".)
 **TUTORIAL 3 — storm (largely NOT delivered — re-raise: no storm report popup,
 no system-prepare, no slow-down, no weather overlay, no prep suggestions; saw a
 fault icon but NO van)**
@@ -1003,11 +1077,16 @@ fault icon but NO van)**
       MapRenderer stepRain), distinct from drizzle; the system-prepare LEVERS exist
       (stormprep.ts). LEFT: the dedicated ~2-min SLOWED phase — the clock fully PAUSES
       instead of running slow. WAVE ε / α.)
-- [~] After the field depot, have the player raise vans 0→1 and SEE the van leave
+- [x] After the field depot, have the player raise vans 0→1 and SEE the van leave
       the depot and attend the fault.
-      (done in code: vans render + drive from depot to faults (fleet.ts + van.helper.spec.ts);
-      left: the M3 step has vans "appear the moment it exists" — the raise-0→1-and-watch-it-
-      leave interaction isn't taught as a controllable step. WAVE α.)
+      (DONE + VERIFIED WAVE α: missions.ts M3 seed sets `state.fleetSize = 0` (vs the
+      live default of 2) so the player starts with NONE; step 3 is a controllable
+      GATED step — "Open the FLEET panel and raise your fleet from 0 to 1 VAN — watch
+      it appear, parked at the depot, ready to roll", objective gated on
+      `s.fleet.fleetSize >= 1`, spot:'hud:fleet'. The storm step then says "watch
+      your van LEAVE THE DEPOT, drive the roads to the fault, and restore supply".
+      Vans render + glide depot→fault (MapRenderer stepFleet + van.helper.spec.ts).
+      tests/missions.test.ts m3 seeds 3 assets + fleetSize 0; storm fault fires.)
 - [~] End the lesson at the end of a system-prepare stage.
       (left: not separately verified the M3 finish lands at a system-prepare boundary — playtest.)
 - [x] Introduce CI & CML here.
