@@ -12,6 +12,41 @@
 
 ## Open
 
+### 🧾 LEDGER RECONCILE (2026-06-17, post #71–#76) — evidence-based residual audit
+Second reconcile pass after this session's merges (#68 panels-net, #69 WP2 country
+operating-models WIRED, #70 WP1 tutorial polish, #71 WP5 economy, #72 polish,
+#73 WP6 city fabric, #74 WP3 Giza load, #75 Wave-D exhaustive e2e sweep, #76 WAVE α
+tutorial verify). Verified every remaining `- [ ]`/`- [~]` against current main code
+(src/, tests/, e2e/) with two parallel Opus subagents + direct grep/read. Rule
+unchanged: tick `[x]` ONLY with a concrete file:line/test citation. **The TRUE residual
+is now small.** Headline true state:
+- **DONE this session (now ticked below):** WAVE α tutorial guided-play (#70/#76 — all 10
+  items incl. the 5 ex-"W7e partials": underground-in-T2, reinforce-in-T5, firm/flex-in-T4,
+  auto-connect-hotkey-in-m6, van-launch-in-T3 — verified at source with matching `data-spot`
+  targets + e2e); WP2 operating-models WIRED for FR/AU/HK (#69 — `cityRegistry.resolveProfile`
+  + `COUNTRY_PROFILES`); WP5 economy (#71 — +30d-halts-on-MAJOR, RAV sum-of-digits, car-park EV);
+  #72 polish (town densification grows UP, Thames glint); WP6 city fabric for NYC/HK/Cairo/Paris
+  (#73); WP3 Giza energisable load (#74); Wave-D exhaustive button/city e2e sweep (#75).
+- **HERO DOCTRINE confirmed:** 12 city modules, EVERY hero carries a bespoke `light:` spec
+  (lit-count == key-count per file); 10/12 at ≥100 (London 100, Paris 105, NYC 100, Sydney 103,
+  HK 103, Berlin 100, Shanghai 100, Cairo 100, Athens 100, NE 101); Cape Town 88 + Pune 31 at
+  researched ceilings (docs/heroes/<city>: pune only 34 research docs). DONE.
+- **GENUINE RESIDUAL (truly OPEN/PARTIAL):** WAVE β (W8 Part-2b dormant wiring: `gridCarbonG`
+  has ZERO consumers → carbon KPI doesn't use import-carbon; `baseloadFloor`/`hydroDriven` not
+  read by dispatch; regulator `model` framing-text absent from report-card UI; per-country
+  tender flows; non-FR/AU/HK cities still LONDON_PROFILE); WAVE δ progression gate (`unlockAtRank`
+  is DEAD data, never read — all cities open) + Supabase `progression`/`profiles`/`saves`/
+  `leaderboard` MIGRATIONS missing from repo (only `0001_client_errors.sql` exists); WAVE ζ
+  per-city HOUSING/building-stock for the OTHER 7 cities (Sydney/Berlin/Shanghai/Cape Town/
+  Athens/Pune/NE — `cityStockFor` covers only Paris/NYC/HK/Cairo); thin-river glint is
+  London-ONLY (shoreline.ts:195) → Cairo-Nile/Pune/NE rivers have none; night-light "dusk
+  pocket" never rendered; map-recognisability pass-2 (standing tuning); L1126 reinforce-an-
+  out-of-range-app tutorial drill.
+- **BLOCKED-ON-OWNER:** Supabase Site-URL / redirect-allowlist (dashboard-only — the root of
+  "login didn't really work"); apply branded email templates (dashboard); better iPhone
+  home-screen icon (all v1+v2 concepts rejected, awaiting direction); deepen-night-vs-keep-cosy
+  night-light decision; WATCH client_errors after the owner reloads prod.
+
 ### 🔺 WP3 — Giza Sound-&-Light as an ENERGISABLE DEMAND POINT (Cairo) — DONE (2026-06-17)
 Owner ask (WAVE γ): "Pyramids of Giza must feature + the Sound-&-Light floodlighting needs
 [to be energised]." The Giza sprites (pyramids + Sphinx) and the `pyramidFlood`/`sphinxFlood`
@@ -107,7 +142,8 @@ SAVE_VERSION bump or are avoided. Gates: tsc/eslint/vitest/build +
       service-area gate (was base-demand-only) to admit car-park-only tiles — verified
       against real London: 18 car-park tiles, all council-backed, several with 0 homes
       that would otherwise have had their 0.3 MW dropped. Deterministic. (demand.test.ts)
-- [ ] GATES all green; commit incrementally; push branch; PR to main.
+- [x] GATES all green; commit incrementally; push branch; PR to main.
+      (DONE: WP5 merged to main as #71 / 34e5cf8.)
 
 ### 🏙️ WP6 — PER-CITY BUILDING CHARACTER (this session, branch wp6-city-building-character)
 Cities stop looking like reskinned London terraces: era/region-appropriate housing +
@@ -249,28 +285,46 @@ remaining backlog.
   carries tested FR/AU/HK/BR market+regulator+weather profiles — but they're NOT WIRED:
   every non-London city still resolves to `LONDON_PROFILE`. Left: wire profiles into
   `cityRegistry` + per-country tender flows (Part 2b). The big remaining W8 chunk.
+  → UPDATE (post-#69, 2026-06-17): now WIRED for FR/AU/HK (Paris/Sydney/HK) via
+  `cityRegistry.resolveProfile` + `COUNTRY_PROFILES`; market/regulator/weight framing flow
+  through dispatch/RIIO/bill. REMAINING (WAVE β): `gridCarbonG` unused (no carbon-KPI import
+  carbon), `baseloadFloor`/`hydroDriven` unused by dispatch, regulator `model` framing-text
+  absent from the report card, per-country tender flows, + the non-FR/AU/HK cities (still GB).
 - **FAVOUR LOGGING IN:** rank ladder + sign-in prompts done; city-unlock gating is NOT
   enforced (all cities open-to-all by design for testing) and cross-device rank sync is
   deferred (rank is local-only). Left: the progression gate + Supabase `progression` sync.
+  → UPDATE (2026-06-17): still PARTIAL. Evidence: `unlockAtRank` is dead data (set per-city,
+  read by nothing); CityPicker gates on map-data only; the `progression`/`profiles`/`saves`/
+  `leaderboard` migrations are absent from the repo (only 0001_client_errors.sql). WAVE δ.
 - **Night-light "pop":** fairy-lights bulbs shipped but the per-hero "dusk pocket" never
   rendered; OWNER DECISION still pending (deepen the night vs keep cosy). Needs a playtest.
 - **W7e tutorial sub-items (5 partial):** auto-connect-hotkey teaching, T2 underground
   cables, T3 visible van-launch + clock-pause taught in-step, T4 firm/flex VISUAL spotlit
   in-flow (the `FirmFlexCompare` component exists but isn't surfaced by the M4 steps),
   T5 teach reinforcing-a-sub. Copy/concepts present; the interaction is missing.
+  → UPDATE (post-#70/#76, 2026-06-17): ALL 5 now DONE — verified at source. m2:448 underground
+  step (gated on a 33 kV underground build), m5:694 reinforce step (`spot:'reinforce'`), m4:602
+  firm/flex step (`spot:'firmflex'` → FirmFlexCompare.tsx:139), m6:760 auto-connect step
+  (`spot:'autoconnect'`, A hotkey App.tsx:156), m3:484 fleet 0→1 + van-launch step. Each has a
+  matching `data-spot` UI target + e2e coverage. No longer partial.
 - Playtest-confirm bucket (code looks right, never re-played post-shuffle): the whole
   06-13 "re-raise & VERIFY" list (footprint/rotor/esc/snooze/HUD-overlap) — code cited,
   but the owner asked for a live re-verify; flagged `[~]` where re-raised.
 
 **(C) GENUINELY OPEN — verified absent, grouped into proposed WAVES:**
-- **WAVE α — Tutorial guided-play polish (S, ~1 PR):** highlight VANISHES on click;
-  ARROW + bouncing animation on the spotlight target; allow only ONE onshore-wind facility
-  in the tutorial; PREVENT unrelated applications spawning during tutorials; HIDE
-  non-essential HUD during tutorials; + finish the 5 W7e partials above (underground in T2,
-  reinforce in T5, firm/flex visual in T4, auto-connect hotkey, visible van-launch in T3).
-- **WAVE β — W8 operating-models IMPLEMENTATION (L):** wire FR/AU/HK/BR power/economy/
+- **WAVE α — Tutorial guided-play polish (S, ~1 PR): ✅ DONE (#70 + #76, 2026-06-17).** All of:
+  highlight VANISHES on click; ARROW + bouncing animation; ONE onshore-wind only; PREVENT
+  unrelated applications spawning; HIDE non-essential HUD progressively; + the 5 W7e partials
+  (underground T2, reinforce T5, firm/flex T4, auto-connect hotkey m6, van-launch T3). Verified
+  at source (see WP1 block at top of Open + the (B) tutorial UPDATE). Tail: L1126 out-of-range
+  reinforce drill (tiny, S).
+- **WAVE β — W8 operating-models IMPLEMENTATION (L → now M):** wire FR/AU/HK/BR power/economy/
   regulator/weather profiles through `cityRegistry`→tick (they exist, dormant); grid-carbon
   into the carbon KPI; per-country tender flows; regulator framing text in the report card.
+  → UPDATE (post-#69, 2026-06-17): the PROFILE WIRING (FR/AU/HK) + regulator KPI weights are
+  DONE. REMAINING (now M): grid-carbon (`gridCarbonG`) into the carbon KPI/import carbon;
+  `baseloadFloor`/`hydroDriven` into dispatch; per-country tender flows; regulator `model`
+  framing TEXT in the report card; (optionally) the non-FR/AU/HK cities' own profiles.
 - **WAVE γ — Giza + per-hero gameplay (M): SHIPPED (2026-06-17, WP3).** Modelled the Giza
   Sound-&-Light as an energisable DEMAND point — a ~15 MW heritage load on the Giza footprints,
   unserved until the operator builds out to the plateau, the floodlights firing on real
@@ -278,18 +332,31 @@ remaining backlog.
 - **WAVE δ — Progression gate (M):** gate city-unlocks / accolades behind (or strongly tie
   to) an account + a Supabase `progression` table + guest→login merge + cross-device sync;
   surface the benefit at rank-up / city-offer moments (rank ladder already exists).
-- **WAVE ε — Exhaustive e2e + economy/skip polish (M):** Wave D exhaustive button/city e2e
-  sweep (asserts no pageerror/console.error everywhere); decide +30d-skip-halts-on-minor-
-  vs-major + "skipped N of 30 days" report; RAV phase-in tuning if needed.
-- **WAVE ζ — Per-city asset packs & richer building stock (XL, art):** city-appropriate
+  → UPDATE (2026-06-17): STILL OPEN. The sync CLIENT code is wired (cloud.ts/workerBridge) but
+  the Supabase MIGRATIONS for `progression`/`profiles`/`saves`/`leaderboard` do NOT exist in the
+  repo (only 0001_client_errors.sql), and `unlockAtRank` is dead data (never read). WAVE δ =
+  write the migrations (+ RLS) + read `unlockAtRank` to gate CityPicker.
+- **WAVE ε — Exhaustive e2e + economy/skip polish (M): ✅ DONE (#71 + #75, 2026-06-17).** Wave D
+  exhaustive button/city e2e sweep SHIPPED (#75: sweep-buttons/sweep-panels/cityload + crashnet);
+  +30d-skip-halts-on-MAJOR-only SHIPPED (#71); RAV phase-in (sum-of-digits) SHIPPED (#71). Only
+  the optional "skipped N of 30 days" report toast was not added (trivial; drop or tiny follow-up).
+- **WAVE ζ — Per-city asset packs & richer building stock (XL → now L, art):** city-appropriate
   housing/commercial/industrial stock across eras (not reskinned London terraces); wealthier
   long-tail variety; tie to CityScenario v2. Large art effort, sequence late.
+  → UPDATE (post-#73, 2026-06-17): bespoke HOUSING stock now ships for 4 cities (Paris/NYC/HK/
+  Cairo via cityStockFor). REMAINING (now L): the same for the OTHER 7 cities (Sydney/Berlin/
+  Shanghai/Cape Town/Athens/Pune/NE) + the deeper era-diverse London variety. Pattern is proven
+  (tileChooser.ts:215 + atlas.ts buildCityStockBufs) so each city is now an add-an-archetype.
 - **Owner-config / awaiting-direction (not a wave — needs the owner):** better iPhone
   home-screen icon (all v1+v2 concepts rejected; awaiting direction); Supabase Site-URL /
   redirect-allowlist (dashboard-only); "deepen night vs keep cosy" night-light decision.
+  (UNCHANGED 2026-06-17 — all three still BLOCKED-ON-OWNER.)
 - **Long-tail / low-priority singletons:** car-park EV load; town densification (edge-infill
   only today); map-recognisability pass 2 (tuning); a few historical `[~]` simplification
   notes inside the Done section (deliberate, not bugs).
+  → UPDATE (2026-06-17): car-park EV load DONE (#71) and town densification DONE (#72). Only
+  map-recognisability pass-2 (standing tuning) + thin-river glint for Cairo/Pune/NE rivers
+  (London-only today, shoreline.ts:195) remain as genuine low-priority singletons.
 
 ---
 
@@ -322,6 +389,8 @@ crash on cairo, then traced TWO distinct renderer crashes on city load / switch:
 - [x] SHIPPED: PR #65 squash-merged to main (7de71d6); Vercel prod deploy READY/live.
 - [x] cityload.spec.ts loads + switches ALL 12 cities; green incl. `--retries=0`.
 - [ ] WATCH: client_errors after the owner reloads — confirm no residual crash.
+      (BLOCKED-ON-OWNER: passive prod monitoring — needs the owner to reload the live app;
+      the crash-capture sink (#64) + the two renderer fixes (#65) are shipped & live.)
 - NOTE: race-guard lives on main via #65 but not yet on THIS batch branch's MapRenderer;
   the eventual batch→main merge keeps main's guard (3-way merge, no regression).
 
@@ -356,7 +425,9 @@ compaction; nothing in TASKS/ROADMAP/docs). Capturing here so it sticks.
   2026-06-13). W7a added a new `BoltMark` (bolt on a blue rounded tile) but used
   it only for the in-app wordmark — the iPhone/PWA install icon was left unchanged.
 - [ ] **Action a better iPhone home-screen icon** once the owner confirms the
-  direction. Options to offer: (A) promote the new W7a bolt-on-blue BoltMark to
+  direction. (BLOCKED-ON-OWNER as of reconcile 2026-06-17: all v1 (4 concepts) AND v2
+  concepts REJECTED; awaiting a concrete direction from the owner on what "better" is.)
+  Options to offer: (A) promote the new W7a bolt-on-blue BoltMark to
   apple-touch-icon (180px) + icon-512/maskable + manifest; (B) a fresh bespoke
   design; (C) something they describe. iOS ignores SVG → must ship a 180px PNG +
   512px + maskable; update the web manifest + iOS metas; design-gate on a real
@@ -391,18 +462,20 @@ while you're away." PLUS specific design feedback on the night lights:
       aerialBeacon/rimCycle/archGlow/stadiumFlood/genericGlow) as twinkling bulb point-fields.
       Stays `[~]`: the per-hero "dusk pocket" never rendered + the deepen-vs-cosy OWNER
       DECISION is still pending.)
-- [~] **W7 playtest** — W7e tutorials structure DONE+merged (step-gating + lessons + M6).
+- [x] **W7 playtest** — W7e tutorials structure DONE+merged (step-gating + lessons + M6).
       RECONCILE 2026-06-17: W7b vans, W7c turbine/wind/picker, W7d severe-weather v2 ALL
       verified SHIPPED (see ticks below); W7a auth/menu code path verified (AccountPanel/
-      SettingsPanel/GameMenu/BoltMark). LEFT (the genuinely-open W7e guided-play polish):
-      highlight-vanish-on-click, arrow+bounce, one-onshore-only, prevent-apps-in-tutorial,
-      hide-HUD-in-tutorial + 5 tutorial sub-item partials → proposed WAVE α above.
+      SettingsPanel/GameMenu/BoltMark).
+      (NOW DONE post-#70/#76: the W7e guided-play polish (WAVE α) shipped — highlight-vanish-on-
+      click, arrow+bounce, one-onshore-only, prevent-apps-in-tutorial, hide-HUD-in-tutorial + all
+      5 tutorial sub-items — verified at source. Tiny tail: L1126 out-of-range reinforce drill.)
 - [x] **W8 per-country operating models — RESEARCH done + merged (8e3a33f):** 12 country docs +
       DESIGN.md in docs/operating-models/. Key: powerProfile.ts already ships tested FR/AU/HK/BR
       profiles, just unwired → Phase A is data-wiring. IMPLEMENTATION still to schedule.
       (reconcile: confirmed 13 docs (12 countries + DESIGN.md) + the 4 dormant profiles; the
       WIRING is still open — tracked as `[~]` on the COUNTRY-SPECIFIC OPERATING MODELS item
-      below and proposed WAVE β.)
+      below and proposed WAVE β. UPDATE post-#69: FR/AU/HK profiles are now WIRED into the live
+      sim; the dormant Part-2b pieces (gridCarbonG/baseloadFloor/hydroDriven/tender-flows) remain.)
 - [~] **W9/W10 polish + economy** (thin-river glint, NE Alnwick; RAV/revenue) — then.
       (reconcile: RAV/revenue is DONE — `src/sim/regulation/rav.ts` (full RAV + allowed-revenue
       + totex-sharing + incentives). LEFT: thin-river water glint (Cairo/Pune/NE) + the NE
@@ -899,6 +972,12 @@ TOWER, proportionally, each one bespoke."
       → sign-in → signed-in state); AuthCallback already styles the recovery/confirm
       redirect. Supabase Site-URL/redirect-allowlist is a DASHBOARD config (noted
       for the owner — cannot be set from code).
+      (reconcile 2026-06-17: stays `[~]`. The CLIENT auth code is genuinely complete + wired
+      (supabase.ts/auth.ts/AccountPanel/AuthCallback; e2e/account.spec.ts). Two non-code blockers
+      remain: (1) BLOCKED-ON-OWNER — the Supabase Site-URL/redirect-allowlist dashboard config
+      (likely the real cause of "didn't work"); (2) the `profiles`/`saves`/`leaderboard`/
+      `progression` table MIGRATIONS are absent from the repo (only 0001_client_errors.sql), so
+      post-login cloud sync silently no-ops — that part is WAVE δ.)
 **TUTORIAL 1 — onshore wind**
 - [x] Highlight on the onshore-wind button must VANISH the moment it's clicked
       (same bug on the dist-sub/33kV-line highlight — disappear on click).
@@ -1120,12 +1199,16 @@ fault icon but NO van)**
 - [x] Teach scroll-to-size a dist sub to cover the whole town in one hit.
       (done: missions.ts M5 — "Tip: you can SCROLL on a substation while placing it to size
       its catchment to cover the whole town in one hit.")
-- [ ] Teach REINFORCING an existing sub (inspect → increase, cheaper than new).
-      (left: not taught in any M5 step (the reinforce CONTROL exists in InfoPanel, but no
-      lesson teaches it) — genuinely OPEN, WAVE α.)
-- [ ] Place a new application just outside range; connect it by reinforcing the
+- [x] Teach REINFORCING an existing sub (inspect → increase, cheaper than new).
+      (DONE via WP1/#70 — the prior note was stale. m5 step 5 teaches it explicitly:
+      missions.ts:694-707 "CLICK your distribution substation to inspect it, then … step its
+      'reinforce transformer' up one size", `spot: 'reinforce'`, gated on a dist sub with
+      manual `mva`; UI target InfoPanel.tsx:915 `data-spot="reinforce"`.)
+- [~] Place a new application just outside range; connect it by reinforcing the
       sub's catchment.
-      (left: ties to the un-taught reinforce lesson above — OPEN, WAVE α.)
+      (PARTIAL after WP1/#70: REINFORCING is now taught (m5 step 5, above), but this SPECIFIC
+      scenario — seed an application just OUTSIDE catchment, then connect it by reinforcing —
+      is not a distinct scripted step. Left: a small tutorial-step add (S). WAVE α tail.)
 - [~] Opening bill was sky-high; mission "completed" at £333/yr — sense-check targets.
       (left: a sim-TUNING question, not separately re-checked this reconcile — keep open.)
 **TUTORIALS STRUCTURE**
@@ -1408,10 +1491,14 @@ The landmark-art arc this session, and where it's going next:
 - [~] **COUNTRY-SPECIFIC OPERATING MODELS (owner, 2026-06-14 05:53): "the
       major other element required… learn the differences and have them
       affect the gameplay."** (reconcile: Part 1 (market profiles) + Part 2a (regulator
-      weighting) DONE in powerProfile.ts; 13 research docs in docs/operating-models/. BUT
-      the profiles are NOT WIRED — every non-London city scenario in cityRegistry still
-      resolves to LONDON_PROFILE, so the differences don't yet bite in live play. This is
-      the big remaining W8 chunk → proposed WAVE β. Stays `[~]`.) The CityScenario v2 seams
+      weighting) DONE in powerProfile.ts; 13 research docs in docs/operating-models/.
+      UPDATE post-#69 (2026-06-17): the PROFILES ARE NOW WIRED for FR/AU/HK — Paris→FR,
+      Sydney→AU, Hong Kong→HK via cityRegistry.resolveProfile + COUNTRY_PROFILES (powerProfile.ts);
+      they bite through dispatch/RIIO/bill (AU duck-curve+negative midday, FR nuclear floor+carbon-
+      light, HK regulated-gas+reliability-weighting), London byte-identical, 17 tests
+      (tests/cityProfiles.test.ts). STILL `[~]` — the dormant Part-2b pieces remain (gridCarbonG/
+      baseloadFloor/hydroDriven/tender-flows/report-card framing-text + non-FR/AU/HK cities) →
+      WAVE β.) The CityScenario v2 seams
       already exist (power/economy/generation/regulator/weatherProfile blocks, all
       defaulting to GB). Research each country's REAL operating model and
       wire genuine, gameplay-affecting differences through those seams:
@@ -1453,12 +1540,19 @@ The landmark-art arc this session, and where it's going next:
         (affordability + PV-hosting/curtailment), Scheme of Control
         (reliability dominates), ANEEL (DEC/FEC + affordability). Test: the
         same network scores differently under HK vs Ofgem vs AER.
-  - [ ] Part 2b — grid carbon (`gridCarbonG`) into the carbon KPI / import
+  - [~] Part 2b — grid carbon (`gridCarbonG`) into the carbon KPI / import
         carbon; regulator `model` framing text in the report-card UI;
         `baseloadFloor`/`hydroDriven` into dispatch; `ownership: 'owned'`
         (HK, already in bill.ts) end-to-end. Per-country tender flow
         (France nuclear offers, AU solar/battery, HK no-tender).
-        (left: GENUINELY OPEN — the dormant pieces of the W8 wiring. Proposed WAVE β.)
+        (PARTIAL after WP2/#69: the regulator KPI-WEIGHT framing landed (resolveWeights merges a
+        regulator's kpiWeights over GB; CRE/AER/SoC/ANEEL ship — bullet above), and
+        `ownership: 'owned'` is consumed (bill.ts:147). STILL OPEN (verified absent): `gridCarbonG`
+        has ZERO consumers anywhere in src/ (powerProfile.ts:198-251 only) → the carbon KPI/import
+        carbon does NOT use it (interconnector imports use catalog spec.carbonG, dispatch.ts:387);
+        `baseloadFloor`/`hydroDriven` are read by NOTHING in dispatch (powerProfile.ts only);
+        regulator `model` framing TEXT is NOT surfaced in the report-card UI; per-country tender
+        flows (FR nuclear / AU solar+battery / HK no-tender) not implemented. WAVE β.)
 
 - [x] **MULTI-CITY GEOGRAPHIC MAPS (owner, 2026-06-14 05:07): Paris, Sydney,
       Hong Kong, Rio — geographic accuracy first (rivers/coastlines/roads in
@@ -1520,7 +1614,11 @@ The landmark-art arc this session, and where it's going next:
         (done in code: src/ui/AuthCallback.tsx styled landing (reset/confirm/magic-link,
         strips #access_token) + branded supabase/templates/*.html. LEFT: the Supabase
         Site-URL / redirect-allowlist is a DASHBOARD config the owner must set; cloud
-        rank-sync table not yet created.)
+        rank-sync table not yet created.
+        (reconcile 2026-06-17: the two residuals split cleanly — (1) BLOCKED-ON-OWNER: paste the
+        templates + set Site-URL/redirect-allowlist in the Supabase dashboard (repo can't do it);
+        (2) WAVE δ: the `progression` (+ profiles/saves/leaderboard) MIGRATIONS don't exist in the
+        repo — write them so the wired cloud.ts sync actually persists.)
   - [x] **REGULATORY ASSET VALUE (RAV) + revenue / incentives (price
         controls, reasonably accurate, don't over-confuse).** A RAV that
         starts at ZERO and BUILDS UP as the network grows; it influences the
@@ -1606,8 +1704,13 @@ The landmark-art arc this session, and where it's going next:
         is local-only with a clear, friendly "sign in to keep your rank
         & unlock cities across devices" prompt at the right moments
         (first rank-up, first city-unlock offer, period report card).
-        (left: GENUINELY OPEN — cities are open-to-all (no rank gate) and rank is
-        local-only (no cross-device sync / `progression` table). Proposed WAVE δ.)
+        (left: GENUINELY OPEN — verified 2026-06-17. `unlockAtRank` IS set on every city
+        (cityRegistry.ts) but is DEAD DATA — zero consumers (CityPicker.tsx:60 gates only on
+        whether map data exists, not rank). The cross-device sync CLIENT code is fully wired
+        (cloud.ts syncRank/pushRank/mergeCareer, called from AccountPanel/workerBridge) but the
+        `progression` table — and `profiles`/`saves`/`leaderboard` — have NO migration in the
+        repo (only supabase/migrations/0001_client_errors.sql exists), so it's a no-op. WAVE δ:
+        write the migrations + read `unlockAtRank` to gate the picker. Proposed WAVE δ.)
   - [~] Surface the BENEFIT prominently (start menu NETWORK ACCESS
         block + an inline prompt), not a hard wall — never block the
         core London/tutorial play. Aligns with docs/multi-city-and-rank.md
@@ -1902,8 +2005,10 @@ The landmark-art arc this session, and where it's going next:
       CTA. README has the dashboard apply steps.
   - [ ] OWNER ACTION (config, can't be set from the repo): the confirm
         link 404s on localhost:3000 because the Supabase **Site URL** is
-        the dev default. Fix in dashboard → Auth → URL Configuration:
-        Site URL → the production Vercel domain; add prod + preview
+        the dev default. (BLOCKED-ON-OWNER — reconcile 2026-06-17: this is dashboard-only
+        and is the LIKELY root cause of the owner's "login didn't really work" — the app-side
+        code is correct, only the Site-URL/redirect-allowlist remains.) Fix in dashboard →
+        Auth → URL Configuration: Site URL → the production Vercel domain; add prod + preview
         patterns to Redirect URLs. (App is already correct:
         emailRedirectTo=origin, detectSessionInUrl=true.) Steps in
         supabase/templates/README.md.
@@ -2273,14 +2378,18 @@ The landmark-art arc this session, and where it's going next:
       favicon survives 16px. `tsc -b`, eslint, build green; app+menu e2e
       green (boot text assertion updated to "Electri"/"City").
 
-- [ ] **+30d skip vs incidents (noticed at Wave 9 gate):** now that
+- [x] **+30d skip vs incidents (noticed at Wave 9 gate):** now that
       weather incidents fire every week or two, a +30d (and often +7d)
       skip halts at the first storm/incident (bad news stops a skip —
       intended safety). So the long jumps rarely complete their full
       span. Decide: keep as-is (halt-on-crisis is good), OR only halt on
       MAJOR incidents, OR report "skipped 8 of 30 days — storm hit". Low
       priority tuning.
-      (left: a DESIGN DECISION + small tuning, genuinely open — proposed WAVE ε.)
+      (DONE via WP5/#71: GameEvent gained a `major` flag; `skipHaltEvent`/`haltsSkip` make +30d
+      stop ONLY on a major bad event (severe-storm landfall, grid-tx failure, storm-felled line,
+      flooded sub) while +7d still halts on any bad news. Exactly the "only halt on MAJOR" option.
+      skip.test.ts covers it. The "skipped N of 30 days" report was NOT added — minor, drop or
+      file as a tiny follow-up.)
 
 - [x] **Wave 9 landmarks + Heathrow (agent lane, integrated by main
       after the lane stalled post-completion).** Missing landmarks added
@@ -2444,16 +2553,20 @@ The landmark-art arc this session, and where it's going next:
       housing of different eras."** Extends the MULTI-CITY work.
       (done in part: each city has its OWN bespoke LANDMARKS (1131 heroes) + a per-city
       FABRICS palette/terrain (Sydney blue / NYC drab / Cairo dusty / Haussmann etc.) + the
-      haussmannTile/civicTile etc. LEFT: the richer HOUSING / building-stock across ERAS
-      (Georgian/Victorian/brownstone/walk-up/vernacular per city, not reskinned terraces) —
-      a large art effort. Proposed WAVE ζ.)
-  - [ ] Each new city ships its OWN art pack (art-is-code, lofi style):
+      haussmannTile/civicTile etc. PROGRESS this session via WP6/#73: bespoke HOUSING/building
+      stock now ships for FOUR cities — Paris(haussmann), New York(brownstone+setback),
+      Hong Kong(hktower+tonglau), Cairo(cairoblock) via cityStockFor (tileChooser.ts:215).
+      LEFT: the same era/region housing for the OTHER 7 cities (Sydney/Berlin/Shanghai/
+      Cape Town/Athens/Pune/NE — they still fall back to shared London terraces). WAVE ζ.)
+  - [~] Each new city ships its OWN art pack (art-is-code, lofi style):
         bespoke LANDMARKS (e.g. Sydney Opera House/Harbour Bridge, Paris
         Eiffel/Haussmann, NYC skyscrapers/brownstones, HK towers, Athens
         Acropolis, Shanghai Pudong, Rio Christ/favela morros, Cairo
         pyramids/minarets, Dubai Burj Khalifa/Palm), city-appropriate
         HOUSING + commercial/industrial BUILDING STOCK — not reskinned
         London terraces.
+        (PARTIAL: bespoke LANDMARKS done for all 12 (1131 heroes); bespoke HOUSING stock done
+        for 4/11 (Paris/NYC/HK/Cairo, WP6/#73). LEFT: housing stock for the other 7. WAVE ζ.)
   - [ ] Much WEALTHIER selection generally (applies to London too):
         bigger AND smaller housing across different ERAS (Georgian,
         Victorian, interwar, postwar, modern; per city: brownstone,
@@ -2591,8 +2704,9 @@ The landmark-art arc this session, and where it's going next:
   - [ ] Cities are UNLOCKED by the player — a benefit to logging in;
         needs ACCOLADE/PROGRESSION persistence (Supabase: a new table /
         profile fields for rank, milestones, unlocked cities).
-        (left: GENUINELY OPEN — cities are open-to-all (no unlock gate) + no progression
-        table. Proposed WAVE δ.)
+        (left: GENUINELY OPEN — verified 2026-06-17: `unlockAtRank` is set per-city but read by
+        NOTHING (dead data); CityPicker gates only on map-data presence. + no `progression`
+        Supabase table/migration in repo. WAVE δ.)
   - [~] RANK SYSTEM: power-system-engineering JOB TITLES from junior
         intern upward (have fun with the ladder); the player LEVELS UP
         on milestones + efficiency-against-milestones; faster promotion
@@ -2600,8 +2714,10 @@ The landmark-art arc this session, and where it's going next:
         OFFER (any time) to go fix another city's missing grid —
         accepting unlocks that map. Tie progression to the existing
         RIIO report-card / KPI scoring.
-        (done in part: a 7-tier rank ladder ships (src/ui/rank.ts). LEFT: the levelling on
-        milestones/efficiency + the city-unlock OFFER mechanic. Proposed WAVE δ.)
+        (done in part: a 7-tier rank ladder ships (src/ui/rank.ts), surfaced (RankPanel/RankBadge/
+        RankUpCard) + promotion FOLDED from RIIO composites at period close (workerBridge.ts:140);
+        rank.test.ts. LEFT: the city-unlock OFFER mechanic (ties to the dead `unlockAtRank`) +
+        Supabase progression persistence. Proposed WAVE δ.)
   - [x] DESIGN PASS launched (read-only, deep-research): produces
         docs/multi-city-and-rank.md — researched per-city power-system
         table, the CityScenario config extension, the rank ladder + job
@@ -3310,11 +3426,15 @@ The landmark-art arc this session, and where it's going next:
         composited on the real Essex countryside with the renderer's
         placement math). Atlas 4096×3883 ≤ 4096.
 
-- [ ] Car parks gain EV charging load (flagged "in future" by owner).
-      (left: owner-flagged "in future" — genuinely open, low priority.)
+- [x] Car parks gain EV charging load (flagged "in future" by owner).
+      (DONE via WP5/#71: LANDMARK.carpark tiles draw CARPARK_EV_MW=0.3 MW into demand.evMW
+      scaled by the council EV fraction (grows as the area electrifies). demand.ts:25-82;
+      demand.test.ts.)
 
-- [ ] Town evolution: densification of existing areas (only edge infill today).
-      (left: genuinely open — only edge infill today; low-priority sim depth.)
+- [x] Town evolution: densification of existing areas (only edge infill today).
+      (DONE via #72: growTown now grows towns UP a density ladder (suburb→urban→urbanCore) at a
+      rate tied to served demand, not just edge infill. tick.ts:1233 growthPressure +
+      DENSIFY_LADDER; deterministic append-only GrowthRecords replayed on load; growth.test.ts.)
 
 ### Wave 9 — MISSING LANDMARKS + LANDMARK GLEAM + BESPOKE HEATHROW + Heathrow PV/BESS (owner, 2026-06-13) — [x] ALL SHIPPED (reconcile 2026-06-17)
 - [x] **Missing landmarks (owner: "I still think many are missing").**
