@@ -341,19 +341,51 @@ for (const variant of [
     // de-cluttered tutorial HUD (no minimap / market ticker). Desktop shows
     // the arrow on the always-mounted build rail; mobile opens the build
     // drawer first so the onshore-wind tool (and its arrow) are on screen.
+    // Captures the REQUIRED design-gate pair (owner): the highlight+arrow on
+    // the target button, THEN the proof it vanishes the moment it is clicked.
     test('guided spotlight arrow + de-cluttered tutorial HUD', async ({ page }) => {
       test.setTimeout(120_000);
       await intoMission1(page);
       await clickButton(page, 'continue');
       await expect(page.getByText(/Designate an onshore-wind site/)).toBeVisible();
       if (variant.tag === 'mobile') {
-        // open the build drawer so the spotlit tool is mounted on screen
-        const build = page.getByRole('button', { name: /build/i });
-        if ((await build.count()) > 0) await build.first().dispatchEvent('click');
+        // open the full build palette so the spotlit tool (data-spot) mounts
+        const open = page.getByRole('button', { name: 'open build menu' });
+        if ((await open.count()) > 0) await open.first().dispatchEvent('click');
         await page.waitForTimeout(300);
       }
+      // the spotlit button is the one carrying the spot key — unambiguous even
+      // on mobile, where a compact rail ALSO carries an "Onshore wind" button
+      const spotBtn = page.locator('[data-spot="gen:windOnshore"]');
+      // BEFORE: the bouncing arrow is up over the spotlit onshore-wind button
+      await expect(page.getByTestId('spotlight-arrow')).toBeVisible();
       await page.waitForTimeout(500);
       await page.screenshot({ path: `preview/wp1-spotlight-${variant.tag}.png` });
+      // a tight CLOSE-UP of the arrow + ringed target (owner design-gate: a
+      // zoomed grab of the changed affordance), bounding the button + the arrow
+      // sitting just above/beside it so its glyph + bob read at full pixel scale
+      {
+        const arrow = page.getByTestId('spotlight-arrow');
+        const ab = await arrow.boundingBox();
+        const bb = await spotBtn.boundingBox();
+        if (ab && bb) {
+          const x = Math.max(0, Math.min(ab.x, bb.x) - 16);
+          const y = Math.max(0, Math.min(ab.y, bb.y) - 16);
+          const right = Math.max(ab.x + ab.width, bb.x + bb.width) + 16;
+          const bottom = Math.max(ab.y + ab.height, bb.y + bb.height) + 16;
+          await page.screenshot({
+            path: `preview/wp1-spotlight-closeup-${variant.tag}.png`,
+            clip: { x, y, width: right - x, height: bottom - y },
+          });
+        }
+      }
+      // ACTION: arm the highlighted tool — the spotlight + arrow must drop the
+      // instant it is clicked (vanish-on-click), NOT linger until the goal latches
+      await spotBtn.dispatchEvent('click');
+      await expect(page.getByTestId('spotlight-arrow')).toHaveCount(0);
+      // AFTER: the same view with the highlight gone (the tender isn't placed yet)
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: `preview/wp1-spotlight-gone-${variant.tag}.png` });
     });
   });
 }
