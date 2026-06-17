@@ -821,19 +821,22 @@ export function villaTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 }
 
 // ===========================================================================
-// PER-CITY BESPOKE DOMESTIC STOCK (WP6)
+// PER-CITY BESPOKE DOMESTIC STOCK (WP6 + WAVE ζ)
 // ---------------------------------------------------------------------------
 // Cities stop looking like reskinned London terraces. Each function below is a
 // hand-drawn archetype whose SILHOUETTE + ROOFLINE + PALETTE read as that place
 // at a glance — NOT a recoloured London terrace. They are baked CONDITIONALLY
-// (only when their fabric is active — see atlas.ts buildSpriteCells) so London
-// adds zero frames (byte-identical) and the shared ≤4096px sheet never carries
-// 11 cities' stock at once. They are wired per-fabric in tileChooser.ts exactly
-// like the Paris `haussmann_*` blocks. Pattern to follow for the rest:
+// (only when their fabric is active — see atlas.ts buildCityStockBufs) and ride
+// their OWN off-atlas buffers, so London adds zero frames (byte-identical) and
+// the shared sheet never carries 11 cities' stock at once. They are wired
+// per-fabric in tileChooser.ts exactly like the Paris `haussmann_*` blocks.
+// Pattern to follow for any future city:
 //   1. add a `<city>` archetype fn here that reads the active fabric palette;
-//   2. register it under `if (f === '<city>')` in atlas.ts buildSpriteCells;
-//   3. branch on `map.fabric === '<city>'` in tileChooser.structureSpriteFor.
-// A shared rooftop-clutter helper keeps the flat-roof cities consistent.
+//   2. register its variants under a `case '<city>'` in atlas.buildCityStockBufs;
+//   3. branch on `map.fabric === '<city>'` in tileChooser.cityStockFor.
+// A shared rooftop-clutter helper keeps the flat-roof cities consistent. WAVE ζ
+// added Sydney/Berlin/Shanghai/Cape Town/Athens/Pune/North-East to the original
+// WP6 set (New York/Hong Kong/Cairo; Paris's Haussmann stays in-sheet).
 // ===========================================================================
 
 /** A wood-barrel water tank on a steel-leg frame (NYC), or a black plastic /
@@ -1914,6 +1917,126 @@ export function wadaTile(seed: number, variant: number): Uint8ClampedArray<Array
   iso.hip(-0.03, v0 - 0.03, 1.03, v1 + 0.03, H, 13, tile);
   // a small ridge finial + chajja eave line shadow
   iso.edge(P(0, v1 + 0.03, H), P(1, v1 + 0.03, H), INK_W * 0.7);
+  return iso.build();
+}
+
+/**
+ * Bespoke NORTH-EAST ENGLAND stock — the TYNESIDE FLAT, the region's signature
+ * terrace. Each "house" is actually TWO self-contained flats (lower + upper),
+ * so the unmistakable tell is the PAIRED front doors — two doors side by side
+ * per dwelling, one for each flat — repeating along a low 2-storey red-brick /
+ * buff-sandstone row under a dark Welsh-SLATE pitched roof with chimney stacks.
+ * A bay window flanks each door-pair. Reads as a Tyneside (Heaton/Byker) street,
+ * distinct from London's single-door-per-house terraces.
+ */
+export function tynesideflatTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 54851 + variant * 109 + 19);
+  // NE brick reds + Grainger buff sandstone, slate roofs
+  const wallSets: RGBA[][] = [
+    [BRICK_RED, BUFF_BRICK, BRICK_ORANGE],
+    [BUFF_BRICK, BRICK_RED, BUFF_BRICK],
+    [BRICK_ORANGE, BRICK_BROWN, BRICK_RED],
+    [BRICK_RED, BRICK_RED, BUFF_BRICK],
+  ];
+  const walls = wallSets[variant % 4] ?? wallSets[0]!;
+  const slate = ([SLATE, SLATE_DARK, SLATE, SLATE_DARK] as RGBA[])[variant % 4] ?? SLATE;
+  const frame = COLORS.white;
+  const v0 = 0.14;
+  const v1 = 0.74;
+  const H = 30; // two storeys
+  const rise = 13;
+  iso.shadow(0, v0, 1, v1, 0.2, 0.22);
+  for (let i = 0; i < 2; i++) {
+    const u0 = i * 0.5;
+    const u1 = u0 + 0.5;
+    const wall = walls[i] ?? BRICK_RED;
+    iso.box(u0, v0, u1, v1, 0, H, wall);
+    // upper-flat windows (this floor is a separate dwelling)
+    iso.windowsLeft(v1, u0 + 0.05, u1 - 0.05, 18, 26, 2, glass(rng, 0.42), frame);
+    // the PAIRED FRONT DOORS — two side by side, one for each flat — set to one
+    // side, with a shared stone lintel/transom above (the Tyneside-flat tell)
+    const d0 = u0 + 0.05;
+    const dw = 0.07;
+    for (let d = 0; d < 2; d++) {
+      const du = d0 + d * (dw + 0.012);
+      const doorC = darken(([hex('#3f6048'), hex('#46518f'), hex('#7a3328'), hex('#5d3a52')] as RGBA[])[(variant + i + d) % 4] ?? INK, 0.05);
+      iso.r.poly([P(du, v1, 13), P(du + dw, v1, 13), P(du + dw, v1, 0), P(du, v1, 0)], doorC);
+      // a small fanlight transom over each door
+      iso.r.poly([P(du, v1, 14.5), P(du + dw, v1, 14.5), P(du + dw, v1, 13), P(du, v1, 13)], COLORS.glassLit);
+    }
+    // shared stone lintel band over the door pair
+    iso.r.poly([P(d0 - 0.008, v1, 15.5), P(d0 + 2 * dw + 0.02, v1, 15.5), P(d0 + 2 * dw + 0.02, v1, 14.5), P(d0 - 0.008, v1, 14.5)], lighten(BUFF_BRICK, 0.08));
+    // a ground-floor BAY window beside the doors (the lower flat's front room)
+    const b0 = u1 - 0.18;
+    const b1 = u1 - 0.04;
+    iso.box(b0, v1 - 0.001, b1, v1 + 0.05, 0, 14, lighten(wall, 0.08));
+    iso.windowsLeft(v1 + 0.05, b0 + 0.012, b1 - 0.012, 4, 12, 2, glass(rng, 0.45), frame);
+    iso.quad(b0 - 0.01, v1 - 0.001, b1 + 0.01, v1 + 0.06, 14, frame);
+    iso.edge(P(b0 - 0.01, v1 + 0.06, 14), P(b1 + 0.01, v1 + 0.06, 14), INK_W * 0.7);
+  }
+  // gable-end windows on the right wall
+  iso.windowsRight(1, v0 + 0.1, v1 - 0.1, 6, H - 6, 2, glass(rng, 0.3), frame);
+  // dark Welsh-slate pitched roof + party-wall chimney stacks with pots
+  domesticRoof(iso, 0, v0, 1, v1, H, rise, 'u', slate, walls[0] ?? BRICK_RED, rng);
+  for (const cu of [0.05, 0.5, 0.95]) {
+    const vm = (v0 + v1) / 2;
+    iso.box(cu - 0.03, vm - 0.05, cu + 0.03, vm + 0.05, H + rise - 2, H + rise + 9, darken(walls[0] ?? BRICK_RED, 0.1));
+    for (const dv of [-0.03, 0.02]) {
+      iso.box(cu - 0.011, vm + dv, cu + 0.011, vm + dv + 0.022, H + rise + 9, H + rise + 13, POT_CLAY, { ink: false });
+    }
+  }
+  return iso.build();
+}
+
+/**
+ * Bespoke NORTH-EAST ENGLAND stock — the interwar PEBBLEDASH SEMI. A pair of
+ * suburban semi-detached houses (Gosforth/Whitley Bay), the lower storey in
+ * face brick and the upper in grey-buff PEBBLEDASH render, a curved or square
+ * two-storey bay, a hipped or gabled red-tile / slate roof, a porch over the
+ * door, gardens and a low wall to the street. The pebbledash-over-brick split
+ * + double bays read as a Northern interwar semi, not a London terrace.
+ */
+export function pebbledashsemiTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 61609 + variant * 131 + 23);
+  const brick = ([BRICK_RED, BRICK_ORANGE, BRICK_BROWN, BRICK_RED] as RGBA[])[variant % 4] ?? BRICK_RED;
+  const dash = PEBBLEDASH; // grey-buff pebbledash upper
+  const roofC = ([TILE_RED, SLATE, hex('#8a4a38'), SLATE_DARK] as RGBA[])[variant % 4] ?? TILE_RED;
+  for (const [u0, u1, mirror] of [
+    [0.04, 0.46, false],
+    [0.54, 0.96, true],
+  ] as const) {
+    const v0 = 0.18;
+    const v1 = 0.62;
+    const H = 27;
+    iso.shadow(u0, v0, u1, v1, 0.16, 0.2);
+    // lower storey brick, upper storey pebbledash
+    iso.box(u0, v0, u1, v1, 0, 13, brick);
+    iso.box(u0, v0, u1, v1, 13, H, dash);
+    iso.r.line(P(u0, v1, 13), P(u1, v1, 13), INK_W * 0.5, alpha(darken(brick, 0.1), 0.7)); // floor band
+    // gabled red-tile/slate roof
+    domesticRoof(iso, u0 - 0.015, v0 - 0.015, u1 + 0.015, v1 + 0.015, H, 13, 'u', roofC, dash, rng);
+    // upper window
+    iso.windowsLeft(v1, u0 + 0.04, u1 - 0.05, 16, 23, 2, glass(rng, 0.42), COLORS.white);
+    // two-storey square bay on the outer side of each semi
+    const bo = mirror ? u1 - 0.16 : u0 + 0.02;
+    const b1 = bo + 0.14;
+    iso.box(bo, v1 - 0.001, b1, v1 + 0.05, 0, 18, lighten(brick, 0.06));
+    iso.box(bo, v1 - 0.001, b1, v1 + 0.05, 13, 18, lighten(dash, 0.04), { ink: false });
+    iso.windowsLeft(v1 + 0.05, bo + 0.012, b1 - 0.012, 4, 11, 2, glass(rng, 0.45), COLORS.white);
+    iso.quad(bo - 0.008, v1 - 0.001, b1 + 0.008, v1 + 0.06, 18, shaded(roofC, 0.05));
+    iso.edge(P(bo - 0.008, v1 + 0.06, 18), P(b1 + 0.008, v1 + 0.06, 18), INK_W * 0.7);
+    // door + little porch canopy on the inner side
+    const du = mirror ? u0 + 0.04 : u1 - 0.1;
+    iso.r.poly([P(du, v1, 11), P(du + 0.06, v1, 11), P(du + 0.06, v1, 0), P(du, v1, 0)], darken(brick, 0.4));
+    iso.r.poly([P(du - 0.015, v1, 13), P(du + 0.075, v1, 13), P(du + 0.06, v1 + 0.03, 11), P(du, v1 + 0.03, 11)], COLORS.white);
+    // chimney + a garden shrub
+    iso.box(mirror ? u1 - 0.08 : u0 + 0.04, (v0 + v1) / 2, mirror ? u1 - 0.04 : u0 + 0.08, (v0 + v1) / 2 + 0.04, H + 11, H + 19, darken(brick, 0.12));
+  }
+  // low front wall + a shrub
+  iso.box(0.02, 0.92, 0.98, 0.96, 0, 4, shaded(brick, 0.1));
+  if (rng.chance(0.6)) iso.ball(0.5, 0.82, 0.06, 13, COLORS.treeGreen);
   return iso.build();
 }
 
