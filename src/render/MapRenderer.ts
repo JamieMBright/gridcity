@@ -35,6 +35,7 @@ import { getAtlas } from './atlasCache';
 import { captureError } from '../app/errorLog';
 import { AIR_MAX_BAND, emitFlightArcs, emitPlanes } from './airLayer';
 import {
+  clipPolylineToBounds,
   deckLiftWorldPx,
   emitBoatWakes,
   emitRouteRibbons,
@@ -688,8 +689,14 @@ export class MapRenderer {
     for (const pl of map.named ?? []) {
       // gold codes "transport/place" distinct from town names (also smaller,
       // so it's not colour-alone). Landmark-class names are gated to mid/close
-      // zoom so they stay OFF the far overview (only towns label there).
-      add(pl.x, pl.y, pl.name, 13, 0xffd277, 10, false, pl.landmark ?? false);
+      // zoom so they stay OFF the far overview and fade IN as you zoom toward
+      // the building (the hero-name-zoom fix). A place that resolved to a
+      // BESPOKE hero (heroKey set by buildHeroTable) is hero-class EVEN when the
+      // OSM classifier didn't flag it landmark:true — otherwise ~40 hero names
+      // per city (the un-flagged ones) would wrongly behave like place names and
+      // show on the far overview / vanish up close (owner playtest, 2026-06-17).
+      const isHero = (pl.landmark ?? false) || pl.heroKey !== undefined;
+      add(pl.x, pl.y, pl.name, 13, 0xffd277, 10, false, isHero);
     }
   }
 
@@ -1834,7 +1841,10 @@ export class MapRenderer {
     };
 
     for (const route of map.routes ?? []) {
-      const p = make(route.kind, sampleRoute(route, 0.35));
+      // clip to the map frame so vehicles never drive off the edge (matches
+      // the ribbon clip — owner playtest 2026-06-17); a wholly in-bounds route
+      // (London) returns identical samples, so its traffic is unchanged.
+      const p = make(route.kind, clipPolylineToBounds(sampleRoute(route, 0.35), map.width, map.height));
       if (p) this.routePaths.push(p);
     }
     // the river itself is a route for the barges. London uses its hand-authored
@@ -2118,35 +2128,49 @@ export class MapRenderer {
     this.heroClock += mdt;
     this.drawHeroLightsFrame();
     {
-      // labels: visible zoomed out, gone close in, each held at a CONSTANT
-      // on-screen px floor. The layer rides the world scale `sc`, so a
-      // child scaled to k renders at 64·k·sc px on screen; solving for the
-      // target gives k = (targetPx/64)/sc — the old `*0.25` collapsed every
-      // label to a quarter of its asked size (towns ~3.75 px, illegible).
+      // Two-population label LOD, each held at a CONSTANT on-screen px floor.
+      // The layer rides the world scale `sc`, so a child scaled to k renders at
+      // 64·k·sc px on screen; k = (targetPx/64)/sc keeps the floor honest.
+      //
+      // PLACE names (the primary city, towns, villages, non-landmark `named`
+      // pins) belong to the far WHOLE-REGION overview — they fade OUT as you
+      // zoom in, so the close-up city isn't littered with text.
+      //
+      // HERO / LANDMARK names (Heathrow/Wembley/the O2/the bespoke heroes) are
+      // the OPPOSITE: they stay OFF the far overview (only towns label there)
+      // and fade IN as you zoom toward the buildings — so you read each hero's
+      // name exactly when it's big enough to see. Inverting this was the
+      // owner's playtest fix (2026-06-17: "hero names render zoomed OUT but not
+      // zoomed IN — backwards"). Previously a single layer-wide far-view fade
+      // capped EVERYTHING, so landmark names only flickered in a thin mid band
+      // and vanished the moment you zoomed in close.
       const sc = this.world.scale.x;
-      const alpha = Math.max(0, Math.min(1, (0.3 - sc) / 0.08));
-      this.labelLayer.visible = alpha > 0.02;
+      const DIM = 0.74; // place names whisper (owner: labels were too loud)
+      // place names: full out past sc≥0.3, full in by sc≤0.22
+      const placeFade = Math.max(0, Math.min(1, (0.3 - sc) / 0.08));
+      // hero/landmark names: 0 at sc≤0.20, full by sc≥0.28, then HELD (no upper
+      // cap) so they persist all the way in to the close zoom.
+      const landmarkAlpha = Math.max(0, Math.min(1, (sc - 0.2) / 0.08));
+      this.labelLayer.visible = placeFade > 0.02 || landmarkAlpha > 0.02;
       if (this.labelLayer.visible) {
-        // dim the whole label layer so place names whisper (owner: labels
-        // were too bold/loud) — keeps the relative village/landmark fades.
-        this.labelLayer.alpha = alpha * 0.74;
+        // per-label alpha now carries the fade (the two populations diverge), so
+        // the container itself stays at full opacity.
+        this.labelLayer.alpha = 1;
         const inv = 1 / Math.max(sc, 1e-6);
         // villages fade out one band before towns (progressive disclosure):
         // at far zoom the country-scale view shows only LONDON + big towns,
         // like the reference map. 0 at sc≤0.12, full by sc≥0.2.
         const villageAlpha = Math.max(0, Math.min(1, (sc - 0.12) / 0.08));
-        // landmark-class names (Heathrow/Wembley/the O2…) are gated even
-        // tighter — they stay OFF the far whole-region overview entirely and
-        // only fade in at mid/close zoom, so the opening overview shows just
-        // town names (owner playtest, 2026-06-13). 0 at sc≤0.20, full by
-        // sc≥0.28 — a full band inside the town band.
-        const landmarkAlpha = Math.max(0, Math.min(1, (sc - 0.2) / 0.08));
         // measured on-screen half-extents, for the overlap declutter
         const boxes: Array<{ l: MapLabel; hw: number; hh: number; show: boolean }> = [];
         for (const l of this.labels) {
           const k = (l.targetPx / 64) * inv;
           l.t.scale.set(k);
-          const base = l.landmark ? landmarkAlpha : l.village ? villageAlpha : 1;
+          // heroes/landmarks: fade IN on zoom-in (held close). Places: fade OUT
+          // on zoom-in; villages drop a band earlier than towns.
+          const base = l.landmark
+            ? landmarkAlpha * DIM
+            : (l.village ? villageAlpha : 1) * placeFade * DIM;
           l.t.alpha = base;
           if (base <= 0.02) {
             l.t.visible = false;
