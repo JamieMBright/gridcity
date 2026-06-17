@@ -44,3 +44,62 @@ test('every playable city loads (and switches) without crashing', async ({ page 
     expect(errors, `real (non-network) errors after loading ${city}:\n${errors.join('\n===\n')}`).toEqual([]);
   }
 });
+
+// The hard-refresh-into-a-saved-CITY boot path: a save on a data-backed city
+// (not just London) must reload cleanly. On boot the worker restores the save
+// and the renderer rebuilds on that city's lazily-imported artifact — the same
+// switch direction as the owner's crash, but from a cold start. We seed a save
+// for a few representative cities, hard-reload, continue, and assert the boot
+// is clean (a few cities keep runtime sane while covering Euro + non-Euro art).
+test('a saved data-backed city reloads cleanly (cold-boot renderer switch)', async ({ page }) => {
+  test.setTimeout(180_000);
+  const errors: string[] = [];
+  page.on('pageerror', (e) => {
+    if (!BENIGN.test(e.message)) errors.push(`[pageerror] ${e.message}\n${e.stack ?? ''}`);
+  });
+  page.on('console', (m) => {
+    if (m.type() === 'error' && !BENIGN.test(m.text())) errors.push(`[console.error] ${m.text()}`);
+  });
+
+  await page.goto('/');
+  await page.waitForFunction(
+    () => !!window.__ec && window.__ec.getState().snapshot !== undefined,
+    undefined,
+    { timeout: 60_000 },
+  );
+
+  for (const city of ['paris', 'cairo', 'northeast']) {
+    // seed the autosave on this city
+    await page.evaluate((c) => window.__ec!.startMission(c), city);
+    await page
+      .waitForFunction((c) => window.__ec!.getState().scenarioId === c, city, { timeout: 45_000 })
+      .catch(() => undefined);
+    await page
+      .waitForFunction(() => localStorage.getItem('electricity.save.v1') !== null, undefined, {
+        timeout: 30_000,
+      })
+      .catch(() => undefined);
+
+    // HARD RELOAD → the app cold-boots into the saved city
+    await page.reload();
+    await page.waitForFunction(
+      () => !!window.__ec && window.__ec.getState().snapshot !== undefined,
+      undefined,
+      { timeout: 60_000 },
+    );
+    // continue the save so the renderer actually mounts the city
+    const cont = page.getByRole('button', { name: 'continue' });
+    if ((await cont.count()) > 0) await cont.dispatchEvent('click');
+    await page
+      .waitForFunction((c) => window.__ec!.getState().scenarioId === c, city, { timeout: 45_000 })
+      .catch(() => undefined);
+    await page.waitForTimeout(1200);
+
+    const status = await page.evaluate(() => window.__ec?.getState().workerStatus);
+    expect(status, `worker status after cold-boot into ${city}`).not.toBe('error');
+    expect(
+      errors,
+      `real errors after cold-boot into ${city}:\n${errors.join('\n===\n')}`,
+    ).toEqual([]);
+  }
+});
