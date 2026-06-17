@@ -1705,6 +1705,88 @@ export function capecottageTile(seed: number, variant: number): Uint8ClampedArra
 }
 
 /**
+ * Bespoke ATHENS stock — the POLYKATOIKIA (πολυκατοικία), the concrete-frame
+ * apartment block that IS modern Athens. A near-uniform 5–7 storey block in
+ * pale render, built wall-to-wall; the tell is the relentless rhythm of deep
+ * CANTILEVERED BALCONIES running the full width of every floor, set behind
+ * slim railings, many shaded by bright retractable AWNINGS (tendes), with a
+ * recessed top-floor (retiré) and a rooftop pergola/water heater. A street of
+ * them reads pale, flat-topped and balconied — never London terraces.
+ */
+export function polykatoikiaTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 52529 + variant * 137 + 19);
+  // pale renders: white, cream, pale grey, soft ochre
+  const renderSet: RGBA[] = [hex('#ece6d6'), hex('#e4dcc8'), hex('#d8cdb4'), hex('#dfdacb'), hex('#d0c3a4'), hex('#e8dcc0')];
+  const skin = renderSet[variant % renderSet.length] ?? renderSet[0]!;
+  const rail = hex('#cfc8ba'); // pale balcony balustrade
+  const slab = shaded(skin, 0.06); // the cantilevered balcony soffit
+  const awnHues: RGBA[] = [hex('#c4502f'), hex('#3f7f8a'), hex('#d8b24a'), hex('#5e7a45'), hex('#b5485f')];
+  const u0 = 0.08;
+  const u1 = 0.92;
+  const v0 = 0.12;
+  const v1 = 0.7;
+  const floors = 5 + (variant % 3); // 5–7 storeys
+  const fh = 9.5;
+  const H = floors * fh + 3;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.24);
+  iso.box(u0, v0, u1, v1, 0, H, skin);
+  // ground floor: a recessed pilotis/parking level or a shopfront band
+  const shop = variant % 3 === 2;
+  if (shop) {
+    iso.windowsLeft(v1, u0 + 0.04, u1 - 0.04, 1.5, fh - 1.5, 4, COLORS.glassLit, COLORS.white);
+  } else {
+    iso.r.poly([P(u0 + 0.04, v1, fh - 1.5), P(u1 - 0.04, v1, fh - 1.5), P(u1 - 0.04, v1, 1), P(u0 + 0.04, v1, 1)], shaded(skin, 0.12));
+  }
+  // every upper floor: a full-width recessed window band + a deep cantilevered
+  // balcony slab projecting in front of it, slim railings, sometimes an awning
+  for (let f = 1; f < floors; f++) {
+    const z = f * fh;
+    const recessed = f === floors - 1; // the top floor steps back (retiré)
+    const bu0 = recessed ? u0 + 0.1 : u0;
+    const bu1 = recessed ? u1 - 0.1 : u1;
+    // window band behind the balcony
+    iso.windowsLeft(v1, bu0 + 0.04, bu1 - 0.04, z + 1.5, z + fh - 2.5, 4, glass(rng, 0.42), COLORS.white);
+    // the cantilevered slab (projects past the facade) + its shaded underside
+    const out = v1 + 0.06;
+    iso.r.poly([P(bu0, v1, z + 0.4), P(bu1, v1, z + 0.4), P(bu1, out, z + 0.4), P(bu0, out, z + 0.4)], lit(slab, 0.04));
+    iso.r.poly([P(bu0, out, z + 0.4), P(bu1, out, z + 0.4), P(bu1, out, z - 1.4), P(bu0, out, z - 1.4)], shaded(slab, 0.1));
+    iso.edge(P(bu0, out, z + 0.4), P(bu1, out, z + 0.4), INK_W * 0.6, alpha(INK, 0.6));
+    // slim railing band
+    iso.r.poly([P(bu0, out, z + 4.5), P(bu1, out, z + 4.5), P(bu1, out, z + 0.6), P(bu0, out, z + 0.6)], alpha(rail, 0.55));
+    iso.r.line(P(bu0, out, z + 4.5), P(bu1, out, z + 4.5), INK_W * 0.55, alpha(shaded(rail, 0.2), 0.9));
+    for (let u = bu0 + 0.03; u < bu1; u += 0.045) {
+      iso.r.line(P(u, out, z + 4.5), P(u, out, z + 0.8), INK_W * 0.3, alpha(shaded(rail, 0.2), 0.6));
+    }
+    // a bright awning over part of the balcony on some floors
+    if (rng.chance(0.5)) {
+      const aw = awnHues[(seed + f) % awnHues.length]!;
+      const au0 = rng.range(bu0 + 0.02, bu0 + 0.2);
+      const au1 = Math.min(bu1 - 0.02, au0 + rng.range(0.22, 0.4));
+      iso.r.poly([P(au0, v1, z + fh - 1.5), P(au1, v1, z + fh - 1.5), P(au1, out + 0.02, z + fh - 4), P(au0, out + 0.02, z + fh - 4)], aw);
+      iso.edge(P(au0, out + 0.02, z + fh - 4), P(au1, out + 0.02, z + fh - 4), INK_W * 0.5);
+    }
+  }
+  // gable-end (party wall) windows on the right face
+  iso.windowsRight(u1, v0 + 0.06, v1 - 0.06, fh + 2, H - fh, 3, glass(rng, 0.32), COLORS.white);
+  // flat roof: parapet + a pergola, a solar water-heater + tank (very Greek)
+  iso.box(u0, v0, u1, v1, H, H + 2.5, skin, { ink: false, topC: shaded(hex('#b4aea4'), 0.05) });
+  // pergola: four posts + a slatted top
+  const pu = u0 + 0.16;
+  const pv = v0 + 0.12;
+  for (const [du, dv] of [[0, 0], [0.18, 0], [0.18, 0.14], [0, 0.14]] as const) {
+    iso.r.line(P(pu + du, pv + dv, H + 2.5), P(pu + du, pv + dv, H + 9), INK_W * 0.5, alpha(INK, 0.6));
+  }
+  for (let u = pu; u <= pu + 0.18; u += 0.03) {
+    iso.r.line(P(u, pv, H + 9), P(u, pv + 0.14, H + 9), INK_W * 0.4, alpha(INK, 0.5));
+  }
+  // solar water heater: a tilted panel + horizontal cylinder (ubiquitous in GR)
+  iso.box(u1 - 0.24, v0 + 0.1, u1 - 0.14, v0 + 0.13, H + 2.5, H + 7, hex('#d8d2c4'), { ink: false });
+  iso.r.poly([P(u1 - 0.26, v0 + 0.16, H + 3), P(u1 - 0.14, v0 + 0.16, H + 3), P(u1 - 0.14, v0 + 0.22, H + 8), P(u1 - 0.26, v0 + 0.22, H + 8)], shaded(COLORS.panel, 0.05));
+  return iso.build();
+}
+
+/**
  * Bespoke PARIS building stock: a Haussmann apartment block. Researched from
  * the reference photos (owner, 2026-06-14): uniform ~6-storey cream
  * pierre-de-taille ashlar facade with a strong cornice, regular tall French

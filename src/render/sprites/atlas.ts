@@ -23,6 +23,7 @@ import {
   newbuildTile,
   officeTile,
   plattenbauTile,
+  polykatoikiaTile,
   semiTile,
   setbackTile,
   shikumenTile,
@@ -345,6 +346,10 @@ function buildCityStockBufs(): Map<string, HeroBuf> {
       // candy-coloured Bo-Kaap flat-roof rows + Cape-Victorian / face-brick cottages
       for (let i = 0; i < 4; i++) add(`bokaap_${i}`, bokaapTile(471 + i, i));
       for (let i = 0; i < 4; i++) add(`capecottage_${i}`, capecottageTile(481 + i, i));
+      break;
+    case 'athens':
+      // the ubiquitous pale polykatoikia: deep-balconied concrete-frame flats
+      for (let i = 0; i < 6; i++) add(`polykatoikia_${i}`, polykatoikiaTile(491 + i, i));
       break;
     default:
       break;

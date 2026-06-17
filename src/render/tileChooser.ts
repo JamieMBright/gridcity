@@ -314,6 +314,16 @@ function cityStockFor(
       }
       return undefined;
     }
+    case 'athens': {
+      // the pale deep-balconied polykatoikia blankets the WHOLE residential
+      // fabric — near-uniform, like the real Attic basin. The Syntagma/Marousi
+      // CBD keeps the generic glass towers.
+      void shops;
+      if (zone === ZONE.urbanCore || zone === ZONE.urban || zone === ZONE.suburb) {
+        return `polykatoikia_${(estate + (v % 2)) % 6}`;
+      }
+      return undefined;
+    }
     default:
       return undefined;
   }
