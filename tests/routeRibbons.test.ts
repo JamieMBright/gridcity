@@ -12,6 +12,7 @@ import {
   RIBBON_PALETTE,
   WAKE_MAX_SEGS,
   bandFor,
+  clipPolylineToBounds,
   deckLiftWorldPx,
   emitBoatWakes,
   emitRouteRibbons,
@@ -350,6 +351,75 @@ describe('rail identity (P5)', () => {
     map.landmark[15 * 32 + 17] = LANDMARK.station; // …merges to one slab
     const g = transportGeometry(map);
     expect(g.stations.length).toBe(1);
+  });
+});
+
+describe('route clipping to map bounds (off-edge fix)', () => {
+  it('leaves a wholly in-bounds polyline unchanged (London stays byte-identical)', () => {
+    const pts: Array<[number, number]> = [[1, 1], [5, 5], [10, 3], [20, 18]];
+    const out = clipPolylineToBounds(pts, 256, 160);
+    expect(out).toEqual(pts);
+  });
+
+  it('trims a route that runs off the right edge to the boundary', () => {
+    // exits the 256-wide frame (max x = 255) and keeps going to x=392
+    const out = clipPolylineToBounds([[250, 80], [256, 80], [300, 80], [392, 77]], 256, 160);
+    // no vertex past the frame
+    for (const [x, y] of out) {
+      expect(x).toBeLessThanOrEqual(255 + 1e-6);
+      expect(x).toBeGreaterThanOrEqual(-1e-6);
+      expect(y).toBeLessThanOrEqual(159 + 1e-6);
+      expect(y).toBeGreaterThanOrEqual(-1e-6);
+    }
+    // the in-bounds head is preserved and clipped exactly at x=255
+    expect(out[0]).toEqual([250, 80]);
+    const last = out[out.length - 1]!;
+    expect(last[0]).toBeCloseTo(255, 6);
+  });
+
+  it('trims a route entering from off the top edge', () => {
+    const out = clipPolylineToBounds([[90, -3], [91, -1], [98, 1], [102, 7]], 256, 160);
+    expect(out[0]![1]).toBeCloseTo(0, 6); // boundary crossing at y=0
+    for (const [, y] of out) expect(y).toBeGreaterThanOrEqual(-1e-6);
+    expect(out[out.length - 1]).toEqual([102, 7]);
+  });
+
+  it('keeps the longest in-bounds run when a route briefly re-enters', () => {
+    // long on-map run, then a tiny off-map excursion that dips back in
+    const out = clipPolylineToBounds(
+      [[10, 10], [60, 10], [120, 10], [260, 10], [262, 12], [258, 12]],
+      256,
+      160,
+    );
+    // we keep the long head (10..255), not the 2-tile re-entry sliver
+    expect(out[0]).toEqual([10, 10]);
+    expect(out.length).toBeGreaterThanOrEqual(4);
+    for (const [x] of out) expect(x).toBeLessThanOrEqual(255 + 1e-6);
+  });
+
+  it('returns nothing for a fully out-of-bounds polyline', () => {
+    expect(clipPolylineToBounds([[-5, -5], [-10, -10]], 256, 160)).toEqual([]);
+  });
+
+  it('emitted ribbon vertices never fall outside the map frame', () => {
+    // a 32×32 test map with a route that overshoots every edge
+    const map = routedMap([
+      { kind: 'arterial', pts: [[-8, 16], [16, 16], [40, 16]] }, // off left + right
+      { kind: 'street', pts: [[16, -8], [16, 16], [16, 40]] }, // off top + bottom
+    ]);
+    for (const band of [0, 2, 3]) {
+      const polys = collect(map, band, band === 0 ? 0.04 : 0.3);
+      for (const p of polys) {
+        for (let i = 0; i < p.pts.length; i += 2) {
+          const { u, v } = unproject(p.pts[i] ?? 0, p.pts[i + 1] ?? 0);
+          // a small margin for ribbon half-width + miter at the very edge
+          expect(u).toBeGreaterThanOrEqual(-1.5);
+          expect(u).toBeLessThanOrEqual(32 + 1.5);
+          expect(v).toBeGreaterThanOrEqual(-1.5);
+          expect(v).toBeLessThanOrEqual(32 + 1.5);
+        }
+      }
+    }
   });
 });
 

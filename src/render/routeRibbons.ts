@@ -230,8 +230,124 @@ export interface TransportGeometry {
 
 const geomCache = new WeakMap<CityMap, TransportGeometry>();
 
+/** Clip a sampled tile-space polyline to the map rectangle [0,w−1]×[0,h−1]
+ *  and return the SINGLE longest contiguous in-bounds run, with the segments
+ *  that cross the border trimmed to the exact boundary intersection.
+ *
+ *  Why this exists (owner playtest, 2026-06-17 "rail/road rendering off the
+ *  edge of the map", visible on Pune, present on every city): routes are
+ *  Catmull-Rom splines through OSM-derived waypoints, and both the waypoints
+ *  near the frame AND the spline's overshoot push sampled points well past the
+ *  map bounds (Pune ran 137 tiles off the right edge; Cairo 191 off the top),
+ *  which `buildPath` then drew verbatim. Off-map geometry never carries a
+ *  bridge/station/junction (those derive from on-map water/landmark tiles), so
+ *  discarding it is purely cosmetic. Excursions are almost always a single
+ *  exit (a road heading to the next city) — keeping the longest in-bounds run
+ *  trims that cleanly; the handful of routes that briefly re-enter (≤4 in any
+ *  city) lose only a tiny edge sliver from the overshoot, invisible at play.
+ *
+ *  A route already wholly in bounds returns its points UNCHANGED, so a
+ *  code-drawn map whose routes never leave the frame (London) is unaffected —
+ *  its ribbon geometry stays byte-identical. */
+export function clipPolylineToBounds(
+  samples: ReadonlyArray<readonly [number, number]>,
+  w: number,
+  h: number,
+): Array<[number, number]> {
+  const maxX = w - 1;
+  const maxY = h - 1;
+  const inside = (x: number, y: number): boolean => x >= 0 && x <= maxX && y >= 0 && y <= maxY;
+  // fast path: nothing leaves the frame → identical geometry (London)
+  let anyOut = false;
+  for (const s of samples) {
+    if (!inside(s[0], s[1])) {
+      anyOut = true;
+      break;
+    }
+  }
+  if (!anyOut) return samples.map((s) => [s[0], s[1]]);
+
+  // Liang–Barsky parametric intersection of segment a→b with the rectangle.
+  const intersect = (ax: number, ay: number, bx: number, by: number, fromA: boolean): [number, number] => {
+    const dx = bx - ax;
+    const dy = by - ay;
+    let t0 = 0;
+    let t1 = 1;
+    const clip = (p: number, q: number): boolean => {
+      if (p === 0) return q >= 0; // parallel: inside iff q≥0
+      const r = q / p;
+      if (p < 0) {
+        if (r > t1) return false;
+        if (r > t0) t0 = r;
+      } else {
+        if (r < t0) return false;
+        if (r < t1) t1 = r;
+      }
+      return true;
+    };
+    // edges: left, right, bottom, top
+    clip(-dx, ax - 0);
+    clip(dx, maxX - ax);
+    clip(-dy, ay - 0);
+    clip(dy, maxY - ay);
+    // crossing the border in the direction a→b: the entry t is t0, exit is t1.
+    // `fromA` asks for the point nearest the in-bounds endpoint A (→ use t0
+    // when A is the inside end and we're trimming the outside tail, but here
+    // we always trim toward the inside end, so pick the t bounding the inside
+    // portion). We compute both and the caller knows which end is inside.
+    const t = fromA ? t1 : t0;
+    return [ax + dx * t, ay + dy * t];
+  };
+
+  // walk the polyline, cutting at every in/out transition into runs
+  const runs: Array<Array<[number, number]>> = [];
+  let cur: Array<[number, number]> = [];
+  let prevIn = false;
+  let px = 0;
+  let py = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const s = samples[i]!;
+    const x = s[0];
+    const y = s[1];
+    const isIn = inside(x, y);
+    if (isIn) {
+      if (!prevIn && i > 0) {
+        // entering: add the boundary crossing point first (nearest to this in-pt)
+        cur = [intersect(px, py, x, y, false)];
+      } else if (!prevIn) {
+        cur = [];
+      }
+      cur.push([x, y]);
+    } else if (prevIn) {
+      // leaving: close the run with the boundary crossing point, then stop it
+      cur.push(intersect(px, py, x, y, true));
+      if (cur.length >= 2) runs.push(cur);
+      cur = [];
+    }
+    prevIn = isIn;
+    px = x;
+    py = y;
+  }
+  if (cur.length >= 2) runs.push(cur);
+
+  // pick the longest run by tile-space arc length (the on-map portion)
+  let best: Array<[number, number]> = [];
+  let bestLen = -1;
+  for (const run of runs) {
+    let len = 0;
+    for (let i = 1; i < run.length; i++) {
+      len += Math.hypot(run[i]![0] - run[i - 1]![0], run[i]![1] - run[i - 1]![1]);
+    }
+    if (len > bestLen) {
+      bestLen = len;
+      best = run;
+    }
+  }
+  return best;
+}
+
 function buildPath(map: CityMap, route: TransportRoute, step: number): RibbonPath | undefined {
-  const samples = sampleRoute(route, step);
+  const samples = clipPolylineToBounds(sampleRoute(route, step), map.width, map.height);
   if (samples.length < 2) return undefined;
   const pts: RibbonPathPoint[] = [];
   const cum: number[] = [];
