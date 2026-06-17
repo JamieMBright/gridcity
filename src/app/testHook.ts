@@ -14,6 +14,10 @@ export interface EcTestApi {
   tileToScreen(x: number, y: number): { x: number; y: number };
   panTo(x: number, y: number): void;
   setZoom(scale: number): void;
+  /** The tile under the screen centre + the live zoom (inverse of panTo/
+   *  setZoom). Lets a screenshot helper audit where the camera actually
+   *  landed after the far-corner clamp. Undefined before init / after teardown. */
+  getCamera(): { x: number; y: number; zoom: number } | undefined;
   getState(): ReturnType<typeof useAppStore.getState>;
   /** First `count` open land tiles (spread out), for siting test builds. */
   openLand(count: number): Array<{ x: number; y: number }>;
@@ -50,6 +54,7 @@ export function installTestHook(renderer: MapRenderer): void {
     tileToScreen: (x, y) => renderer.tileToScreen(x, y),
     panTo: (x, y) => renderer.panTo(x, y),
     setZoom: (scale) => renderer.setZoom(scale),
+    getCamera: () => renderer.getCamera(),
     getState: () => useAppStore.getState(),
     sendCommand: (cmd) => sendCommand(cmd),
     getRoad: (x, y) =>

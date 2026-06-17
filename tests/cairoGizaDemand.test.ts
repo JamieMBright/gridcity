@@ -19,6 +19,11 @@ import { buildDemandField, buildHeritageLoads, tileDemandMW } from '../src/sim/m
 import { assignServiceAreas } from '../src/sim/service';
 import { CAIRO_CITY } from '../src/data/cities/cairo';
 import { buildLondonMap } from '../src/data/londonMap';
+import { applyCommand, type Command } from '../src/sim/commands';
+import { newGame, type GameState, type SimContext } from '../src/sim/state';
+import { COV, derive, solveTick } from '../src/sim/tick';
+import { strikeMWh } from '../src/sim/catalog';
+import { LONDON_PROFILE } from '../src/sim/powerProfile';
 
 /** The Giza bespoke-hero keys carrying the Sound-&-Light heritage load. */
 const GIZA_KEYS = ['great-pyramid', 'pyramid-khafre', 'pyramid-menkaure', 'great-sphinx'];
@@ -144,5 +149,107 @@ describe('heritage loads are scoped + deterministic (WP3)', () => {
     buildHeritageLoads(map); // run again
     const after = [...(map.heritageMW ?? new Map()).values()].reduce((s, v) => s + v, 0);
     expect(after).toBeCloseTo(before, 5);
+  });
+});
+
+// End-to-end on the REAL Cairo map: build the same network the design-gate
+// builds (gas peaker → 132 kV → grid hub → 33 kV → three dist subs on the
+// plateau), run a full tick, and prove the plateau genuinely ENERGISES — Giza
+// hero tiles read COV.on and servedCustomers > 0. This is the deterministic
+// guard behind the gizalight design-gate (which kept logging served=0 because
+// its grid-hub coordinate landed on a desert carriageway, so the hub — and with
+// it every line — silently failed to build, islanding the dist subs from the
+// peaker). The hub now sits on a clear tile, so the whole chain connects.
+describe('Giza plateau genuinely energises through the real tick (WP3)', () => {
+  /** Build the design-gate network on a fresh Cairo state and solve one tick. */
+  // Build the Cairo SimContext directly from the city DATA (the registry's
+  // async loadScenarioData isn't run under vitest), with the default London
+  // power/economy profile — the test asserts only connectivity + coverage,
+  // which the profile doesn't change.
+  function cairoContext(): SimContext {
+    const map = buildCityFromData(CAIRO_CITY);
+    return { map, demand: buildDemandField(map), profile: LONDON_PROFILE };
+  }
+
+  function energiseGiza(): {
+    state: GameState;
+    ctx: SimContext;
+    out: ReturnType<typeof solveTick>;
+    gizaTiles: number[];
+  } {
+    const ctx = cairoContext();
+    const state = newGame('cairo');
+    const map = ctx.map;
+
+    // generation: a gas peaker, online immediately (as an awarded bid would be).
+    const gasId = state.nextAssetId++;
+    state.assets.set(gasId, {
+      id: gasId,
+      kind: 'gen',
+      gen: 'gasPeaker',
+      x: 11,
+      y: 146,
+      ppaMWh: strikeMWh('gasPeaker'),
+      liveAtMin: 0,
+    });
+
+    const must = (cmd: Command): void => {
+      const r = applyCommand(state, map, cmd);
+      if (!r.ok) throw new Error(`build failed: ${JSON.stringify(cmd)} — ${r.error}`);
+    };
+
+    // grid hub on a CLEAR tile (the old (16,148) was a carriageway); fed at
+    // 132 kV from the peaker, then 33 kV radials out to three plateau dist subs.
+    const HUB: [number, number] = [18, 148];
+    must({ type: 'build', spec: { kind: 'sub', sub: 'grid', x: HUB[0], y: HUB[1] } });
+    must({
+      type: 'build',
+      spec: { kind: 'line', level: 132, build: 'overhead', ax: 11, ay: 146, bx: HUB[0], by: HUB[1] },
+    });
+    const dists: Array<[number, number]> = [
+      [20, 150],
+      [28, 151],
+      [22, 157],
+    ];
+    for (const [x, y] of dists) {
+      must({ type: 'build', spec: { kind: 'sub', sub: 'dist', x, y, mva: 40 } });
+      must({
+        type: 'build',
+        spec: { kind: 'line', level: 33, build: 'overhead', ax: HUB[0], ay: HUB[1], bx: x, by: y },
+      });
+    }
+
+    const d = derive(state, ctx);
+    const out = solveTick(state, ctx, d, false);
+    return { state, ctx, out, gizaTiles: gizaTiles(map) };
+  }
+
+  it('Giza hero tiles read COV.on once the network is built out + energised', () => {
+    const { out, gizaTiles: tiles } = energiseGiza();
+    expect(tiles.length).toBeGreaterThan(0);
+    // every Giza monument tile is now powered (COV.on) — the precondition
+    // MapRenderer.recomputeHeroLit gates the Sound-&-Light floodlight on.
+    let lit = 0;
+    for (const i of tiles) if (out.coverage[i] === COV.on) lit++;
+    expect(lit).toBe(tiles.length);
+  });
+
+  it('servedCustomers jumps well above zero (plateau + its desert-edge catchment)', () => {
+    const { out } = energiseGiza();
+    // the dist-sub catchments pick up the plateau AND the surrounding
+    // settlement; the design-gate prints this > 0 in the ON run.
+    expect(out.servedCustomers).toBeGreaterThan(1000);
+  });
+
+  it('with NO network the same Giza tiles are unserved (floodlight dark)', () => {
+    const ctx = cairoContext();
+    const state = newGame('cairo');
+    const out = solveTick(state, ctx, derive(state, ctx), false);
+    const tiles = gizaTiles(ctx.map);
+    for (const i of tiles) {
+      // a demand tile with no supply is COV.unserved (never COV.on/brownout)
+      expect(out.coverage[i] === COV.on || out.coverage[i] === COV.brownout).toBe(false);
+    }
+    expect(out.servedCustomers).toBe(0);
   });
 });

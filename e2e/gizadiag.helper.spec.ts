@@ -90,10 +90,11 @@ test('giza diag', async ({ page }) => {
     if (live >= 1) break;
   }
   await cmd({ type: 'setSpeed', speed: 1 });
-  await cmd({ type: 'build', spec: { kind: 'sub', sub: 'grid', x: 16, y: 148 } });
+  // grid hub on a CLEAR desert tile (18,148) — (16,148) was a carriageway
+  await cmd({ type: 'build', spec: { kind: 'sub', sub: 'grid', x: 18, y: 148 } });
   await cmd({
     type: 'build',
-    spec: { kind: 'line', level: 132, build: 'overhead', ax: 11, ay: 146, bx: 16, by: 148 },
+    spec: { kind: 'line', level: 132, build: 'overhead', ax: 11, ay: 146, bx: 18, by: 148 },
   });
   for (const [x, y] of [
     [20, 150],
@@ -103,7 +104,7 @@ test('giza diag', async ({ page }) => {
     await cmd({ type: 'build', spec: { kind: 'sub', sub: 'dist', x, y, mva: 40 } });
     await cmd({
       type: 'build',
-      spec: { kind: 'line', level: 33, build: 'overhead', ax: 16, ay: 148, bx: x, by: y },
+      spec: { kind: 'line', level: 33, build: 'overhead', ax: 18, ay: 148, bx: x, by: y },
     });
   }
   await cmd({ type: 'setSpeed', speed: 8 });
