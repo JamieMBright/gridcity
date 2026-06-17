@@ -29,7 +29,7 @@ import { farmClaimTiles, isFarmGen } from '../sim/farms';
 import { GENS, SUBS } from '../sim/catalog';
 import type { VoltageLevel } from '../sim/grid/types';
 import { sampleRoute } from '../sim/map/routes';
-import { CUSTOMERS_PER_TILE, HERO_BASE, LANDMARK, type CityMap, type Landmark, type MapAirport, type RouteClass, type Zone } from '../sim/map/types';
+import { CUSTOMERS_PER_TILE, HERO_BASE, LANDMARK, type CityMap, type Landmark, type MapAirport, type MapTown, type RouteClass, type Zone } from '../sim/map/types';
 import { COV, type BranchView } from '../sim/tick';
 import { getAtlas } from './atlasCache';
 import { captureError } from '../app/errorLog';
@@ -702,15 +702,32 @@ export class MapRenderer {
 
   /** The big far-out city name (LONDON / PARIS …) and where to anchor it.
    *  London keeps its exact historical position (128,78) so its label layer
-   *  is byte-identical; any other city is named from its fabric + centred on
-   *  the centroid of its urbanCore/CBD tiles (the visual middle of the city).*/
+   *  is byte-identical; any other city is named from its fabric and anchored on
+   *  the heart of its built fabric.
+   *
+   *  Anchor rule (owner playtest, 2026-06-17 "NE Alnwick framing"): when the
+   *  map carries a curated town layer, anchor on its LARGEST town — for a
+   *  multi-centre REGION like the North-East (Newcastle + Gateshead + Sunderland
+   *  + Durham), the urbanCore CENTROID lands in the dead countryside between the
+   *  conurbations, so the region name floated nowhere; the biggest town
+   *  (Newcastle) is the recognisable heart to hang it on. Only the North-East
+   *  ships towns today, so every other city falls through to the existing
+   *  urbanCore/CBD centroid UNCHANGED (byte-identical). */
   private primaryCityLabel(): { x: number; y: number; name: string } | undefined {
     const map = this.map;
     if (!map) return undefined;
     if ((map.fabric ?? 'london') === 'london') return { x: 128, y: 78, name: 'LONDON' };
     const name = (map.fabric ?? '').toUpperCase();
     if (!name) return undefined;
-    // centroid of the densest built tiles (urbanCore, falling back to CBD)
+    // a region with a curated town layer: hang the name on its biggest town
+    // (the recognisable principal city), not the smeared dense-tile centroid.
+    let biggest: MapTown | undefined;
+    for (const t of map.towns ?? []) {
+      if (t.kind === 'town' && (!biggest || t.r > biggest.r)) biggest = t;
+    }
+    if (biggest) return { x: biggest.x, y: biggest.y, name };
+    // otherwise: centroid of the densest built tiles (urbanCore, falling back
+    // to CBD) — the visual middle of a single-centre city.
     let sx = 0;
     let sy = 0;
     let n = 0;
