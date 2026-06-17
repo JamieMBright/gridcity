@@ -1,17 +1,17 @@
-# Pune Metro
-*metro, transit · 2022*
+# Mhalunge Aquatic Complex (Balewadi)
+*sports, aquatics · 2008*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "Mhalunge Aquatic Complex (Balewadi) Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+The competition swimming and aquatics venue within the Balewadi sports complex, an indoor arena with a swooping double-wave steel roof over a glazed base; built to international standards for the Commonwealth Youth Games.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **Mhalunge Aquatic Complex (Balewadi)** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
+- **Type / style:** Contemporary.
 - **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.

@@ -1,18 +1,18 @@
-# Pune Metro
-*metro, transit · 2022*
+# Film and Television Institute of India (FTII)
+*institute, film school · 1960*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "Film and Television Institute of India (FTII) Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+India's premier film school, established in 1960 on the former Prabhat Studios site on Law College Road. A campus of studios, the iconic 'wisdom tree', screening theatres and modernist teaching blocks; the cradle of Indian cinema talent.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **Film and Television Institute of India (FTII)** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
-- **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
+- **Type / style:** Modernist campus.
+- **Footprint:** ~1×1 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.
 - **Massing & features:** derive from the description (towers, domes, shikharas,

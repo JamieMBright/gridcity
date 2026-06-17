@@ -1,18 +1,18 @@
-# Pune Metro
-*metro, transit · 2022*
+# Khadakwasla Dam
+*dam, reservoir · 1879*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "Khadakwasla Dam Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+A historic masonry dam on the Mutha river south-west of Pune, originally completed in 1879, holding the Khadakwasla reservoir that supplies the city. A long battered dam wall with sluice gates, a road on the crest and a valve tower; a popular lakeside spot below the Sinhagad hills.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **Khadakwasla Dam** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
-- **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
+- **Type / style:** Masonry gravity dam.
+- **Footprint:** ~3×3 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.
 - **Massing & features:** derive from the description (towers, domes, shikharas,

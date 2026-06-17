@@ -63,6 +63,27 @@ const GLASSIT = hex('#9fc4c0'); // mirror-glass of the IT towers (teal-green dus
 const GLASSIT_D = hex('#6f9c98');
 
 // ============================================================================
+// SEED JITTER — a deterministic per-hero variation so a parametric family draw
+// (peth temple, wada, bungalow, statue, school…) yields a DISTINCT silhouette
+// for every registry seed: each entry's `seed` perturbs heights, feature counts
+// and colour so no two placed heroes render identically (the bespoke mandate).
+// ============================================================================
+/** Deterministic [0,1) from a seed + salt (no runtime RNG). */
+function jit(seed: number, salt: number): number {
+  const s = Math.sin((seed * 127.1 + salt * 311.7) * 0.97) * 43758.5453;
+  return s - Math.floor(s);
+}
+/** Seed-jittered value in [lo,hi]. */
+function jrange(seed: number, salt: number, lo: number, hi: number): number {
+  return lo + (hi - lo) * jit(seed, salt);
+}
+/** Seed-jittered colour: nudge a base toward warm/cool by a small amount. */
+function jcol(seed: number, salt: number, c: RGBA, amt = 0.1): RGBA {
+  const t = (jit(seed, salt) - 0.5) * 2 * amt;
+  return t >= 0 ? lighten(c, t) : darken(c, -t);
+}
+
+// ============================================================================
 // SHARED PRIMITIVES (each hero composes these into its own bespoke silhouette)
 // ============================================================================
 
@@ -1334,6 +1355,1072 @@ function busStandTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 }
 
 // ============================================================================
+// ROUND 2 — the push to 100. New bespoke silhouettes for Pune's full sweep:
+// the Peshwa wadas + ghats of the old city, the temples of the seven hills,
+// the colonial-Deccan civic stone of the Cantonment + Camp, the modern glass
+// of the IT/township belt, the riverbanks, gardens and academia. Each is a
+// hand-built iso silhouette (no archetype reuse) and earns its own light.
+// ============================================================================
+
+// --- PARVATI HILL (Devdeveshwar) — the Shiv-panchayatan temple complex atop
+// Pune's holy hill, reached by the famous wide black-stone steps: a basalt
+// summit platform carrying a CENTRAL shikhara ringed by FOUR smaller corner
+// shrines (Surya/Ganesha/Vishnu/Bhavani), copper kalashas, the long stair
+// climbing the green slope. 3×3 monster landform. -------------------------
+function parvatiHillTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 200 });
+  void seed;
+  const u0 = 0.1, u1 = 2.9, v0 = 0.1, v1 = 2.9;
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.24);
+  const HILL = hex('#7e7a50');
+  // the hill: two broad green tiers
+  iso.box(u0, v0, u1, v1, 0, 34, HILL, { leftC: shaded(HILL, 0.18), rightC: lit(HILL, 0.04), topC: shaded(HILL, 0.02) });
+  iso.box(u0 + 0.6, v0 + 0.6, u1 - 0.6, v1 - 0.6, 34, 64, HILL, { leftC: shaded(HILL, 0.2), rightC: lit(HILL, 0.03) });
+  // the wide ceremonial black-stone staircase climbing the front-left slope
+  for (let i = 0; i < 16; i++) {
+    const t = i / 16;
+    const u = u0 + 0.3 + t * 0.7;
+    const vv = v1 - 0.3 - t * 0.7;
+    const z = 4 + t * 56;
+    iso.r.poly([iso.P(u, vv, z), iso.P(u + 0.16, vv, z), iso.P(u + 0.16, vv - 0.05, z + 3.5), iso.P(u, vv - 0.05, z + 3.5)], i % 2 ? BASALT_L : BASALT);
+  }
+  // the white summit platform
+  const cx = (u0 + u1) / 2, cy = (v0 + v1) / 2;
+  iso.box(cx - 0.5, cy - 0.5, cx + 0.5, cy + 0.5, 64, 72, TEMPLE_W, { rightC: lit(TEMPLE_W, 0.05) });
+  // four corner shrines in black stone, each a small shikhara (panchayatan)
+  for (const [du, dv] of [[cx - 0.34, cy - 0.34], [cx + 0.34, cy - 0.34], [cx - 0.34, cy + 0.34], [cx + 0.34, cy + 0.34]] as const) {
+    iso.box(du - 0.1, dv - 0.1, du + 0.1, dv + 0.1, 72, 84, BASALT, { rightC: BASALT_L });
+    shikhara(iso, du, dv, 84, 0.1, 36, BASALT_L);
+  }
+  // the GREAT central Devdeveshwar shikhara in black stone, copper-kalash crowned
+  iso.box(cx - 0.2, cy - 0.2, cx + 0.2, cy + 0.2, 72, 90, BASALT, { rightC: BASALT_L });
+  shikhara(iso, cx, cy, 90, 0.2, 96, BASALT_L);
+  // a saffron temple flag beside the sanctum
+  const [fx, fyB] = iso.P(cx + 0.4, cy - 0.4, 72);
+  iso.r.line([fx, fyB], [fx, fyB - 44 * RES], 1.2 * RES, hex('#cfcabf'));
+  iso.r.poly([[fx, fyB - 44 * RES], [fx + 16 * RES, fyB - 38 * RES], [fx, fyB - 30 * RES]], SAFFRON_HOT);
+  return iso.build();
+}
+
+// --- A GHAT temple on the river: the riverside stepped-bathing-ghat shrines
+// of the Mula-Mutha (Omkareshwar / the cremation & bathing ghats) — a saffron
+// or stone temple with a shikhara standing over a broad flight of stone steps
+// descending into a strip of water, deepmala lamp-pillars flanking. 2×2. ----
+function ghatTempleTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 150 });
+  void seed;
+  const u0 = 0.18, u1 = 1.82, v0 = 0.2, v1 = 1.5;
+  // a band of river along the front
+  iso.r.poly([iso.P(u0 - 0.12, v1 + 0.34, 0), iso.P(u1 + 0.12, v1 + 0.34, 0), iso.P(u1 + 0.12, v1 + 0.04, 0), iso.P(u0 - 0.12, v1 + 0.04, 0)], alpha(COLORS.water, 0.92));
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.24);
+  // the broad descending ghat steps down to the water
+  for (let i = 0; i < 7; i++) {
+    const t = i / 7;
+    const z = 22 - t * 22;
+    const vv = v1 - 0.02 + t * 0.32;
+    iso.r.poly([iso.P(u0, vv, z), iso.P(u1, vv, z), iso.P(u1, vv + 0.05, z - 3), iso.P(u0, vv + 0.05, z - 3)], i % 2 ? lighten(BASALT, 0.16) : BASALT_L);
+  }
+  // the temple platform + saffron shrine
+  iso.box(u0 + 0.2, v0, u1 - 0.2, v1, 22, 30, BASALT, { rightC: lit(BASALT, 0.05) });
+  iso.box(u0 + 0.34, v0 + 0.1, u1 - 0.34, v1 - 0.1, 30, 46, SAFFRON, { rightC: lit(SAFFRON, 0.06) });
+  archArcade(iso, v1 - 0.1, u0 + 0.4, u1 - 0.4, 34, 44, 5, 3, alpha(TEAK_D, 0.85));
+  shikhara(iso, (u0 + u1) / 2, (v0 + v1) / 2, 46, 0.2, 84, SAFFRON_HOT);
+  // two deepmala lamp-pillars flanking the steps
+  for (const du of [u0 + 0.1, u1 - 0.1] as const) {
+    iso.box(du - 0.03, v1 - 0.04, du + 0.03, v1 + 0.02, 22, 60, BASALT, { rightC: BASALT_L });
+    const [lx, ly] = iso.P(du, v1 - 0.01, 60);
+    iso.r.poly([[lx - 3 * RES, ly], [lx + 3 * RES, ly], [lx, ly - 7 * RES]], GOLD_HOT);
+    // little lamp-niches up the pillar
+    for (let k = 1; k < 5; k++) iso.r.rect(lx - 1.4 * RES, ly + k * 8 * RES, lx + 1.4 * RES, ly + k * 8 * RES + 2 * RES, alpha(GOLD, 0.7));
+  }
+  return iso.build();
+}
+
+// --- A TWIN-TOWER GLASS COMPLEX (ICC Trade Tower, SB Road; Panchshil/EON twin
+// blocks) — two slender mirror-glass office towers of unequal height linked by
+// a low glazed podium, a sky-bridge between them. The corporate-Pune skyline
+// motif. Tall 2×2 headroom. -------------------------------------------------
+function twinTowerTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 250 });
+  void seed;
+  const u0 = 0.2, u1 = 1.8, v0 = 0.3, v1 = 1.7;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // the glazed link podium
+  iso.box(u0, v0, u1, v1, 0, 30, GLASSIT_D, { topC: alpha(COLORS.glassLit, 0.4) });
+  iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, 6, 26, 8, alpha(COLORS.glassLit, 0.5), COLORS.steel);
+  // tower A (taller), front-left
+  const aU = u0 + 0.42, aV = v1 - 0.42, ab = 0.26;
+  iso.box(aU - ab, aV - ab, aU + ab, aV + ab, 30, 168, GLASSIT, { leftC: GLASSIT_D, rightC: lit(GLASSIT, 0.08), topC: alpha(COLORS.glassLit, 0.4) });
+  // tower B (shorter), back-right
+  const bU = u1 - 0.42, bV = v0 + 0.42, bb = 0.24;
+  iso.box(bU - bb, bV - bb, bU + bb, bV + bb, 30, 128, GLASSIT, { leftC: GLASSIT_D, rightC: lit(GLASSIT, 0.08), topC: alpha(COLORS.glassLit, 0.4) });
+  // floor-band glazing on both
+  for (const [cu, cv, bb2, zt] of [[aU, aV, ab, 168], [bU, bV, bb, 128]] as const) {
+    for (let z = 38; z < zt; z += 9) iso.r.line(iso.P(cu - bb2, cv + bb2, z), iso.P(cu + bb2, cv + bb2, z), 0.7 * RES, alpha(COLORS.glassLit, z % 27 < 9 ? 0.45 : 0.2));
+  }
+  // the sky-bridge between the two towers, high up
+  iso.r.poly([iso.P(aU, aV - ab, 110), iso.P(bU, bV + bb, 110), iso.P(bU, bV + bb, 102), iso.P(aU, aV - ab, 102)], lit(COLORS.steel, 0.06));
+  // slim crown masts
+  for (const [cu, cv, zt] of [[aU, aV, 168], [bU, bV, 128]] as const) {
+    const [tx, tyB] = iso.P(cu, cv, zt);
+    iso.r.line([tx, tyB], [tx, tyB - 16 * RES], 1.1 * RES, COLORS.steel);
+  }
+  return iso.build();
+}
+
+// --- AMANORA / GATEWAY TOWERS — the tallest residential cluster in Pune
+// (Hadapsar): three tapering high-rise apartment slabs of pale render + glass
+// balconies, stepping in height, on a green podium. Tall 2×2 headroom. ------
+function highriseClusterTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 250 });
+  void seed;
+  const CLAD = hex('#cdc3b4');
+  const u0 = 0.2, u1 = 1.8, v0 = 0.3, v1 = 1.7;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // landscaped podium
+  iso.box(u0 - 0.1, v0 - 0.1, u1 + 0.1, v1 + 0.1, 0, 12, shaded(COLORS.grass, 0.1), { ink: false });
+  // three residential slabs at staggered positions + heights
+  const slab = (cu: number, cv: number, bw: number, h: number): void => {
+    iso.box(cu - bw, cv - bw, cu + bw, cv + bw, 12, h, CLAD, { leftC: shaded(CLAD, 0.16), rightC: lit(CLAD, 0.05) });
+    // glass balcony bands down the front + right
+    for (let z = 22; z < h - 4; z += 8) {
+      iso.r.line(iso.P(cu - bw, cv + bw, z), iso.P(cu + bw, cv + bw, z), 0.8 * RES, alpha(COLORS.glassSky, 0.6));
+      iso.r.line(iso.P(cu + bw, cv - bw, z), iso.P(cu + bw, cv + bw, z), 0.8 * RES, alpha(COLORS.glassSky, 0.5));
+    }
+    iso.box(cu - bw - 0.02, cv - bw - 0.02, cu + bw + 0.02, cv + bw + 0.02, h, h + 4, lighten(CLAD, 0.06), { ink: false });
+  };
+  slab(u0 + 0.4, v1 - 0.4, 0.22, 184); // tallest, front
+  slab(u1 - 0.42, v0 + 0.42, 0.2, 150);
+  slab(u1 - 0.46, v1 - 0.46, 0.18, 120);
+  return iso.build();
+}
+
+// --- A TOWNSHIP CYBERTECH BLOCK (Magarpatta Cybercity / SEZ; Hinjawadi EON
+// campus) — a low-rise but very long curved glass office curve wrapping a
+// landscaped court, continuous ribbon glazing, a tree-lined forecourt. The
+// "walk-to-work" township look. Broad 2×2. ---------------------------------
+function cybercityTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 90 });
+  void seed;
+  const u0 = 0.16, u1 = 1.84, v0 = 0.26, v1 = 1.74;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // a long curved glass office curve (stepped boxes describing a crescent)
+  const steps = 5;
+  for (let i = 0; i < steps; i++) {
+    const t = i / (steps - 1);
+    const cv = v0 + 0.1 + t * 1.3;
+    const off = Math.sin(t * Math.PI) * 0.3; // the crescent bow
+    iso.box(u0 + off, cv, u0 + off + 0.5, cv + 0.26, 0, 44 - Math.abs(t - 0.5) * 14, GLASSIT, { leftC: GLASSIT_D, rightC: lit(GLASSIT, 0.07), topC: alpha(COLORS.glassLit, 0.35) });
+  }
+  // a second, taller block at the right
+  iso.box(u1 - 0.6, v0 + 0.2, u1, v1 - 0.2, 0, 58, GLASSIT, { leftC: GLASSIT_D, rightC: lit(GLASSIT, 0.08), topC: alpha(COLORS.glassLit, 0.4) });
+  for (let z = 12; z < 54; z += 8) iso.r.line(iso.P(u1 - 0.6, v1 - 0.2, z), iso.P(u1, v1 - 0.2, z), 0.7 * RES, alpha(COLORS.glassLit, 0.3));
+  // a landscaped forecourt with a couple of trees
+  iso.ball(u0 + 0.7, v1 - 0.1, 0.12, 24, hex('#5c8a4a'));
+  iso.ball(u0 + 1.0, v1 - 0.05, 0.1, 20, hex('#5c8a4a'));
+  return iso.build();
+}
+
+// --- COLONIAL GOTHIC CIVIC (SPPU main building / the Council Hall / GPO /
+// District Court) — a grand British-Raj basalt-Gothic block: pointed-arch
+// arcades, balustrades, a corner ITALIAN BELL TOWER (campanile) with a
+// pyramid cap, gabled wings. The "Oxford of the East" idiom. 2×2. ----------
+function gothicCivicTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 180 });
+  void seed;
+  const STONE = hex('#8a8270'); // weathered basalt-Gothic ashlar
+  const u0 = 0.2, u1 = 1.8, v0 = 0.3, v1 = 1.7;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.24);
+  // the long two-storey Gothic block
+  iso.box(u0, v0, u1, v1, 0, 50, STONE, { leftC: shaded(STONE, 0.16), rightC: lit(STONE, 0.05) });
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 10, shaded(STONE, 0.2), { ink: false });
+  // two storeys of pointed-arch arcades on the front
+  archArcade(iso, v1, u0 + 0.06, u1 - 0.06, 8, 24, 9, 10, alpha(BASALT_D, 0.8));
+  archArcade(iso, v1, u0 + 0.08, u1 - 0.08, 28, 42, 7, 10, alpha(BASALT_D, 0.72));
+  // gabled bays breaking the eaves
+  for (const gu of [u0 + 0.4, u1 - 0.4] as const) {
+    iso.gable(gu - 0.2, v1 - 0.04, gu + 0.2, v1 + 0.04, 50, 14, 'v', STONE, STONE);
+  }
+  // balustraded parapet between the gables
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 50, 54, lighten(STONE, 0.06), { ink: false });
+  battlement(iso, u0, v0, u1, v1, 54, STONE);
+  // the tall corner ITALIAN BELL TOWER (campanile) with louvred belfry + pyramid cap
+  const tu = u1 - 0.16, tv = v1 - 0.12;
+  iso.box(tu - 0.16, tv - 0.16, tu + 0.16, tv + 0.08, 0, 110, STONE, { leftC: shaded(STONE, 0.16), rightC: lit(STONE, 0.06) });
+  // louvred belfry openings near the top
+  for (const z of [88, 96] as const) {
+    iso.r.poly([iso.P(tu - 0.1, tv + 0.08, z), iso.P(tu + 0.1, tv + 0.08, z), iso.P(tu + 0.1, tv + 0.08, z + 6), iso.P(tu - 0.1, tv + 0.08, z + 6)], alpha(BASALT_D, 0.85));
+  }
+  iso.box(tu - 0.17, tv - 0.17, tu + 0.17, tv + 0.09, 110, 116, lighten(STONE, 0.06));
+  iso.hip(tu - 0.17, tv - 0.17, tu + 0.17, tv + 0.09, 116, 30, BASALT);
+  return iso.build();
+}
+
+// --- THE PYRAMID AUDITORIUM (Osho International, Koregaon Park) — Hafeez
+// Contractor's black-marble-clad PYRAMID housing the meditation auditorium, set
+// in a bamboo garden with a reflecting black pool. Stark, modern, geometric.
+// 2×2. ---------------------------------------------------------------------
+function pyramidHallTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 150 });
+  void seed;
+  const MARBLE = hex('#36333b'); // polished black marble
+  const u0 = 0.24, u1 = 1.76, v0 = 0.34, v1 = 1.66;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.26);
+  // a black reflecting pool plinth
+  iso.box(u0 - 0.14, v0 - 0.14, u1 + 0.14, v1 + 0.14, 0, 5, hex('#23222a'), { ink: false });
+  // a low base course
+  iso.box(u0, v0, u1, v1, 5, 16, MARBLE, { leftC: shaded(MARBLE, 0.12), rightC: lit(MARBLE, 0.06) });
+  // the great pyramid (two visible faces) rising from the base
+  const cx = (u0 + u1) / 2, cy = (v0 + v1) / 2;
+  const apex = iso.P(cx, cy, 116);
+  const c0 = iso.P(u0, v1, 16);
+  const c1 = iso.P(u1, v1, 16);
+  const c2 = iso.P(u1, v0, 16);
+  iso.r.poly([c0, c1, apex], shaded(MARBLE, 0.08)); // left face
+  iso.r.poly([c1, c2, apex], lit(MARBLE, 0.05)); // right face
+  // crisp marble-panel seams up the faces
+  for (let i = 1; i < 6; i++) {
+    const t = i / 6;
+    iso.r.line([c0[0] + (apex[0] - c0[0]) * t, c0[1] + (apex[1] - c0[1]) * t], [c1[0] + (apex[0] - c1[0]) * t, c1[1] + (apex[1] - c1[1]) * t], 0.6 * RES, alpha(lighten(MARBLE, 0.18), 0.6));
+    iso.r.line([c1[0] + (apex[0] - c1[0]) * t, c1[1] + (apex[1] - c1[1]) * t], [c2[0] + (apex[0] - c2[0]) * t, c2[1] + (apex[1] - c2[1]) * t], 0.6 * RES, alpha(lighten(MARBLE, 0.12), 0.5));
+  }
+  iso.r.polyline([c0, apex, c2], INK_W, INK);
+  iso.r.line(c0, c1, INK_W, INK);
+  iso.r.line(c1, c2, INK_W, INK);
+  // a lit glass entrance slot at the base front
+  iso.r.poly([iso.P(cx - 0.16, v1, 6), iso.P(cx + 0.16, v1, 6), iso.P(cx + 0.16, v1, 16), iso.P(cx - 0.16, v1, 16)], alpha(COLORS.glassLit, 0.6));
+  // a glint at the apex
+  iso.glint(apex, 2.4 * RES);
+  return iso.build();
+}
+
+// --- A CARVED-TEAK WADA (the smaller Peshwa-era mansions: Nana Wada, Naro-
+// shankar, Moroba Dada, the peths' courtyard houses) — a compact two-storey
+// lime-render-and-teak house: a deep carved-wood balcony (sajja) on brackets,
+// a tiled roof, a central nagarkhana arch. Distinct from Vishrambaug by its
+// COURTYARD massing + corner tower. 2×2. -----------------------------------
+function wadaTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 100 });
+  // seed-varied render tone (lime/laterite/ochre wash) for each wada
+  const REN = jcol(seed, 1, jit(seed, 9) > 0.5 ? LATER : hex('#c2a874'), 0.1);
+  const u0 = 0.22, u1 = 1.78, v0 = 0.32, v1 = 1.68;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.24);
+  // two render wings around a courtyard gap (an L of building)
+  iso.box(u0, v0, u1, v0 + 0.6, 0, 44, REN, { rightC: lit(REN, 0.05) }); // back wing
+  iso.box(u0, v0, u0 + 0.6, v1, 0, 44, REN, { rightC: lit(REN, 0.05) }); // left wing
+  iso.box(u1 - 0.5, v0 + 0.4, u1, v1, 0, 40, lighten(REN, 0.03)); // short front-right wing
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 9, LATER_D, { ink: false });
+  // the carved-teak first-floor balcony along the front (v1) of the left wing
+  iso.box(u0 + 0.02, v1 - 0.06, u0 + 0.6, v1 + 0.08, 24, 42, TEAK, { rightC: lit(TEAK, 0.06) });
+  for (let i = 0; i <= 5; i++) {
+    const u = u0 + 0.08 + (i * 0.46) / 5;
+    const a = iso.P(u, v1 + 0.08, 24);
+    iso.r.poly([[a[0], a[1]], [a[0] + 3 * RES, a[1] + 3 * RES], [a[0], a[1] + 6 * RES]], TEAK_D);
+  }
+  iso.windowsLeft(v1 + 0.08, u0 + 0.06, u0 + 0.58, 28, 40, 5, alpha(GOLD, 0.5), TEAK_L);
+  // a small central nagarkhana arch (gateway) on the courtyard front-right wing
+  const gcx = u1 - 0.25;
+  const poly: Pt[] = [iso.P(gcx - 0.12, v1, 6), iso.P(gcx - 0.12, v1, 28)];
+  for (let j = 0; j <= 6; j++) {
+    const t = j / 6;
+    poly.push(iso.P(gcx - 0.12 + 0.24 * t, v1, 28 + Math.sin(t * Math.PI) * 10));
+  }
+  poly.push(iso.P(gcx + 0.12, v1, 28), iso.P(gcx + 0.12, v1, 6));
+  iso.r.poly(poly, TEAK_D);
+  iso.r.polyline(poly, INK_W * 0.6, INK);
+  // tiled hip roofs on the wings
+  iso.box(u0 - 0.04, v0 - 0.04, u1 + 0.04, v0 + 0.64, 44, 48, TEAK_D, { ink: false });
+  tileRoof(iso, u0 - 0.02, v0 - 0.02, u1 + 0.02, v0 + 0.62, 48, 12);
+  tileRoof(iso, u0 - 0.02, v0 + 0.6, u0 + 0.62, v1 + 0.02, 48, 12);
+  // a small corner watch-kiosk
+  chhatri(iso, u1 - 0.12, v0 + 0.12, 48, 0.1, DOMEWHITE);
+  return iso.build();
+}
+
+// --- A PESHWA / DECCAN TEMPLE with a SABHA-MANDAP + DEEPMALA (the city's many
+// peth temples: Trishund Ganpati, Omkareshwar, Kasba Ganpati the gramadaivat,
+// Tulsibaug Ram Mandir, Nageshwar, Tambdi Jogeshwari) — a saffron/stone temple
+// with a pillared open hall, a tiered shikhara, and a tall stone DEEPMALA
+// lamp-tower out front. 1×1 headroom. The everyday Pune temple silhouette. --
+function pethTempleTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 170 });
+  const u0 = 0.14, u1 = 0.86, v0 = 0.14, v1 = 0.86;
+  // seed-varied palette + height so each peth temple reads distinct
+  const body = jit(seed, 1) > 0.55 ? jcol(seed, 2, SAFFRON, 0.12) : jcol(seed, 2, LATER, 0.1);
+  const spireH = jrange(seed, 3, 78, 104);
+  const spireCol = jit(seed, 4) > 0.5 ? SAFFRON_HOT : jcol(seed, 5, GOLD, 0.08);
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.24);
+  // the sabha-mandap (pillared hall)
+  iso.box(u0, v0, u1, v1, 0, 28, body, { leftC: shaded(body, 0.14), rightC: lit(body, 0.06) });
+  // an open pillared porch on the front
+  for (let i = 0; i <= 4; i++) {
+    const u = u0 + 0.08 + ((u1 - u0 - 0.16) * i) / 4;
+    iso.r.poly([iso.P(u - 0.02, v1, 24), iso.P(u + 0.02, v1, 24), iso.P(u + 0.02, v1, 4), iso.P(u - 0.02, v1, 4)], i % 2 ? GOLD : GOLD_HOT);
+  }
+  // entablature + a short tiered antarala
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 28, 34, GOLD, { topC: top(GOLD, 0.2) });
+  const cx = (u0 + u1) / 2, cy = (v0 + v1) / 2 - 0.02;
+  iso.box(cx - 0.16, cy - 0.16, cx + 0.16, cy + 0.16, 34, 42, TEMPLE_W);
+  // the shikhara over the sanctum (seed-varied height + colour)
+  shikhara(iso, cx, cy, 42, 0.18, spireH, spireCol);
+  // a tall stone deepmala (lamp pillar) standing out front-left
+  const du = u0 + 0.06, dv = v1 + 0.0;
+  iso.box(du - 0.025, dv - 0.025, du + 0.025, dv + 0.025, 0, 70, BASALT, { rightC: BASALT_L });
+  const [lx, ly] = iso.P(du, dv, 70);
+  iso.r.poly([[lx - 3 * RES, ly], [lx + 3 * RES, ly], [lx, ly - 7 * RES]], GOLD_HOT);
+  for (let k = 1; k < 6; k++) iso.r.rect(lx - 1.6 * RES, ly + k * 9 * RES, lx + 1.6 * RES, ly + k * 9 * RES + 2 * RES, alpha(GOLD, 0.7));
+  return iso.build();
+}
+
+// --- A DECCAN CANTONMENT BUNGALOW / CLUB (the Camp & Cantonment heritage:
+// the Poona Club, Boat Club, Royal Connaught Boat Club, the gymkhanas, the
+// old churches' rectories) — a long low colonial bungalow: a deep pitched
+// Mangalore-tile roof, a pillared monkey-top verandah, dormers, chimneys. The
+// leafy Cantonment idiom. 2×1. ---------------------------------------------
+function bungalowTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 1, { swAnchor: true, headroom: 70 });
+  // seed-varied render + roof tint + body height
+  const CLAD = jcol(seed, 1, jit(seed, 9) > 0.5 ? hex('#ddcfae') : hex('#d6c6a0'), 0.1);
+  const bH = jrange(seed, 2, 22, 30);
+  const u0 = 0.16, u1 = 1.84, v0 = 0.2, v1 = 0.8;
+  iso.shadow(u0, v0, u1, v1, 0.18, 0.22);
+  // the render body
+  iso.box(u0, v0, u1, v1, 0, bH, CLAD, { rightC: lit(CLAD, 0.05) });
+  // a pillared verandah with arched openings along the front
+  archArcade(iso, v1, u0 + 0.06, u1 - 0.06, 4, Math.min(20, bH - 2), 5, 9, alpha(TEAK_D, 0.8));
+  // a deep oversailing pitched Mangalore-tile roof
+  iso.box(u0 - 0.06, v0 - 0.06, u1 + 0.06, v1 + 0.08, bH, bH + 3, TEAK_D, { ink: false });
+  iso.gable(u0 - 0.04, v0 - 0.04, u1 + 0.04, v1 + 0.1, bH + 3, 18, 'u', ROOFTILE, CLAD);
+  // two dormer windows in the roof + a chimney
+  for (const du of [u0 + 0.5, u1 - 0.6] as const) {
+    const [dx, dy] = iso.P(du, (v0 + v1) / 2, bH + 12);
+    iso.r.poly([[dx - 4 * RES, dy], [dx + 4 * RES, dy], [dx + 4 * RES, dy - 6 * RES], [dx, dy - 10 * RES], [dx - 4 * RES, dy - 6 * RES]], lit(CLAD, 0.04));
+    iso.r.rect(dx - 2 * RES, dy - 5 * RES, dx + 2 * RES, dy - 1 * RES, alpha(COLORS.glassLit, 0.45));
+  }
+  iso.box(u0 + 0.2, v0 + 0.1, u0 + 0.28, v0 + 0.18, bH + 12, bH + 24, BRICKR, { rightC: lit(BRICKR, 0.05) });
+  return iso.build();
+}
+
+// --- A COLONIAL CHURCH (St Mary's / St Patrick's Cathedral / All Saints' —
+// the Camp's English churches) — a stone Gothic-Revival church: a nave with
+// lancet windows, a steep pitched roof, and a tall front BELL TOWER with a
+// pointed broach spire + a cross. 2×2 headroom. ----------------------------
+function churchTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 200 });
+  // seed-varied stone tone + spire height per church
+  const STONE = jit(seed, 9) > 0.5 ? jcol(seed, 1, hex('#b7ac92'), 0.1) : jcol(seed, 1, BRICKR, 0.08);
+  const spireTop = jrange(seed, 2, 138, 162);
+  const u0 = 0.3, u1 = 1.7, v0 = 0.42, v1 = 1.58;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.24);
+  // the nave
+  iso.box(u0, v0, u1, v1 - 0.18, 0, 44, STONE, { leftC: shaded(STONE, 0.16), rightC: lit(STONE, 0.05) });
+  iso.gable(u0, v0, u1, v1 - 0.18, 44, 22, 'v', STONE, STONE);
+  // lancet windows down the flank
+  for (let i = 0; i < 5; i++) {
+    const u = u0 + 0.1 + i * 0.3;
+    iso.r.poly([iso.P(u, v1 - 0.18, 10), iso.P(u + 0.06, v1 - 0.18, 10), iso.P(u + 0.06, v1 - 0.18, 28), iso.P(u + 0.03, v1 - 0.18, 36), iso.P(u, v1 - 0.18, 28)], alpha(BASALT_D, 0.85));
+  }
+  // the front bell tower with a tall broach spire + a cross
+  const tu = u0 + 0.24, tv = v1 - 0.1;
+  iso.box(tu - 0.16, tv - 0.16, tu + 0.16, tv + 0.06, 0, 92, STONE, { rightC: lit(STONE, 0.06) });
+  // belfry louvres + a small rose window
+  for (const sx of [-1, 1] as const) iso.r.poly([iso.P(tu + sx * 0.06, tv + 0.06, 70), iso.P(tu + sx * 0.06 + 0.04, tv + 0.06, 70), iso.P(tu + sx * 0.06 + 0.04, tv + 0.06, 82), iso.P(tu + sx * 0.06, tv + 0.06, 82)], alpha(BASALT_D, 0.8));
+  const apex = iso.P(tu, tv - 0.04, spireTop);
+  const cc0 = iso.P(tu - 0.16, tv + 0.06, 92);
+  const cc1 = iso.P(tu + 0.16, tv + 0.06, 92);
+  const cc2 = iso.P(tu + 0.16, tv - 0.16, 92);
+  iso.r.poly([cc0, cc1, apex], shaded(BASALT, 0.06));
+  iso.r.poly([cc1, cc2, apex], lit(BASALT, 0.06));
+  iso.r.polyline([cc0, apex, cc2], INK_W * 0.7, INK);
+  // the cross finial
+  const [fx, fyB] = apex;
+  iso.r.line([fx, fyB], [fx, fyB - 8 * RES], 1.2 * RES, GOLD_HOT);
+  iso.r.line([fx - 2.6 * RES, fyB - 5.5 * RES], [fx + 2.6 * RES, fyB - 5.5 * RES], 1.2 * RES, GOLD_HOT);
+  return iso.build();
+}
+
+// --- A MODERN STADIUM / SPORTS ARENA (MCA Gahunje cricket stadium; Balewadi
+// Shree Shiv Chhatrapati sports complex; the Nehru / PYC grounds) — a big
+// elliptical bowl with a swooping cantilever roof canopy on masts + floodlight
+// pylons, the green pitch glowing within. Broad 3×2. -----------------------
+function stadiumBowlTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 2, { swAnchor: true, headroom: 90 });
+  void seed;
+  const CLAD = hex('#c4bca8');
+  const cx = 1.5, cy = 1.0;
+  iso.shadow(0.2, 0.3, 2.8, 1.7, 0.24, 0.22);
+  // the elliptical bowl wall (a ring of raked stands)
+  const RX = 1.2 * (CELL_W / 2), RY = 0.7 * (CELL_W / 2);
+  const [bx, byB] = iso.P(cx, cy, 0);
+  const ring = (z: number, s: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 28; i++) {
+      const a = (i / 28) * Math.PI * 2;
+      pts.push([bx + Math.cos(a) * RX * s, byB - z * RES + Math.sin(a) * RY * s]);
+    }
+    return pts;
+  };
+  iso.r.poly([...ring(0, 1), ...ring(34, 0.82).reverse()], CLAD, shaded(CLAD, 0.14));
+  // the green pitch inside (glowing)
+  iso.r.poly(ring(34, 0.82), shaded(COLORS.grass, 0.06));
+  iso.r.polyline(ring(0, 1).slice(0, 15), INK_W * 0.7, INK);
+  iso.r.polyline(ring(34, 0.82), INK_W * 0.5, alpha(INK, 0.7), true);
+  // a swooping translucent cantilever roof canopy ringing the rim
+  iso.r.poly([...ring(34, 0.82), ...ring(48, 1.06).reverse()], alpha(COLORS.glassSky, 0.5));
+  iso.r.polyline(ring(48, 1.06), INK_W * 0.4, alpha(COLORS.steel, 0.7), true);
+  // four floodlight pylons at the corners
+  for (let i = 0; i < 4; i++) {
+    const a = Math.PI / 4 + (i / 4) * Math.PI * 2;
+    const px = bx + Math.cos(a) * RX * 1.1;
+    const py = byB + Math.sin(a) * RY * 1.1;
+    iso.r.line([px, py], [px, py - 56 * RES], 1.6 * RES, COLORS.steelDark);
+    iso.r.rect(px - 5 * RES, py - 62 * RES, px + 5 * RES, py - 56 * RES, alpha(GOLD_HOT, 0.85));
+  }
+  return iso.build();
+}
+
+// --- A RIVER BRIDGE (the Mula-Mutha crossings: Wellesley/Sangam Bridge,
+// Bund Garden Bridge, Z Bridge, Lakdi Pul, Shivaji Bridge) — a multi-arch
+// stone/iron road bridge spanning a band of water, lamp standards along the
+// parapet. Long 3×1 over water. --------------------------------------------
+function bridgeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 1, { swAnchor: true, headroom: 60 });
+  void seed;
+  const STONE = hex('#9a8f78');
+  const u0 = 0.1, u1 = 2.9, v0 = 0.3, v1 = 0.7;
+  // the river band the bridge spans
+  iso.r.poly([iso.P(u0 - 0.1, v1 + 0.28, 0), iso.P(u1 + 0.1, v1 + 0.28, 0), iso.P(u1 + 0.1, v0 - 0.24, 0), iso.P(u0 - 0.1, v0 - 0.24, 0)], alpha(COLORS.water, 0.92));
+  // the bridge deck
+  iso.box(u0, v0, u1, v1, 18, 26, STONE, { leftC: shaded(STONE, 0.14), rightC: lit(STONE, 0.05) });
+  // the arches under the deck (on the front face v1)
+  const arches = 5;
+  for (let i = 0; i < arches; i++) {
+    const u0a = u0 + 0.1 + ((u1 - u0 - 0.2) * i) / arches;
+    const u1a = u0 + 0.1 + ((u1 - u0 - 0.2) * (i + 1)) / arches - 0.08;
+    const poly: Pt[] = [iso.P(u0a, v1, 0), iso.P(u0a, v1, 10)];
+    for (let j = 0; j <= 6; j++) {
+      const t = j / 6;
+      poly.push(iso.P(u0a + (u1a - u0a) * t, v1, 10 + Math.sin(t * Math.PI) * 8));
+    }
+    poly.push(iso.P(u1a, v1, 10), iso.P(u1a, v1, 0));
+    iso.r.poly(poly, shaded(STONE, 0.1));
+    iso.r.polyline(poly, INK_W * 0.5, alpha(INK, 0.7));
+    // pier between arches
+    iso.r.poly([iso.P(u1a, v1, 0), iso.P(u1a + 0.06, v1, 0), iso.P(u1a + 0.06, v1, 18), iso.P(u1a, v1, 18)], shaded(STONE, 0.16));
+  }
+  // a parapet + lamp standards along the deck
+  iso.box(u0, v1 - 0.02, u1, v1 + 0.02, 26, 30, lighten(STONE, 0.06), { ink: false });
+  for (let i = 0; i <= 6; i++) {
+    const u = u0 + 0.1 + ((u1 - u0 - 0.2) * i) / 6;
+    const [px, pyB] = iso.P(u, v1, 30);
+    iso.r.line([px, pyB], [px, pyB - 12 * RES], 1 * RES, COLORS.steelDark);
+    iso.r.poly([[px - 1.8 * RES, pyB - 12 * RES], [px + 1.8 * RES, pyB - 12 * RES], [px, pyB - 15 * RES]], alpha(GOLD_HOT, 0.85));
+  }
+  return iso.build();
+}
+
+// --- A FORMAL GARDEN PAVILION / BOTANICAL GLASSHOUSE (Empress Botanical /
+// Saras Baug island temple grounds / Bund Garden / Peshwe Park / Sambhaji
+// Park) — a Victorian iron-and-glass garden glasshouse with a curved ridge +
+// a little ornamental bandstand, set in lawns with palms. 2×2. -------------
+function gardenPavilionTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 80 });
+  void seed;
+  const u0 = 0.2, u1 = 1.8, v0 = 0.3, v1 = 1.7;
+  // a green lawn plinth
+  iso.box(u0 - 0.16, v0 - 0.16, u1 + 0.16, v1 + 0.16, 0, 4, shaded(COLORS.grass, 0.1), { ink: false });
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.2);
+  // the glasshouse body (iron frame + glass)
+  iso.box(u0 + 0.3, v0 + 0.3, u1 - 0.1, v1 - 0.1, 4, 32, alpha(COLORS.glassSky, 0.7), { topC: alpha(COLORS.glassLit, 0.4) });
+  // an arched-roof barrel-vault ridge of glass
+  const gv = (v0 + 0.3 + v1 - 0.1) / 2;
+  for (let i = 0; i <= 12; i++) {
+    const u = u0 + 0.34 + ((u1 - u0 - 0.5) * i) / 12;
+    const [bx, by] = iso.P(u, gv, 32);
+    iso.r.line([bx, by], [bx, by - 12 * RES], 0.8 * RES, i % 3 === 0 ? alpha(COLORS.glassLit, 0.7) : alpha(COLORS.steel, 0.8));
+  }
+  const [rgx0, rgy0] = iso.P(u0 + 0.34, gv, 32);
+  const [rgx1] = iso.P(u1 - 0.16, gv, 32);
+  iso.r.line([rgx0, rgy0 - 12 * RES], [rgx1, rgy0 - 12 * RES], 1.4 * RES, lit(COLORS.steel, 0.08));
+  // an ornamental bandstand (a little domed kiosk) front-left
+  const bu = u0 + 0.34, bv = v1 - 0.26;
+  for (const [sx, sy] of [[-1, -0.5], [1, -0.5], [1, 0.5], [-1, 0.5]] as const) {
+    const px = bu + sx * 0.12, py = bv + sy * 0.12;
+    iso.r.line(iso.P(px, py, 0), iso.P(px, py, 16), 1.1 * RES, COLORS.steel);
+  }
+  onionDome(iso, bu, bv, 16, 0.14, 14, DOMEWHITE);
+  // palms on the lawn
+  for (const [pu, pv] of [[u1 - 0.16, v1 - 0.1], [u1 - 0.06, v0 + 0.4]] as const) {
+    iso.cone(pu, pv, 0.08, 26, hex('#4f7a44'));
+  }
+  return iso.build();
+}
+
+// --- A MODERN UNIVERSITY / INSTITUTE TOWER (Symbiosis SIU; FLAME; the new
+// glassy academic campuses; Gokhale Institute; Fergusson's newer blocks) — a
+// crisp contemporary academic block: a render-and-glass mass with a glazed
+// double-height entrance atrium, brise-soleil fins, and a feature stair-tower.
+// Tall 1×1. ----------------------------------------------------------------
+function modernCampusTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 150 });
+  // seed-varied render tone + block height per campus
+  const CLAD = jcol(seed, 1, jit(seed, 9) > 0.5 ? hex('#d6cdbb') : hex('#cdc4b1'), 0.1);
+  const bH = jrange(seed, 2, 66, 84);
+  const u0 = 0.12, u1 = 0.88, v0 = 0.12, v1 = 0.88;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // the academic block
+  iso.box(u0, v0, u1, v1, 0, bH, CLAD, { leftC: shaded(CLAD, 0.16), rightC: lit(CLAD, 0.05) });
+  // a double-height glazed entrance atrium on the front
+  iso.box(u0 + 0.16, v1 - 0.06, u1 - 0.16, v1, 0, 36, alpha(COLORS.glassSky, 0.8), { topC: alpha(COLORS.glassLit, 0.4) });
+  // brise-soleil horizontal fins up the front
+  for (let z = 12; z < bH - 4; z += 10) iso.r.line(iso.P(u0 + 0.06, v1, z), iso.P(u1 - 0.06, v1, z), 0.9 * RES, alpha(COLORS.steel, 0.7));
+  // a feature stair-tower glazed on the right
+  iso.box(u1 - 0.16, v0 + 0.06, u1, v0 + 0.4, 0, bH + 12, alpha(COLORS.glassSky, 0.8), { topC: alpha(COLORS.glassLit, 0.4) });
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, bH, bH + 4, lighten(CLAD, 0.06), { ink: false });
+  // a rooftop logo pylon
+  const [px, pyB] = iso.P(u0 + 0.3, v0 + 0.3, bH + 4);
+  iso.r.line([px, pyB], [px, pyB - 18 * RES], 1.4 * RES, COLORS.steelDark);
+  iso.r.rect(px - 4 * RES, pyB - 18 * RES, px + 4 * RES, pyB - 10 * RES, alpha(COLORS.glassHot, 0.85));
+  return iso.build();
+}
+
+// --- A SAMADHI / VRINDAVAN MEMORIAL SHRINE (the saints' samadhis: Dnyaneshwar
+// link-shrines, Tukaram-related, the math/mutts, Nana Phadnavis-era cenotaphs)
+// — a small white domed memorial chamber on a stepped plinth with a tulsi-
+// vrindavan, cusped niches, a kalash + saffron pennant. 1×1. ----------------
+function samadhiTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 110 });
+  // seed-varied dome height + tint so each samadhi reads distinct
+  const domeH = jrange(seed, 1, 22, 32);
+  const domeCol = jit(seed, 2) > 0.5 ? DOMEWHITE : jcol(seed, 3, hex('#e4dcc8'), 0.08);
+  const u0 = 0.18, u1 = 0.82, v0 = 0.18, v1 = 0.82;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // a stepped plinth
+  iso.box(u0 - 0.06, v0 - 0.06, u1 + 0.06, v1 + 0.06, 0, 8, shaded(TEMPLE_W, 0.1), { ink: false });
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 8, 14, lighten(TEMPLE_W, 0.04), { ink: false });
+  // the white domed chamber
+  iso.box(u0, v0, u1, v1, 14, 42, TEMPLE_W, { leftC: shaded(TEMPLE_W, 0.12), rightC: lit(TEMPLE_W, 0.05) });
+  // cusped niche arches on the front
+  archArcade(iso, v1, u0 + 0.06, u1 - 0.06, 18, 36, 6, 3, alpha(SAFFRON, 0.5));
+  // parapet + corner kalash finials
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 42, 46, lighten(TEMPLE_W, 0.06), { ink: false });
+  for (const [cu, cv] of [[u0, v0], [u1, v0], [u0, v1], [u1, v1]] as const) kalash(iso, ...(iso.P(cu, cv, 46) as Pt) as [number, number], 0.6);
+  // the central dome (seed-varied)
+  onionDome(iso, (u0 + u1) / 2, (v0 + v1) / 2, 46, 0.2, domeH, domeCol);
+  // a little tulsi-vrindavan planter out front
+  iso.box(u0 + 0.34, v1 + 0.04, u0 + 0.46, v1 + 0.14, 14, 24, SAFFRON, { rightC: lit(SAFFRON, 0.06) });
+  return iso.build();
+}
+
+// --- A CINEMA / MULTIPLEX (the city's deco & modern halls: Vijay/Prabhat/
+// Alka talkies, the E-Square, the City Pride / Mangala / Victory cinemas) — a
+// streamline-modern picture-house: a curved render facade with a tall fluted
+// neon name-fin, a marquee canopy + poster bays, porthole windows. 2×1. -----
+function cinemaTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 1, { swAnchor: true, headroom: 90 });
+  // seed-varied facade tone + neon-fin colour per picture-house
+  const CLAD = jcol(seed, 1, jit(seed, 9) > 0.5 ? hex('#d8c19c') : hex('#cfb791'), 0.1);
+  const neon = [hex('#d6442e'), hex('#2e7bd6'), hex('#d68a2e')][Math.floor(jit(seed, 2) * 3)] ?? hex('#d6442e');
+  const u0 = 0.16, u1 = 1.84, v0 = 0.2, v1 = 0.8;
+  iso.shadow(u0, v0, u1, v1, 0.18, 0.22);
+  // the streamline body
+  iso.box(u0, v0, u1, v1, 0, 42, CLAD, { rightC: lit(CLAD, 0.05) });
+  // streamline speed-lines across the front
+  for (const z of [16, 20, 24] as const) iso.r.line(iso.P(u0 + 0.06, v1, z), iso.P(u1 - 0.4, v1, z), 0.8 * RES, alpha(shaded(CLAD, 0.2), 0.7));
+  // porthole windows
+  for (const u of [u0 + 0.3, u0 + 0.5] as const) {
+    const [px, py] = iso.P(u, v1, 30);
+    iso.r.line([px - 3 * RES, py], [px + 3 * RES, py], 4 * RES, alpha(COLORS.glassLit, 0.4));
+  }
+  // a marquee canopy over the entrance
+  iso.r.poly([iso.P(u0, v1 + 0.06, 14), iso.P(u1 - 0.4, v1 + 0.06, 14), iso.P(u1 - 0.44, v1, 18), iso.P(u0 - 0.04, v1, 18)], lit(COLORS.steel, 0.06));
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 42, 46, lighten(CLAD, 0.06), { ink: false });
+  // a tall fluted NEON NAME-FIN at the right corner
+  const [fx, fyB] = iso.P(u1 - 0.08, v1 - 0.08, 0);
+  iso.r.rect(fx - 2.4 * RES, fyB - 64 * RES, fx + 2.4 * RES, fyB, alpha(neon, 0.5));
+  for (let z = 6; z < 60; z += 7) iso.r.line([fx - 2.4 * RES, fyB - z * RES], [fx + 2.4 * RES, fyB - z * RES], 1 * RES, alpha(GOLD_HOT, 0.9));
+  return iso.build();
+}
+
+// --- A WHOLESALE MARKET / MANDI (Market Yard / Gultekdi APMC; the grain & veg
+// wholesale halls; Juna Bazaar) — long repetitive market sheds with saw-tooth
+// north-light glazed roofs, open arcaded fronts, a tall water-tank + signage.
+// Broad 2×2. ---------------------------------------------------------------
+function marketYardTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 80 });
+  void seed;
+  const CLAD = hex('#c9bca0');
+  const u0 = 0.16, u1 = 1.84, v0 = 0.26, v1 = 1.74;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // three long parallel market sheds
+  for (let s = 0; s < 3; s++) {
+    const cv0 = v0 + 0.1 + s * 0.5;
+    iso.box(u0, cv0, u1, cv0 + 0.34, 0, 24, CLAD, { rightC: lit(CLAD, 0.05) });
+    // saw-tooth north-light glazing on each shed
+    for (let i = 0; i <= 6; i++) {
+      const u = u0 + 0.1 + ((u1 - u0 - 0.2) * i) / 6;
+      iso.r.poly([iso.P(u, cv0 + 0.17, 24), iso.P(u + 0.1, cv0 + 0.17, 24), iso.P(u + 0.1, cv0 + 0.17, 32), iso.P(u, cv0 + 0.17, 30)], alpha(COLORS.glassSky, 0.6));
+    }
+    // arched open fronts
+    archArcade(iso, cv0 + 0.34, u0 + 0.06, u1 - 0.06, 4, 18, 5, 8, alpha(BASALT_D, 0.75));
+  }
+  // a tall elevated water tank at the corner
+  const tu = u1 - 0.16, tv = v0 + 0.16;
+  for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
+    const px = tu + sx * 0.08, py = tv + sy * 0.08;
+    iso.r.line(iso.P(px, py, 0), iso.P(px, py, 46), 1.4 * RES, COLORS.steelDark);
+  }
+  iso.box(tu - 0.12, tv - 0.12, tu + 0.12, tv + 0.12, 46, 62, hex('#9aa0a6'), { rightC: lit(hex('#9aa0a6'), 0.06) });
+  iso.hip(tu - 0.12, tv - 0.12, tu + 0.12, tv + 0.12, 62, 8, hex('#7d8288'));
+  return iso.build();
+}
+
+// --- A LAKE / DAM WATERWORKS (Khadakwasla dam wall; Panshet; Pashan/Katraj
+// lakes; the waterworks) — a long curved masonry dam wall holding back a sheet
+// of water, sluice gates, a valve-tower, the spillway. Long 3×1. -----------
+function damTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 1, { swAnchor: true, headroom: 60 });
+  void seed;
+  const STONE = hex('#8d8675');
+  const u0 = 0.1, u1 = 2.9, v0 = 0.3, v1 = 0.7;
+  // the reservoir behind (a big band of water at the back)
+  iso.r.poly([iso.P(u0 - 0.1, v0 - 0.24, 0), iso.P(u1 + 0.1, v0 - 0.24, 0), iso.P(u1 + 0.1, v0 + 0.02, 0), iso.P(u0 - 0.1, v0 + 0.02, 0)], alpha(COLORS.water, 0.92));
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.2);
+  // the battered (sloping) dam wall
+  iso.box(u0, v0, u1, v1, 0, 34, STONE, { leftC: shaded(STONE, 0.16), rightC: lit(STONE, 0.05) });
+  iso.box(u0 - 0.04, v1 - 0.04, u1 + 0.04, v1 + 0.06, 0, 10, shaded(STONE, 0.2), { ink: false });
+  // sluice gates along the front face
+  for (let i = 0; i < 6; i++) {
+    const u = u0 + 0.2 + ((u1 - u0 - 0.4) * i) / 6;
+    iso.r.poly([iso.P(u, v1, 6), iso.P(u + 0.18, v1, 6), iso.P(u + 0.18, v1, 26), iso.P(u, v1, 26)], shaded(STONE, 0.1));
+    iso.r.poly([iso.P(u + 0.02, v1, 8), iso.P(u + 0.16, v1, 8), iso.P(u + 0.16, v1, 24), iso.P(u + 0.02, v1, 24)], hex('#6b5e44'));
+  }
+  // the road parapet on top + lamp posts
+  iso.box(u0, v0, u1, v0 + 0.06, 34, 38, lighten(STONE, 0.06), { ink: false });
+  // a valve / control tower mid-wall
+  const tu = (u0 + u1) / 2;
+  iso.box(tu - 0.1, v0 + 0.06, tu + 0.1, v0 + 0.24, 34, 60, STONE, { rightC: lit(STONE, 0.06) });
+  iso.hip(tu - 0.12, v0 + 0.04, tu + 0.12, v0 + 0.26, 60, 10, ROOFTILE);
+  return iso.build();
+}
+
+// --- A METRO/RAIL FLYOVER INTERCHANGE (the elevated junctions, the big road
+// flyovers, the University circle / Nal Stop / Swargate interchanges) — a
+// stacked double-deck concrete flyover curving on tall piers, a small control
+// cabin. Long 3×2 headroom. ------------------------------------------------
+function flyoverTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 2, { swAnchor: true, headroom: 80 });
+  void seed;
+  const PIER = hex('#b7b1bd');
+  const u0 = 0.2, u1 = 2.8, v0 = 0.5, v1 = 1.5;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.2);
+  // tall round piers
+  for (let i = 0; i <= 5; i++) {
+    const u = u0 + 0.2 + ((u1 - u0 - 0.4) * i) / 5;
+    iso.box(u - 0.05, 1.0 - 0.05, u + 0.05, 1.0 + 0.05, 0, 36, PIER, { rightC: lit(PIER, 0.06) });
+  }
+  // lower deck (a long curving box)
+  iso.box(u0, 0.86, u1, 1.14, 36, 44, PIER, { rightC: lit(PIER, 0.05) });
+  // upper deck (offset, narrower)
+  for (let i = 0; i <= 5; i++) {
+    const u = u0 + 0.3 + ((u1 - u0 - 0.6) * i) / 5;
+    iso.box(u - 0.04, 0.78 - 0.04, u + 0.04, 0.78 + 0.04, 44, 64, PIER, { rightC: lit(PIER, 0.06) });
+  }
+  iso.box(u0 + 0.2, 0.7, u1 - 0.2, 0.92, 64, 72, lighten(PIER, 0.04), { rightC: lit(PIER, 0.06) });
+  // parapet lamp pips along both decks
+  for (let i = 0; i <= 6; i++) {
+    const u = u0 + 0.2 + ((u1 - u0 - 0.4) * i) / 6;
+    const [px, py] = iso.P(u, 1.14, 44);
+    iso.r.poly([[px - 1.4 * RES, py - 2 * RES], [px + 1.4 * RES, py - 2 * RES], [px, py - 5 * RES]], alpha(GOLD_HOT, 0.8));
+  }
+  return iso.build();
+}
+
+// --- A MILITARY / DEFENCE INSTITUTE (NDA Sudan Block, Khadakwasla; the Command
+// HQ; AFMC; College of Military Engineering) — a monumental symmetrical pale-
+// sandstone block with a deep colonnaded portico, a central pediment + a low
+// dome, flanking wings + a flagstaff. The grand parade-ground architecture.
+// Broad 2×2. ---------------------------------------------------------------
+function defenceInstituteTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 120 });
+  void seed;
+  const SAND = hex('#cbb78c');
+  const u0 = 0.16, u1 = 1.84, v0 = 0.3, v1 = 1.7;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.24);
+  // the long symmetrical block
+  iso.box(u0, v0, u1, v1, 0, 46, SAND, { leftC: shaded(SAND, 0.16), rightC: lit(SAND, 0.05) });
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 10, shaded(SAND, 0.2), { ink: false });
+  // repeated windows on the wings
+  iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 12, 38, 12, alpha(COLORS.glassDark, 0.8), SAND);
+  // a deep central colonnaded portico (the parade frontispiece)
+  const gcx = (u0 + u1) / 2;
+  iso.box(gcx - 0.32, v1 - 0.04, gcx + 0.32, v1 + 0.1, 0, 52, lighten(SAND, 0.04), { rightC: lit(SAND, 0.06) });
+  for (let i = 0; i <= 6; i++) {
+    const u = gcx - 0.28 + (i * 0.56) / 6;
+    iso.r.poly([iso.P(u - 0.02, v1 + 0.1, 44), iso.P(u + 0.02, v1 + 0.1, 44), iso.P(u + 0.02, v1 + 0.1, 4), iso.P(u - 0.02, v1 + 0.1, 4)], i % 2 ? COLORS.white : lit(COLORS.white, 0.06));
+  }
+  // a triangular pediment over the portico
+  iso.r.poly([iso.P(gcx - 0.34, v1 + 0.1, 52), iso.P(gcx + 0.34, v1 + 0.1, 52), iso.P(gcx, v1 + 0.1, 64)], lit(SAND, 0.1));
+  iso.r.polyline([iso.P(gcx - 0.34, v1 + 0.1, 52), iso.P(gcx, v1 + 0.1, 64), iso.P(gcx + 0.34, v1 + 0.1, 52)], INK_W * 0.7, INK);
+  // cornice + a central low dome behind
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 46, 50, lighten(SAND, 0.06), { ink: false });
+  onionDome(iso, gcx, (v0 + v1) / 2, 50, 0.2, 28, DOMEWHITE, { ribs: 6 });
+  // a flagstaff
+  const [fx, fyB] = iso.P(u0 + 0.3, v0 + 0.3, 50);
+  iso.r.line([fx, fyB], [fx, fyB - 30 * RES], 1 * RES, COLORS.steel);
+  iso.r.poly([[fx, fyB - 30 * RES], [fx + 12 * RES, fyB - 26 * RES], [fx, fyB - 22 * RES]], hex('#e2922f'));
+  return iso.build();
+}
+
+// --- AN OBSERVATORY / SCIENCE DOME (IMD Pune meteorological; GMRT-adjacent;
+// the planetarium; ARIES-style domes) — a cylindrical drum carrying a big
+// hemispherical white OBSERVATORY DOME with a vertical telescope slit, on a
+// science-block podium. 1×1 headroom. --------------------------------------
+function observatoryTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 120 });
+  void seed;
+  const CLAD = hex('#dad2c2');
+  const u0 = 0.14, u1 = 0.86, v0 = 0.14, v1 = 0.86;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // science-block podium
+  iso.box(u0, v0, u1, v1, 0, 34, CLAD, { rightC: lit(CLAD, 0.05) });
+  iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, 8, 30, 5, alpha(COLORS.glassSky, 0.8), CLAD);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 34, 38, lighten(CLAD, 0.06), { ink: false });
+  // the cylindrical drum
+  const cx = (u0 + u1) / 2, cy = (v0 + v1) / 2;
+  iso.box(cx - 0.22, cy - 0.22, cx + 0.22, cy + 0.22, 38, 52, lighten(CLAD, 0.03), { rightC: lit(CLAD, 0.06) });
+  // the big white hemispherical dome
+  const [dx, dyB] = iso.P(cx, cy, 52);
+  const DR = 0.26 * (CELL_W / 2);
+  const dome: Pt[] = [];
+  for (let i = 0; i <= 20; i++) {
+    const a = (i / 20) * Math.PI;
+    dome.push([dx - DR + (2 * DR * i) / 20, dyB - Math.sin(a) * DR * 1.05]);
+  }
+  dome.push([dx + DR, dyB], [dx - DR, dyB]);
+  iso.r.poly(dome, DOMEWHITE, lit(DOMEWHITE, 0.06));
+  iso.r.polyline(dome.slice(0, 21), INK_W * 0.7, INK);
+  // the dark vertical telescope slit
+  iso.r.poly([[dx - 2 * RES, dyB], [dx + 2 * RES, dyB], [dx + 1.4 * RES, dyB - DR * 1.0], [dx - 1.4 * RES, dyB - DR * 1.0]], alpha(BASALT_D, 0.9));
+  return iso.build();
+}
+
+// --- A MODERN HOTEL TOWER (the JW Marriott / Conrad / Westin / O Hotel /
+// Hyatt — Pune's flagship hotels) — a sleek tapering glass hotel slab with a
+// double-height lobby canopy, a curved balcony face, a roof sign + helipad
+// ring. Tall 1×1. ----------------------------------------------------------
+function hotelTowerTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 200 });
+  // seed-varied glass tint so each flagship hotel reads distinct
+  const GLASS = [hex('#a9c2cf'), hex('#b7c0a9'), hex('#c0b3c4'), hex('#a9bccf')][Math.floor(jit(seed, 1) * 4)] ?? hex('#a9c2cf');
+  const u0 = 0.14, u1 = 0.86, v0 = 0.14, v1 = 0.86;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // a low entrance podium with a cantilever porte-cochère
+  iso.box(u0 - 0.04, v0 - 0.04, u1 + 0.04, v1 + 0.04, 0, 16, hex('#cfc6b6'), { rightC: lit(hex('#cfc6b6'), 0.05) });
+  iso.r.poly([iso.P(u0 - 0.06, v1 + 0.1, 16), iso.P(u1 + 0.06, v1 + 0.1, 16), iso.P(u1, v1, 18), iso.P(u0, v1, 18)], lit(COLORS.steel, 0.06));
+  // the tower slab (tapering)
+  iso.box(u0, v0, u1, v1, 16, 132, GLASS, { leftC: shaded(GLASS, 0.14), rightC: lit(GLASS, 0.08), topC: alpha(COLORS.glassLit, 0.4) });
+  iso.box(u0 + 0.06, v0 + 0.06, u1 - 0.06, v1 - 0.06, 132, 160, GLASS, { rightC: lit(GLASS, 0.1) });
+  // balcony floor-bands curving across the front
+  for (let z = 24; z < 156; z += 8) {
+    const s = z < 132 ? 0 : 0.06;
+    iso.r.line(iso.P(u0 + s, v1 - s, z), iso.P(u1 - s, v1 - s, z), 0.7 * RES, alpha(COLORS.glassLit, z % 24 < 8 ? 0.5 : 0.22));
+  }
+  // a lit vertical lobby strip
+  iso.r.line(iso.P(u1, (v0 + v1) / 2, 18), iso.P(u1 - 0.06, (v0 + v1) / 2, 158), 1 * RES, alpha(COLORS.glassLit, 0.5));
+  // a rooftop sign + helipad ring
+  iso.box(u0 - 0.02, v0 - 0.02, u1 - 0.04, v1 - 0.04, 160, 164, lighten(GLASS, 0.06), { ink: false });
+  const [hx, hyB] = iso.P((u0 + u1) / 2 - 0.02, (v0 + v1) / 2 - 0.02, 164);
+  const HR = 0.14 * (CELL_W / 2);
+  const disc: Pt[] = [];
+  for (let i = 0; i <= 16; i++) { const a = (i / 16) * Math.PI * 2; disc.push([hx + Math.cos(a) * HR, hyB + Math.sin(a) * HR * 0.5]); }
+  iso.r.polyline(disc, INK_W * 0.5, alpha(INK, 0.6), true);
+  return iso.build();
+}
+
+// --- A SPORTS / SWIM COMPLEX feature: the Balewadi aquatic / indoor arena —
+// a curved swooping double-wave roof (the Shiv Chhatrapati signature) on a low
+// glazed base, a forecourt. Broad 2×1. -------------------------------------
+function arenaWaveTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 1, { swAnchor: true, headroom: 80 });
+  void seed;
+  const u0 = 0.16, u1 = 1.84, v0 = 0.2, v1 = 0.8;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  // glazed base
+  iso.box(u0, v0 + 0.1, u1, v1, 0, 30, alpha(COLORS.glassSky, 0.8), { topC: alpha(COLORS.glassLit, 0.4) });
+  iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, 6, 26, 11, alpha(COLORS.glassLit, 0.5), COLORS.steel);
+  // a swooping double-wave roof (two arcs of steel ribs)
+  const cv = (v0 + 0.1 + v1) / 2;
+  for (let i = 0; i <= 18; i++) {
+    const u = u0 + ((u1 - u0) * i) / 18;
+    const w = 14 + Math.sin(i * 0.45) * 9; // the double wave
+    const [bx, by] = iso.P(u, cv, 30);
+    iso.r.line([bx, by - w * RES], [bx, by], 0.9 * RES, i % 2 ? lit(COLORS.steel, 0.06) : COLORS.steel);
+  }
+  // the two ridge curves
+  const ridge = (amp: number, ph: number, col: RGBA): void => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 18; i++) {
+      const u = u0 + ((u1 - u0) * i) / 18;
+      const w = 14 + Math.sin(i * 0.45 + ph) * amp;
+      pts.push([iso.P(u, cv, 30)[0], iso.P(u, cv, 30)[1] - w * RES]);
+    }
+    iso.r.polyline(pts, 1.4 * RES, col);
+  };
+  ridge(9, 0, lit(COLORS.steel, 0.1));
+  return iso.build();
+}
+
+// --- A TV / TELECOM TOWER (the Pune Doordarshan Kendra mast; mobile-network
+// macro towers; the Sinhagad-road TV tower) — a tall slim free-standing
+// lattice telecom tower on a small equipment hut, microwave drums + a warm
+// beacon. Slim 1×1 headroom. ------------------------------------------------
+function telecomTowerTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 220 });
+  void seed;
+  const u = 0.5, v = 0.5;
+  iso.shadow(u - 0.2, v - 0.2, u + 0.2, v + 0.2, 0.2, 0.22);
+  // a small equipment hut
+  iso.box(u - 0.24, v - 0.24, u + 0.24, v + 0.24, 0, 14, hex('#cfc6b6'), { rightC: lit(hex('#cfc6b6'), 0.05) });
+  // the tapering lattice mast
+  const [mx, myB] = iso.P(u, v, 14);
+  const MH = 170 * RES;
+  iso.r.line([mx - 6 * RES, myB], [mx, myB - MH], 1.2 * RES, COLORS.steelDark);
+  iso.r.line([mx + 6 * RES, myB], [mx, myB - MH], 1.2 * RES, COLORS.steel);
+  for (let i = 1; i < 16; i++) {
+    const t = i / 16;
+    const y = myB - MH * t;
+    const w = 6 * (1 - t) * RES;
+    iso.r.line([mx - w, y], [mx + w, y], 0.6 * RES, alpha(COLORS.steel, 0.8));
+    if (i % 4 === 0) iso.r.line([mx - w, y + 6 * RES], [mx + w, y], 0.45 * RES, alpha(COLORS.steelDark, 0.6));
+  }
+  // microwave drums partway up
+  for (const t of [0.5, 0.66] as const) {
+    const y = myB - MH * t;
+    iso.r.line([mx - 4 * RES, y], [mx + 4 * RES, y], 5 * RES, alpha(hex('#d8d2c4'), 0.9));
+  }
+  // a warm beacon at the tip
+  iso.r.poly([[mx - 1.6 * RES, myB - MH], [mx + 1.6 * RES, myB - MH], [mx, myB - MH - 5 * RES]], hex('#ff8a52'));
+  return iso.build();
+}
+
+// --- A POWER / SUBSTATION-GRID ICON (the MSEDCL grid stations; the thermal /
+// switchyard; the Mundhwa / Parvati pumping & power works) — an industrial
+// block with a lattice GANTRY of busbars + insulator stacks, a control room,
+// transformer tanks. Fits the game's own theme. Broad 2×1. -----------------
+function gridWorksTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 1, { swAnchor: true, headroom: 90 });
+  void seed;
+  const CLAD = hex('#c2b7a4');
+  const u0 = 0.16, u1 = 1.84, v0 = 0.2, v1 = 0.8;
+  iso.shadow(u0, v0, u1, v1, 0.18, 0.22);
+  // the control-room block
+  iso.box(u0, v0 + 0.2, u0 + 0.5, v1, 0, 30, CLAD, { rightC: lit(CLAD, 0.05) });
+  iso.windowsLeft(v1, u0 + 0.04, u0 + 0.46, 6, 26, 4, alpha(COLORS.glassLit, 0.5), COLORS.steel);
+  // the open switchyard: a lattice gantry carrying horizontal busbars
+  for (let i = 0; i <= 4; i++) {
+    const u = u0 + 0.7 + ((u1 - u0 - 0.8) * i) / 4;
+    const [gx, gyB] = iso.P(u, v0 + 0.5, 0);
+    iso.r.line([gx, gyB], [gx, gyB - 48 * RES], 1.4 * RES, COLORS.steelDark);
+    // cross-beam
+    if (i < 4) {
+      const [gx2] = iso.P(u0 + 0.7 + ((u1 - u0 - 0.8) * (i + 1)) / 4, v0 + 0.5, 0);
+      iso.r.line([gx, gyB - 44 * RES], [gx2, gyB - 44 * RES], 1.1 * RES, COLORS.steel);
+      iso.r.line([gx, gyB - 36 * RES], [gx2, gyB - 36 * RES], 0.8 * RES, alpha(COLORS.steel, 0.7));
+    }
+    // insulator stack
+    for (let k = 0; k < 4; k++) iso.r.line([gx - 2 * RES, gyB - 30 * RES + k * 3 * RES], [gx + 2 * RES, gyB - 30 * RES + k * 3 * RES], 1.2 * RES, alpha(hex('#d8d2c4'), 0.85));
+  }
+  // transformer tanks with radiator fins + bushings
+  for (const cu of [u0 + 0.8, u1 - 0.5] as const) {
+    iso.box(cu - 0.08, v1 - 0.18, cu + 0.08, v1 - 0.02, 0, 16, hex('#8a8f95'), { rightC: lit(hex('#8a8f95'), 0.06) });
+    for (let k = 0; k < 3; k++) { const [bx, by] = iso.P(cu - 0.05 + k * 0.05, v1 - 0.1, 16); iso.r.line([bx, by], [bx, by - 6 * RES], 1.2 * RES, hex('#b8b2a4')); }
+  }
+  return iso.build();
+}
+
+// --- A LIBRARY / READING-ROOM (the David Sassoon / Poona Sarvajanik Sabha /
+// the British Library / the Jaikar SPPU library) — a dignified two-storey
+// stone reading-house: tall round-arched windows, a pedimented entrance with
+// a clock, a low pitched roof + a small cupola lantern. 2×1. ---------------
+function libraryTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 1, { swAnchor: true, headroom: 90 });
+  // seed-varied stone tone per reading-house
+  const STONE = jcol(seed, 1, jit(seed, 9) > 0.5 ? hex('#bfb393') : hex('#b6a98a'), 0.1);
+  const u0 = 0.16, u1 = 1.84, v0 = 0.2, v1 = 0.8;
+  iso.shadow(u0, v0, u1, v1, 0.18, 0.22);
+  iso.box(u0, v0, u1, v1, 0, 42, STONE, { leftC: shaded(STONE, 0.16), rightC: lit(STONE, 0.05) });
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, 0, 9, shaded(STONE, 0.2), { ink: false });
+  // tall round-arched windows (two storeys)
+  archArcade(iso, v1, u0 + 0.06, u1 - 0.06, 8, 24, 7, 9, alpha(BASALT_D, 0.8));
+  archArcade(iso, v1, u0 + 0.08, u1 - 0.08, 28, 38, 5, 9, alpha(BASALT_D, 0.7));
+  // a pedimented central entrance with a clock
+  const gcx = (u0 + u1) / 2;
+  iso.r.poly([iso.P(gcx - 0.22, v1, 42), iso.P(gcx + 0.22, v1, 42), iso.P(gcx, v1, 54)], lit(STONE, 0.1));
+  iso.r.polyline([iso.P(gcx - 0.22, v1, 42), iso.P(gcx, v1, 54), iso.P(gcx + 0.22, v1, 42)], INK_W * 0.7, INK);
+  const [clx, cly] = iso.P(gcx, v1, 38);
+  const RR = 3 * RES;
+  const ring: Pt[] = [];
+  for (let i = 0; i <= 16; i++) { const a = (i / 16) * Math.PI * 2; ring.push([clx + Math.cos(a) * RR, cly - RR + Math.sin(a) * RR]); }
+  iso.r.poly(ring, TEMPLE_W);
+  iso.r.polyline(ring, INK_W * 0.5, INK, true);
+  // cornice + low pitched roof + cupola lantern
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 42, 46, lighten(STONE, 0.06), { ink: false });
+  tileRoof(iso, u0, v0, u1, v1, 46, 9);
+  chhatri(iso, gcx, (v0 + v1) / 2, 55, 0.12, DOMEWHITE);
+  return iso.build();
+}
+
+// --- A SMALL GANPATI MANDAL PANDAL / SHRINE (the famous Ganpati mandals of
+// the festival route: Tulshibaug, Guruji Talim, Tambdi Jogeshwari, Kesariwada,
+// Akhil Mandai) — a tall festival GOPURA-arch gateway in painted plaster with
+// a Ganesh medallion, flanking pillars, festoon-strung. 1×1 headroom. -------
+function ganpatiPandalTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 130 });
+  // seed-varied gopura crown colour + pillar tone per mandal
+  const crown = jit(seed, 1) > 0.5 ? GOLD_HOT : jcol(seed, 2, SAFFRON_HOT, 0.08);
+  const pillar = jit(seed, 3) > 0.5 ? BRICKR : jcol(seed, 4, hex('#b06848'), 0.08);
+  const u0 = 0.18, u1 = 0.82, v0 = 0.34, v1 = 0.7;
+  iso.shadow(u0, v0, u1, v1, 0.18, 0.22);
+  // a low shrine base
+  iso.box(u0, v0, u1, v1, 0, 22, SAFFRON, { rightC: lit(SAFFRON, 0.06) });
+  // two tall flanking gateway pillars
+  for (const su of [u0, u1] as const) {
+    iso.box(su - 0.05, v1 - 0.05, su + 0.05, v1 + 0.03, 0, 72, pillar, { rightC: lit(pillar, 0.06) });
+    kalash(iso, ...(iso.P(su, v1 - 0.01, 72) as Pt) as [number, number], 0.8);
+  }
+  // a tall arched gopura crown between the pillars (painted plaster)
+  const gcx = (u0 + u1) / 2;
+  const poly: Pt[] = [iso.P(u0, v1, 30), iso.P(u0, v1, 60)];
+  for (let j = 0; j <= 8; j++) { const t = j / 8; poly.push(iso.P(u0 + (u1 - u0) * t, v1, 60 + Math.sin(t * Math.PI) * 24)); }
+  poly.push(iso.P(u1, v1, 60), iso.P(u1, v1, 30));
+  iso.r.poly(poly, crown);
+  iso.r.polyline(poly, INK_W * 0.6, INK);
+  // a Ganesh medallion in the tympanum
+  const [mx, my] = iso.P(gcx, v1, 50);
+  iso.r.line([mx - 4 * RES, my], [mx + 4 * RES, my], 8 * RES, alpha(SAFFRON_HOT, 0.9));
+  iso.glint([mx, my], 2.4 * RES);
+  return iso.build();
+}
+
+// --- AN ART-DECO / HERITAGE COMMERCIAL BLOCK (the Deccan Gymkhana deco shops,
+// the Camp's MG-Road blocks: Dorabjee's, the West-End/Capitol, the Pune-Camp
+// arcades) — a curved-corner three-storey deco block: a rounded corner with a
+// little finial, banded balconies, ground-floor shopfronts. 2×2. -----------
+function decoBlockTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 90 });
+  // seed-varied render tone + height per deco block
+  const CLAD = jcol(seed, 1, jit(seed, 9) > 0.5 ? hex('#d3c4a4') : hex('#cbb89a'), 0.1);
+  const bH = jrange(seed, 2, 48, 60);
+  const u0 = 0.18, u1 = 1.82, v0 = 0.28, v1 = 1.72;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // the deco block body
+  iso.box(u0, v0, u1, v1, 0, bH, CLAD, { leftC: shaded(CLAD, 0.16), rightC: lit(CLAD, 0.05) });
+  // banded balcony lines wrapping the front + right
+  for (const z of [20, 34, 48] as const) {
+    iso.r.line(iso.P(u0 + 0.04, v1, z), iso.P(u1 - 0.04, v1, z), 1.1 * RES, alpha(lighten(CLAD, 0.12), 0.8));
+    iso.r.line(iso.P(u1, v0 + 0.04, z), iso.P(u1, v1 - 0.04, z), 1 * RES, alpha(lighten(CLAD, 0.08), 0.7));
+  }
+  // ground-floor glazed shopfronts
+  iso.box(u0 + 0.06, v1 - 0.04, u1 - 0.06, v1, 0, 14, alpha(COLORS.glassLit, 0.5), { ink: false });
+  // window rows
+  iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 18, 50, 9, alpha(COLORS.glassDark, 0.7), CLAD);
+  // the rounded deco CORNER (a quarter-cylinder) at front-right with a finial
+  const cu = u1, cv = v1;
+  const [ccx, ccyB] = iso.P(cu, cv, 0);
+  const CR = 0.16 * (CELL_W / 2);
+  for (let z = 0; z <= bH + 4; z += 6) {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 8; i++) { const a = Math.PI + (i / 8) * (Math.PI / 2); pts.push([ccx + Math.cos(a) * CR, ccyB - z * RES + Math.sin(a) * CR * 0.5]); }
+    iso.r.polyline(pts, 0.7 * RES, alpha(lit(CLAD, 0.06), 0.6));
+  }
+  iso.box(cu - 0.14, cv - 0.14, cu, cv, bH, bH + 6, lighten(CLAD, 0.05));
+  const [fx, fyB] = iso.P(cu - 0.07, cv - 0.07, bH + 6);
+  iso.r.line([fx, fyB], [fx, fyB - 16 * RES], 1.4 * RES, COLORS.steelDark);
+  iso.r.poly([[fx - 2 * RES, fyB - 16 * RES], [fx + 2 * RES, fyB - 16 * RES], [fx, fyB - 22 * RES]], alpha(GOLD_HOT, 0.85));
+  return iso.build();
+}
+
+// --- A STATUE / EQUESTRIAN MEMORIAL ON A PLINTH (Shivaji equestrian statues,
+// the many putlas: Tilak, Phule, Ambedkar, Tanaji, Savarkar, Karve) — a tall
+// stepped stone plinth carrying a dark bronze figure (standing or mounted), a
+// railing + flame lamps. Slim 1×1 headroom. The civic-statue catch-all. -----
+function statuePlinthTile(seed: number, mounted: boolean): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 120 });
+  // seed-varied plinth stone + plinth height so each putla reads distinct
+  const ST = jit(seed, 1) > 0.5 ? jcol(seed, 2, hex('#c2b594'), 0.1) : jcol(seed, 2, hex('#b3a98f'), 0.1);
+  const BRONZE = jit(seed, 3) > 0.5 ? hex('#5c5042') : hex('#4a5448');
+  const pH = jrange(seed, 4, 34, 48);
+  const u = 0.5, v = 0.5;
+  iso.shadow(u - 0.26, v - 0.26, u + 0.26, v + 0.26, 0.22, 0.24);
+  // a broad stepped plinth (seed-varied height)
+  iso.box(u - 0.3, v - 0.3, u + 0.3, v + 0.3, 0, 10, shaded(ST, 0.12), { ink: false });
+  iso.box(u - 0.22, v - 0.22, u + 0.22, v + 0.22, 10, pH * 0.5, ST, { rightC: lit(ST, 0.05) });
+  iso.box(u - 0.16, v - 0.16, u + 0.16, v + 0.16, pH * 0.5, pH, lighten(ST, 0.03), { rightC: lit(ST, 0.06) });
+  // a dedication panel on the front
+  iso.r.poly([iso.P(u - 0.1, v + 0.16, pH - 14), iso.P(u + 0.1, v + 0.16, pH - 14), iso.P(u + 0.1, v + 0.16, pH - 4), iso.P(u - 0.1, v + 0.16, pH - 4)], alpha(BASALT_D, 0.7));
+  // the bronze figure on top
+  const [fx, fyB] = iso.P(u, v, pH);
+  if (mounted) {
+    // a horse body + rider silhouette
+    iso.r.poly([[fx - 8 * RES, fyB - 6 * RES], [fx + 8 * RES, fyB - 6 * RES], [fx + 9 * RES, fyB - 14 * RES], [fx + 4 * RES, fyB - 18 * RES], [fx - 8 * RES, fyB - 16 * RES]], BRONZE);
+    // legs
+    for (const lx of [-6, -2, 4, 8] as const) iso.r.line([fx + lx * RES, fyB - 6 * RES], [fx + lx * RES, fyB], 1.4 * RES, darken(BRONZE, 0.1));
+    // rider
+    iso.r.line([fx + 2 * RES, fyB - 16 * RES], [fx + 2 * RES, fyB - 28 * RES], 2.2 * RES, BRONZE);
+    iso.r.line([fx + 2 * RES, fyB - 28 * RES], [fx + 9 * RES, fyB - 30 * RES], 1.4 * RES, BRONZE); // raised sword arm
+    iso.r.line([fx + 9 * RES, fyB - 30 * RES], [fx + 14 * RES, fyB - 40 * RES], 1.2 * RES, lit(BRONZE, 0.1));
+  } else {
+    // a standing figure
+    iso.r.line([fx, fyB], [fx, fyB - 22 * RES], 3 * RES, BRONZE);
+    iso.r.line([fx, fyB - 22 * RES], [fx, fyB - 30 * RES], 4 * RES, BRONZE); // torso
+    iso.r.line([fx, fyB - 18 * RES], [fx + 6 * RES, fyB - 26 * RES], 1.4 * RES, BRONZE); // arm out (pointing)
+    iso.r.line([fx, fyB - 30 * RES], [fx, fyB - 35 * RES], 3 * RES, BRONZE); // head
+  }
+  // a couple of flame lamps at the plinth corners
+  for (const sx of [-1, 1] as const) {
+    const [lx, ly] = iso.P(u + sx * 0.24, v + 0.24, pH * 0.5);
+    iso.r.poly([[lx - 1.6 * RES, ly], [lx + 1.6 * RES, ly], [lx, ly - 5 * RES]], alpha(SAFFRON_HOT, 0.9));
+  }
+  return iso.build();
+}
+
+// --- A SCHOOL / OLD SCHOOLHOUSE (the heritage schools: New English School,
+// Nutan Marathi Vidyalaya, BMCC, SP College, the Deccan Education Society) — a
+// long two-storey institutional schoolhouse with a verandah arcade, a central
+// clock gable + bell, a tiled roof + a sports-ground flag. 2×2. ------------
+function schoolTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 110 });
+  // seed-varied render tone so each heritage school reads distinct
+  const CLAD = jcol(seed, 1, jit(seed, 9) > 0.5 ? hex('#d2bf99') : hex('#c9b88f'), 0.1);
+  const u0 = 0.16, u1 = 1.84, v0 = 0.3, v1 = 1.7;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  iso.box(u0, v0, u1, v1, 0, 42, CLAD, { rightC: lit(CLAD, 0.05) });
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 8, shaded(CLAD, 0.18), { ink: false });
+  // verandah arcade + upper windows
+  archArcade(iso, v1, u0 + 0.06, u1 - 0.06, 6, 22, 6, 11, alpha(BASALT_D, 0.78));
+  iso.windowsLeft(v1, u0 + 0.08, u1 - 0.08, 26, 38, 11, alpha(COLORS.glassDark, 0.8), CLAD);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 42, 46, lighten(CLAD, 0.06), { ink: false });
+  tileRoof(iso, u0, v0, u1, v1, 46, 12);
+  // a central clock-and-bell gable
+  const gcx = (u0 + u1) / 2;
+  iso.box(gcx - 0.2, v1 - 0.04, gcx + 0.2, v1 + 0.04, 0, 56, lighten(CLAD, 0.04), { rightC: lit(CLAD, 0.06) });
+  const [clx, cly] = iso.P(gcx, v1 + 0.04, 44);
+  const RR = 3 * RES;
+  const ring: Pt[] = [];
+  for (let i = 0; i <= 16; i++) { const a = (i / 16) * Math.PI * 2; ring.push([clx + Math.cos(a) * RR, cly - RR + Math.sin(a) * RR]); }
+  iso.r.poly(ring, TEMPLE_W);
+  iso.r.polyline(ring, INK_W * 0.5, INK, true);
+  iso.r.poly([iso.P(gcx - 0.22, v1 + 0.04, 56), iso.P(gcx + 0.22, v1 + 0.04, 56), iso.P(gcx, v1 + 0.04, 66)], lit(CLAD, 0.1));
+  iso.r.polyline([iso.P(gcx - 0.22, v1 + 0.04, 56), iso.P(gcx, v1 + 0.04, 66), iso.P(gcx + 0.22, v1 + 0.04, 56)], INK_W * 0.6, INK);
+  // a sports-ground flagstaff
+  const [fx, fyB] = iso.P(u1 - 0.2, v0 + 0.2, 46);
+  iso.r.line([fx, fyB], [fx, fyB - 26 * RES], 1 * RES, COLORS.steel);
+  iso.r.poly([[fx, fyB - 26 * RES], [fx + 11 * RES, fyB - 22 * RES], [fx, fyB - 18 * RES]], hex('#e2922f'));
+  return iso.build();
+}
+
+// ============================================================================
 // REGISTRY — match each draw fn to its placed name(s). First match wins, so
 // the SPECIFIC named icons precede the GENERIC families (mall/college/hospital/
 // memorial). Native + English variants kept where the data carries them.
@@ -1372,7 +2459,7 @@ export const CITY_HEROES: BespokeHero[] = [
   },
   {
     // hill forts + the placed Taljai Watch Tower read as the basalt fort hero
-    city: 'pune', key: 'hill-fort', match: /Sinhagad|Sinhgad\b(?!\s*College)|Purandar|सिंहगड|Taljai\s*Watch/i,
+    city: 'pune', key: 'hill-fort', match: /Sinhagad\s*Fort|Sinhgad\s*Fort|Sinhagad(?!\s*(College|Road|Fort))|Sinhgad\b(?!\s*College)|Purandar\s*Fort|सिंहगड|Taljai\s*Watch/i,
     foot: [3, 3], seed: 78, draw: hillFortTile, light: G('facadeFlood', 130, 1.6),
   },
   {
@@ -1384,7 +2471,7 @@ export const CITY_HEROES: BespokeHero[] = [
     foot: [3, 2], seed: 80, draw: puneMetroTile, light: G('towerCrown', 70, 1.4),
   },
   {
-    city: 'pune', key: 'it-tower', match: /Hinjawadi|Rajiv\s*Gandhi\s*Infotech|EON|IT\s*Park|हिंजवडी/i,
+    city: 'pune', key: 'it-tower', match: /Hinjawadi|Rajiv\s*Gandhi\s*Infotech|हिंजवडी/i,
     foot: [1, 1], seed: 81, draw: itTowerTile, light: G('towerCrown', 230, 0.4),
   },
   {
@@ -1400,7 +2487,7 @@ export const CITY_HEROES: BespokeHero[] = [
     foot: [2, 2], seed: 84, draw: ohelDavidTile, light: G('facadeFlood', 168, 0.9),
   },
   {
-    city: 'pune', key: 'phule-mandai', match: /Phule\s*Mand(a)?i|Mahatma\s*Phule\s*Mand|फुले\s*मंडई|Mandai/i,
+    city: 'pune', key: 'phule-mandai', match: /Phule\s*Mand(a)?i|Mahatma\s*Phule\s*Mand|फुले\s*मंडई|^Mandai$|\bMandai\s*(Market|Building)/i,
     foot: [2, 2], seed: 85, draw: phuleMandaiTile, light: G('facadeFlood', 150, 1.0),
   },
   {
@@ -1468,6 +2555,414 @@ export const CITY_HEROES: BespokeHero[] = [
     city: 'pune', key: 'bus-stand', match: /Bus\s*Stand|MSRTC|PMPML|Depot|BRT\s*Stop|एसटी\s*स्थानक/i,
     foot: [2, 1], seed: 99, draw: busStandTile, light: G('genericGlow', 41, 1.3),
   },
+  // ==========================================================================
+  // ROUND 2 — the push to 100. SPECIFIC named Pune heroes (each placed in the
+  // city `named` list), ordered BEFORE the generic institute/memorial catch-
+  // alls so first-match-wins lands the bespoke silhouette. Native + English.
+  // ==========================================================================
+
+  // --- the seven holy hills + the river ghats + the peth temples ---
+  {
+    city: 'pune', key: 'parvati-hill', match: /Parvati\s*Hill|Devdeveshwar|Parvati\s*Temple|पर्वती/i,
+    foot: [3, 3], seed: 120, draw: parvatiHillTile, light: G('facadeFlood', 150, 1.6),
+  },
+  {
+    city: 'pune', key: 'omkareshwar-ghat', match: /Omkareshwar|ओंकारेश्वर/i,
+    foot: [2, 2], seed: 121, draw: ghatTempleTile, light: G('facadeFlood', 90, 1.2),
+  },
+  {
+    city: 'pune', key: 'kasba-ganpati', match: /Kasba\s*Ganpati|Kasba\s*Ganapati|कसबा\s*गणपती/i,
+    foot: [1, 1], seed: 122, draw: pethTempleTile, light: G('towerCrown', 100, 0.5),
+  },
+  {
+    city: 'pune', key: 'tulshibaug-ram-mandir', match: /Tulshibaug\s*Ram|Tulsibaug\s*Ram|Tulshi\s*Baug\s*Ram|तुळशीबाग\s*राम/i,
+    foot: [1, 1], seed: 123, draw: pethTempleTile, light: G('towerCrown', 100, 0.5),
+  },
+  {
+    city: 'pune', key: 'trishund-ganpati', match: /Trishund|Trishunda|त्रिशुंड/i,
+    foot: [1, 1], seed: 124, draw: pethTempleTile, light: G('towerCrown', 95, 0.5),
+  },
+  {
+    city: 'pune', key: 'nageshwar-mandir', match: /Nageshwar|नागेश्वर/i,
+    foot: [1, 1], seed: 125, draw: pethTempleTile, light: G('towerCrown', 95, 0.5),
+  },
+  {
+    city: 'pune', key: 'tambdi-jogeshwari', match: /Tambdi\s*Jogeshwari|Jogeshwari|तांबडी\s*जोगेश्वरी/i,
+    foot: [1, 1], seed: 126, draw: pethTempleTile, light: G('towerCrown', 98, 0.5),
+  },
+  {
+    city: 'pune', key: 'belbaug-vishnu-mandir', match: /Belbaug|Bel\s*Baug|बेलबाग/i,
+    foot: [1, 1], seed: 127, draw: pethTempleTile, light: G('towerCrown', 92, 0.5),
+  },
+  {
+    city: 'pune', key: 'mrityunjayeshwar-mandir', match: /Mrityunjayeshwar|मृत्युंजयेश्वर/i,
+    foot: [1, 1], seed: 128, draw: pethTempleTile, light: G('towerCrown', 95, 0.5),
+  },
+  {
+    city: 'pune', key: 'amruteshwar-ghat', match: /Amruteshwar|अमृतेश्वर/i,
+    foot: [2, 2], seed: 129, draw: ghatTempleTile, light: G('facadeFlood', 88, 1.2),
+  },
+
+  // --- the Peshwa wadas of the old city (carved teak + courtyard) ---
+  {
+    city: 'pune', key: 'nana-wada', match: /Nana\s*Wada|नाना\s*वाडा/i,
+    foot: [2, 2], seed: 130, draw: wadaTile, light: G('facadeFlood', 55, 1.3),
+  },
+  {
+    city: 'pune', key: 'naro-shankar-wada', match: /Naro\s*Shankar|नारो\s*शंकर/i,
+    foot: [2, 2], seed: 131, draw: wadaTile, light: G('facadeFlood', 55, 1.3),
+  },
+  {
+    city: 'pune', key: 'moroba-dada-wada', match: /Moroba\s*Dada|मोरोबा/i,
+    foot: [2, 2], seed: 132, draw: wadaTile, light: G('facadeFlood', 55, 1.3),
+  },
+  {
+    city: 'pune', key: 'raste-wada', match: /Raste\s*Wada|रास्ते\s*वाडा/i,
+    foot: [2, 2], seed: 133, draw: wadaTile, light: G('facadeFlood', 55, 1.3),
+  },
+  {
+    city: 'pune', key: 'purandare-wada', match: /Purandare\s*Wada|पुरंदरे\s*वाडा/i,
+    foot: [2, 2], seed: 134, draw: wadaTile, light: G('facadeFlood', 55, 1.3),
+  },
+
+  // --- the colonial-Gothic & Deccan civic stone (the Raj heritage) ---
+  {
+    city: 'pune', key: 'sppu-main-building', match: /Savitribai\s*Phule\s*Pune\s*University|SPPU\s*Main|Pune\s*University\s*Main|University\s*Main\s*Building|सावित्रीबाई/i,
+    foot: [2, 2], seed: 135, draw: gothicCivicTile, light: G('facadeFlood', 116, 1.3),
+  },
+  {
+    city: 'pune', key: 'council-hall', match: /Council\s*Hall|Vidhan\s*Bhavan|विधान\s*भवन/i,
+    foot: [2, 2], seed: 136, draw: gothicCivicTile, light: G('facadeFlood', 116, 1.3),
+  },
+  {
+    city: 'pune', key: 'pune-gpo', match: /Pune\s*GPO|General\s*Post\s*Office|टपाल/i,
+    foot: [2, 2], seed: 137, draw: gothicCivicTile, light: G('facadeFlood', 116, 1.3),
+  },
+  {
+    city: 'pune', key: 'district-court', match: /District\s*Court|Shivajinagar\s*Court|न्यायालय/i,
+    foot: [2, 2], seed: 138, draw: gothicCivicTile, light: G('facadeFlood', 116, 1.3),
+  },
+  {
+    city: 'pune', key: 'pmc-building', match: /Pune\s*Municipal\s*Corporation|PMC\s*Building|महानगरपालिका/i,
+    foot: [2, 2], seed: 139, draw: gothicCivicTile, light: G('facadeFlood', 116, 1.3),
+  },
+
+  // --- the Camp & Cantonment churches + bungalows + clubs ---
+  {
+    city: 'pune', key: 'st-marys-church', match: /St\.?\s*Mary'?s\s*Church|Saint\s*Mary/i,
+    foot: [2, 2], seed: 140, draw: churchTile, light: G('facadeFlood', 150, 0.9),
+  },
+  {
+    city: 'pune', key: 'st-patricks-cathedral', match: /St\.?\s*Patrick'?s\s*Cathedral|Saint\s*Patrick/i,
+    foot: [2, 2], seed: 141, draw: churchTile, light: G('facadeFlood', 152, 0.9),
+  },
+  {
+    city: 'pune', key: 'all-saints-church', match: /All\s*Saints'?\s*Church/i,
+    foot: [2, 2], seed: 142, draw: churchTile, light: G('facadeFlood', 148, 0.9),
+  },
+  {
+    city: 'pune', key: 'poona-club', match: /Poona\s*Club|Pune\s*Club/i,
+    foot: [2, 1], seed: 143, draw: bungalowTile, light: G('facadeFlood', 48, 1.4),
+  },
+  {
+    city: 'pune', key: 'royal-connaught-boat-club', match: /Royal\s*Connaught|Connaught\s*Boat/i,
+    foot: [2, 1], seed: 144, draw: bungalowTile, light: G('facadeFlood', 48, 1.4),
+  },
+  {
+    city: 'pune', key: 'deccan-gymkhana', match: /Deccan\s*Gymkhana|गायकवाड|Gymkhana/i,
+    foot: [2, 1], seed: 145, draw: bungalowTile, light: G('facadeFlood', 48, 1.4),
+  },
+
+  // --- the modern glass: IT/SEZ/township + corporate towers ---
+  {
+    city: 'pune', key: 'icc-trade-tower', match: /ICC\s*Trade\s*Tower|International\s*Convention\s*Cent(er|re)|Trade\s*Tower/i,
+    foot: [2, 2], seed: 146, draw: twinTowerTile, light: G('towerCrown', 168, 1.3),
+  },
+  {
+    city: 'pune', key: 'amanora-gateway-towers', match: /Amanora|Gateway\s*Towers|अमानोरा/i,
+    foot: [2, 2], seed: 147, draw: highriseClusterTile, light: G('towerCrown', 184, 1.3),
+  },
+  {
+    city: 'pune', key: 'magarpatta-cybercity', match: /Magarpatta|Cybercity|मगरपट्टा/i,
+    foot: [2, 2], seed: 148, draw: cybercityTile, light: G('towerCrown', 58, 1.4),
+  },
+  {
+    city: 'pune', key: 'eon-it-park', match: /EON\s*Free\s*Zone|EON\s*IT|Kharadi\s*IT/i,
+    foot: [2, 2], seed: 149, draw: cybercityTile, light: G('towerCrown', 58, 1.4),
+  },
+  {
+    city: 'pune', key: 'world-trade-center-pune', match: /World\s*Trade\s*Cent(er|re)\s*Pune|WTC\s*Pune|Kharadi\s*WTC/i,
+    foot: [2, 2], seed: 150, draw: twinTowerTile, light: G('towerCrown', 168, 1.3),
+  },
+  {
+    city: 'pune', key: 'panchshil-tower', match: /Panchshil\s*Tower|Business\s*Bay|Yerawada\s*IT/i,
+    foot: [2, 2], seed: 151, draw: twinTowerTile, light: G('towerCrown', 168, 1.3),
+  },
+
+  // --- the flagship hotels ---
+  {
+    city: 'pune', key: 'jw-marriott-pune', match: /JW\s*Marriott|Marriott\s*Pune/i,
+    foot: [1, 1], seed: 152, draw: hotelTowerTile, light: G('towerCrown', 162, 0.5),
+  },
+  {
+    city: 'pune', key: 'conrad-pune', match: /Conrad\s*Pune|Conrad\b/i,
+    foot: [1, 1], seed: 153, draw: hotelTowerTile, light: G('towerCrown', 162, 0.5),
+  },
+  {
+    city: 'pune', key: 'westin-pune', match: /Westin\s*Pune|Westin\b/i,
+    foot: [1, 1], seed: 154, draw: hotelTowerTile, light: G('towerCrown', 162, 0.5),
+  },
+  {
+    city: 'pune', key: 'hyatt-pune', match: /Hyatt\s*Pune|Hyatt\s*Regency/i,
+    foot: [1, 1], seed: 155, draw: hotelTowerTile, light: G('towerCrown', 162, 0.5),
+  },
+
+  // --- the modern campuses & academia ---
+  {
+    city: 'pune', key: 'symbiosis-siu', match: /Symbiosis|SIU\b|सिंबायोसिस/i,
+    foot: [1, 1], seed: 156, draw: modernCampusTile, light: G('facadeFlood', 84, 0.6),
+  },
+  {
+    city: 'pune', key: 'fergusson-college', match: /Fergusson\s*College|फर्ग्युसन/i,
+    foot: [2, 2], seed: 157, draw: gothicCivicTile, light: G('facadeFlood', 116, 1.3),
+  },
+  {
+    city: 'pune', key: 'gokhale-institute', match: /Gokhale\s*Institute|Gokhale\s*Inst|गोखले/i,
+    foot: [1, 1], seed: 158, draw: modernCampusTile, light: G('facadeFlood', 84, 0.6),
+  },
+  {
+    city: 'pune', key: 'ftii', match: /FTII|Film\s*and\s*Television\s*Inst|फिल्म\s*अँड/i,
+    foot: [1, 1], seed: 159, draw: modernCampusTile, light: G('facadeFlood', 84, 0.6),
+  },
+  {
+    city: 'pune', key: 'flame-university', match: /FLAME\s*University|FLAME\b/i,
+    foot: [1, 1], seed: 160, draw: modernCampusTile, light: G('facadeFlood', 84, 0.6),
+  },
+  {
+    city: 'pune', key: 'bmcc', match: /BMCC|Brihan\s*Maharashtra\s*College|बीएमसीसी/i,
+    foot: [2, 2], seed: 161, draw: schoolTile, light: G('facadeFlood', 66, 1.3),
+  },
+  {
+    city: 'pune', key: 'new-english-school', match: /New\s*English\s*School|न्यू\s*इंग्लिश/i,
+    foot: [2, 2], seed: 162, draw: schoolTile, light: G('facadeFlood', 66, 1.3),
+  },
+  {
+    city: 'pune', key: 'sp-college', match: /\bSP\s*College|Sir\s*Parashurambhau|एस\.?\s*पी\.?\s*कॉलेज/i,
+    foot: [2, 2], seed: 163, draw: schoolTile, light: G('facadeFlood', 66, 1.3),
+  },
+  {
+    city: 'pune', key: 'nutan-marathi-vidyalaya', match: /Nutan\s*Marathi|नूतन\s*मराठी/i,
+    foot: [2, 2], seed: 164, draw: schoolTile, light: G('facadeFlood', 66, 1.3),
+  },
+
+  // --- the riverbanks: bridges + ghats + gardens ---
+  {
+    city: 'pune', key: 'sangam-bridge', match: /Sangam\s*Bridge|Wellesley\s*Bridge|संगम\s*पूल/i,
+    foot: [3, 1], seed: 165, draw: bridgeTile, light: G('genericGlow', 30, 1.6),
+  },
+  {
+    city: 'pune', key: 'z-bridge', match: /\bZ\s*Bridge|झेड\s*पूल/i,
+    foot: [3, 1], seed: 166, draw: bridgeTile, light: G('genericGlow', 30, 1.6),
+  },
+  {
+    city: 'pune', key: 'lakdi-pul', match: /Lakdi\s*Pul|Sambhaji\s*Bridge|लकडी\s*पूल/i,
+    foot: [3, 1], seed: 167, draw: bridgeTile, light: G('genericGlow', 30, 1.6),
+  },
+  {
+    city: 'pune', key: 'bund-garden-bridge', match: /Bund\s*Garden\s*Bridge|Fitzgerald\s*Bridge/i,
+    foot: [3, 1], seed: 168, draw: bridgeTile, light: G('genericGlow', 30, 1.6),
+  },
+  {
+    city: 'pune', key: 'empress-garden', match: /Empress\s*Garden|Empress\s*Botanical|एम्प्रेस/i,
+    foot: [2, 2], seed: 169, draw: gardenPavilionTile, light: G('genericGlow', 46, 1.3),
+  },
+  {
+    city: 'pune', key: 'bund-garden', match: /Bund\s*Garden|Mahatma\s*Gandhi\s*Udyan|बंड\s*गार्डन/i,
+    foot: [2, 2], seed: 170, draw: gardenPavilionTile, light: G('genericGlow', 46, 1.3),
+  },
+  {
+    city: 'pune', key: 'saras-baug', match: /Saras\s*Baug|Sarasbaug|सारस\s*बाग/i,
+    foot: [2, 2], seed: 171, draw: ghatTempleTile, light: G('facadeFlood', 84, 1.2),
+  },
+  {
+    city: 'pune', key: 'peshwe-park', match: /Peshwe\s*Park|पेशवे\s*पार्क/i,
+    foot: [2, 2], seed: 172, draw: gardenPavilionTile, light: G('genericGlow', 46, 1.3),
+  },
+
+  // --- the spiritual modern + samadhis ---
+  {
+    city: 'pune', key: 'osho-pyramid', match: /Osho|Rajneesh|ओशो/i,
+    foot: [2, 2], seed: 173, draw: pyramidHallTile, light: G('genericGlow', 116, 1.3),
+  },
+  {
+    city: 'pune', key: 'nanasaheb-peshwe-samadhi', match: /Nanasaheb\s*Peshwe\s*(Samadhi|Cenotaph)|Peshwe\s*Cenotaph|पेशवे\s*समाधी/i,
+    foot: [1, 1], seed: 174, draw: samadhiTile, light: G('facadeFlood', 46, 0.6),
+  },
+  {
+    city: 'pune', key: 'vishrambaug-samadhi', match: /Nana\s*Phadnavis\s*(Samadhi|Cenotaph)|Phadnavis\s*Cenotaph/i,
+    foot: [1, 1], seed: 175, draw: samadhiTile, light: G('facadeFlood', 46, 0.6),
+  },
+  {
+    city: 'pune', key: 'pataleshwar-samadhi', match: /Jangli\s*Maharaj\s*Math|Math\s*Vrindavan|Math\s*Samadhi/i,
+    foot: [1, 1], seed: 176, draw: samadhiTile, light: G('facadeFlood', 46, 0.6),
+  },
+
+  // --- the festival Ganpati mandals (the immersion route) ---
+  {
+    city: 'pune', key: 'guruji-talim-ganpati', match: /Guruji\s*Talim|गुरुजी\s*तालीम/i,
+    foot: [1, 1], seed: 177, draw: ganpatiPandalTile, light: G('facadeFlood', 84, 0.5),
+  },
+  {
+    city: 'pune', key: 'tulshibaug-ganpati-mandal', match: /Tulshibaug.*Ganpati|Tulshibaug.*Mandal|Tulshibaug.*Utsav/i,
+    foot: [1, 1], seed: 178, draw: ganpatiPandalTile, light: G('facadeFlood', 84, 0.5),
+  },
+  {
+    city: 'pune', key: 'kesariwada-ganpati', match: /Kesariwada|Kesari\s*Wada|केसरी\s*वाडा/i,
+    foot: [1, 1], seed: 179, draw: ganpatiPandalTile, light: G('facadeFlood', 84, 0.5),
+  },
+  {
+    city: 'pune', key: 'akhil-mandai-ganpati', match: /Akhil\s*Mandai|Mandai\s*Ganpati|अखिल\s*मंडई/i,
+    foot: [1, 1], seed: 180, draw: ganpatiPandalTile, light: G('facadeFlood', 84, 0.5),
+  },
+
+  // --- cinemas, deco commercial, library, market ---
+  {
+    city: 'pune', key: 'prabhat-talkies', match: /Prabhat\s*Talkies|Prabhat\s*Cinema|प्रभात/i,
+    foot: [2, 1], seed: 181, draw: cinemaTile, light: G('genericGlow', 46, 1.3),
+  },
+  {
+    city: 'pune', key: 'alka-talkies', match: /Alka\s*Talkies|Alka\s*Cinema|अलका/i,
+    foot: [2, 1], seed: 182, draw: cinemaTile, light: G('genericGlow', 46, 1.3),
+  },
+  {
+    city: 'pune', key: 'vijay-talkies', match: /Vijay\s*Talkies|Victory\s*Cinema|विजय\s*टॉकीज/i,
+    foot: [2, 1], seed: 183, draw: cinemaTile, light: G('genericGlow', 46, 1.3),
+  },
+  {
+    city: 'pune', key: 'e-square', match: /E[-\s]?Square|City\s*Pride|Mangala\s*Cinema/i,
+    foot: [2, 1], seed: 184, draw: cinemaTile, light: G('genericGlow', 46, 1.3),
+  },
+  {
+    city: 'pune', key: 'dorabjees', match: /Dorabjee|Capitol\b|West\s*End\s*Cinema/i,
+    foot: [2, 2], seed: 185, draw: decoBlockTile, light: G('facadeFlood', 60, 1.3),
+  },
+  {
+    city: 'pune', key: 'mg-road-arcade', match: /MG\s*Road\s*Arcade|Main\s*Street\s*Camp|एम\.?\s*जी\.?\s*रोड/i,
+    foot: [2, 2], seed: 186, draw: decoBlockTile, light: G('facadeFlood', 60, 1.3),
+  },
+  {
+    city: 'pune', key: 'david-sassoon-library', match: /David\s*Sassoon\s*Library|Sassoon\s*Library/i,
+    foot: [2, 1], seed: 187, draw: libraryTile, light: G('facadeFlood', 55, 1.3),
+  },
+  {
+    city: 'pune', key: 'jaikar-library', match: /Jaikar\s*Library|Jayakar\s*Library|University\s*Library/i,
+    foot: [2, 1], seed: 188, draw: libraryTile, light: G('facadeFlood', 55, 1.3),
+  },
+  {
+    city: 'pune', key: 'market-yard', match: /Market\s*Yard|Gultekdi\s*APMC|APMC|मार्केट\s*यार्ड/i,
+    foot: [2, 2], seed: 189, draw: marketYardTile, light: G('genericGlow', 62, 1.4),
+  },
+  {
+    city: 'pune', key: 'juna-bazaar', match: /Juna\s*Bazaar|Juna\s*Bazar|जुना\s*बाजार/i,
+    foot: [2, 2], seed: 190, draw: marketYardTile, light: G('genericGlow', 62, 1.4),
+  },
+
+  // --- sports, defence, science, infrastructure ---
+  {
+    city: 'pune', key: 'mca-stadium', match: /MCA\s*Stadium|Gahunje|Maharashtra\s*Cricket|Subrata\s*Roy\s*Sahara/i,
+    foot: [3, 2], seed: 191, draw: stadiumBowlTile, light: G('stadiumFlood', 48, 1.6),
+  },
+  {
+    city: 'pune', key: 'balewadi-stadium', match: /Balewadi|Shiv\s*Chhatrapati\s*Sports|Shree\s*Shiv\s*Chhatrapati|बालेवाडी/i,
+    foot: [3, 2], seed: 192, draw: stadiumBowlTile, light: G('stadiumFlood', 48, 1.6),
+  },
+  {
+    city: 'pune', key: 'nehru-stadium', match: /Nehru\s*Stadium|PYC\s*Hindu\s*Gymkhana|PCA\b/i,
+    foot: [3, 2], seed: 193, draw: stadiumBowlTile, light: G('stadiumFlood', 48, 1.6),
+  },
+  {
+    city: 'pune', key: 'balewadi-aquatic', match: /Balewadi\s*Aquatic|Aquatic\s*Complex|Indoor\s*Stadium/i,
+    foot: [2, 1], seed: 194, draw: arenaWaveTile, light: G('genericGlow', 36, 1.4),
+  },
+  {
+    city: 'pune', key: 'nda-sudan-block', match: /NDA\b|National\s*Defence\s*Academy|Sudan\s*Block|एनडीए/i,
+    foot: [2, 2], seed: 195, draw: defenceInstituteTile, light: G('facadeFlood', 64, 1.3),
+  },
+  {
+    city: 'pune', key: 'afmc', match: /AFMC|Armed\s*Forces\s*Medical|Command\s*Hospital/i,
+    foot: [2, 2], seed: 196, draw: defenceInstituteTile, light: G('facadeFlood', 64, 1.3),
+  },
+  {
+    city: 'pune', key: 'cme-dapodi', match: /College\s*of\s*Military\s*Engineering|\bCME\b|Bombay\s*Engineer/i,
+    foot: [2, 2], seed: 197, draw: defenceInstituteTile, light: G('facadeFlood', 64, 1.3),
+  },
+  {
+    city: 'pune', key: 'imd-observatory', match: /IMD\s*Pune|Meteorolog|Simla\s*Office|वेधशाळा/i,
+    foot: [1, 1], seed: 198, draw: observatoryTile, light: G('facadeFlood', 78, 0.5),
+  },
+  {
+    city: 'pune', key: 'gmrt-dish', match: /GMRT|Giant\s*Metrewave|Khodad/i,
+    foot: [1, 1], seed: 199, draw: observatoryTile, light: G('facadeFlood', 78, 0.5),
+  },
+  {
+    city: 'pune', key: 'khadakwasla-dam', match: /Khadakwasla|खडकवासला/i,
+    foot: [3, 1], seed: 200, draw: damTile, light: G('genericGlow', 38, 1.6),
+  },
+  {
+    city: 'pune', key: 'panshet-dam', match: /Panshet|Varasgaon|पानशेत/i,
+    foot: [3, 1], seed: 201, draw: damTile, light: G('genericGlow', 38, 1.6),
+  },
+  {
+    city: 'pune', key: 'katraj-lake', match: /Katraj\s*Lake|Pashan\s*Lake|कात्रज\s*तलाव/i,
+    foot: [3, 1], seed: 202, draw: damTile, light: G('genericGlow', 38, 1.6),
+  },
+  {
+    city: 'pune', key: 'university-flyover', match: /University\s*Flyover|University\s*Circle|Ganeshkhind\s*Flyover/i,
+    foot: [3, 2], seed: 203, draw: flyoverTile, light: G('genericGlow', 64, 1.5),
+  },
+  {
+    city: 'pune', key: 'nal-stop-flyover', match: /Nal\s*Stop|Karve\s*Road\s*Flyover/i,
+    foot: [3, 2], seed: 204, draw: flyoverTile, light: G('genericGlow', 64, 1.5),
+  },
+  {
+    city: 'pune', key: 'mahatma-society-substation', match: /Parvati\s*Pumping|Mahatma\s*Society\s*Sub|MSEDCL\s*Grid|Grid\s*Station/i,
+    foot: [2, 1], seed: 205, draw: gridWorksTile, light: G('aerialBeacon', 52, 1.4),
+  },
+  {
+    city: 'pune', key: 'mundhwa-switchyard', match: /Mundhwa\s*Switchyard|Switchyard|Thermal\s*Power|पॉवर\s*स्टेशन/i,
+    foot: [2, 1], seed: 206, draw: gridWorksTile, light: G('aerialBeacon', 52, 1.4),
+  },
+  {
+    city: 'pune', key: 'doordarshan-kendra', match: /Doordarshan|DD\s*Sahyadri|दूरदर्शन/i,
+    foot: [1, 1], seed: 207, draw: telecomTowerTile, light: G('aerialBeacon', 184, 0.3),
+  },
+  {
+    city: 'pune', key: 'sinhagad-tv-tower', match: /Sinhagad\s*Road\s*TV|TV\s*Tower|Telecom\s*Tower/i,
+    foot: [1, 1], seed: 208, draw: telecomTowerTile, light: G('aerialBeacon', 184, 0.3),
+  },
+
+  // --- the equestrian/standing civic statues (putlas on plinths) ---
+  {
+    city: 'pune', key: 'shivaji-equestrian', match: /Shivaji\s*Maharaj\s*(Statue|Equestrian)|Shivaji\s*Maharaj\s*Equestrian\s*Statue|Shivaji\s*Putla|Shivaji\s*Equestrian|शिवाजी\s*महाराज\s*पुतळा/i,
+    foot: [1, 1], seed: 209, draw: (s) => statuePlinthTile(s, true), light: G('facadeFlood', 44, 0.5),
+  },
+  {
+    city: 'pune', key: 'tilak-statue', match: /Tilak\s*Statue|Lokmanya\s*Tilak\s*Putla|टिळक\s*पुतळा/i,
+    foot: [1, 1], seed: 210, draw: (s) => statuePlinthTile(s, false), light: G('facadeFlood', 44, 0.5),
+  },
+  {
+    city: 'pune', key: 'phule-statue', match: /Jyotiba\s*Phule\s*Statue|Mahatma\s*Phule\s*Putla|फुले\s*पुतळा/i,
+    foot: [1, 1], seed: 211, draw: (s) => statuePlinthTile(s, false), light: G('facadeFlood', 44, 0.5),
+  },
+  {
+    city: 'pune', key: 'ambedkar-statue', match: /Ambedkar\s*Statue|Babasaheb\s*Ambedkar\s*Putla|आंबेडकर\s*पुतळा/i,
+    foot: [1, 1], seed: 212, draw: (s) => statuePlinthTile(s, false), light: G('facadeFlood', 44, 0.5),
+  },
+  {
+    city: 'pune', key: 'bajirao-equestrian', match: /Bajirao\s*Statue|Bajirao\s*Equestrian|Peshwa\s*Bajirao\s*Putla|बाजीराव\s*पुतळा/i,
+    foot: [1, 1], seed: 213, draw: (s) => statuePlinthTile(s, true), light: G('facadeFlood', 44, 0.5),
+  },
+
   // --- the research/history institutes + generic museums (broad civic block) ---
   {
     city: 'pune', key: 'institute', match: /Itihas\s*Sanshodhak|Bhaskaracharya|Agharkar|Research\s*Inst|\bCDAC\b|Centre\s*for\s*Development|Museum|Sangrahalaya|संशोधक/i,

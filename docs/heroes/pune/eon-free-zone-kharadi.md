@@ -1,17 +1,17 @@
-# Pune Metro
-*metro, transit · 2022*
+# EON Free Zone (Kharadi IT Park)
+*IT park, SEZ · 2010*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "EON Free Zone (Kharadi IT Park) Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+A large IT special-economic-zone campus at Kharadi in east Pune, with clusters of curved and rectilinear glass office blocks, structured car-parks and landscaped courts; one of the principal nodes of Pune's eastern IT corridor.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **EON Free Zone (Kharadi IT Park)** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
+- **Type / style:** Contemporary glass.
 - **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.
