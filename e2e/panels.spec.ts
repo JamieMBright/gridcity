@@ -94,7 +94,9 @@ test.describe('start menu surfaces', () => {
   test('save slots panel from the menu: open + close', async ({ page }) => {
     const watch = await bootToMenu(page);
     await tap(page, '💾 save slots');
-    await expect(page.getByText('SAVE SLOTS')).toBeVisible();
+    // the heading is exactly "SAVE SLOTS"; exact-match avoids also matching the
+    // menu's "💾 save slots" button (substring/case-insensitive otherwise).
+    await expect(page.getByText('SAVE SLOTS', { exact: true })).toBeVisible();
     await assertNoCrash(page, watch, 'saves panel open from menu');
     await page.getByRole('button', { name: 'close saves' }).first().dispatchEvent('click');
     await expect.poll(() => page.evaluate(() => window.__ec?.getState().savesOpen)).toBe(false);
@@ -151,10 +153,13 @@ test.describe('in-game HUD panels', () => {
     await pauseSim(page);
     await page.keyboard.press('c');
     await expect(page.getByText('THE NETWORK BUSINESS')).toBeVisible();
-    // every dial is a row of segmented "level N" buttons (title="level {i}");
-    // press a spread of them across all dials
-    const levelBtns = page.getByRole('button', { name: /level \d/i });
+    // every dial is a row of segmented level buttons; each segment shows its
+    // number as text but carries title="level {i}" (the peak marker has a
+    // different title). Target by the title so we click the REAL segments
+    // across pay, safety and all six directorates.
+    const levelBtns = page.locator('button[title^="level "]');
     const n = Math.min(await levelBtns.count(), 16);
+    expect(n).toBeGreaterThan(0); // the dials really rendered
     for (let i = 0; i < n; i++) await levelBtns.nth(i).dispatchEvent('click');
     await assertNoCrash(page, watch, 'directorates dials exercised');
     // close via the ✕

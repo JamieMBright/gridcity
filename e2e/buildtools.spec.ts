@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { assertNoCrash, bootWatched, pauseSim, tap } from './crashnet.helper';
+import { armTool, assertNoCrash, bootWatched, pauseSim } from './crashnet.helper';
 
 // Exhaustive build-palette crash sweep (owner: "the build tool palette /
 // catalog (every buildable — subs, lines/pylons at each voltage, every
@@ -44,7 +44,7 @@ test.describe('build palette — arm every tool (ghost + suitability render)', (
     await pauseSim(page);
     const [land] = await page.evaluate(() => window.__ec!.openLand(1));
     for (const label of GEN_LABELS) {
-      await tap(page, label, true);
+      await armTool(page, label);
       // hover the map so the ghost preview + per-tile suitability mask build
       if (land) {
         await page.evaluate((t) => window.__ec!.panTo(t.x, t.y), land);
@@ -58,7 +58,7 @@ test.describe('build palette — arm every tool (ghost + suitability render)', (
       await assertNoCrash(page, watch, `armed generator: ${label}`);
     }
     // capacity picker appears for farms — nudge it (aria-label smaller/larger)
-    await tap(page, 'Onshore wind', true);
+    await armTool(page, 'Onshore wind');
     const larger = page.getByRole('button', { name: 'larger' }).first();
     const smaller = page.getByRole('button', { name: 'smaller' }).first();
     if ((await larger.count()) > 0) {
@@ -75,7 +75,7 @@ test.describe('build palette — arm every tool (ghost + suitability render)', (
     await pauseSim(page);
     const [land] = await page.evaluate(() => window.__ec!.openLand(1));
     for (const label of SUB_LABELS) {
-      await tap(page, label, true);
+      await armTool(page, label);
       if (land) {
         await page.evaluate((t) => window.__ec!.panTo(t.x, t.y), land);
         const pos = await page.evaluate(
@@ -90,7 +90,7 @@ test.describe('build palette — arm every tool (ghost + suitability render)', (
     // auto-connect toggle + the dist MVA picker
     await page.getByRole('button', { name: /auto-connect on placement/i }).first().dispatchEvent('click');
     await page.getByRole('button', { name: /auto-connect on placement/i }).first().dispatchEvent('click');
-    await tap(page, 'Distribution substation', true);
+    await armTool(page, 'Distribution substation');
     const larger = page.getByRole('button', { name: 'larger' }).first();
     if ((await larger.count()) > 0) {
       await larger.dispatchEvent('click');
@@ -106,7 +106,7 @@ test.describe('build palette — arm every tool (ghost + suitability render)', (
       await page.getByRole('button', { name: mode, exact: true }).first().dispatchEvent('click');
       for (const lv of [400, 132, 33]) {
         const word = mode === 'underground' ? 'cable' : 'line';
-        await tap(page, `${lv} kV ${word}`, true);
+        await armTool(page, `${lv} kV ${word}`);
         await assertNoCrash(page, watch, `armed ${lv} kV ${word}`);
       }
     }
@@ -119,7 +119,7 @@ test.describe('build palette — arm every tool (ghost + suitability render)', (
     const watch = await bootWatched(page);
     await pauseSim(page);
     for (const label of ['Field depot', 'Inspect', 'Demolish']) {
-      await tap(page, label, true);
+      await armTool(page, label);
       await assertNoCrash(page, watch, `armed tool: ${label}`);
     }
   });

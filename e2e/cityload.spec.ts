@@ -19,7 +19,10 @@ const CITIES = [
 ];
 
 test('every playable city loads (and switches) without crashing', async ({ page }) => {
-  test.setTimeout(180_000);
+  // 12 cities × a full renderer teardown+rebuild each is heavy under 2-worker
+  // software-WebGL contention; it passes solo but crept past 180s when sharing
+  // CPU. 300s gives headroom — a genuine hang still fails, just later.
+  test.setTimeout(300_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}\n${e.stack ?? ''}`));
   page.on('console', (m) => {
@@ -38,7 +41,9 @@ test('every playable city loads (and switches) without crashing', async ({ page 
     await page
       .waitForFunction((c) => window.__ec!.getState().scenarioId === c, city, { timeout: 45_000 })
       .catch(() => undefined);
-    await page.waitForTimeout(1500);
+    // the scenarioId flip above already confirms the switch landed; a short
+    // settle lets any async renderer/worker error surface before we assert
+    await page.waitForTimeout(900);
     const status = await page.evaluate(() => window.__ec?.getState().workerStatus);
     expect(status, `worker status after loading ${city}`).not.toBe('error');
     expect(errors, `real (non-network) errors after loading ${city}:\n${errors.join('\n===\n')}`).toEqual([]);
@@ -52,7 +57,9 @@ test('every playable city loads (and switches) without crashing', async ({ page 
 // for a few representative cities, hard-reload, continue, and assert the boot
 // is clean (a few cities keep runtime sane while covering Euro + non-Euro art).
 test('a saved data-backed city reloads cleanly (cold-boot renderer switch)', async ({ page }) => {
-  test.setTimeout(180_000);
+  // hard-reload cold boots are the heaviest path; give headroom under 2-worker
+  // contention (same reasoning as the switch sweep above).
+  test.setTimeout(300_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => {
     if (!BENIGN.test(e.message)) errors.push(`[pageerror] ${e.message}\n${e.stack ?? ''}`);

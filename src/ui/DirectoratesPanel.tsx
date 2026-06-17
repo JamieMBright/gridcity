@@ -73,8 +73,14 @@ export function DirectoratesPanel() {
   if (!open || !snapshot) return null;
   const org = snapshot.org;
 
-  const row = (label: string, blurb: string, dial: React.ReactNode): React.ReactElement => (
+  const row = (
+    label: string,
+    blurb: string,
+    dial: React.ReactNode,
+    key?: React.Key,
+  ): React.ReactElement => (
     <div
+      key={key}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -198,6 +204,7 @@ export function DirectoratesPanel() {
               max={DIR_MAX}
               onSet={(level) => sendCommand({ type: 'setDirectorate', directorate: d, level })}
             />,
+            d,
           ),
         )}
       </div>

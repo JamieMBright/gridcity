@@ -122,3 +122,21 @@ export async function pauseSim(page: Page): Promise<void> {
 export async function tap(page: Page, name: string | RegExp, exact = false): Promise<void> {
   await page.getByRole('button', { name, exact }).first().dispatchEvent('click');
 }
+
+/** Escape a literal string for use inside a RegExp (the catalog labels carry
+ *  parens, e.g. "Gas peaker (OCGT)" / "Interconnector (HVDC)"). */
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Arm a build-palette tool by its catalog LABEL. The desktop BuildPalette
+ *  tool buttons have NO aria-label — their accessible name is the run-together
+ *  hotkey + label + cost (e.g. "1Gas CCGT£450.0m", "QBulk supply point£40.0m",
+ *  "IInspect"). So an exact-name match never hits; we match the label as a
+ *  substring of the accessible name instead. */
+export async function armTool(page: Page, label: string): Promise<void> {
+  await page
+    .getByRole('button', { name: new RegExp(escapeRe(label)) })
+    .first()
+    .dispatchEvent('click');
+}
