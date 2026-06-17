@@ -1,7 +1,8 @@
 // Design-gate screenshots for the 2026-06-17 playtest fixes. Not a regression
 // test: drives real cities in the browser and saves PNGs to preview/ so the
-// four fixes can be eyeballed. Run on demand:
-//   PLAYSHOTS=1 npx playwright test e2e/playtest-shots.helper.spec.ts
+// four fixes can be eyeballed. Each city is its OWN test so a slow sandbox boot
+// can't time the whole suite out. Run on demand:
+//   PLAYSHOTS=1 npx playwright test e2e/playtest-shots.helper.spec.ts --workers=1
 //
 //  (1) region/town labels render for non-London cities (North-East: Newcastle…)
 //  (2) hero/landmark NAME labels appear zoomed IN, hidden zoomed OUT
@@ -12,7 +13,9 @@ import { expect, test, type Page } from '@playwright/test';
 
 test.skip(!process.env.PLAYSHOTS, 'playtest screenshot helper — run with PLAYSHOTS=1');
 
-/** Boot the app and start a fresh game on a specific city via the picker. */
+const DESKTOP = { width: 1440, height: 900 };
+const PHONE_LS = { width: 844, height: 390 };
+
 async function bootCity(page: Page, cityName: string): Promise<void> {
   await page.goto('/');
   await expect
@@ -20,7 +23,6 @@ async function bootCity(page: Page, cityName: string): Promise<void> {
       timeout: 30_000,
     })
     .toBe(true);
-  // ensure the menu is open (fresh boot opens it; a continue-save may not)
   if (!(await page.evaluate(() => window.__ec?.getState().menuOpen))) {
     await page.reload();
     await expect
@@ -34,101 +36,67 @@ async function bootCity(page: Page, cityName: string): Promise<void> {
   await expect.poll(async () => card.count(), { timeout: 15_000 }).toBeGreaterThan(0);
   await card.first().dispatchEvent('click');
   await expect.poll(async () => page.evaluate(() => window.__ec?.getState().menuOpen)).toBe(false);
-  // dismiss the opening story letterbox if present (it swallows the canvas)
   const skip = page.getByRole('button', { name: 'skip', exact: true });
   if ((await skip.count()) > 0) {
     await skip.dispatchEvent('click');
     const rebuild = page.getByRole('button', { name: 'rebuild it' });
     if ((await rebuild.count()) > 0) await rebuild.dispatchEvent('click');
   }
-  // let the atlas + map settle
   await page.waitForTimeout(2500);
 }
 
-async function shoot(page: Page, name: string): Promise<void> {
+async function view(page: Page, x: number, y: number, zoom: number, name: string): Promise<void> {
+  await page.evaluate(
+    ([xx, yy, zz]) => {
+      window.__ec?.panTo(xx as number, yy as number);
+      window.__ec?.setZoom(zz as number);
+    },
+    [x, y, zoom],
+  );
   await page.waitForTimeout(900);
   await page.screenshot({ path: `preview/${name}.png` });
 }
 
-const DESKTOP = { width: 1440, height: 900 };
-const PHONE_LS = { width: 844, height: 390 }; // iPhone-ish, landscape
-
-test('playtest fix screenshots', async ({ page }) => {
-  test.setTimeout(420_000);
-
-  // ============ NORTH-EAST (bugs 1 + 4, + 2) — DESKTOP ============
+// (1) town labels + (4) water + (2) hero-name zoom inversion — all on the NE map
+test('north-east: town labels, water balance, hero-name zoom', async ({ page }) => {
+  test.setTimeout(180_000);
   await page.setViewportSize(DESKTOP);
   await bootCity(page, 'North-East England');
-
-  // far whole-region overview: town labels (Newcastle/Gateshead/Sunderland…)
-  // visible, hero names HIDDEN, water:land balanced.
-  await page.evaluate(() => {
-    window.__ec?.panTo(128, 80);
-    window.__ec?.setZoom(0.12);
-  });
-  await shoot(page, 'ne-far-desktop'); // (1) towns + (4) water + (2) no hero names far
-
-  // mid zoom over Newcastle/Gateshead
-  await page.evaluate(() => {
-    window.__ec?.panTo(165, 70);
-    window.__ec?.setZoom(0.26);
-  });
-  await shoot(page, 'ne-mid-newcastle');
-
-  // close zoom into Newcastle centre: hero NAMES should now be visible
-  await page.evaluate(() => {
-    window.__ec?.panTo(160, 64);
-    window.__ec?.setZoom(0.5);
-  });
-  await shoot(page, 'ne-close-heronames'); // (2) hero names visible zoomed IN
-
-  // far view again on phone-landscape (labels legible on a phone)
+  // far whole-region overview: town/region names (Newcastle, Gateshead…) show;
+  // hero names hidden; water:land reads balanced.
+  await view(page, 160, 70, 0.1, 'ne-far-desktop');
+  // mid: town names fading, hero names rising
+  await view(page, 160, 70, 0.24, 'ne-mid');
+  // close: hero NAMES visible, town/region names gone (the inversion)
+  await view(page, 160, 64, 0.45, 'ne-close-heronames');
+  // phone-landscape far view (labels legible on a phone)
   await page.setViewportSize(PHONE_LS);
-  await page.evaluate(() => {
-    window.__ec?.panTo(128, 80);
-    window.__ec?.setZoom(0.13);
-  });
-  await shoot(page, 'ne-far-phone');
+  await view(page, 160, 70, 0.12, 'ne-far-phone');
+});
 
-  // ============ PUNE (bug 3 transport off-edge) ============
+// (3) transport clip — Pune (the reported case) + Cairo (worst off-edge offender)
+test('pune + cairo: transport clipped to map edge', async ({ page }) => {
+  test.setTimeout(180_000);
   await page.setViewportSize(DESKTOP);
   await bootCity(page, 'Pune');
-  // far view: whole map, look for ribbons spilling past the diamond
-  await page.evaluate(() => {
-    window.__ec?.panTo(128, 80);
-    window.__ec?.setZoom(0.1);
-  });
-  await shoot(page, 'pune-far-transport'); // (3)
-  // a corner where Pune previously shot a lane far off the right edge (x~255)
-  await page.evaluate(() => {
-    window.__ec?.panTo(238, 78);
-    window.__ec?.setZoom(0.3);
-  });
-  await shoot(page, 'pune-edge-right');
+  await view(page, 128, 80, 0.1, 'pune-far-transport');
+  await view(page, 238, 78, 0.3, 'pune-edge-right'); // where a lane shot to x~392
+});
 
-  // ============ CAIRO (bug 3 — worst off-edge offender, top edge) ============
+test('cairo: transport clipped to map edge', async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize(DESKTOP);
   await bootCity(page, 'Cairo');
-  await page.evaluate(() => {
-    window.__ec?.panTo(128, 80);
-    window.__ec?.setZoom(0.1);
-  });
-  await shoot(page, 'cairo-far-transport'); // (3)
-  await page.evaluate(() => {
-    window.__ec?.panTo(130, 8);
-    window.__ec?.setZoom(0.3);
-  });
-  await shoot(page, 'cairo-edge-top');
+  await view(page, 128, 80, 0.1, 'cairo-far-transport');
+  await view(page, 130, 8, 0.3, 'cairo-edge-top'); // where a lane shot to y~-191
+});
 
-  // ============ LONDON (regression: bugs 2 & 3 touch its render path) ======
+// London regression: bugs 2 & 3 touch its render path — towns still show far,
+// hero names show close, no off-edge transport.
+test('london regression: labels + transport unchanged', async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize(DESKTOP);
   await bootCity(page, 'London');
-  await page.evaluate(() => {
-    window.__ec?.panTo(128, 80);
-    window.__ec?.setZoom(0.12);
-  });
-  await shoot(page, 'london-far-regression'); // towns still show, no off-edge
-  await page.evaluate(() => {
-    window.__ec?.panTo(128, 78);
-    window.__ec?.setZoom(0.5);
-  });
-  await shoot(page, 'london-close-heronames'); // hero names visible zoomed in
+  await view(page, 128, 80, 0.12, 'london-far-regression');
+  await view(page, 128, 78, 0.45, 'london-close-heronames');
 });

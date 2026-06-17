@@ -13,19 +13,22 @@
 ### 🎮 PLAYTEST FEEDBACK (owner, 2026-06-17 20:20)
 Four rendering/map bugs from the owner's playtest. Isolated worktree; London stays
 byte-identical except where a general renderer fix correctly also affects it (bugs 2 & 3).
-- [ ] **(1) Town/city REGION labels not rendered for non-London cities.** Owner: town/city
-  regions (Newcastle, Gateshead, Sunderland…) don't render. Renderer reads `map.towns`
-  (buildLabels) but NO generated city ships a `towns:` array → only `named` monuments label.
-  Add `towns:` to `src/data/cities/northeast.ts` at true-relative positions.
-- [ ] **(2) Hero NAME labels inverted on zoom.** Owner: hero names show zoomed OUT, vanish
-  zoomed IN — backwards. Landmark/hero labels should appear zoomed IN, hide zoomed OUT
-  (keep far view uncluttered). Fix MapRenderer label LOD.
-- [ ] **(3) Transport (rail/road) renders OFF the map edge.** Owner: Pune artefact, likely
-  everywhere — routes draw past the map bounds. General renderer clip fix (do NOT edit
-  pune.ts — another agent owns it). Verify Pune + one other.
-- [ ] **(4) North-east water too dominant.** Owner: streams/minor rivers over-weight the
-  water:land ratio. Dial back minor watercourses in northeast terrain raster; keep
-  Tyne/Wear/coast.
+- [x] **(1) Town/city REGION labels not rendered for non-London cities.** Root cause: NO
+  generated city shipped a `towns:` array, so only `named` monuments labelled. Added 20
+  towns to `northeast.ts` (Newcastle/Gateshead/Sunderland/Durham…). Design-gate: NEWCASTLE
+  UPON TYNE / GATESHEAD / PONTELAND read on the far NE view (preview/ne-far-desktop.png).
+- [x] **(2) Hero NAME labels inverted on zoom.** Split MapRenderer label LOD: place/town
+  names fade OUT on zoom-in; hero/landmark names fade IN and HOLD close. Also: ~40 heroes/city
+  aren't flagged landmark:true — heroKey-resolved places are now hero-class. Verified far
+  (towns, no hero names) vs close (hero names, no towns) — preview/ne-close-heronames.png.
+- [x] **(3) Transport (rail/road) renders OFF the map edge.** `clipPolylineToBounds` in
+  routeRibbons.ts clips route polylines (Catmull-Rom overshoot + off-map OSM waypoints:
+  Pune 137 tiles / Cairo 191 tiles off-frame) to the map rect; vehicle paths too. London
+  in-bounds → byte-identical. +6 unit tests. Verified Pune (preview/pune-far-transport.png).
+- [x] **(4) North-east water too dominant.** Sea-protected connectivity-preserving thinning
+  of northeast terrain: water 29.1% → 15.4%, Tyne/Wear as rivers, coast solid. Only
+  water→land (saves valid, no SAVE_VERSION bump — terrain rebuilt from scenarioId).
+  Verified far view (preview/ne-far-desktop.png, preview/northeast-far.png).
 
 ## Open
 
