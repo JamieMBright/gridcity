@@ -336,6 +336,15 @@ remaining backlog.
   the Supabase MIGRATIONS for `progression`/`profiles`/`saves`/`leaderboard` do NOT exist in the
   repo (only 0001_client_errors.sql), and `unlockAtRank` is dead data (never read). WAVE δ =
   write the migrations (+ RLS) + read `unlockAtRank` to gate CityPicker.
+  → UPDATE (2026-06-17, WAVE δ migrations): MIGRATIONS DONE. Authored
+  `0002_profiles.sql`, `0003_saves.sql` (saves+settings), `0004_progression.sql`,
+  `0005_leaderboard.sql` — exact column/type match to the client `.from()` calls, RLS on every
+  table (owner-only writes keyed on `auth.uid()`; public read of profiles+leaderboard), the
+  leaderboard→profiles FK that PostgREST's `profiles(username)` embed requires, and the
+  `(composite desc, achieved_at asc)` ranking index. Validated against a throwaway Postgres 16
+  (apply-in-order + idempotent re-apply + functional RLS isolation tests). LEFT for the δ wave:
+  (a) APPLY the SQL to the live `electricity` project via Supabase MCP (production change —
+  parent does it), (b) read `unlockAtRank` to gate CityPicker (separate code change).
 - **WAVE ε — Exhaustive e2e + economy/skip polish (M): ✅ DONE (#71 + #75, 2026-06-17).** Wave D
   exhaustive button/city e2e sweep SHIPPED (#75: sweep-buttons/sweep-panels/cityload + crashnet);
   +30d-skip-halts-on-MAJOR-only SHIPPED (#71); RAV phase-in (sum-of-digits) SHIPPED (#71). Only
@@ -978,6 +987,13 @@ TOWER, proportionally, each one bespoke."
       (likely the real cause of "didn't work"); (2) the `profiles`/`saves`/`leaderboard`/
       `progression` table MIGRATIONS are absent from the repo (only 0001_client_errors.sql), so
       post-login cloud sync silently no-ops — that part is WAVE δ.)
+      (UPDATE 2026-06-17, WAVE δ: blocker (2) RESOLVED in repo — migrations
+      `0002_profiles.sql`/`0003_saves.sql` (saves+settings)/`0004_progression.sql`/
+      `0005_leaderboard.sql` authored, all with RLS + the leaderboard→profiles FK the
+      `profiles(username)` embed needs; verified by applying all five in order against a
+      throwaway Postgres 16 (idempotent re-apply + functional RLS: owner-only writes, public
+      leaderboard read, cross-user write denied). Still owner-side: APPLY these to the live
+      `electricity` project (via Supabase MCP) + blocker (1) the dashboard Site-URL config.)
 **TUTORIAL 1 — onshore wind**
 - [x] Highlight on the onshore-wind button must VANISH the moment it's clicked
       (same bug on the dist-sub/33kV-line highlight — disappear on click).
