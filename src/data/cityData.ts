@@ -24,6 +24,7 @@ import {
   type TransportRoute,
   type Zone,
 } from '../sim/map/types';
+import { buildHeritageLoads } from '../sim/map/demand';
 import { footFor, resolveBespokeKey } from '../render/sprites/heroes/registry';
 
 export interface CityNamedPlace {
@@ -170,6 +171,10 @@ export function buildCityFromData(d: CityData): CityMap {
   };
   fillDerivedLayers(map);
   buildHeroTable(map);
+  // Heritage point-loads (Giza Sound-&-Light…) sit on the bespoke heroes just
+  // stamped above, so derive them AFTER buildHeroTable. Deterministic + never
+  // serialized — like the hero table itself.
+  buildHeritageLoads(map);
   return map;
 }
 
