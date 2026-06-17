@@ -5,7 +5,8 @@
 
 import type { CityMap } from '../sim/map/types';
 import {
-  LONDON_PROFILE,
+  countryProfile,
+  type CountryId,
   type EconomyProfile,
   type GenerationModel,
   type MarketProfile,
@@ -34,23 +35,31 @@ export interface CityScenario {
   /** Tutorial-campaign mission (tiny map, scripted steps, win check). */
   mission?: boolean;
 
-  // --- CityScenario v2: additive, optional per-city config blocks. ------
-  // Every block is OPTIONAL and defaults to London's GB behaviour (see
-  // resolveProfile), so omitting them all — as London and every mission
-  // do — is bit-identical to the pre-v2 engine. No new city ships this
-  // wave; these seams just make cities DATA for the next one.
+  // --- CityScenario v2/WP2: additive, optional per-city operating model. -
+  // A scenario picks its country's operating model with `country` (the
+  // recommended path — many cities share a country, so the six profile
+  // blocks are factored once in powerProfile.ts COUNTRY_PROFILES). The
+  // individual blocks below remain available to OVERRIDE a single dimension
+  // on top of the country base (e.g. a city localising its peakDoy). Omitting
+  // `country` AND every block — as London and every mission do — yields
+  // exactly LONDON_PROFILE (GB), bit-identical to the pre-WP2 engine.
 
-  /** System frequency, voltages, droop (50 Hz GB default). */
+  /** Operating-model country (powerProfile.ts COUNTRY_PROFILES). Absent ⇒ GB.
+   *  This is the primary per-city lever; the blocks below override single
+   *  dimensions on top of it. */
+  country?: CountryId;
+
+  /** System frequency, voltages, droop (overrides the country's; GB default). */
   power?: PowerSystemProfile;
-  /** Season phase, sun arc, weather regimes (GB winter-peak default). */
+  /** Season phase, sun arc, weather regimes (overrides the country's). */
   weatherProfile?: WeatherProfile;
-  /** Currency + bill shares (GB £/DUoS default). */
+  /** Currency + bill shares (overrides the country's). */
   economy?: EconomyProfile;
-  /** Generation ownership: liberalised tender (GB default) vs owned. */
+  /** Generation ownership: liberalised tender vs owned (overrides the country's). */
   generation?: GenerationModel;
-  /** Regulator framing (Ofgem/RIIO default). */
+  /** Regulator framing (overrides the country's; Ofgem/RIIO default). */
   regulator?: RegulatorProfile;
-  /** National wholesale market shape (GB evening-peak default). */
+  /** National wholesale market shape (overrides the country's). */
   market?: MarketProfile;
 
   /** Difficulty 1–10 and the rank a city's offer arrives at (rank wave). */
@@ -58,18 +67,20 @@ export interface CityScenario {
   unlockAtRank?: number;
 }
 
-/** Resolve a scenario's optional config blocks into the fully-defaulted
- *  ResolvedProfile the sim threads through. Omitted blocks fall back to
- *  London/GB, so the london scenario (which declares none) yields exactly
- *  LONDON_PROFILE — the determinism anchor. */
+/** Resolve a scenario into the fully-defaulted ResolvedProfile the sim threads
+ *  through. The base is the scenario's `country` operating model (GB when
+ *  absent), and any explicit per-block field overrides that single dimension.
+ *  So the london scenario (no country, no blocks) yields exactly LONDON_PROFILE
+ *  — the determinism anchor — and a GB-country city resolves identically too. */
 export function resolveProfile(s: CityScenario): ResolvedProfile {
+  const base = countryProfile(s.country);
   return {
-    power: s.power ?? LONDON_PROFILE.power,
-    weather: s.weatherProfile ?? LONDON_PROFILE.weather,
-    economy: s.economy ?? LONDON_PROFILE.economy,
-    generation: s.generation ?? LONDON_PROFILE.generation,
-    regulator: s.regulator ?? LONDON_PROFILE.regulator,
-    market: s.market ?? LONDON_PROFILE.market,
+    power: s.power ?? base.power,
+    weather: s.weatherProfile ?? base.weather,
+    economy: s.economy ?? base.economy,
+    generation: s.generation ?? base.generation,
+    regulator: s.regulator ?? base.regulator,
+    market: s.market ?? base.market,
   };
 }
 
@@ -89,15 +100,16 @@ export const CITY_SCENARIOS: CityScenario[] = [
     // Paris — the first DATA-backed playable city. Its map is a committed
     // OSM artifact (src/data/cities/paris.ts), lazily imported: build() reads
     // the preloaded CityData (every entry point awaits loadScenarioData first)
-    // and reconstructs the CityMap. The power/economy/regulator profile blocks
-    // are omitted, so Paris resolves to LONDON_PROFILE for now — fully
-    // PLAYABLE; the FR-specific seams (nuclear baseload, CRE/TURPE) land later
-    // per docs/multi-city-and-rank.md. (owner: "open to all for now so I can
-    // test".)
+    // and reconstructs the CityMap. WP2: now wired to the FRANCE operating
+    // model (country 'FR') — a flat/low near-zero-carbon nuclear wholesale
+    // market (FRANCE_MARKET), CRE cost-of-service carbon-light KPI weights
+    // (FRANCE_REGULATOR), the € bill, a sharper winter peak, and the
+    // documented baseloadFloor data hook (dispatch consumes it in Phase-D).
     id: 'paris',
     name: 'Paris & the Seine',
     tagline: 'Haussmann limestone, a calm grey river, and a grid to electrify.',
     build: () => buildCityFromData(cityDataFor('paris')),
+    country: 'FR',
     difficulty: 4,
     unlockAtRank: 4,
   },
@@ -117,23 +129,35 @@ export const CITY_SCENARIOS: CityScenario[] = [
   {
     // Sydney — OSM artifact (src/data/cities/sydney.ts): the harbour and its
     // inlets, the Opera House, the eastern-suburbs peninsula, the open Tasman
-    // to the south-east. Resolves to LONDON_PROFILE for now (the AU 50 Hz /
-    // NEM seams land later); fully PLAYABLE — open to all for testing.
+    // to the south-east. WP2: now wired to the AUSTRALIA operating model
+    // (country 'AU') — the rooftop-PV DUCK CURVE (AUSTRALIA_MARKET: midday
+    // price goes negative, violent heatwave evening peaks), a SUMMER peak
+    // (the inverse of GB), the AER curtailment-heavy KPI weights
+    // (AUSTRALIA_REGULATOR), and the A$ bill. The single most distinctive
+    // near-term city.
     id: 'sydney',
     name: 'Sydney & the Harbour',
     tagline: 'The harbour, the bridge, the Opera House, and a coast to power.',
     build: () => buildCityFromData(cityDataFor('sydney')),
+    country: 'AU',
     difficulty: 5,
     unlockAtRank: 7,
   },
   {
     // Hong Kong — OSM artifact (src/data/cities/hongkong.ts): Victoria Harbour
     // dividing Kowloon from the Island, the green Peak, the outlying islands.
-    // Resolves to LONDON_PROFILE for now; fully PLAYABLE — open to all.
+    // WP2: now wired to the HONG KONG operating model (country 'HK') — a high,
+    // stable, regulated-gas wholesale market (HONGKONG_MARKET), the Scheme of
+    // Control profit-cap regulator whose card is dominated by world-best
+    // reliability (HONGKONG_REGULATOR: CI/CML 0.26 each), a summer peak, and
+    // the HK$ bill. NOTE: HK is really VERTICALLY INTEGRATED ('owned'); that
+    // structural fork (no tender — you build the plant) is DEFERRED to Phase-C
+    // (HONGKONG_GENERATION stays 'tender' for now). See powerProfile.ts §4b.
     id: 'hongkong',
     name: 'Hong Kong & Victoria Harbour',
     tagline: 'A harbour city of peaks and towers, packed against the sea.',
     build: () => buildCityFromData(cityDataFor('hongkong')),
+    country: 'HK',
     difficulty: 7,
     unlockAtRank: 8,
   },

@@ -17,15 +17,26 @@ import {
   resolveProfile,
   type CityScenario,
 } from '../src/data/cityRegistry';
-import { LONDON_PROFILE } from '../src/sim/powerProfile';
+import {
+  COUNTRY_PROFILES,
+  LONDON_PROFILE,
+  type CountryId,
+} from '../src/sim/powerProfile';
 import { newContext, newGame, seedScenario, type GameState } from '../src/sim/state';
 import { advanceTime, derive, deriveKey, solveTick, type Derived } from '../src/sim/tick';
 
-// --- 1. London + missions default to LONDON_PROFILE ------------------------
+// WP2: the cities whose own (non-London) operating model is now wired, and the
+// country each maps to. Everything ELSE — London, the untagged data cities, and
+// every mission — must still resolve to GB (LONDON_PROFILE), the determinism
+// anchor. (See cityProfiles.test.ts for the per-dimension behaviour proofs.)
+const WIRED: Record<string, CountryId> = { paris: 'FR', sydney: 'AU', hongkong: 'HK' };
+
+// --- 1. London + missions + untagged cities default to LONDON_PROFILE ------
 
 describe('CityScenario v2 resolves to London by default', () => {
-  it('the london scenario declares no profile blocks (stays pure data)', () => {
+  it('the london scenario declares no country/profile blocks (stays pure data)', () => {
     const london = getScenario('london');
+    expect(london.country).toBeUndefined();
     expect(london.power).toBeUndefined();
     expect(london.weatherProfile).toBeUndefined();
     expect(london.economy).toBeUndefined();
@@ -37,12 +48,12 @@ describe('CityScenario v2 resolves to London by default', () => {
     expect(profileOf('london')).toEqual(LONDON_PROFILE);
   });
 
-  it('every registered scenario resolves to London under the hood', () => {
-    // Paris is now a DATA-backed playable city, but it declares no profile
-    // blocks yet (the FR seams land later), so it — like London and every
-    // mission — must still resolve to GB. This keeps every shipped scenario's
-    // behaviour anchored to the determinism baseline.
+  it('every scenario EXCEPT the WP2-wired cities resolves to London under the hood', () => {
+    // London, the untagged data cities (newyork/berlin/…/northeast) and every
+    // mission carry no country tag, so they resolve to GB — the determinism
+    // baseline. Only the three WP2-wired cities depart from it.
     for (const s of CITY_SCENARIOS) {
+      if (s.id in WIRED) continue;
       expect(resolveProfile(s)).toEqual(LONDON_PROFILE);
     }
     // the roster: the 12 playable cities + the 6 tutorial missions
@@ -66,6 +77,16 @@ describe('CityScenario v2 resolves to London by default', () => {
       'm5-bill',
       'm6-sun-store',
     ]);
+  });
+
+  it('the WP2-wired cities resolve to their OWN country operating model (not London)', () => {
+    for (const [id, country] of Object.entries(WIRED)) {
+      const resolved = profileOf(id);
+      // it IS its country's profile…
+      expect(resolved).toEqual(COUNTRY_PROFILES[country]);
+      // …and it is NOT London (the wiring actually departs from the anchor)
+      expect(resolved).not.toEqual(LONDON_PROFILE);
+    }
   });
 
   it('newContext("london") carries the resolved London profile', () => {
