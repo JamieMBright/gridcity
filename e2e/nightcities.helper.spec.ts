@@ -1,12 +1,13 @@
 // NIGHT ELECTRIFICATION 12-CITY SHOWCASE + DESIGN GATE (owner, 2026-06-17:
 // "every city glows beautifully when powered"). The game's soul is "powering an
 // area makes it GLOW" + the hero doctrine's bespoke per-hero night light. This
-// helper boots once, then for EACH of the 12 cities switches to it, ENERGISES
-// the whole map (the dev __testServeAll cheat → every demand tile + hero
-// footprint reads powered, no hand-wiring a grid per city), pins deep night
-// (~22:00) and shoots FAR + MID + a HERO-DISTRICT close. Desktop for all 12;
-// a phone-landscape sample for london + one non-Euro city. Output lands under
-// preview/night/ for the harsh design review.
+// helper boots once, then for EACH of the 12 cities switches to it and ENERGISES
+// the powered HERO DISTRICTS (the dev __testServeAll cheat → every hero footprint
+// + a sparse scattering of nearby demand tiles, so the night reads cosy-with-dark
+// -gaps rather than a blown-out 100%-lit wash, with no hand-wired grid per city),
+// pins deep night (~22:00) and shoots FAR + MID + a HERO-DISTRICT close. Desktop
+// for all 12; a phone-landscape sample for london + one non-Euro city. Output
+// lands under preview/night/ for the harsh design review.
 //
 //   SHOTS=1 npx playwright test e2e/nightcities.helper.spec.ts
 //
