@@ -54,13 +54,21 @@ export function useSpotlightRect(target: string | undefined): SpotlightState {
   }, [target]);
 
   useLayoutEffect(() => {
-    const onDown = (): void => {
-      // the affordance has been used — drop the spotlight immediately
-      setClicked(true);
+    // drop the spotlight the moment the highlighted element is used. We listen
+    // for BOTH pointerdown (real taps/clicks fire it first) and click (covers
+    // keyboard activation + synthetic clicks), so the latch is robust.
+    const onUse = (): void => setClicked(true);
+    const bind = (el: HTMLElement | null): void => {
+      el?.addEventListener('pointerdown', onUse);
+      el?.addEventListener('click', onUse);
+    };
+    const unbind = (el: HTMLElement | null): void => {
+      el?.removeEventListener('pointerdown', onUse);
+      el?.removeEventListener('click', onUse);
     };
     if (!target) {
       setRect(undefined);
-      boundEl.current?.removeEventListener('pointerdown', onDown);
+      unbind(boundEl.current);
       boundEl.current = null;
       return;
     }
@@ -68,10 +76,10 @@ export function useSpotlightRect(target: string | undefined): SpotlightState {
       const el =
         document.querySelector<HTMLElement>(`[data-spot="${target}"]`) ??
         document.querySelector<HTMLElement>(`[data-tour="${target}"]`);
-      // (re)bind the click listener to whichever element is mounted now
+      // (re)bind the use listener to whichever element is mounted now
       if (el !== boundEl.current) {
-        boundEl.current?.removeEventListener('pointerdown', onDown);
-        el?.addEventListener('pointerdown', onDown);
+        unbind(boundEl.current);
+        bind(el);
         boundEl.current = el;
       }
       if (!el) {
@@ -97,7 +105,7 @@ export function useSpotlightRect(target: string | undefined): SpotlightState {
       window.clearInterval(poll);
       window.removeEventListener('resize', measure);
       window.removeEventListener('scroll', measure, true);
-      boundEl.current?.removeEventListener('pointerdown', onDown);
+      unbind(boundEl.current);
       boundEl.current = null;
     };
   }, [target]);
