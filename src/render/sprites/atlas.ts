@@ -22,6 +22,8 @@ import {
   semiTile,
   setbackTile,
   solarFarmTile,
+  sydbungalowTile,
+  sydterraceTile,
   terraceTile,
   tonglauTile,
   towerTile,
@@ -317,6 +319,11 @@ function buildCityStockBufs(): Map<string, HeroBuf> {
     case 'cairo':
       // red-brick / concrete-frame walk-ups with unfinished rebar tops + clutter
       for (let i = 0; i < 6; i++) add(`cairoblock_${i}`, cairoblockTile(401 + i, i));
+      break;
+    case 'sydney':
+      // Federation iron-lace verandah terraces + brick-and-tile bungalows
+      for (let i = 0; i < 4; i++) add(`sydterrace_${i}`, sydterraceTile(411 + i, i));
+      for (let i = 0; i < 4; i++) add(`sydbungalow_${i}`, sydbungalowTile(421 + i, i));
       break;
     default:
       break;

@@ -263,6 +263,18 @@ function cityStockFor(
       }
       return undefined;
     }
+    case 'sydney': {
+      // inner-suburb iron-lace verandah terraces fill the dense core/urban
+      // fabric; the brick-and-tile bungalow dominates the leafy suburbs. The
+      // glassy harbour CBD keeps the generic supertall mix (London default).
+      if (zone === ZONE.urbanCore || zone === ZONE.urban) {
+        return `sydterrace_${(estate + (v % 2)) % 4}`;
+      }
+      if (zone === ZONE.suburb) {
+        return th % 5 === 0 ? `sydterrace_${(estate + (v % 2)) % 4}` : `sydbungalow_${(estate + (v % 2)) % 4}`;
+      }
+      return undefined;
+    }
     default:
       return undefined;
   }

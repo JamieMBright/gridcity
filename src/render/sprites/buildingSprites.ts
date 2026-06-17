@@ -1197,6 +1197,124 @@ export function cairoblockTile(seed: number, variant: number): Uint8ClampedArray
 }
 
 /**
+ * Bespoke SYDNEY stock — the Federation / Victorian inner-suburb TERRACE with
+ * a cast-IRON-LACE VERANDAH over the footpath. A 2-storey honey-sandstone or
+ * polychrome-brick row; the tell is the lacework-frieze verandah on slender
+ * iron posts shading the front, a corrugated-iron skillion verandah roof, then
+ * the main pitched terracotta-tile roof behind a low parapet, party-wall
+ * chimneys. A row reads as a continuous balconied street wall (Paddington/
+ * Glebe).
+ */
+export function sydterraceTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 38693 + variant * 109 + 17);
+  // honey sandstone, cream render, warm face brick, polychrome brown
+  const wallSets: RGBA[][] = [
+    [BUFF_BRICK, RENDER_CREAM, BRICK_ORANGE],
+    [RENDER_CREAM, BUFF_BRICK, BRICK_RED],
+    [BRICK_RED, BUFF_BRICK, RENDER_CREAM],
+    [BUFF_BRICK, BRICK_ORANGE, BUFF_BRICK],
+  ];
+  const walls = wallSets[variant % 4] ?? wallSets[0]!;
+  const tile = TILE_RED; // terracotta tile roof
+  const iron = hex('#2a2a30'); // black cast-iron lace + posts
+  const lace = lighten(COLORS.white, 0.02); // creamy painted lacework
+  const v0 = 0.12;
+  const v1 = 0.7;
+  const H = 30; // two storeys to the eaves
+  iso.shadow(0, v0, 1, v1, 0.22, 0.22);
+  // three attached houses
+  for (let i = 0; i < 3; i++) {
+    const u0 = i / 3;
+    const u1 = (i + 1) / 3;
+    const wall = walls[i] ?? BUFF_BRICK;
+    iso.box(u0, v0, u1, v1, 0, H, wall);
+    // upper + lower sash windows behind the verandah (set back)
+    iso.windowsLeft(v1, u0 + 0.05, u1 - 0.05, 18, 26, 2, glass(rng, 0.4), COLORS.white);
+    iso.windowsLeft(v1, u0 + 0.05, u1 - 0.05, 4, 12, 2, glass(rng, 0.42), COLORS.white);
+  }
+  // gable-end windows on the right wall of the row
+  iso.windowsRight(1, v0 + 0.08, v1 - 0.08, 5, H - 5, 2, glass(rng, 0.3), COLORS.white);
+  // the TWO-STOREY cast-iron VERANDAH across the whole front — Sydney's tell.
+  // a deck slab at first-floor level, slender posts top and bottom, and a
+  // pierced lacework frieze + balustrade.
+  const vf = v1 + 0.16; // verandah eave line out over the footpath
+  const deck = 14; // first-floor verandah deck height
+  // verandah floor slab + first-floor deck soffit
+  iso.r.poly([P(0, v1, deck), P(1, v1, deck), P(1, vf, deck), P(0, vf, deck)], shaded(lace, 0.08));
+  iso.r.poly([P(0, vf, deck), P(1, vf, deck), P(1, vf, deck - 1.4), P(0, vf, deck - 1.4)], lace);
+  // posts: ground + upper storey
+  for (let u = 0.06; u <= 0.95; u += 0.16) {
+    iso.r.line(P(u, vf, 0), P(u, vf, deck - 1.4), INK_W * 0.7, iron);
+    iso.r.line(P(u, vf, deck), P(u, vf, H - 1), INK_W * 0.7, iron);
+  }
+  // upper lacework frieze valance under the verandah roof + balustrade band
+  iso.r.poly([P(0, vf, H - 1), P(1, vf, H - 1), P(1, vf, H - 5), P(0, vf, H - 5)], alpha(lace, 0.9));
+  for (let u = 0.04; u < 0.99; u += 0.022) {
+    iso.r.line(P(u, vf, H - 1), P(u, vf, H - 4.5), INK_W * 0.4, alpha(iron, 0.55)); // pierced frieze ticks
+  }
+  iso.r.poly([P(0, vf, deck + 4.5), P(1, vf, deck + 4.5), P(1, vf, deck), P(0, vf, deck)], alpha(lace, 0.85));
+  for (let u = 0.04; u < 0.99; u += 0.02) {
+    iso.r.line(P(u, vf, deck + 4.5), P(u, vf, deck + 0.6), INK_W * 0.35, alpha(iron, 0.7)); // balusters
+  }
+  iso.r.line(P(0, vf, deck + 4.5), P(1, vf, deck + 4.5), INK_W * 0.7, iron);
+  // corrugated-iron skillion verandah roof + the main terracotta roof behind
+  iso.r.poly([P(0, v1, H + 3), P(1, v1, H + 3), P(1, vf, H - 1), P(0, vf, H - 1)], lit(hex('#8a8f93'), 0.04));
+  iso.edge(P(0, vf, H - 1), P(1, vf, H - 1), INK_W * 0.7);
+  domesticRoof(iso, 0, v0, 1, v1, H + 3, 12, 'u', tile, walls[0] ?? BUFF_BRICK, rng);
+  // party-wall chimneys with terracotta pots
+  for (const cu of [0.16, 0.5, 0.84]) {
+    const vm = (v0 + v1) / 2;
+    iso.box(cu - 0.025, vm - 0.04, cu + 0.025, vm + 0.04, H + 9, H + 19, darken(walls[0] ?? BUFF_BRICK, 0.12));
+    iso.box(cu - 0.01, vm - 0.02, cu + 0.012, vm, H + 19, H + 23, POT_CLAY, { ink: false });
+  }
+  return iso.build();
+}
+
+/**
+ * Bespoke SYDNEY stock — the post-war brick-and-tile suburban BUNGALOW, the
+ * dominant Sydney house. A single-storey detached cottage in face brick under
+ * a broad HIPPED TERRACOTTA-tile roof with wide eaves, a projecting front
+ * gable-room, a small porch, set in a lawn behind a low front fence. The
+ * sprawling hip + warm terracotta is the suburban tell (vs London's narrow
+ * pitched terraces).
+ */
+export function sydbungalowTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 44351 + variant * 67 + 23);
+  const wall = ([BUFF_BRICK, BRICK_ORANGE, RENDER_CREAM, BRICK_RED] as RGBA[])[variant % 4] ?? BUFF_BRICK;
+  const tile = ([TILE_RED, hex('#9c5238'), TILE_RED, hex('#7a7d80')] as RGBA[])[variant % 4] ?? TILE_RED;
+  const u0 = 0.14;
+  const u1 = 0.66;
+  const v0 = 0.18;
+  const v1 = 0.66;
+  const H = 19; // low single storey
+  iso.shadow(u0, v0, u1 + 0.06, v1 + 0.02, 0.18, 0.2);
+  // main body + broad hipped roof with wide eaves
+  iso.box(u0, v0, u1, v1, 0, H, wall);
+  iso.hip(u0 - 0.04, v0 - 0.04, u1 + 0.04, v1 + 0.04, H, 15, tile);
+  // windows on the street face
+  iso.windowsLeft(v1, u0 + 0.05, u1 - 0.16, 7, 14, 2, glass(rng, 0.42), COLORS.white);
+  // projecting front gable-room (the tell) on the right of the facade
+  const g0 = u1 - 0.02;
+  const g1 = u1 + 0.16;
+  iso.box(g0, v0 + 0.06, g1, v1 + 0.04, 0, H + 2, lighten(wall, 0.04));
+  iso.gable(g0 - 0.02, v0 + 0.04, g1 + 0.02, v1 + 0.06, H + 2, 12, 'v', tile, wall);
+  iso.windowsLeft(v1 + 0.04, g0 + 0.02, g1 - 0.02, 6, 14, 1, glass(rng, 0.45), COLORS.white);
+  // little porch + door between body and gable-room
+  iso.r.poly([P(u1 - 0.1, v1, 11), P(u1 - 0.03, v1, 11), P(u1 - 0.03, v1, 0), P(u1 - 0.1, v1, 0)], darken(wall, 0.4));
+  iso.r.poly([P(u1 - 0.12, v1, 13), P(u1 + 0.0, v1, 13), P(u1 - 0.02, v1 + 0.04, 11), P(u1 - 0.1, v1 + 0.04, 11)], lit(tile, 0.06));
+  // a chimney on the near slope
+  iso.box(u0 + 0.1, (v0 + v1) / 2, u0 + 0.15, (v0 + v1) / 2 + 0.05, H + 12, H + 20, darken(wall, 0.12));
+  // low front fence + lawn shrub
+  iso.box(u0 - 0.04, 0.92, g1, 0.96, 0, 4, shaded(COLORS.white, 0.06));
+  if (rng.chance(0.7)) iso.ball(u0 + 0.02, 0.82, 0.06, 13, COLORS.treeGreen);
+  // paved drive to the plot edge
+  iso.quad(g0 + 0.02, v1 + 0.04, g1 + 0.02, 0.96, 0, alpha(COLORS.pavement, 0.9));
+  return iso.build();
+}
+
+/**
  * Bespoke PARIS building stock: a Haussmann apartment block. Researched from
  * the reference photos (owner, 2026-06-14): uniform ~6-storey cream
  * pierre-de-taille ashlar facade with a strong cornice, regular tall French
