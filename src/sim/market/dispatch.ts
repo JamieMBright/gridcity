@@ -41,6 +41,7 @@ import {
   LONDON_MARKET,
   LONDON_PROFILE,
   LONDON_WEATHER,
+  type GenerationModel,
   type MarketProfile,
   type PowerSystemProfile,
   type WeatherProfile,
@@ -109,6 +110,40 @@ export function nationalPriceK(
 ): number {
   return nationalPriceMWh(simTimeMin, weather, market, weatherProfile) / 1000;
 }
+/** National must-run baseload (W8 Part-2b: GenerationModel.baseloadFloor —
+ *  France's nuclear fleet, Brazil's hydro). It sits UNDER the merit order: a
+ *  near-zero-marginal, near-zero-carbon block that meets up to `baseloadFloor`
+ *  of each island's demand before any player/developer plant stacks, so it
+ *  lowers both the marginal price and the carbon average, and — because it eats
+ *  the cheap base — pushes firm renewables toward curtailment in surplus (the
+ *  French "nuclear crowds out renewables" effect). Modelled as a synthetic
+ *  must-run unit injected at a representative island bus; it carries a sentinel
+ *  id so it never lands in the per-asset genMW/SoC maps. */
+export const BASELOAD_COST_K = 0.01;
+/** Baseload carbon, gCO₂/kWh — nuclear/hydro: not literally zero (lifecycle),
+ *  but low enough to pull a country's carbon KPI right down. */
+export const BASELOAD_CARBON_G = 5;
+/** Sentinel asset id for the synthetic national-baseload unit (never a real
+ *  asset; filtered out of genMW so the UI never sees a phantom generator). */
+export const BASELOAD_UNIT_ID = -1;
+
+/** Deterministic seasonal reservoir availability for a hydro-driven baseload
+ *  (GenerationModel.hydroDriven). The rivers fill in the wet season and fall in
+ *  the dry one, so the share of the baseload floor hydro can actually float
+ *  swings with the season factor (1 = wettest/peak season, 0 = driest). A
+ *  thermal/nuclear baseload (hydroDriven false) floats its full floor
+ *  year-round ⇒ factor 1, no-op. No RNG — pure function of the clock + profile. */
+export function reservoirFactor(
+  simTimeMin: number,
+  generation: GenerationModel,
+  weatherProfile: WeatherProfile,
+): number {
+  if (generation.hydroDriven !== true) return 1;
+  // wet season (high season factor) → full reservoirs; dry season → backed down
+  // to 40% of the floor. Bounds keep some hydro always available (run-of-river).
+  return 0.4 + 0.6 * seasonFactor(simTimeMin, weatherProfile);
+}
+
 /** Compensation for constraining off a firm connection, £k/MWh — the
  *  flat fallback; developer plant prices its own curtailment (#17:
  *  GenAsset.curtailK / the developer's curtailPriceK personality). */
@@ -141,6 +176,10 @@ export interface DispatchInputs {
   /** Active scenario national-market shape (price series imports trade
    *  against). Optional; defaults to GB. */
   market?: MarketProfile;
+  /** Active scenario generation model (baseloadFloor / hydroDriven). Optional;
+   *  defaults to GB's liberalised tender (no baseload floor), so omitting it is
+   *  bit-identical to the pre-W8 dispatch. */
+  generation?: GenerationModel;
 }
 
 export interface DispatchResult {
@@ -256,6 +295,15 @@ export function runDispatch(
   const wp = inp.weatherProfile ?? LONDON_PROFILE.weather;
   const pp = inp.power ?? LONDON_PROFILE.power;
   const mk = inp.market ?? LONDON_PROFILE.market;
+  const gen = inp.generation ?? LONDON_PROFILE.generation;
+  // W8 Part-2b: the must-run national-baseload share (France nuclear / Brazil
+  // hydro). 0 for GB (no floor) ⇒ the block below is a no-op and London stays
+  // byte-identical. For a hydro-driven fleet the floor is scaled by the
+  // deterministic seasonal reservoir factor (dry season floats less).
+  const baseloadShare =
+    (gen.baseloadFloor ?? 0) > 0
+      ? (gen.baseloadFloor ?? 0) * reservoirFactor(inp.simTimeMin, gen, wp)
+      : 0;
   // heatwave cooling load lifts the domestic shape (AC/fridges/fans)
   const fDom =
     domesticProfile(inp.simTimeMin, wp) * (1 + coolingFactor(inp.simTimeMin, inp.weather, wp));
@@ -384,7 +432,12 @@ export function runDispatch(
           costK: interconnector
             ? nationalPriceK(inp.simTimeMin, inp.weather, mk, wp)
             : spec.marginalCostK,
-          carbonG: spec.carbonG,
+          // W8 Part-2b: an interconnector import carries the ACTIVE country's
+          // grid carbon (mk.gridCarbonG) — French nuclear ~20 g, AU coal ~445 g,
+          // HK gas ~590 g — not the flat catalog figure. GB's gridCarbonG is the
+          // same 150 the catalog used, so London stays byte-identical. This
+          // feeds dispatch.carbonG → state.carbonEMA → the RIIO carbon KPI.
+          carbonG: interconnector ? mk.gridCarbonG : spec.carbonG,
           mustRun: renewable && !a.flex && !building,
           flex: a.flex === true && !building,
           isBattery: false,
@@ -450,6 +503,11 @@ export function runDispatch(
 
   const recordCurtailed = (u: Unit, mw: number): void => {
     if (mw <= 0) return;
+    // the synthetic national baseload (W8 Part-2b) is not a player/developer
+    // asset: it never bills constraint comp and never counts as firm
+    // curtailment. It sorts first (highest curtailK) so it is served, not
+    // curtailed; this guard is belt-and-braces for the residual<=0 path.
+    if (u.id === BASELOAD_UNIT_ID) return;
     if (u.flex) {
       curtailedFlexMW += mw;
     } else {
@@ -468,6 +526,36 @@ export function runDispatch(
       connectedMW += Math.max(0, s.loadNowMW);
       if (s.cappedNowMW >= 0) demand += s.cappedNowMW;
       else exportMW += -s.cappedNowMW;
+    }
+
+    // W8 Part-2b: the national must-run baseload (France nuclear / Brazil
+    // hydro). A near-zero-marginal, near-zero-carbon block sized to
+    // `baseloadShare` of this island's residual demand, added to the unit list
+    // as a must-run unit so it stacks FIRST (cheapest) — lowering the marginal
+    // price + carbon and crowding firm renewables toward curtailment in
+    // surplus. Injected at a representative island bus (a sub, else the first
+    // unit) so the DC power flow balances; the sentinel id keeps it out of the
+    // per-asset genMW/SoC maps. 0 for GB ⇒ skipped, byte-identical.
+    if (baseloadShare > 0) {
+      const baseBus = island.subs[0]?.bus ?? island.units[0]?.bus;
+      const residualDemand = Math.max(0, demand - exportMW);
+      const baseMW = baseloadShare * residualDemand;
+      if (baseBus !== undefined && baseMW > 0) {
+        island.units.push({
+          id: BASELOAD_UNIT_ID,
+          bus: baseBus,
+          availMW: baseMW,
+          costK: BASELOAD_COST_K,
+          carbonG: BASELOAD_CARBON_G,
+          mustRun: true,
+          flex: false,
+          isBattery: false,
+          // sort ahead of every real must-run (highest curtailK = served
+          // first, curtailed last): the player's firm renewables are the ones
+          // constrained off in a nuclear/hydro surplus, never the baseload.
+          curtailK: 999,
+        });
+      }
     }
 
     // battery dispatch by policy (ROADMAP #12). 'shave' (the default,
@@ -571,8 +659,10 @@ export function runDispatch(
 
     if (residual <= 0 && demand <= 0) {
       for (const u of island.units) {
-        // accumulate: a converted peaker is two units on one asset id
-        if (!genMW.has(u.id)) genMW.set(u.id, 0);
+        // accumulate: a converted peaker is two units on one asset id (the
+        // synthetic baseload is never sized when demand<=0, but skip it for
+        // safety so no phantom -1 key leaks into genMW)
+        if (u.id !== BASELOAD_UNIT_ID && !genMW.has(u.id)) genMW.set(u.id, 0);
         if (u.mustRun || u.flex) recordCurtailed(u, u.availMW);
       }
       for (const s of island.subs) {
@@ -617,8 +707,11 @@ export function runDispatch(
       const mw = Math.min(u.availMW, remaining);
       remaining -= mw;
       // accumulate, not overwrite: a converted peaker (#23) is two units
-      // (H₂ half + gas half) carrying the same asset id
-      genMW.set(u.id, (genMW.get(u.id) ?? 0) + mw);
+      // (H₂ half + gas half) carrying the same asset id. The synthetic
+      // national baseload (W8 Part-2b) is NOT a real asset, so it never lands
+      // in the per-asset genMW map (no phantom generator in the UI) — but it
+      // still injects, costs and carbons below like any dispatched unit.
+      if (u.id !== BASELOAD_UNIT_ID) genMW.set(u.id, (genMW.get(u.id) ?? 0) + mw);
       if (mw > 0) {
         injections.push({ bus: u.bus, pMW: mw });
         costKPerHour += mw * u.costK;

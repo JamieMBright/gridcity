@@ -47,6 +47,38 @@ is now small.** Headline true state:
   home-screen icon (all v1+v2 concepts rejected, awaiting direction); deepen-night-vs-keep-cosy
   night-light decision; WATCH client_errors after the owner reloads prod.
 
+### 🌍 WAVE β — W8 Part-2b: per-country operating-model DEPTH (wire dormant profile fields)
+Owner ask (2026-06-17): the per-country profiles (`powerProfile.ts` COUNTRY_PROFILES; FR/AU/HK
+wired live via #69) carry fields DEFINED but consumed by NOTHING (reconcile #77). Wire them so the
+country actually PLAYS differently. Determinism sacred: London resolves to LONDON_PROFILE and stays
+byte-identical. No SAVE_VERSION bump (no serialized-state change). Unit-test every sim change.
+- [x] **(1) grid-carbon → carbon KPI.** `gridCarbonG` (g CO₂/kWh per country) had ZERO consumers.
+  Interconnector imports now carry the ACTIVE country's `gridCarbonG` (was catalog `spec.carbonG`
+  150). That import-carbon flows through `dispatch.carbonG` → `state.carbonEMA` → `p.carbonIntegral`
+  → RIIO carbon KPI/score (the existing path). FR imports ~20 g, AU ~445 g, HK ~590 g. Unit-tested:
+  zero player-gen ⇒ all demand imported at gridCarbonG; full self-supply ⇒ ~zero import carbon;
+  London import carbon byte-identical to the prior 150 (LONDON_MARKET.gridCarbonG === 150).
+- [x] **(2) baseloadFloor / hydroDriven → dispatch.** A must-run, ~zero-marginal, ~zero-carbon
+  baseload fraction (France nuclear `baseloadFloor` 0.6) is injected ahead of the merit order per
+  island; it lowers price + carbon and curtails firm renewables in surplus. `hydroDriven` (Brazil)
+  swings a deterministic reservoir-availability factor off the season (dry-season backs hydro down),
+  scaling the baseload it can float. Deterministic (no RNG). Unit-tested; London (no generation
+  flags) byte-identical.
+- [x] **(3) regulator `model` framing text → report-card UI.** The per-country regulator framing
+  ("Ofgem RIIO incentive review" / "Scheme of Control — permitted-return review" / "CRE/ANEEL
+  prudent-cost review") now shows on the RIIO report-card panel (KpiDashboard), reading
+  `ctx.profile.regulator.{name,model}` threaded through the snapshot. Design-gated (desktop +
+  phone-landscape screenshots).
+- [~] **(4) per-country tender flows.** Bias the developer/tender BID APPETITE by country profile
+  (FR nuclear-led floor → renewable-skew dampened; AU solar+battery skew; HK little-to-no tender).
+  SHIPPED: an additive per-country `tenderBias` (Partial<Record<GenType,number>>) on GenerationModel,
+  multiplied into `stepTenders`/allocation-round bid appetite, threaded via ctx.profile. London/no-bias
+  byte-identical. NOTE/scope: the FULL 'owned' no-tender fork for HK (build-a-power-station command +
+  skip stepTenders) is explicitly DEFERRED per docs/operating-models DESIGN.md Phase-C (HK stays
+  'tender' until that path exists, else the player can't add generation) — HK is biased DOWN toward
+  near-zero tender appetite instead. Per-country DEVELOPER ROSTER rename (EDF/AGL flavour) also
+  deferred (naming-only, large, no mechanic change).
+
 ### 🔺 WP3 — Giza Sound-&-Light as an ENERGISABLE DEMAND POINT (Cairo) — DONE (2026-06-17)
 Owner ask (WAVE γ): "Pyramids of Giza must feature + the Sound-&-Light floodlighting needs
 [to be energised]." The Giza sprites (pyramids + Sphinx) and the `pyramidFlood`/`sphinxFlood`

@@ -11,7 +11,7 @@ import type { Pitch, TechState } from './events/innovation';
 import type { CouncilState } from './customers/adoption';
 import type { BillBreakdown } from './regulation/bill';
 import type { KpiRates } from './regulation/kpis';
-import type { PeriodActuals, PeriodTargets, ReportCard } from './regulation/riio';
+import type { PeriodActuals, PeriodTargets, RegulatorModel, ReportCard } from './regulation/riio';
 import type { CatchmentForecast } from './forecast';
 import type { BalanceReport, BalanceSeason } from './balance';
 import type { ReinforcementPlan } from './planner';
@@ -285,6 +285,17 @@ export interface SimSnapshot {
     targets: PeriodTargets;
     current: PeriodActuals;
     lastReport?: ReportCard | undefined;
+    /** The active regulator framing (W8 Part-2b): the country's regulator name
+     *  + price-control model + the human framing text the report-card panel
+     *  shows, so a country's card reads in its own regulatory language
+     *  (Ofgem RIIO / Hong Kong Scheme-of-Control / CRE/ANEEL prudent-cost). */
+    regulator: {
+      name: string;
+      model: RegulatorModel;
+      scheme: string;
+      review: string;
+      blurb: string;
+    };
     /** The price-control money (regulation/rav.ts): RAV, allowed revenue
      *  vs actual totex, sharing + incentive. Present ONLY once the layer
      *  has phased in (the network is up and running) — undefined keeps the

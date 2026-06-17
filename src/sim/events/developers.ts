@@ -9,6 +9,7 @@
 import type { PlacedAsset } from '../assets';
 import { GENS, type GenType, strikeMWh } from '../catalog';
 import type { Rng } from '../rng';
+import type { GenerationModel } from '../powerProfile';
 import { pushEvent, type GameState } from '../state';
 
 export interface Developer {
@@ -125,6 +126,23 @@ export function developerOf(id: number): Developer | undefined {
  *  for developer plant not yet stamped with GenAsset.curtailK. */
 export function devCurtailK(developerId: number): number | undefined {
   return developerOf(developerId)?.curtailPriceK;
+}
+
+/** Per-country bid-appetite multiplier (W8 Part-2b): the active generation
+ *  model's `tenderBias` skews a developer's appetite for a technology so a
+ *  country's tender FLOW matches its real mix (France's nuclear floor dampens
+ *  the renewable rush, Australia skews solar+battery, Hong Kong — no real
+ *  tender — is biased right down). Absent bias / missing key ⇒ ×1, so GB (no
+ *  bias) is byte-identical. Never resurrects a zero appetite (a developer that
+ *  never bids on a tech still never does). */
+export function biasedAppetite(
+  dev: Developer,
+  gen: GenType,
+  generation: GenerationModel | undefined,
+): number {
+  const base = dev.appetite[gen] ?? 0;
+  if (base <= 0) return 0;
+  return base * (generation?.tenderBias?.[gen] ?? 1);
 }
 
 /** Every developer starts moderately well-disposed. */
@@ -258,8 +276,9 @@ export function sealedRoundBid(rng: Rng, dev: Developer, gen: GenType, mood: num
 
 /** Open allocation round `roundId + 1`: tag every open tender into it and
  *  collect a sealed bid from every developer with appetite that hasn't
- *  already bid on the site. */
-function openAllocationRound(state: GameState, rng: Rng): void {
+ *  already bid on the site. `generation` carries the active country's
+ *  `tenderBias` (W8 Part-2b); absent ⇒ unbiased GB behaviour. */
+function openAllocationRound(state: GameState, rng: Rng, generation?: GenerationModel): void {
   state.roundId += 1;
   const open = state.tenders.filter((t) => t.status === 'open');
   for (const t of open) t.roundId = state.roundId; // migrates leftovers forward
@@ -270,7 +289,7 @@ function openAllocationRound(state: GameState, rng: Rng): void {
   let sealed = 0;
   for (const t of open) {
     for (const dev of DEVELOPERS) {
-      if ((dev.appetite[t.gen] ?? 0) <= 0) continue;
+      if (biasedAppetite(dev, t.gen, generation) <= 0) continue;
       if (t.bids.some((b) => b.developerId === dev.id)) continue;
       const mw = bidMWFor(t); // capped by what the land fits
       t.bids.push({
@@ -377,12 +396,19 @@ export function bumpAllMoods(state: GameState, delta: number): void {
  *  is open; a bid-less tender gets one 6-day extension, then lapses.
  *  Tenders holding bids wait indefinitely for the player's award.
  *  Also the home of the quarterly allocation-round timer (#14) and the
- *  curtail-price inheritance pass (#17). */
-export function stepTenders(state: GameState, rng: Rng, dtMin: number): void {
+ *  curtail-price inheritance pass (#17). `generation` carries the active
+ *  country's `tenderBias` (W8 Part-2b) that skews the bid FLOW per technology;
+ *  absent ⇒ unbiased GB behaviour, byte-identical. */
+export function stepTenders(
+  state: GameState,
+  rng: Rng,
+  dtMin: number,
+  generation?: GenerationModel,
+): void {
   if (dtMin > 0) {
     // quarterly CfD allocation round: sweep all open tenders at once
     while (state.simTimeMin >= state.roundOpensMin) {
-      openAllocationRound(state, rng);
+      openAllocationRound(state, rng, generation);
       state.roundOpensMin += ROUND_INTERVAL_MIN;
     }
     settleClearedRounds(state);
@@ -393,7 +419,7 @@ export function stepTenders(state: GameState, rng: Rng, dtMin: number): void {
     if (state.simTimeMin < t.closesMin) {
       const spec = GENS[t.gen];
       for (const dev of DEVELOPERS) {
-        const appetite = dev.appetite[t.gen] ?? 0;
+        const appetite = biasedAppetite(dev, t.gen, generation);
         if (appetite <= 0) continue;
         if (t.bids.some((b) => b.developerId === dev.id)) continue;
         if (!rng.chance((appetite * dtMin) / (BID_MEAN_DAYS * 1440))) continue;

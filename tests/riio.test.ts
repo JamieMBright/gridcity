@@ -7,12 +7,16 @@ import {
   newPeriod,
   nextTargets,
   PERIOD_MIN,
+  regulatorFraming,
   resolveWeights,
   type PeriodActuals,
 } from '../src/sim/regulation/riio';
 import {
   AUSTRALIA_REGULATOR,
+  COUNTRY_PROFILES,
+  FRANCE_REGULATOR,
   HONGKONG_REGULATOR,
+  LONDON_REGULATOR,
 } from '../src/sim/powerProfile';
 import { derive, solveTick, advanceTime, currentPeriodActuals } from '../src/sim/tick';
 import { poweredFixture } from './helpers';
@@ -143,6 +147,48 @@ describe('RIIO scoring', () => {
     const a = currentPeriodActuals(state);
     for (const v of Object.values(a)) {
       expect(Number.isFinite(v)).toBe(true);
+    }
+  });
+});
+
+// W8 Part-2b (3): the report-card panel speaks each country's regulatory
+// language — the framing TEXT varies by regulator model (presentation only;
+// the scoring difference is carried by kpiWeights, tested above).
+describe('regulator framing per model (W8-2b item 3)', () => {
+  it('GB/RIIO framing names Ofgem-style RIIO', () => {
+    const f = regulatorFraming('riio');
+    expect(f.scheme).toBe('RIIO');
+    expect(f.review).toMatch(/incentive/i);
+    expect(f.blurb).toMatch(/RIIO/);
+  });
+
+  it('profit-cap framing names a Scheme-of-Control permitted-return review', () => {
+    const f = regulatorFraming('profit-cap');
+    expect(f.scheme).toBe('Scheme of Control');
+    expect(f.review).toMatch(/permitted-return/i);
+    expect(f.blurb).toMatch(/reliab/i);
+  });
+
+  it('cost-of-service framing names a prudent-cost concession review', () => {
+    const f = regulatorFraming('cost-of-service');
+    expect(f.scheme).toBe('cost-of-service');
+    expect(f.review).toMatch(/prudent-cost/i);
+    expect(f.blurb).toMatch(/affordability|service/i);
+  });
+
+  it('every shipped country maps to a distinct, non-empty framing', () => {
+    // London = Ofgem RIIO; HK = Scheme of Control; France = CRE cost-of-service
+    expect(regulatorFraming(LONDON_REGULATOR.model).scheme).toBe('RIIO');
+    expect(regulatorFraming(HONGKONG_REGULATOR.model).scheme).toBe('Scheme of Control');
+    expect(regulatorFraming(FRANCE_REGULATOR.model).scheme).toBe('cost-of-service');
+    // AER is a revenue-cap building-block but framed as riio in the profile
+    expect(regulatorFraming(AUSTRALIA_REGULATOR.model).scheme).toBe('RIIO');
+    // every country profile yields a usable framing (no missing model)
+    for (const id of Object.keys(COUNTRY_PROFILES) as (keyof typeof COUNTRY_PROFILES)[]) {
+      const f = regulatorFraming(COUNTRY_PROFILES[id].regulator.model);
+      expect(f.scheme.length).toBeGreaterThan(0);
+      expect(f.review.length).toBeGreaterThan(0);
+      expect(f.blurb.length).toBeGreaterThan(0);
     }
   });
 });

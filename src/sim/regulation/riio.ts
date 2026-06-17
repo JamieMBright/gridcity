@@ -140,6 +140,52 @@ export function gradeOf(composite: number): ReportCard['grade'] {
   return 'E';
 }
 
+/** The regulatory framing a country runs under (mirrors
+ *  powerProfile.RegulatorProfile.model; defined here to avoid an import cycle —
+ *  powerProfile imports this module). Selects the report-card framing TEXT. */
+export type RegulatorModel = 'riio' | 'profit-cap' | 'cost-of-service';
+
+/** Human framing for a regulator model — surfaced on the RIIO report-card
+ *  panel (W8 Part-2b) so a country's report card reads in its own regulatory
+ *  language: Ofgem's RIIO incentive review (GB/AU), a Scheme-of-Control
+ *  permitted-return review (Hong Kong), or a prudent-cost review (France's CRE,
+ *  Brazil's ANEEL). `name` is the regulator's own name (Ofgem / AER / CRE / …).
+ *  Pure presentation — no scoring change (the KPI WEIGHTS already vary per
+ *  regulator via resolveWeights). */
+export function regulatorFraming(model: RegulatorModel): {
+  /** Short tag shown beside the period number ("RIIO" / "Scheme of Control"). */
+  scheme: string;
+  /** The review's full name. */
+  review: string;
+  /** One-line description of how this regulator judges the operator. */
+  blurb: string;
+} {
+  switch (model) {
+    case 'profit-cap':
+      return {
+        scheme: 'Scheme of Control',
+        review: 'permitted-return review',
+        blurb:
+          'A Scheme-of-Control settlement: a permitted return on net fixed assets, judged above all on world-class reliability.',
+      };
+    case 'cost-of-service':
+      return {
+        scheme: 'cost-of-service',
+        review: 'prudent-cost review',
+        blurb:
+          'A cost-of-service concession review: prudently-incurred costs are passed through, with affordability and service at the fore.',
+      };
+    case 'riio':
+    default:
+      return {
+        scheme: 'RIIO',
+        review: 'incentive review',
+        blurb:
+          'A RIIO-style price control: outputs are incentivised against targets, and every pound of totex lands on the bill.',
+      };
+  }
+}
+
 export interface PeriodActuals {
   bill: number;
   ci: number;
