@@ -50,6 +50,29 @@ monuments are a real, connectable demand the operator must reach) + the design-g
   the Cairo-load regression. London determinism untouched (heritage load is Cairo-scoped; the
   only shared change is a read-only renderer accessor never hit on London's path).
 
+### ✨ POLISH — densification + Thames glint + night-deepening (#72, merged to main)
+Three independent backlog-polish items. Gates: tsc/eslint/vitest/build +
+`bash tools/e2e-shards.sh cityload`; London determinism must hold. Design-gate
+#2/#3 at far/mid (desktop + phone), screenshots in preview/.
+- [x] **(1) Town densification over time** — growTown now grows towns UP, not
+      just out: served, built-up tiles climb a density ladder (suburb→urban→
+      urbanCore) at a rate tied to served demand (growthPressure(everServed),
+      bounded/saturating). Deterministic, append-only GrowthRecords, replays on
+      load (no SAVE_VERSION bump). Unit: tests/growth.test.ts (5 cases incl.
+      multi-rung replay determinism). (963b27f)
+- [x] **(2) Map recognisability — thin-river glint** — a subtle warm sheen down
+      the Thames centreline (render-only, follows the spline incl. the Isle of
+      Dogs loop; London-fabric-gated; no geometry/save change). Verified far/mid/
+      close previews. Left geometry + radial density untouched (no overhaul).
+      (2d1987d)
+- [~] **(3) Night-deepening (OWNER-CONTESTED — keep/revert)** — conservative:
+      window-glow gain 0.85→0.95 + kit bloom 0.9→1.0 (lights pop by contrast) and
+      a one-step-deeper night tint 0xb9b2cc→0xada5c6 (lum 0.465→0.399, well above
+      the cosy >0.2 floor). NIGHT before/after at far+mid, desktop+phone produced
+      for the owner. Stays cosy, not horror-dark. FLAGGED for owner keep-or-revert.
+- [x] GATES all green (tsc/eslint/vitest 774/build/cityload 16-16; London determinism
+      held); branch pushed; PR to main; before/after night screenshots in preview/.
+
 ### 💷 WP5 — ECONOMY & TIME-SKIP POLISH (this session, branch wp5-economy-timeskip)
 Three focused, independent backlog items. Deterministic sim (seeded RNG); London/
 missions determinism anchors must not regress; serialized-state changes justify a

@@ -7,8 +7,9 @@ import type { MapRenderer } from '../render/MapRenderer';
 import type { Command } from '../sim/commands';
 import { TERRAIN, ZONE } from '../sim/map/types';
 import { armRenderCrash } from '../ui/CrashCanary';
+import type { SkipTarget } from '../sim/protocol';
 import { useAppStore } from './store';
-import { crashWorker, sendCommand, startMission } from './workerBridge';
+import { crashWorker, requestSkip, sendCommand, startMission } from './workerBridge';
 
 export interface EcTestApi {
   tileToScreen(x: number, y: number): { x: number; y: number };
@@ -32,6 +33,9 @@ export interface EcTestApi {
   getRoad(x: number, y: number): number;
   /** Drive the sim directly (build/demolish/speed …). */
   sendCommand(cmd: Command): void;
+  /** Fast-forward the sim a week/month/to-next-event (the HUD skip), so a
+   *  screenshot helper can commission generation without minutes of 16× wait. */
+  skip(to: SkipTarget): void;
   /** Launch a tutorial mission (swaps the map + rebuilds on its scenario). */
   startMission(scenarioId: string): void;
   /** TEST ONLY: force a React render crash (arms the CrashCanary) to verify
@@ -64,6 +68,7 @@ export function installTestHook(renderer: MapRenderer): void {
     getLitHeroKinds: () => renderer.getLitHeroKinds(),
     getState: () => useAppStore.getState(),
     sendCommand: (cmd) => sendCommand(cmd),
+    skip: (to) => requestSkip(to),
     getRoad: (x, y) =>
       x >= 0 && x < map.width && y >= 0 && y < map.height ? (map.road[y * map.width + x] ?? 0) : 0,
     startMission: (scenarioId) => startMission(scenarioId),
