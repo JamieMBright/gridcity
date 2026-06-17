@@ -188,6 +188,16 @@ export function initWorker(): void {
       case 'billDetail':
         s.setBillDetail({ line: msg.line, rows: msg.rows });
         break;
+      case 'skipHalted':
+        // a skip cut short on news (the following snapshot carries the event
+        // itself): tell the player WHY it stopped, and chime as for bad news
+        s.setToast(
+          msg.reason
+            ? `Skip stopped: ${msg.reason}`
+            : `Skip stopped — ${msg.to === 'month' ? 'a major incident' : 'something'} needs you`,
+        );
+        playSfx('chime');
+        break;
       case 'fatal':
         // an uncaught sim exception (the worker paused itself): surface to the
         // HUD AND capture the traceback so we can self-heal.

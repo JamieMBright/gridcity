@@ -41,6 +41,119 @@ on its own energisation. CityMap already carries non-serialized, rebuilt-from-sc
 - [ ] DESIGN GATE: NIGHT OFF-vs-ON pair at same close framing; ON run logs servedCustomers>0;
   floodlight obviously ON in ON shot, OFF in OFF shot; saved to preview/giza-*.png.
 
+### 💷 WP5 — ECONOMY & TIME-SKIP POLISH (this session, branch wp5-economy-timeskip)
+Three focused, independent backlog items. Deterministic sim (seeded RNG); London/
+missions determinism anchors must not regress; serialized-state changes justify a
+SAVE_VERSION bump or are avoided. Gates: tsc/eslint/vitest/build +
+`bash tools/e2e-shards.sh goals`.
+- [x] **+30d skip halts on a MAJOR incident** — GameEvent gains an optional `major`
+      flag (additive; no SAVE_VERSION bump — events serialize by spread); protocol's new
+      `skipHaltEvent`/`haltsSkip` make +30d stop ONLY on a major bad event (severe storm
+      landfall, grid-transformer failure, storm-felled line, flooded substation) while
+      +7d still stops on any bad news and event-skip on warn+. Major flags set in
+      faults.ts (storm-felled line / tx failure) + incidents.ts (storm banner / flooded
+      sub). worker.runSkip posts a transient `skipHalted` message (state untouched → run
+      stays byte-identical to live play); bridge toasts "Skip stopped: <reason>".
+      Tests: predicate rules + seeded integration (major halts +30d, routine fault does
+      not, same fault halts +7d). (skip.test.ts)
+- [x] **RAV phase-in tuning** — replaced flat straight-line RAV depreciation with the
+      documented ED3 SUM-OF-DIGITS profile (docs/riio-ed3-coverage.md §A: 45-yr life,
+      sum-of-digits, the "depreciation holiday"). The pool is now a set of VINTAGES (each
+      addition keeps its own age); a vintage's remaining book follows f(t)=1−(t/L)² so
+      depreciation revenue starts near-zero and RAMPS with age — a big capex wave phases
+      in gently instead of jumping to a cliff. grossK/netK kept as pool-total caches the
+      tick reads. Life/WACC figures unchanged (no invented numbers). Additive serialized
+      field (vintages) with reconcileVintages self-heal for pre-SoD saves — no
+      SAVE_VERSION bump (non-geometry, self-healing). KpiDashboard depreciation hint
+      updated. Tests: SoD curve, back-loading/holiday, full-life recovery, phase-in ramp,
+      per-vintage holiday, save round-trip + self-heal. (rav.test.ts)
+- [x] **Car-park EV load** — LANDMARK.carpark tiles now draw a modest public
+      EV-charging load (CARPARK_EV_MW = 0.3 MW at full local adoption) in the demand
+      field's evMW, scaled by the surrounding council's EV fraction so it GROWS as the
+      area electrifies (0 at no uptake). Lives in tileDemand (DER, not the no-DER base),
+      so it flows through service catchments, the headroom heatmap + balance. Fixed the
+      service-area gate (was base-demand-only) to admit car-park-only tiles — verified
+      against real London: 18 car-park tiles, all council-backed, several with 0 homes
+      that would otherwise have had their 0.3 MW dropped. Deterministic. (demand.test.ts)
+- [ ] GATES all green; commit incrementally; push branch; PR to main.
+
+### 🏙️ WP6 — PER-CITY BUILDING CHARACTER (this session, branch wp6-city-building-character)
+Cities stop looking like reskinned London terraces: era/region-appropriate housing +
+building stock per city, wired through the fabric system (London byte-identical anchor).
+This is WAVE ζ "Per-city asset packs & richer building stock", scoped to a COHERENT
+increment + a reusable PATTERN (not a shallow pass over all 11). Model: Opus.
+Gates: tsc / eslint / vitest / build + `bash tools/e2e-shards.sh cityload`. Atlas ≤4096.
+- [x] **Reusable pattern + scalable baking** — bespoke domestic stock baked OFF-ATLAS to its
+      OWN tight buffers (atlas.buildCityStockBufs, merged into the heroes map), gated on
+      `activeFabric()` — NOT on the shared sheet. London adds zero off-atlas stock ⇒ its
+      sheet is byte-identical (verified: SHA-256 of London's atlas sheet + hero bufs matches
+      main 34e5cf8 exactly). Every fabric's shared sheet stays ≤3968×3966px (probe across all
+      12 fabrics; 4096 ceiling untouched). Pattern documented in atlas.ts + tileChooser.ts:
+      add a `<city>` archetype fn → bake it under a `case` in buildCityStockBufs → dispatch
+      it in cityStockFor per zone. (atlas.ts:300, tileChooser.ts:202)
+- [x] **New York** — `brownstoneTile` (russet sandstone stoops/cornices/bays, flat charcoal
+      roof) + `setbackTile` (1916-zoning wedding-cake tiers, water towers on steel legs).
+      Reads as Manhattan canyon walls, NOT London terraces. (buildingSprites.ts:888,957)
+- [x] **Hong Kong** — `hktowerTile` (slender flat-topped slab on a glazed retail podium,
+      gridded windows, bay wings, AC units, rooftop tanks + lift overrun) + `tonglauTile`
+      (older walk-up: projecting balconies, five-foot-way shopfront, shop banners). The
+      wall-of-towers tell. (buildingSprites.ts:1011,1082)
+- [x] **Cairo** — `cairoblockTile`: exposed concrete frame + recessed bare-brick infill,
+      proud floor slabs, UNFINISHED rebar top, flat roof crammed w/ dishes+tanks, jagged
+      mismatched neighbour heights, sandy-ochre dust palette. (buildingSprites.ts:1136)
+- [x] **Wire through tileChooser** — `cityStockFor(fabric, zone, …)` dispatches per zone
+      (NYC: setback in cbd/core, brownstone in boroughs; HK: hktower in core/cbd, tonglau in
+      urban; Cairo: cairoblock across residential; Paris: haussmann). London + the 7
+      un-converted cities return undefined ⇒ shared London logic. Audited consistent: every
+      referenced sprite is baked exactly once (modulos match baked counts), no missing-sprite
+      bug, no dead art. (tileChooser.ts:215, structureSpriteFor:397)
+- [x] **TODOs left** for the remaining 7 cities (Sydney/Berlin/Shanghai/Cape Town/Athens/
+      Pune/North-East) — they already carry bespoke env+wall/roof colourways; the clear
+      add-an-archetype pattern is in tileChooser.ts:211-214 + atlas.ts:291-299.
+- [x] **DESIGN GATE** — real IN-GAME screenshots of NYC/HK/Cairo at mid+close, dusk, desktop
+      (1100×700) AND phone-landscape (844×390) via e2e/wp6shots.helper.spec.ts → preview/wp6/
+      ingame-<city>-<desktop|phone>-<mid|close>.png (12 imgs), PLUS per-archetype contact
+      sheets preview/wp6/stock-<city>.png. Critiqued vs the docs/cities research: all three
+      read as genuinely distinct, era/region-appropriate, NOT recoloured London. London
+      comparison sheet (preview/wp6/contact-london.png) confirms the contrast (pitched slate
+      + brick-red vs flat roofs + russet/grey/ochre).
+- [x] **GATES all green** — tsc 0 · eslint 0 (no `tools/_*.ts` scratch remain) · vitest
+      797/797 · build OK · `bash tools/e2e-shards.sh cityload` 16/16 (a 1st run flaked on a
+      leftover foreign dev-server on the shared port — re-ran clean on an isolated port).
+      Atlas ≤4096 verified. PR to main next.
+
+### 🎓 WP1 — TUTORIAL GUIDED-PLAY POLISH (this session, branch wp1-tutorial-guided-play)
+Owner playtest-feedback items for the tutorial/onboarding (drawn from the re-raise
+ledger below). Scope: tutorial/onboarding UX ONLY — must not regress normal
+(non-tutorial) play. Both desktop + phone-landscape design-gated. Gates:
+tsc/eslint/vitest/build + `bash tools/e2e-shards.sh 'panels|flows|bootpaths'`.
+- [x] **Highlight VANISHES the moment its target is clicked** — useSpotlightRect now
+      watches the measured target for a pointerdown and reports `clicked`; Tutorial
+      drops the spotlight on click (not when the goal latches). (d552883)
+- [x] **ARROW pointing at the highlighted target, gentle BOUNCING animation** —
+      SpotlightOverlay draws a bobbing ▼ arrow (rotated to point from whichever side
+      has room), data-testid="spotlight-arrow". (d552883)
+- [x] **Allow only ONE onshore-wind facility during the relevant lesson** (m1/m5) —
+      commands.ts SINGLE_ONSHORE_MISSIONS guard refuses a 2nd onshore designation
+      (open/awarded tender OR built gen); sandbox unaffected. (6dc93bd)
+- [x] **Prevent unrelated APPLICATIONS/events spawning during tutorials** — tick.ts
+      inMission guard skips maybeSpawnApplications / maybeSpawnPitch / rollFaults in
+      missions; m3 scripted fault + m4 seeded app survive; sandbox flows. (2079747)
+- [x] **Hide non-essential HUD/overlay info during tutorials**, introduced
+      progressively — minimap+bookmarks gated (hud:minimap, hidden in all current
+      lessons); market ticker gated (hud:market, introduced in m5). (cd127d4)
+- [x] **T2 — teach UNDERGROUND cables** — m2 wire step teaches overhead→underground
+      (U hotkey / palette toggle) for happier locals, gated on a 33 kV cable. (4604800)
+- [x] **T5 — teach REINFORCING an existing sub** — m5 step: inspect a dist sub +
+      step the transformer up (cheaper than new), gated on a manual mva. (4604800)
+- [x] **T4 — surface the firm-vs-flex VISUAL comparison IN-FLOW** — m4 offer step
+      teaches + spotlights the side-by-side FirmFlexCompare cards. (4604800)
+- [x] **Teach AUTO-CONNECT via a hotkey** — m6 wire step teaches the A hotkey /
+      auto-connect toggle (placed sub lays its own circuits). (4604800)
+- [x] **T3 — visible van-launch step** — m3 seeds fleetSize=0; new step raises vans
+      0→1 (Fleet panel) then the storm step shows the van leave the depot. (4604800)
+- [ ] GATES all green + tutorial e2e extended; PR to main; screenshots both viewports.
+
 ### 🧾 LEDGER RECONCILE (2026-06-17) — honest audit of every open/partial item vs the shipped code (origin/main @ 2099b94, PRs #63–#66)
 The owner flagged that the ledger had drifted untrustworthy (~134 unchecked items, many
 already shipped). This pass VERIFIED every `- [ ]`/`- [~]` against the actual codebase

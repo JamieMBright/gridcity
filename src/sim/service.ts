@@ -10,7 +10,7 @@
 
 import { subCapexK, subRadius, SUBS } from './catalog';
 import { subMva, type PlacedAsset } from './assets';
-import type { CityMap } from './map/types';
+import { LANDMARK, type CityMap } from './map/types';
 import { tileDemand, tileDemandMW } from './map/demand';
 import type { CouncilAdoption } from './customers/adoption';
 
@@ -116,7 +116,12 @@ export function assignServiceAreas(
       const i = y * map.width + x;
       const site = siteOfTile.get(i);
       const demand = tileDemandMW(map, i) + (site?.mw ?? 0);
-      if (demand <= 0) continue;
+      // a CAR PARK draws (growing) EV-charging load even on a tile with no
+      // homes/process base, so it must enter the catchment too — tilePeakMW
+      // picks the EV up below. (tileDemandMW is the no-DER base, so a car-park
+      // -only tile reads 0 here and would otherwise be skipped.)
+      const isCarpark = map.landmark?.[i] === LANDMARK.carpark;
+      if (demand <= 0 && !isCarpark) continue;
       const tileCustomers = (map.customers[i] ?? 0) + (site?.customers ?? 0);
       totalCustomers += tileCustomers;
       totalDemandMW += demand;

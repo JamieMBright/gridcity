@@ -9,20 +9,27 @@
 //    built. It starts at ZERO (the owner's spec: "starts at zero and you
 //    build it up as the network grows") and every pound of NETWORK capex
 //    (wires, substations, depots — NOT private generation, NOT the iDNO's
-//    iron) is ADDED to it when committed. It then DEPRECIATES straight-
-//    line over a regulatory asset life. RIIO-ED2 runs an average ~45-year
-//    economic asset life across the DNO RAV pool (transmission is longer,
-//    secondary plant/IT shorter; 45y is Ofgem's blended figure), so that
-//    is REG_ASSET_LIFE_YEARS here. We carry a gross pool (cumulative
-//    additions, the depreciation base) and a net pool (gross less
-//    accumulated regulatory depreciation = the RAV) — exactly how a pooled
-//    straight-line RAV rolls forward.
+//    iron) is ADDED to it when committed. RIIO-ED2 ran a ~45-year economic
+//    asset life across the DNO RAV pool; RIIO-3/ED3 confirms the 45-year
+//    life and, crucially, a SUM-OF-DIGITS depreciation profile for new
+//    additions instead of a flat straight line (docs/riio-ed3-coverage.md
+//    §A). That profile is deliberately BACK-LOADED — low depreciation in an
+//    asset's early years, rising as it ages — which the SSMD calls a
+//    "depreciation holiday": it slows the bill impact of a big capex wave
+//    (the recovered-capital revenue PHASES IN rather than jumping to a
+//    cliff the moment the iron is committed). So REG_ASSET_LIFE_YEARS = 45
+//    and depreciation follows the sum-of-digits curve (ravDepFns below).
+//    We track the pool as a set of VINTAGES (each addition keeps its own
+//    age + remaining book) so every vintage runs its own holiday-then-ramp,
+//    and carry pool totals (gross = depreciation base, net = the RAV) as
+//    cheap caches the tick reads.
 //
 //  • Allowed revenue — the regulated money the operator is ALLOWED to
 //    recover this year. Under a RIIO building-block control it is:
 //        return on RAV  (RAV × regulated WACC)
-//      + regulatory depreciation  (RAV gross / life — the capital you get
-//        back as the asset is used up)
+//      + regulatory depreciation  (the sum-of-digits capital recovery this
+//        year — low for young iron, rising with age; the depreciation
+//        holiday lives here)
 //      + a fast-money opex allowance  (the efficient cost of running it)
 //      + incentive adjustments  (reward/penalty for outputs, below).
 //    REG_WACC = 0.0334 (3.34% real, CPIH-real) is the RIIO-ED2 baseline
@@ -74,10 +81,24 @@ const MIN_PER_YEAR = 525_600;
 export const RAV_ENGAGE_GROSS_K = 50_000; // ~£50m of network built
 export const RAV_ENGAGE_CUSTOMERS = 5_000; // a town actually powered
 
-/** The RAV stock carried on GameState. Gross = cumulative network capex
- *  committed (the depreciation base). Net = gross less accumulated
- *  regulatory depreciation = the RAV proper. accumDepK is tracked so the
- *  net pool can never depreciate below zero and so a save reconciles. */
+/** One RAV VINTAGE — a single tranche of network capex committed at one
+ *  moment, carrying its own age so it runs its own sum-of-digits
+ *  depreciation holiday-then-ramp. */
+export interface RavVintage {
+  /** Original capex of this tranche, £k (its depreciation base). */
+  grossK: number;
+  /** Remaining (undepreciated) book value of this tranche, £k. */
+  netK: number;
+  /** Age of this tranche, game-minutes since commitment. */
+  ageMin: number;
+}
+
+/** The RAV stock carried on GameState. The pool is a set of VINTAGES (each
+ *  addition keeps its own age + book so it depreciates on the sum-of-digits
+ *  curve from its OWN commitment date — that is what phases the recovered-
+ *  capital revenue in instead of a cliff). `grossK`/`netK` are pool-total
+ *  caches (Σ over vintages) the tick + revenue helpers read cheaply; they
+ *  are kept exactly in step by rollRav. */
 export interface RavState {
   /** Cumulative NETWORK capex ever committed, £k (depreciation base). */
   grossK: number;
@@ -86,10 +107,47 @@ export interface RavState {
   /** Whether the layer has ever engaged (sticky — once the network is up
    *  and running it stays surfaced even if customers later drop). */
   engaged: boolean;
+  /** The per-vintage pool (additive; a pre-vintage save self-heals into a
+   *  single synthetic vintage — see reconcileVintages). */
+  vintages: RavVintage[];
 }
 
 export function newRav(): RavState {
-  return { grossK: 0, netK: 0, engaged: false };
+  return { grossK: 0, netK: 0, engaged: false, vintages: [] };
+}
+
+// --- sum-of-digits depreciation curve ----------------------------------------
+//
+// A vintage of original value G and regulatory life L (years) depreciates on
+// a BACK-LOADED sum-of-digits profile: little early (the "depreciation
+// holiday"), more as it ages. In continuous time the canonical sum-of-digits
+// (digits 1,2,…,L, cumulative ∝ t²) gives a remaining-book fraction
+//
+//     f(t) = 1 − (t/L)²           for 0 ≤ t ≤ L,   0 thereafter
+//
+// so the instantaneous depreciation RATE is G·2t/L² per year — zero at
+// commitment, rising to 2G/L (double the straight-line rate) at end of life,
+// and integrating to exactly G over the life (full capital recovery). This is
+// the documented ED3 profile (docs/riio-ed3-coverage.md §A).
+
+/** Regulatory asset life in game-minutes (REG_ASSET_LIFE_YEARS). */
+const LIFE_MIN = REG_ASSET_LIFE_YEARS * MIN_PER_YEAR;
+
+/** Remaining-book fraction of a vintage's ORIGINAL gross at age `ageMin`,
+ *  on the sum-of-digits curve: 1−(t/L)², clamped to [0,1]. */
+export function ravNetFracAtAge(ageMin: number): number {
+  if (ageMin <= 0) return 1;
+  if (ageMin >= LIFE_MIN) return 0;
+  const x = ageMin / LIFE_MIN;
+  return 1 - x * x;
+}
+
+/** Instantaneous sum-of-digits depreciation RATE of a vintage, £k/yr, at age
+ *  `ageMin`: derivative of G·(1−(t/L)²) ⇒ G·2t/L² per year (zero while young,
+ *  rising with age; zero once fully depreciated). */
+export function ravDepRateYrK(grossK: number, ageMin: number): number {
+  if (grossK <= 0 || ageMin <= 0 || ageMin >= LIFE_MIN) return 0;
+  return (grossK * 2 * ageMin) / (LIFE_MIN * MIN_PER_YEAR);
 }
 
 /** The £k of capex an asset adds to the RAV when committed. Mirrors the
@@ -112,37 +170,82 @@ export function networkCapexOnRegisterK(assets: Iterable<PlacedAsset>): number {
   return k;
 }
 
-/** Roll the RAV one tick: absorb any newly-committed network capex into
- *  the gross pool and the RAV, then apply straight-line regulatory
- *  depreciation over REG_ASSET_LIFE_YEARS. Deterministic; mutates `rav`.
+/** Recompute the pool-total caches (grossK/netK) from the live vintages. */
+function syncPoolTotals(rav: RavState): void {
+  let g = 0;
+  let n = 0;
+  for (const v of rav.vintages) {
+    g += v.grossK;
+    n += v.netK;
+  }
+  rav.grossK = g;
+  rav.netK = n;
+}
+
+/** Bring a save's vintages into existence if it predates them: a pre-vintage
+ *  save carries only grossK/netK, so synthesize ONE vintage holding that
+ *  book at an age implied by how far it has already depreciated on the
+ *  sum-of-digits curve (so it carries on depreciating sensibly rather than
+ *  restarting its holiday). Idempotent; a save WITH vintages is left alone. */
+export function reconcileVintages(rav: RavState): void {
+  if (rav.vintages && rav.vintages.length > 0) {
+    syncPoolTotals(rav);
+    return;
+  }
+  rav.vintages = [];
+  if (rav.grossK > 0) {
+    // infer age from the remaining fraction: f = 1−(t/L)² ⇒ t = L·√(1−f)
+    const frac = Math.max(0, Math.min(1, rav.netK / rav.grossK));
+    const ageMin = LIFE_MIN * Math.sqrt(1 - frac);
+    rav.vintages.push({ grossK: rav.grossK, netK: rav.netK, ageMin });
+  }
+  syncPoolTotals(rav);
+}
+
+/** Roll the RAV one tick: absorb any newly-committed network capex as a fresh
+ *  VINTAGE, retire iron pro-rata on a demolition, then age + depreciate every
+ *  vintage on its own sum-of-digits curve. Deterministic; mutates `rav`.
  *
  *  `registerCapexK` is the live total network capex on the asset register
  *  (networkCapexOnRegisterK). Additions are the amount by which it exceeds
- *  the gross pool — so building adds to RAV, and a DEMOLITION (the register
- *  total falling) is treated as a disposal at net book value (the RAV and
- *  gross pool both step down to the register, never below it). */
+ *  the gross pool — a new vintage at age 0 (so it begins its depreciation
+ *  holiday). A DEMOLITION (the register total falling) is a disposal at net
+ *  book value: every vintage's gross + net step down pro-rata, never below
+ *  the register total. */
 export function rollRav(rav: RavState, registerCapexK: number, dtMin: number): void {
-  // additions: new network capex committed since last tick
+  reconcileVintages(rav); // tolerate a freshly-loaded (pre-vintage) save
+  // additions: new network capex committed since last tick → a fresh vintage
   const additions = Math.max(0, registerCapexK - rav.grossK);
   if (additions > 0) {
-    rav.grossK += additions;
-    rav.netK += additions; // a fresh asset enters the RAV at full value
+    rav.vintages.push({ grossK: additions, netK: additions, ageMin: 0 });
   }
   // disposals: the register total fell below the gross pool (an asset was
-  // demolished). Retire it from the pool; the RAV follows pro-rata so it
-  // can't carry book value for iron that no longer exists.
-  if (registerCapexK < rav.grossK) {
-    const disposed = rav.grossK - registerCapexK;
-    const netFrac = rav.grossK > 0 ? rav.netK / rav.grossK : 0;
-    rav.grossK = registerCapexK;
-    rav.netK = Math.max(0, rav.netK - disposed * netFrac);
+  // demolished). Retire iron pro-rata across vintages so the RAV can't carry
+  // book value — or a depreciation base — for iron that no longer exists.
+  if (registerCapexK < rav.grossK && rav.grossK > 0) {
+    const keep = registerCapexK / rav.grossK; // fraction of the pool retained
+    for (const v of rav.vintages) {
+      v.grossK *= keep;
+      v.netK *= keep;
+    }
   }
-  // straight-line regulatory depreciation of the gross pool, pro-rated to
-  // the tick; the RAV never falls below zero
-  if (dtMin > 0 && rav.netK > 0) {
-    const depK = (rav.grossK / REG_ASSET_LIFE_YEARS) * (dtMin / MIN_PER_YEAR);
-    rav.netK = Math.max(0, rav.netK - depK);
+  // age + sum-of-digits depreciation: each vintage's remaining book falls
+  // from G·f(age) to G·f(age+dt) (back-loaded — slow while young), never
+  // below zero. Closed-form on the curve, so many small steps == one big one.
+  if (dtMin > 0) {
+    for (const v of rav.vintages) {
+      const before = v.ageMin;
+      v.ageMin = before + dtMin;
+      if (v.grossK <= 0) continue;
+      const target = v.grossK * ravNetFracAtAge(v.ageMin);
+      if (target < v.netK) v.netK = Math.max(0, target);
+    }
   }
+  // drop fully-spent / retired vintages so the pool can't grow without bound
+  if (rav.vintages.length > 0) {
+    rav.vintages = rav.vintages.filter((v) => v.grossK > 1e-9 && v.netK > 1e-9);
+  }
+  syncPoolTotals(rav);
 }
 
 /** Is the RAV/revenue layer engaged? Sticky once true. The gate is the
@@ -161,10 +264,21 @@ export function ravEngaged(
   );
 }
 
-/** The straight-line regulatory depreciation the operator recovers this
- *  year, £k/yr (gross pool / life). */
+/** The regulatory depreciation the operator recovers this year, £k/yr — the
+ *  sum-of-digits run-rate summed over every vintage at its current age (low
+ *  while the pool is young — the depreciation holiday — rising as it ages).
+ *  A pre-vintage save reconciles to a single synthetic vintage first. */
 export function regDepreciationYrK(rav: RavState): number {
-  return rav.grossK / REG_ASSET_LIFE_YEARS;
+  if (!rav.vintages || rav.vintages.length === 0) {
+    // pre-vintage / never-rolled: fall back to the curve at the inferred age
+    if (rav.grossK <= 0) return 0;
+    const frac = Math.max(0, Math.min(1, rav.netK / rav.grossK));
+    const ageMin = LIFE_MIN * Math.sqrt(1 - frac);
+    return ravDepRateYrK(rav.grossK, ageMin);
+  }
+  let yrK = 0;
+  for (const v of rav.vintages) yrK += ravDepRateYrK(v.grossK, v.ageMin);
+  return yrK;
 }
 
 /** Return on RAV, £k/yr (RAV × regulated WACC). */

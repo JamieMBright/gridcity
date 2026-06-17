@@ -8,17 +8,22 @@ import { isoDims, swAnchorDims } from './iso';
 import { activeFabric } from './buildingSprites';
 import { bespokeHeroesFor, frameIdFor } from './heroes/registry';
 import {
+  brownstoneTile,
+  cairoblockTile,
   cottageTile,
   councilflatTile,
   factoryTile,
   georgianTile,
   greenhouseTile,
   haussmannTile,
+  hktowerTile,
   newbuildTile,
   officeTile,
   semiTile,
+  setbackTile,
   solarFarmTile,
   terraceTile,
+  tonglauTile,
   towerTile,
   vicshopTile,
   victerraceTile,
@@ -269,6 +274,56 @@ function buildHeroBufs(): Map<string, HeroBuf> {
   return heroes;
 }
 
+/** Copy one 1×1 sprite's trimmed art into a tight off-atlas HeroBuf, keyed by
+ *  its plain sprite name. Same packing as buildHeroBufs but for ordinary (non-
+ *  SW) 1×1 building cells. The renderer/preview resolve a HeroBuf by name
+ *  identically to an atlas frame, so the tile chooser can return these names. */
+function tightBuf(name: string, pixels: Uint8ClampedArray<ArrayBuffer>): [string, HeroBuf] {
+  const c = makeCell(pixels, 1, 1, false);
+  const tight = new Uint8ClampedArray(c.w * c.h * 4);
+  for (let row = 0; row < c.h; row++) {
+    const src = ((c.oy + row) * c.stride + c.ox) * 4;
+    tight.set(c.pixels.subarray(src, src + c.w * 4), row * c.w * 4);
+  }
+  return [name, { pixels: tight, w: c.w, h: c.h, ox: c.ox, oy: c.oy, headroom: c.headroom }];
+}
+
+/** Bake the ACTIVE fabric's bespoke DOMESTIC stock (WP6) to OWN off-atlas
+ *  buffers, exactly like the heroes — so a city wears era/region-appropriate
+ *  housing WITHOUT bloating the ~3968px shared sheet (the tall NYC/HK towers
+ *  are big cells; adding 8–12 to the packed sheet pushed it to ~4090/4096).
+ *  Off-atlas, they cost only a per-sprite texture (a few per city, tiled across
+ *  the map). Empty for fabrics with no bespoke stock (London, Paris, …) ⇒ those
+ *  sheets stay byte-identical. PATTERN for the remaining cities: add a `<city>`
+ *  archetype in buildingSprites.ts, register its variants under a new `case`
+ *  here, and branch on `map.fabric === '<city>'` in tileChooser.cityStockFor. */
+function buildCityStockBufs(): Map<string, HeroBuf> {
+  const stock = new Map<string, HeroBuf>();
+  const add = (name: string, px: Uint8ClampedArray<ArrayBuffer>): void => {
+    const [k, v] = tightBuf(name, px);
+    stock.set(k, v);
+  };
+  switch (activeFabric()) {
+    case 'newyork':
+      // brownstone rows (stoops · cornices · bays) + setback "wedding-cake" towers
+      for (let i = 0; i < 4; i++) add(`brownstone_${i}`, brownstoneTile(361 + i, i));
+      for (let i = 0; i < 4; i++) add(`setback_${i}`, setbackTile(371 + i, i));
+      break;
+    case 'hongkong':
+      // dense flat-topped slabs on retail podiums + older tong-lau walk-ups
+      for (let i = 0; i < 4; i++) add(`hktower_${i}`, hktowerTile(381 + i, i));
+      for (let i = 0; i < 4; i++) add(`tonglau_${i}`, tonglauTile(391 + i, i));
+      break;
+    case 'cairo':
+      // red-brick / concrete-frame walk-ups with unfinished rebar tops + clutter
+      for (let i = 0; i < 6; i++) add(`cairoblock_${i}`, cairoblockTile(401 + i, i));
+      break;
+    default:
+      break;
+  }
+  return stock;
+}
+
 function buildSpriteCells(): Map<string, Cell> {
   const m = new Map<string, Cell>();
   const set = (
@@ -315,6 +370,12 @@ function buildSpriteCells(): Map<string, Cell> {
   // many variants (height · stone · balconies · shopfronts) so the uniform
   // Parisian street wall still reads as many distinct buildings.
   for (let i = 0; i < 12; i++) set(`haussmann_${i}`, haussmannTile(351 + i, i));
+  // NOTE (WP6): the NEW per-city domestic stock (brownstone/setback/hktower/
+  // tonglau/cairoblock) is NOT registered on this shared sheet — it rides its
+  // OWN off-atlas buffers (buildCityStockBufs), exactly like the bespoke heroes,
+  // so the ~3968px shared sheet stays well under the 4096 mobile-GPU ceiling and
+  // every city's sheet (London included) is byte-identical. (Paris's Haussmann
+  // predates that mechanism and stays in-sheet; it fits, so it's left as-is.)
   // many tower/office variants (colour · height · crown) for a diverse skyline
   for (let i = 0; i < 8; i++) set(`tower_${i}`, towerTile(111 + i, i));
   for (let i = 0; i < 6; i++) set(`office_${i}`, officeTile(121 + i, i));
@@ -559,6 +620,9 @@ export function buildAtlas(): SpriteAtlas {
       pixels.set(cell.pixels.subarray(src, src + cell.w * 4), dst);
     }
   }
-  // bespoke heroes ride their OWN buffers, off this packed sheet (W2b).
-  return { width, height, pixels, frames, heroes: buildHeroBufs() };
+  // bespoke heroes AND per-city domestic stock (WP6) ride their OWN buffers,
+  // off this packed sheet (W2b), so neither bloats the ≤4096px shared sheet.
+  const heroes = buildHeroBufs();
+  for (const [name, buf] of buildCityStockBufs()) heroes.set(name, buf);
+  return { width, height, pixels, frames, heroes };
 }

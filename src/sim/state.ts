@@ -21,7 +21,13 @@ import {
   type PeriodState,
   type ReportCard,
 } from './regulation/riio';
-import { networkCapexOnRegisterK, newRav, type RavState } from './regulation/rav';
+import {
+  networkCapexOnRegisterK,
+  newRav,
+  reconcileVintages,
+  type RavState,
+  type RavVintage,
+} from './regulation/rav';
 import { NEW_ESTATES } from '../data/londonMap';
 import { getScenario, profileOf } from '../data/cityRegistry';
 import type { ResolvedProfile } from './powerProfile';
@@ -36,6 +42,13 @@ export interface GameEvent {
   msg: string;
   x?: number | undefined;
   y?: number | undefined;
+  /** A genuinely MAJOR incident — a severe storm, a major fault (grid
+   *  transformer / storm-felled line), a flooded substation. Used to halt a
+   *  +30d skip (which otherwise sails past routine `bad` noise like a single
+   *  tree-contact fault) while still letting it skip that routine noise.
+   *  Optional + additive: absent ⇒ not major, so old saves hydrate clean and
+   *  no SAVE_VERSION bump is needed (events serialize by object spread). */
+  major?: boolean | undefined;
 }
 
 export interface GameState {
@@ -316,8 +329,12 @@ export function pushEvent(
   msg: string,
   x?: number,
   y?: number,
+  /** Mark a genuinely MAJOR incident (severe storm / major fault / flooded
+   *  substation) so a +30d skip halts on it; routine `bad` events leave this
+   *  unset and +30d skips past them. Only meaningful on `bad` events. */
+  major?: boolean,
 ): void {
-  s.events.push({ seq: ++s.eventSeq, tMin: s.simTimeMin, sev, msg, x, y });
+  s.events.push({ seq: ++s.eventSeq, tMin: s.simTimeMin, sev, msg, x, y, major });
   if (s.events.length > 40) s.events.splice(0, s.events.length - 40);
 }
 
@@ -560,8 +577,10 @@ export interface SaveData {
   period?: PeriodState;
   lastReport?: ReportCard;
   /** RAV stock (regulation/rav.ts, additive). Absent on a pre-feature save
-   *  → deserialize self-heals it from the asset register. */
-  rav?: RavState;
+   *  → deserialize self-heals it from the asset register. `vintages` is
+   *  likewise absent on a pre-sum-of-digits save → reconcileVintages
+   *  synthesizes one (no SAVE_VERSION bump: self-healing, non-geometry). */
+  rav?: Omit<RavState, 'vintages'> & { vintages?: RavVintage[] };
   goalIndex?: number | undefined;
   surgeUntilMin?: number;
   surgeVans?: number;
@@ -646,7 +665,8 @@ export function serialize(s: GameState): SaveData {
     devMood: [...s.devMood.entries()],
     growth: s.growth.map((g) => ({ ...g })),
     period: { ...s.period, targets: { ...s.period.targets } },
-    rav: { ...s.rav },
+    // deep-copy the per-vintage pool so the save can't alias the live array
+    rav: { ...s.rav, vintages: s.rav.vintages.map((v) => ({ ...v })) },
     ...(s.lastReport ? { lastReport: { ...s.lastReport, scores: { ...s.lastReport.scores } } } : {}),
     ...(s.goalIndex !== undefined ? { goalIndex: s.goalIndex } : {}),
     ...(s.surgeUntilMin !== undefined ? { surgeUntilMin: s.surgeUntilMin } : {}),
@@ -757,13 +777,22 @@ export function deserialize(d: SaveData): GameState {
     // save by rebuilding the gross+net pool from the committed network
     // capex on the register (the depreciation history is lost, so net
     // resets to gross and re-accrues — the RAV is never lost, only its
-    // wear). engaged stays false until the live gate fires again.
-    rav: d.rav
-      ? { ...d.rav }
-      : (() => {
-          const grossK = networkCapexOnRegisterK(assets.values());
-          return { grossK, netK: grossK, engaged: false };
-        })(),
+    // wear). A save from BEFORE the sum-of-digits vintage pool carries only
+    // grossK/netK; reconcileVintages synthesizes a single vintage at the age
+    // its remaining fraction implies, so it keeps depreciating on the curve
+    // rather than restarting its holiday. engaged stays false until the live
+    // gate fires again.
+    rav: (() => {
+      const rav: RavState = d.rav
+        ? { ...d.rav, vintages: (d.rav.vintages ?? []).map((v) => ({ ...v })) }
+        : {
+            ...newRav(),
+            grossK: networkCapexOnRegisterK(assets.values()),
+            netK: networkCapexOnRegisterK(assets.values()),
+          };
+      reconcileVintages(rav);
+      return rav;
+    })(),
     goalIndex: d.goalIndex,
     surgeUntilMin: d.surgeUntilMin,
     surgeVans: d.surgeVans,
