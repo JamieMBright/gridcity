@@ -31,6 +31,12 @@ is now small.** Headline true state:
   (lit-count == key-count per file); 10/12 at ≥100 (London 100, Paris 105, NYC 100, Sydney 103,
   HK 103, Berlin 100, Shanghai 100, Cairo 100, Athens 100, NE 101); Cape Town 88 + Pune 31 at
   researched ceilings (docs/heroes/<city>: pune only 34 research docs). DONE.
+- [ ] **PUNE → 100+ bespoke heroes (owner re-stated 2026-06-17: 100 MINIMUM per city, no
+  exceptions — overrides the earlier "Pune at researched ceiling 31").** RESEARCH ≥70 more real
+  Pune landmarks (docs/heroes/pune/, 33→≥100) → PLACE each as a `named` entry in
+  src/data/cities/pune.ts (true-relative Pune geography) → DRAW+LIGHT each (bespoke iso sprite +
+  individual HeroLightSpec; key-count==lit-count, keys unique, ≥100). Design-gate (real
+  far/mid/close night screenshots showing placed+lit heroes). London byte-identical.
 - **GENUINE RESIDUAL (truly OPEN/PARTIAL):** WAVE β (W8 Part-2b dormant wiring: `gridCarbonG`
   has ZERO consumers → carbon KPI doesn't use import-carbon; `baseloadFloor`/`hydroDriven` not
   read by dispatch; regulator `model` framing-text absent from report-card UI; per-country
