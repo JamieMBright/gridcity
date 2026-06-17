@@ -5,13 +5,32 @@
 
 import { ADMD_KW } from '../catalog';
 import { EV_KW, HP_KW, PV_EXPORT_KW, type CouncilAdoption } from '../customers/adoption';
-import { NO_COUNCIL, ZONE, type CityMap, type Zone } from './types';
+import { LANDMARK, NO_COUNCIL, ZONE, type CityMap, type Zone } from './types';
 
 /** Extra process load (MW per tile) beyond domestic customers. */
 const PROCESS_MW: Partial<Record<Zone, number>> = {
   [ZONE.industrial]: 0.5,
   [ZONE.greenhouse]: 0.7, // glasshouse lighting and heat pumps
 };
+
+/** Peak public EV-charging load a surface CAR PARK draws at FULL local EV
+ *  adoption, MW — a modest bank of (diversified) chargepoints. It is a DER
+ *  load (an EV component), so it lives in evMW alongside domestic EV, and it
+ *  GROWS with the surrounding council's EV adoption: an empty car park today,
+ *  a busy charging hub once the area has electrified. 0.3 MW is the legible
+ *  "light realism touch" scale — a quarter of an industrial process tile,
+ *  ~a couple of rapid chargers plus a row of fast posts. LANDMARK.carpark is
+ *  a single-tile landmark (placeLandmark stamps one tile), so this is one
+ *  modest load per car park. */
+export const CARPARK_EV_MW = 0.3;
+
+/** The car park's EV-charging load right now, MW: its full-adoption peak
+ *  scaled by the local council's EV fraction (clamped 0..1). Zero with no
+ *  council / no uptake, so it phases in deterministically as the area
+ *  electrifies — the same growth signal domestic EV rides. */
+export function carparkEvMW(evAdoption: number): number {
+  return CARPARK_EV_MW * Math.max(0, Math.min(1, evAdoption));
+}
 
 export interface TileDemand {
   domMW: number;
@@ -50,6 +69,13 @@ export function tileDemand(
     d.evMW = (customers * a.ev * EV_KW) / 1000;
     d.hpMW = (customers * a.hp * HP_KW) / 1000;
     d.pvMW = (customers * a.pv * PV_EXPORT_KW) / 1000;
+  }
+  // public EV charging at a surface CAR PARK — additive to whatever the tile's
+  // zone already draws, growing with the local council's EV adoption (new-
+  // estate tiles run their estate at near-full uptake, so use 0.9 there).
+  if (map.landmark?.[i] === LANDMARK.carpark) {
+    const ev = zone === ZONE.newEstate ? 0.9 : (a?.ev ?? 0);
+    d.evMW += carparkEvMW(ev);
   }
   return d;
 }

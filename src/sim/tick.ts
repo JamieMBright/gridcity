@@ -481,7 +481,7 @@ export function solveTick(
         waitedMin: 0,
         label: f.label,
       });
-      pushEvent(state, 'bad', f.label, f.x, f.y);
+      pushEvent(state, 'bad', f.label, f.x, f.y, f.major);
     }
 
     // thermal trips auto-reclose on their timer; crew jobs have none
@@ -671,11 +671,11 @@ export function solveTick(
       // named weather disasters (storm / flooding / heatwave) + their
       // consequences. Flood damage registers through the same job/outage
       // bookkeeping as a fault, so the orange vans turn out for it too.
-      stepIncidents(state, rng, dtMin, (branchId, assetId, x, y, repairMin, label) => {
+      stepIncidents(state, rng, dtMin, (branchId, assetId, x, y, repairMin, label, major) => {
         state.outages.set(branchId, AWAITING_CREW);
         state.outageCause.set(branchId, label);
         state.jobs.set(branchId, { branchId, assetId, x, y, repairMin, waitedMin: 0, label });
-        pushEvent(state, 'bad', label, x, y);
+        pushEvent(state, 'bad', label, x, y, major);
       });
 
       const healthForSafety = networkHealthPct(state);

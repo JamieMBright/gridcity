@@ -227,7 +227,11 @@ function RegulatoryBlock({ reg }: { reg: RegulatoryView }) {
         hint="depreciated network you've built"
       />
       <Row label="return on RAV" value={`${fmtMoneyK(rev.returnYrK)}/yr`} hint="3.34% WACC" />
-      <Row label="depreciation" value={`${fmtMoneyK(rev.depreciationYrK)}/yr`} hint="45-yr life" />
+      <Row
+        label="depreciation"
+        value={`${fmtMoneyK(rev.depreciationYrK)}/yr`}
+        hint="45-yr sum-of-digits — low while young, rising with age"
+      />
       <Row label="opex allowance" value={`${fmtMoneyK(rev.opexAllowanceYrK)}/yr`} />
       <Row
         label="totex sharing"

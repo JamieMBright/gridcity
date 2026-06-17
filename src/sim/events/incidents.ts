@@ -66,7 +66,18 @@ export function stepIncidents(
   state: GameState,
   rng: Rng,
   dtMin: number,
-  onFaultBranch: (branchId: number, assetId: number, x: number, y: number, repairMin: number, label: string) => void,
+  onFaultBranch: (
+    branchId: number,
+    assetId: number,
+    x: number,
+    y: number,
+    repairMin: number,
+    label: string,
+    /** Whether this is a MAJOR incident (flooded SUBSTATION) vs a routine one
+     *  (a single swamped cable bay) — halts a +30d skip; see
+     *  protocol.skipHaltEvent. */
+    major: boolean,
+  ) => void,
 ): void {
   const w = state.weather;
   const regime = w.regime ?? 'mild';
@@ -96,6 +107,9 @@ export function stepIncidents(
         state,
         'bad',
         `Storm ${name} hits the region — severe gales, overhead lines at high risk`,
+        undefined,
+        undefined,
+        true, // a named storm landfall is THE major incident a +30d skip stops for
       );
       w.incidentKeyMin = key;
     } else if (regime === 'heatwave') {
@@ -144,6 +158,8 @@ export function stepIncidents(
     } else {
       continue;
     }
-    onFaultBranch(branchId, a.id, x, y, FLOOD_REPAIR_MIN, label);
+    // a flooded SUBSTATION is a major incident (lost a site); a single
+    // swamped cable joint bay is routine — only the former halts a +30d skip
+    onFaultBranch(branchId, a.id, x, y, FLOOD_REPAIR_MIN, label, a.kind === 'sub');
   }
 }

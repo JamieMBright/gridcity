@@ -10,7 +10,7 @@ import { underConstruction } from './market/dispatch';
 import { kpiRates } from './regulation/kpis';
 import {
   MAX_SKIP_TICKS,
-  skipAborts,
+  skipHaltEvent,
   skipTargetMin,
   skipTickSpeed,
   TICKS_PER_SECOND,
@@ -318,8 +318,12 @@ const SKIP_POST_EVERY_MIN = 120;
 /** Fast-forward to the skip target by running ordinary ticks back to
  *  back (advanceTime + accumulating solveTick at 16x-equivalent speed,
  *  downshifting to land exactly) — deterministically identical to
- *  playing the same ticks live. Any new 'bad' event aborts; an
- *  event-skip also stops on 'warn' (that arrival is the destination). */
+ *  playing the same ticks live. A skip HALTS early on news appropriate to
+ *  its length (skipHaltEvent): +7d on any bad news, +30d only on a genuinely
+ *  MAJOR incident (so it still skips a routine fault), an event-skip on the
+ *  first warn-or-worse. When it halts, post the halting event's message so
+ *  the player learns WHY — without mutating game state, so the run stays
+ *  byte-identical to playing the same ticks live. */
 function runSkip(to: SkipTarget): void {
   skipping = true;
   const prevSpeed = state.speed;
@@ -338,7 +342,12 @@ function runSkip(to: SkipTarget): void {
       if (missionOf(state.scenarioId)) {
         advanceMission(state, missionView(state, out, d.service.totalCustomers));
       }
-      if (skipAborts(state.events, seqBefore, to)) break;
+      const halt = skipHaltEvent(state.events, seqBefore, to);
+      if (halt) {
+        // surface WHY the skip stopped (transient; does not touch state)
+        post({ type: 'skipHalted', to, reason: halt.msg });
+        break;
+      }
       if (state.simTimeMin - lastPostMin >= SKIP_POST_EVERY_MIN && state.simTimeMin < target) {
         lastPostMin = state.simTimeMin;
         post({ type: 'snapshot', snapshot: makeSnapshot(false) });

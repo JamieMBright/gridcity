@@ -12,6 +12,42 @@
 
 ## Open
 
+### 💷 WP5 — ECONOMY & TIME-SKIP POLISH (this session, branch wp5-economy-timeskip)
+Three focused, independent backlog items. Deterministic sim (seeded RNG); London/
+missions determinism anchors must not regress; serialized-state changes justify a
+SAVE_VERSION bump or are avoided. Gates: tsc/eslint/vitest/build +
+`bash tools/e2e-shards.sh goals`.
+- [x] **+30d skip halts on a MAJOR incident** — GameEvent gains an optional `major`
+      flag (additive; no SAVE_VERSION bump — events serialize by spread); protocol's new
+      `skipHaltEvent`/`haltsSkip` make +30d stop ONLY on a major bad event (severe storm
+      landfall, grid-transformer failure, storm-felled line, flooded substation) while
+      +7d still stops on any bad news and event-skip on warn+. Major flags set in
+      faults.ts (storm-felled line / tx failure) + incidents.ts (storm banner / flooded
+      sub). worker.runSkip posts a transient `skipHalted` message (state untouched → run
+      stays byte-identical to live play); bridge toasts "Skip stopped: <reason>".
+      Tests: predicate rules + seeded integration (major halts +30d, routine fault does
+      not, same fault halts +7d). (skip.test.ts)
+- [x] **RAV phase-in tuning** — replaced flat straight-line RAV depreciation with the
+      documented ED3 SUM-OF-DIGITS profile (docs/riio-ed3-coverage.md §A: 45-yr life,
+      sum-of-digits, the "depreciation holiday"). The pool is now a set of VINTAGES (each
+      addition keeps its own age); a vintage's remaining book follows f(t)=1−(t/L)² so
+      depreciation revenue starts near-zero and RAMPS with age — a big capex wave phases
+      in gently instead of jumping to a cliff. grossK/netK kept as pool-total caches the
+      tick reads. Life/WACC figures unchanged (no invented numbers). Additive serialized
+      field (vintages) with reconcileVintages self-heal for pre-SoD saves — no
+      SAVE_VERSION bump (non-geometry, self-healing). KpiDashboard depreciation hint
+      updated. Tests: SoD curve, back-loading/holiday, full-life recovery, phase-in ramp,
+      per-vintage holiday, save round-trip + self-heal. (rav.test.ts)
+- [x] **Car-park EV load** — LANDMARK.carpark tiles now draw a modest public
+      EV-charging load (CARPARK_EV_MW = 0.3 MW at full local adoption) in the demand
+      field's evMW, scaled by the surrounding council's EV fraction so it GROWS as the
+      area electrifies (0 at no uptake). Lives in tileDemand (DER, not the no-DER base),
+      so it flows through service catchments, the headroom heatmap + balance. Fixed the
+      service-area gate (was base-demand-only) to admit car-park-only tiles — verified
+      against real London: 18 car-park tiles, all council-backed, several with 0 homes
+      that would otherwise have had their 0.3 MW dropped. Deterministic. (demand.test.ts)
+- [ ] GATES all green; commit incrementally; push branch; PR to main.
+
 ### 🎓 WP1 — TUTORIAL GUIDED-PLAY POLISH (this session, branch wp1-tutorial-guided-play)
 Owner playtest-feedback items for the tutorial/onboarding (drawn from the re-raise
 ledger below). Scope: tutorial/onboarding UX ONLY — must not regress normal
