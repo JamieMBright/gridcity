@@ -1651,6 +1651,26 @@ export class MapRenderer {
     return this.heroLitNow.map((h) => h.kind);
   }
 
+  /** TEST/diagnostic read: every hero-light anchor as a TILE coordinate (the
+   *  footprint centroid) plus its effect kind. Lets the night-electrification
+   *  design-gate frame the densest hero district of any city and confirm the
+   *  bespoke effects are placed where the heroes are. Cheap: just maps the
+   *  already-built anchor list. */
+  getHeroAnchors(): Array<{ x: number; y: number; kind: string }> {
+    const map = this.map;
+    if (!map) return [];
+    return this.heroLightAnchors.map(({ tiles, light }) => {
+      let sx = 0;
+      let sy = 0;
+      for (const i of tiles) {
+        sx += i % map.width;
+        sy += Math.floor(i / map.width);
+      }
+      const n = Math.max(1, tiles.length);
+      return { x: sx / n, y: sy / n, kind: light.kind };
+    });
+  }
+
   /** Restore a saved bookmark: set the zoom, then centre the tile. */
   jumpToCamera(x: number, y: number, zoom: number): void {
     if (this.destroyed || !this.app.renderer) return;

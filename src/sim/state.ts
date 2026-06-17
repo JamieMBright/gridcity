@@ -214,6 +214,14 @@ export interface GameState {
    *  it fires exactly once per game. Additive optional. */
   heathrowSchemeMin?: number | undefined;
   heathrowSchemeFired?: boolean | undefined;
+  /** DEV/TEST ONLY (the night-electrification design-gate): force every demand
+   *  tile + every hero footprint to read as POWERED in the coverage array, so a
+   *  screenshot helper can show a city fully ENERGISED at night without wiring
+   *  up that city's whole grid by hand. Transient (NEVER serialized — like
+   *  everServedCustomers), so it self-clears on load and has no SAVE_VERSION
+   *  implication. Set via the `__testServeAll` command; only the dev test hook
+   *  ever sends it (the UI cannot). */
+  forceServeAll?: boolean | undefined;
 }
 
 /** One scheduled maintenance night (#16): `branchId` goes out as a

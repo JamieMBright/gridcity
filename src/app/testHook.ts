@@ -25,6 +25,9 @@ export interface EcTestApi {
    *  the monuments carry heritage load but no domestic customers, so this is a
    *  truer energisation signal than servedCustomers. */
   getLitHeroKinds(): string[];
+  /** TEST ONLY: every hero-light anchor as a tile coord + effect kind, so the
+   *  night design-gate can frame a city's hero district and verify placement. */
+  getHeroAnchors(): Array<{ x: number; y: number; kind: string }>;
   getState(): ReturnType<typeof useAppStore.getState>;
   /** First `count` open land tiles (spread out), for siting test builds. */
   openLand(count: number): Array<{ x: number; y: number }>;
@@ -33,6 +36,10 @@ export interface EcTestApi {
   getRoad(x: number, y: number): number;
   /** Drive the sim directly (build/demolish/speed …). */
   sendCommand(cmd: Command): void;
+  /** TEST ONLY: force the whole city to read as POWERED (every demand tile +
+   *  every hero footprint), so a night-electrification screenshot can show a
+   *  fully energised city without hand-wiring its grid. `on` defaults to true. */
+  serveAll(on?: boolean): void;
   /** Fast-forward the sim a week/month/to-next-event (the HUD skip), so a
    *  screenshot helper can commission generation without minutes of 16× wait. */
   skip(to: SkipTarget): void;
@@ -66,8 +73,10 @@ export function installTestHook(renderer: MapRenderer): void {
     setZoom: (scale) => renderer.setZoom(scale),
     getCamera: () => renderer.getCamera(),
     getLitHeroKinds: () => renderer.getLitHeroKinds(),
+    getHeroAnchors: () => renderer.getHeroAnchors(),
     getState: () => useAppStore.getState(),
     sendCommand: (cmd) => sendCommand(cmd),
+    serveAll: (on) => sendCommand({ type: '__testServeAll', on: on ?? true }),
     skip: (to) => requestSkip(to),
     getRoad: (x, y) =>
       x >= 0 && x < map.width && y >= 0 && y < map.height ? (map.road[y * map.width + x] ?? 0) : 0,

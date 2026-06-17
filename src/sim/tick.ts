@@ -1435,6 +1435,19 @@ function buildCoverage(
   const coverage = new Uint8Array(map.width * map.height);
   const { service } = derived;
 
+  // DEV/TEST cheat (night-electrification design-gate): light the WHOLE city —
+  // every demand tile AND every hero/landmark footprint reads as powered, so a
+  // screenshot helper can show a fully energised city at night without wiring up
+  // that city's grid by hand. Render-only in effect; the flag is never saved.
+  if (state.forceServeAll) {
+    for (const tile of service.demandTiles) coverage[tile] = COV.on;
+    const lm = map.landmark;
+    if (lm) {
+      for (let i = 0; i < lm.length; i++) if (lm[i]) coverage[i] = COV.on;
+    }
+    return coverage;
+  }
+
   // every demand tile starts unserved; assignment upgrades it below
   for (const tile of service.demandTiles) coverage[tile] = COV.unserved;
 

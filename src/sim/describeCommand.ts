@@ -110,6 +110,7 @@ export function describeCommand(cmd: Command, before: GameState): string {
     case 'undo':
     case 'redo':
     case '__testFault':
+    case '__testServeAll':
       // never snapshotted — present for exhaustiveness
       return 'action';
   }
