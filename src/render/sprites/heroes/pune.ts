@@ -2459,7 +2459,7 @@ export const CITY_HEROES: BespokeHero[] = [
   },
   {
     // hill forts + the placed Taljai Watch Tower read as the basalt fort hero
-    city: 'pune', key: 'hill-fort', match: /Sinhagad|Sinhgad\b(?!\s*College)|Purandar|सिंहगड|Taljai\s*Watch/i,
+    city: 'pune', key: 'hill-fort', match: /Sinhagad\s*Fort|Sinhgad\s*Fort|Sinhagad(?!\s*(College|Road|Fort))|Sinhgad\b(?!\s*College)|Purandar\s*Fort|सिंहगड|Taljai\s*Watch/i,
     foot: [3, 3], seed: 78, draw: hillFortTile, light: G('facadeFlood', 130, 1.6),
   },
   {
@@ -2471,7 +2471,7 @@ export const CITY_HEROES: BespokeHero[] = [
     foot: [3, 2], seed: 80, draw: puneMetroTile, light: G('towerCrown', 70, 1.4),
   },
   {
-    city: 'pune', key: 'it-tower', match: /Hinjawadi|Rajiv\s*Gandhi\s*Infotech|EON|IT\s*Park|हिंजवडी/i,
+    city: 'pune', key: 'it-tower', match: /Hinjawadi|Rajiv\s*Gandhi\s*Infotech|हिंजवडी/i,
     foot: [1, 1], seed: 81, draw: itTowerTile, light: G('towerCrown', 230, 0.4),
   },
   {
@@ -2487,7 +2487,7 @@ export const CITY_HEROES: BespokeHero[] = [
     foot: [2, 2], seed: 84, draw: ohelDavidTile, light: G('facadeFlood', 168, 0.9),
   },
   {
-    city: 'pune', key: 'phule-mandai', match: /Phule\s*Mand(a)?i|Mahatma\s*Phule\s*Mand|फुले\s*मंडई|Mandai/i,
+    city: 'pune', key: 'phule-mandai', match: /Phule\s*Mand(a)?i|Mahatma\s*Phule\s*Mand|फुले\s*मंडई|^Mandai$|\bMandai\s*(Market|Building)/i,
     foot: [2, 2], seed: 85, draw: phuleMandaiTile, light: G('facadeFlood', 150, 1.0),
   },
   {
@@ -2575,7 +2575,7 @@ export const CITY_HEROES: BespokeHero[] = [
     foot: [1, 1], seed: 122, draw: pethTempleTile, light: G('towerCrown', 100, 0.5),
   },
   {
-    city: 'pune', key: 'tulshibaug-ram-mandir', match: /Tulshibaug|Tulsibaug|Tulshi\s*Baug|तुळशीबाग/i,
+    city: 'pune', key: 'tulshibaug-ram-mandir', match: /Tulshibaug\s*Ram|Tulsibaug\s*Ram|Tulshi\s*Baug\s*Ram|तुळशीबाग\s*राम/i,
     foot: [1, 1], seed: 123, draw: pethTempleTile, light: G('towerCrown', 100, 0.5),
   },
   {
@@ -2795,15 +2795,15 @@ export const CITY_HEROES: BespokeHero[] = [
     foot: [2, 2], seed: 173, draw: pyramidHallTile, light: G('genericGlow', 116, 1.3),
   },
   {
-    city: 'pune', key: 'nanasaheb-peshwe-samadhi', match: /Nanasaheb\s*Peshwe\s*Samadhi|Peshwe\s*Samadhi|पेशवे\s*समाधी/i,
+    city: 'pune', key: 'nanasaheb-peshwe-samadhi', match: /Nanasaheb\s*Peshwe\s*(Samadhi|Cenotaph)|Peshwe\s*Cenotaph|पेशवे\s*समाधी/i,
     foot: [1, 1], seed: 174, draw: samadhiTile, light: G('facadeFlood', 46, 0.6),
   },
   {
-    city: 'pune', key: 'vishrambaug-samadhi', match: /Nana\s*Phadnavis\s*Samadhi|Phadnavis\s*Cenotaph/i,
+    city: 'pune', key: 'vishrambaug-samadhi', match: /Nana\s*Phadnavis\s*(Samadhi|Cenotaph)|Phadnavis\s*Cenotaph/i,
     foot: [1, 1], seed: 175, draw: samadhiTile, light: G('facadeFlood', 46, 0.6),
   },
   {
-    city: 'pune', key: 'pataleshwar-samadhi', match: /Jangli\s*Maharaj\s*Math|Math\s*Samadhi/i,
+    city: 'pune', key: 'pataleshwar-samadhi', match: /Jangli\s*Maharaj\s*Math|Math\s*Vrindavan|Math\s*Samadhi/i,
     foot: [1, 1], seed: 176, draw: samadhiTile, light: G('facadeFlood', 46, 0.6),
   },
 
@@ -2813,7 +2813,7 @@ export const CITY_HEROES: BespokeHero[] = [
     foot: [1, 1], seed: 177, draw: ganpatiPandalTile, light: G('facadeFlood', 84, 0.5),
   },
   {
-    city: 'pune', key: 'tulshibaug-ganpati-mandal', match: /Tulshibaug\s*Ganpati|Tulshibaug\s*Mandal/i,
+    city: 'pune', key: 'tulshibaug-ganpati-mandal', match: /Tulshibaug.*Ganpati|Tulshibaug.*Mandal|Tulshibaug.*Utsav/i,
     foot: [1, 1], seed: 178, draw: ganpatiPandalTile, light: G('facadeFlood', 84, 0.5),
   },
   {
@@ -2943,7 +2943,7 @@ export const CITY_HEROES: BespokeHero[] = [
 
   // --- the equestrian/standing civic statues (putlas on plinths) ---
   {
-    city: 'pune', key: 'shivaji-equestrian', match: /Shivaji\s*Maharaj\s*Statue|Shivaji\s*Putla|Shivaji\s*Equestrian|शिवाजी\s*महाराज\s*पुतळा/i,
+    city: 'pune', key: 'shivaji-equestrian', match: /Shivaji\s*Maharaj\s*(Statue|Equestrian)|Shivaji\s*Maharaj\s*Equestrian\s*Statue|Shivaji\s*Putla|Shivaji\s*Equestrian|शिवाजी\s*महाराज\s*पुतळा/i,
     foot: [1, 1], seed: 209, draw: (s) => statuePlinthTile(s, true), light: G('facadeFlood', 44, 0.5),
   },
   {
