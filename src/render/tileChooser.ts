@@ -275,6 +275,19 @@ function cityStockFor(
       }
       return undefined;
     }
+    case 'berlin': {
+      // the ornate stucco Altbau perimeter-block fills the dense inner fabric
+      // (Mitte/Kreuzberg); the GDR Plattenbau panel slab fills the outer estates
+      // (Marzahn). Potsdamer-Platz CBD keeps the generic glass supertalls.
+      void shops;
+      if (zone === ZONE.urbanCore || zone === ZONE.urban) {
+        return `altbau_${(estate + (v % 2)) % 4}`;
+      }
+      if (zone === ZONE.suburb) {
+        return th % 3 === 0 ? `altbau_${(estate + (v % 2)) % 4}` : `plattenbau_${(estate + (v % 2)) % 4}`;
+      }
+      return undefined;
+    }
     default:
       return undefined;
   }

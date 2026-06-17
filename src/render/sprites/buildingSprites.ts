@@ -1315,6 +1315,168 @@ export function sydbungalowTile(seed: number, variant: number): Uint8ClampedArra
 }
 
 /**
+ * Bespoke BERLIN stock — the ALTBAU MIETSHAUS: the pre-1914 perimeter-block
+ * tenement that defines inner Berlin. A 5–6 storey stuccoed apartment block
+ * built hard to the street, ornate render facade with strong horizontal
+ * string-courses + a heavy cornice, tall windows in a strict grid, a few
+ * projecting Erker bay-oriels and small iron balconies, crowned by a steep
+ * grey MANSARD with dormers. Reads as a continuous, dignified street wall —
+ * taller, more ornate, and flat-fronted vs London's bay-fronted brick.
+ */
+export function altbauTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 39041 + variant * 127 + 19);
+  // grey-beige / ochre / pale-green Berlin stucco
+  const stoneSet: RGBA[] = [RENDER_CREAM, hex('#c2b58e'), hex('#b9a578'), hex('#aeb0a6'), hex('#c8bfa8'), hex('#cfc9bb')];
+  const stone = stoneSet[variant % stoneSet.length] ?? stoneSet[0]!;
+  const zinc = SLATE; // grey zinc/slate mansard
+  const band = darken(stone, 0.14); // string-course shadow line
+  const iron = hex('#3a3a40');
+  const frame = lighten(COLORS.white, 0.02);
+  const u0 = 0;
+  const u1 = 1;
+  const v0 = 0.08;
+  const v1 = 0.84;
+  const floors = 5 + (variant % 2); // 5–6 storeys
+  const fh = 8.8;
+  const H = Math.round(10 + floors * fh); // cornice height
+  const shop = variant % 3 === 0;
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.24);
+  iso.box(u0, v0, u1, v1, 0, H, stone);
+  // tall ground-floor (Hochparterre) sill line
+  iso.edge(P(u0, v1, fh + 3), P(u1, v1, fh + 3), INK_W * 0.6, alpha(INK, 0.5));
+  // horizontal string-courses between floors (the Berlin Gliederung)
+  for (let f = 1; f <= floors; f++) {
+    const z = 10 + f * fh;
+    iso.r.line(P(u0, v1, z), P(u1, v1, z), INK_W * 0.6, alpha(band, 0.9));
+    iso.r.line(P(u1, v0, z), P(u1, v1, z), INK_W * 0.6, alpha(band, 0.9));
+  }
+  // regular tall windows on both visible faces
+  for (let f = 0; f < floors; f++) {
+    const zb = 12 + f * fh + 1.2;
+    const zt = 12 + f * fh + fh - 1.2;
+    iso.windowsLeft(v1, u0 + 0.05, u1 - 0.05, zb, zt, 5, glass(rng, 0.42), frame);
+    iso.windowsRight(u1, v0 + 0.05, v1 - 0.05, zb, zt, 4, glass(rng, 0.38), frame);
+  }
+  // a projecting Erker bay-oriel running the upper floors on the left face
+  const e0 = u0 + 0.34;
+  const e1 = u0 + 0.5;
+  iso.box(e0, v1 - 0.001, e1, v1 + 0.045, fh + 3, H - fh, lighten(stone, 0.05));
+  for (let f = 1; f < floors; f++) {
+    const z = 10 + f * fh + 1;
+    iso.windowsLeft(v1 + 0.045, e0 + 0.012, e1 - 0.012, z, z + fh - 2, 2, glass(rng, 0.45), frame);
+  }
+  // small iron balconies on a couple of floors
+  for (const f of [2, floors - 1]) {
+    if (f < 1 || f >= floors) continue;
+    const z = 10 + f * fh;
+    drawBalcony(iso, u0 + 0.06, u0 + 0.26, v1, z, iron, frame);
+    drawBalcony(iso, u1 - 0.28, u1 - 0.06, v1, z, iron, frame);
+  }
+  // ground-floor shop on some blocks (the Berlin Eckkneipe / Späti)
+  if (shop) {
+    iso.windowsLeft(v1, u0 + 0.05, u1 - 0.05, 1.5, fh + 1, 5, COLORS.glassLit, frame);
+    const awn = ([COLORS.orange, hex('#3f8f8a'), hex('#b5485f')] as RGBA[])[(seed + variant) % 3]!;
+    iso.r.poly([P(u0 + 0.04, v1, fh + 2.4), P(u1 - 0.04, v1, fh + 2.4), P(u1 - 0.04, v1, fh + 1), P(u0 + 0.04, v1, fh + 1)], awn);
+  }
+  // heavy crowning cornice
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, H - 2, H + 2, lighten(stone, 0.06), { topC: top(stone, 0.3) });
+  iso.edge(P(u0, v1 + 0.02, H + 2), P(u1, v1 + 0.02, H + 2), INK_W * 0.8);
+  // the steep grey MANSARD with dormers (a minority of blocks are flat-roofed)
+  const flatTop = variant % 4 === 3;
+  if (flatTop) {
+    iso.box(u0, v0, u1, v1, H + 2, H + 5, stone, { ink: false, topC: shaded(zinc, 0.06) });
+  } else {
+    const mr = 14 + (variant % 3) * 4;
+    const ui = 0.16;
+    const vi = 0.12;
+    const zT = H + mr;
+    iso.r.poly([P(u0, v1, H), P(u1, v1, H), P(u1 - ui, v1 - vi, zT), P(u0 + ui, v1 - vi, zT)], shaded(zinc, 0.16));
+    iso.r.poly([P(u1, v0, H), P(u1, v1, H), P(u1 - ui, v1 - vi, zT), P(u1 - ui, v0 + vi, zT)], lit(zinc, 0.05));
+    iso.r.polyline([P(u0, v1, H), P(u0 + ui, v1 - vi, zT), P(u1 - ui, v1 - vi, zT), P(u1 - ui, v0 + vi, zT), P(u1, v0, H)], INK_W, INK);
+    iso.quad(u0 + ui, v0 + vi, u1 - ui, v1 - vi, zT, lighten(zinc, 0.1));
+    // dormer windows on the near mansard slope
+    for (const du of [0.2, 0.45, 0.7]) {
+      const dz = H + mr * 0.42;
+      iso.box(du, v1 - vi - 0.04, du + 0.07, v1 - vi + 0.02, dz, dz + 5, lighten(stone, 0.08), { ink: false });
+      iso.windowsLeft(v1 - vi + 0.02, du + 0.012, du + 0.058, dz + 1, dz + 4.5, 1, glass(rng, 0.5), frame);
+    }
+  }
+  return iso.build();
+}
+
+/**
+ * Bespoke BERLIN stock — the PLATTENBAU: the GDR-era prefab concrete-panel
+ * slab (WBS 70 / Plattenbau) that fills the outer estates (Marzahn, Lichten-
+ * berg). A long, low-rise-to-mid slab whose entire facade is a relentless GRID
+ * of identical precast PANELS — the visible panel SEAMS are the whole tell —
+ * with uniform windows, thin spandrel bands, recessed loggia-balconies, a flat
+ * roof. Pale grey/sand render over the concrete, an occasional painted accent
+ * panel from a post-reunification refurb.
+ */
+export function plattenbauTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 46399 + variant * 83 + 29);
+  // washed concrete greys + a sand and a refurb-pastel skin
+  const skinSet: RGBA[] = [hex('#c4c2ba'), hex('#b6b4ab'), hex('#cbc3ac'), hex('#aeb4b2'), hex('#c8c8c2'), hex('#bcbab0')];
+  const skin = skinSet[variant % skinSet.length] ?? skinSet[0]!;
+  // a single refurb accent hue used on a band of panels
+  const accent = ([hex('#d98a4a'), hex('#5fa3a0'), hex('#c75d6e'), hex('#6f9a5a')] as RGBA[])[variant % 4]!;
+  const seam = darken(skin, 0.16); // the precast-panel joint line
+  const u0 = 0.07;
+  const u1 = 0.93;
+  const v0 = 0.22;
+  const v1 = 0.74;
+  const floors = 5 + (variant % 3); // 5–7 storeys
+  const fh = 10;
+  const H = floors * fh + 3;
+  const panelsU = 6; // precast panels across the long face
+  const panelsV = 4;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.24);
+  iso.box(u0, v0, u1, v1, 0, H, skin);
+  // the PANEL GRID — horizontal floor-slab seams + vertical panel-joint seams,
+  // on both visible faces. This relentless grid IS the Plattenbau.
+  for (let f = 0; f <= floors; f++) {
+    const z = f * fh;
+    iso.r.line(P(u0, v1, z), P(u1, v1, z), INK_W * 0.5, alpha(seam, 0.85));
+    iso.r.line(P(u1, v0, z), P(u1, v1, z), INK_W * 0.5, alpha(seam, 0.85));
+  }
+  for (let p = 0; p <= panelsU; p++) {
+    const u = u0 + ((u1 - u0) * p) / panelsU;
+    iso.r.line(P(u, v1, 0), P(u, v1, H), INK_W * 0.45, alpha(seam, 0.7));
+  }
+  for (let p = 0; p <= panelsV; p++) {
+    const v = v0 + ((v1 - v0) * p) / panelsV;
+    iso.r.line(P(u1, v, 0), P(u1, v, H), INK_W * 0.45, alpha(seam, 0.7));
+  }
+  // a refurb ACCENT: one vertical stripe of panels repainted (very GDR-refurb)
+  const ap = 1 + (seed % (panelsU - 2));
+  const au0 = u0 + ((u1 - u0) * ap) / panelsU;
+  const au1 = u0 + ((u1 - u0) * (ap + 1)) / panelsU;
+  iso.r.poly([P(au0, v1, H - 1), P(au1, v1, H - 1), P(au1, v1, 1), P(au0, v1, 1)], alpha(accent, 0.8));
+  // uniform windows, one per panel per floor, with recessed loggia-balconies
+  for (let f = 0; f < floors; f++) {
+    const zb = f * fh + 2.5;
+    const zt = f * fh + fh - 2;
+    iso.windowsLeft(v1, u0 + 0.02, u1 - 0.02, zb, zt, panelsU, glass(rng, 0.4), undefined);
+    iso.windowsRight(u1, v0 + 0.02, v1 - 0.02, zb, zt, panelsV, glass(rng, 0.36), undefined);
+    // recessed loggia balcony on a couple of bays each floor (darker reveal)
+    if (f >= 1) {
+      const lu = u0 + ((u1 - u0) * ((f + ap) % panelsU)) / panelsU;
+      iso.r.poly([P(lu + 0.01, v1, zt), P(lu + ((u1 - u0) / panelsU) - 0.01, v1, zt), P(lu + ((u1 - u0) / panelsU) - 0.01, v1, zb), P(lu + 0.01, v1, zb)], shaded(skin, 0.18));
+      iso.r.line(P(lu + 0.01, v1, zb + 3), P(lu + ((u1 - u0) / panelsU) - 0.01, v1, zb + 3), INK_W * 0.5, alpha(COLORS.white, 0.7));
+    }
+  }
+  // flat roof: a thin parapet, a stair/lift overrun, a couple of vent stacks
+  iso.box(u0, v0, u1, v1, H, H + 2.5, skin, { ink: false, topC: shaded(hex('#5b6068'), 0.05) });
+  iso.box(u0 + 0.1, v0 + 0.08, u0 + 0.24, v0 + 0.2, H + 2.5, H + 12, shaded(skin, 0.1)); // lift overrun
+  for (const vu of [0.55, 0.74]) {
+    iso.box(vu, v0 + 0.1, vu + 0.04, v0 + 0.16, H + 2.5, H + 8, COLORS.steelDark, { ink: false });
+  }
+  return iso.build();
+}
+
+/**
  * Bespoke PARIS building stock: a Haussmann apartment block. Researched from
  * the reference photos (owner, 2026-06-14): uniform ~6-storey cream
  * pierre-de-taille ashlar facade with a strong cornice, regular tall French

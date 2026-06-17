@@ -8,6 +8,7 @@ import { isoDims, swAnchorDims } from './iso';
 import { activeFabric } from './buildingSprites';
 import { bespokeHeroesFor, frameIdFor } from './heroes/registry';
 import {
+  altbauTile,
   brownstoneTile,
   cairoblockTile,
   cottageTile,
@@ -19,6 +20,7 @@ import {
   hktowerTile,
   newbuildTile,
   officeTile,
+  plattenbauTile,
   semiTile,
   setbackTile,
   solarFarmTile,
@@ -324,6 +326,11 @@ function buildCityStockBufs(): Map<string, HeroBuf> {
       // Federation iron-lace verandah terraces + brick-and-tile bungalows
       for (let i = 0; i < 4; i++) add(`sydterrace_${i}`, sydterraceTile(411 + i, i));
       for (let i = 0; i < 4; i++) add(`sydbungalow_${i}`, sydbungalowTile(421 + i, i));
+      break;
+    case 'berlin':
+      // ornate stucco Altbau mietshaus blocks + GDR Plattenbau panel slabs
+      for (let i = 0; i < 4; i++) add(`altbau_${i}`, altbauTile(431 + i, i));
+      for (let i = 0; i < 4; i++) add(`plattenbau_${i}`, plattenbauTile(441 + i, i));
       break;
     default:
       break;
