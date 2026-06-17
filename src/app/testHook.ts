@@ -17,6 +17,9 @@ export interface EcTestApi {
   getState(): ReturnType<typeof useAppStore.getState>;
   /** First `count` open land tiles (spread out), for siting test builds. */
   openLand(count: number): Array<{ x: number; y: number }>;
+  /** Road-class raster code at a tile (RC: 0 none … 4 motorway). Lets the
+   *  van design-gate find drivable road tiles to drop test faults on. */
+  getRoad(x: number, y: number): number;
   /** Drive the sim directly (build/demolish/speed …). */
   sendCommand(cmd: Command): void;
   /** Launch a tutorial mission (swaps the map + rebuilds on its scenario). */
@@ -49,6 +52,8 @@ export function installTestHook(renderer: MapRenderer): void {
     setZoom: (scale) => renderer.setZoom(scale),
     getState: () => useAppStore.getState(),
     sendCommand: (cmd) => sendCommand(cmd),
+    getRoad: (x, y) =>
+      x >= 0 && x < map.width && y >= 0 && y < map.height ? (map.road[y * map.width + x] ?? 0) : 0,
     startMission: (scenarioId) => startMission(scenarioId),
     crashRender: () => armRenderCrash(),
     crashWorker: () => crashWorker(),

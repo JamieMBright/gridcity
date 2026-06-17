@@ -12,3 +12,6 @@ tools/osm/.cache/
 
 test-results/
 playwright-report/
+
+# subagent isolated worktrees (never commit)
+.claude/worktrees/

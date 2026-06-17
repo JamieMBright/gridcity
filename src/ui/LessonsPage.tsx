@@ -4,13 +4,21 @@
 // tutorial, so this is the front door to learning the grid. Shares the glassy
 // night-screen visual language of StartMenu / MissionVictory.
 
+import { useState } from 'react';
 import { useAppStore } from '../app/store';
 import { completedMissions, startMission } from '../app/workerBridge';
 import { startMusic } from '../audio/audio';
-import { MISSIONS } from '../sim/scenario/missions';
+import { MISSIONS, type Mission } from '../sim/scenario/missions';
 import { lessonStars } from './lessonProgress';
 import { STORY_KEY } from './StoryIntro';
 import { theme } from './theme';
+
+/** The ordered, concrete objectives a lesson walks the player through —
+ *  read straight off the mission steps so the curriculum can never drift
+ *  from what the lesson actually gates on. */
+function lessonObjectives(m: Mission): string[] {
+  return m.steps.map((s) => s.objective).filter((o): o is string => !!o);
+}
 
 /** Three filled/empty stars for a 0–3 rating. */
 function Stars({ n }: { n: 0 | 1 | 2 | 3 }): React.JSX.Element {
@@ -28,9 +36,12 @@ function Stars({ n }: { n: 0 | 1 | 2 | 3 }): React.JSX.Element {
 export function LessonsPage(): React.JSX.Element | null {
   const lessonsOpen = useAppStore((s) => s.lessonsOpen);
   const setLessonsOpen = useAppStore((s) => s.setLessonsOpen);
+  // which lesson card is expanded to show its curriculum (one at a time)
+  const [expanded, setExpanded] = useState<string | undefined>(undefined);
   if (!lessonsOpen) return null;
 
   const done = completedMissions();
+  const doneCount = MISSIONS.filter((m) => done.has(m.id)).length;
 
   // Launch a lesson: same handoff StartMenu's beginMission does — missions
   // never letterbox, so drop the pending story; start the music gesture;
@@ -101,9 +112,24 @@ export function LessonsPage(): React.JSX.Element | null {
             ← back
           </button>
         </div>
-        <div style={{ color: theme.slate, fontSize: 11.5, margin: '6px 0 10px' }}>
-          one tiny map per lesson · finish one to unlock the next · earn up to ★★★ for a clean,
-          lean build
+        <div style={{ color: theme.slate, fontSize: 11.5, margin: '6px 0 4px', lineHeight: 1.5 }}>
+          Learn the core loop one tiny map at a time:{' '}
+          <span style={{ color: theme.offWhite }}>
+            designate a site → developers bid → award → build the plant + wires → it lands on the
+            bill
+          </span>
+          . Finish a lesson to unlock the next, and earn up to ★★★ for a clean, lean build. Tap a
+          lesson to see exactly what it teaches.
+        </div>
+        <div
+          style={{
+            color: theme.gold,
+            fontSize: 11,
+            margin: '2px 0 8px',
+            letterSpacing: '0.04em',
+          }}
+        >
+          progress · {doneCount}/{MISSIONS.length} lessons complete
         </div>
 
         {MISSIONS.map((m, ix) => {
@@ -112,59 +138,138 @@ export function LessonsPage(): React.JSX.Element | null {
           const locked = prev !== undefined && !done.has(prev.id);
           const stars = lessonStars(m.id);
           const teaches = LESSON_TEACHES[m.id];
+          const open = expanded === m.id;
+          const objectives = lessonObjectives(m);
           return (
-            <button
+            <div
               key={m.id}
-              disabled={locked}
-              onClick={() => !locked && begin(m.id)}
               style={{
-                display: 'block',
-                width: '100%',
-                textAlign: 'left',
                 margin: '8px 0 0',
-                padding: '11px 13px',
                 borderRadius: 12,
                 border: `1px solid ${
                   completed ? 'rgba(123,196,127,0.4)' : 'rgba(125,135,180,0.3)'
                 }`,
                 background: locked ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)',
-                color: locked ? theme.slate : theme.offWhite,
                 opacity: locked ? 0.6 : 1,
-                fontFamily: theme.font,
-                cursor: locked ? 'default' : 'pointer',
+                overflow: 'hidden',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span
-                  style={{
-                    color: completed ? theme.ok : theme.orange,
-                    fontWeight: 700,
-                    fontSize: 13,
-                    minWidth: 18,
-                  }}
-                >
-                  {completed ? '✓' : locked ? '🔒' : `${ix + 1}.`}
-                </span>
-                <b style={{ flex: 1, fontSize: 13.5 }}>{m.name}</b>
-                {!locked && <Stars n={stars} />}
-              </div>
-              <div style={{ color: theme.slate, fontSize: 11.5, marginTop: 4, paddingLeft: 26 }}>
-                {locked ? `complete “${prev?.name}” to unlock` : m.tagline}
-              </div>
-              {!locked && teaches && (
-                <div
-                  style={{
-                    color: theme.gold,
-                    fontSize: 10.5,
-                    marginTop: 3,
-                    paddingLeft: 26,
-                    letterSpacing: '0.04em',
-                  }}
-                >
-                  you'll learn: {teaches}
+              {/* header row: expands the curriculum (locked rows stay shut) */}
+              <button
+                onClick={() => !locked && setExpanded(open ? undefined : m.id)}
+                disabled={locked}
+                aria-expanded={open}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '11px 13px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: locked ? theme.slate : theme.offWhite,
+                  fontFamily: theme.font,
+                  cursor: locked ? 'default' : 'pointer',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span
+                    style={{
+                      color: completed ? theme.ok : theme.orange,
+                      fontWeight: 700,
+                      fontSize: 13,
+                      minWidth: 18,
+                    }}
+                  >
+                    {completed ? '✓' : locked ? '🔒' : `${ix + 1}.`}
+                  </span>
+                  <b style={{ flex: 1, fontSize: 13.5 }}>{m.name}</b>
+                  {!locked && <Stars n={stars} />}
+                  {!locked && (
+                    <span style={{ color: theme.slate, fontSize: 11, marginLeft: 2 }}>
+                      {open ? '▾' : '▸'}
+                    </span>
+                  )}
+                </div>
+                <div style={{ color: theme.slate, fontSize: 11.5, marginTop: 4, paddingLeft: 26 }}>
+                  {locked ? `complete “${prev?.name}” to unlock` : m.tagline}
+                </div>
+                {!locked && teaches && (
+                  <div
+                    style={{
+                      color: theme.gold,
+                      fontSize: 10.5,
+                      marginTop: 3,
+                      paddingLeft: 26,
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    you'll learn: {teaches}
+                  </div>
+                )}
+              </button>
+
+              {/* expanded curriculum: the ordered objectives + how stars work,
+                  then a clear "start lesson" button */}
+              {open && !locked && (
+                <div style={{ padding: '0 14px 12px', marginLeft: 12 }}>
+                  <div
+                    style={{
+                      color: theme.slate,
+                      fontSize: 10,
+                      letterSpacing: '0.12em',
+                      textTransform: 'uppercase',
+                      margin: '2px 0 6px',
+                    }}
+                  >
+                    What you'll do, step by step
+                  </div>
+                  <ol style={{ margin: 0, paddingLeft: 18 }}>
+                    {objectives.map((o, i) => (
+                      <li
+                        key={i}
+                        style={{
+                          color: theme.offWhite,
+                          fontSize: 12,
+                          lineHeight: 1.5,
+                          marginBottom: 2,
+                        }}
+                      >
+                        {o}
+                      </li>
+                    ))}
+                  </ol>
+                  <div
+                    style={{
+                      color: theme.slate,
+                      fontSize: 10.5,
+                      lineHeight: 1.45,
+                      marginTop: 8,
+                    }}
+                  >
+                    ★ finish the lesson · ★★ nothing overloaded at the end · ★★★ also lean &amp;
+                    affordable
+                  </div>
+                  <button
+                    onClick={() => begin(m.id)}
+                    style={{
+                      marginTop: 10,
+                      padding: '8px 18px',
+                      borderRadius: 9,
+                      border: 'none',
+                      background: theme.orange,
+                      color: theme.navy,
+                      fontFamily: theme.font,
+                      fontWeight: 800,
+                      fontSize: 13,
+                      letterSpacing: '0.04em',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {completed ? 'replay lesson ▸' : 'start lesson ▸'}
+                  </button>
                 </div>
               )}
-            </button>
+            </div>
           );
         })}
       </div>
@@ -181,4 +286,5 @@ const LESSON_TEACHES: Record<string, string> = {
   'm3-storm': 'depots & vans · vegetation programmes · storms, CI & CML',
   'm4-inbox': 'connection applications · studies · firm vs flexible connections',
   'm5-bill': 'the bill breakdown · headroom · building lean to hit a DUoS target',
+  'm6-sun-store': 'solar farms · battery storage · firming intermittent generation',
 };

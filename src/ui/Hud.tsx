@@ -7,9 +7,11 @@ import { pushSettings } from '../online/cloud';
 import type { SimSpeed } from '../sim/protocol';
 import { ALLOWANCE_Y1_K, inRebuildYear } from '../sim/scenario/story';
 import { assetCapexK } from '../sim/regulation/bill';
+import { BoltMark } from './BoltMark';
 import { SearchBox } from './SearchBox';
 import { fmtMoneyK, panelStyle, theme } from './theme';
 import { useUnlockGate } from './unlocks';
+import { formatEta, gustKmh, WARN_STYLE, warningLevel, windKmh } from './weatherFormat';
 import {
   IconBolt,
   IconBuilding,
@@ -129,14 +131,22 @@ function NewsTicker() {
   );
 }
 
-/** Storm warning strip: the regime forecast gives days of notice — scale
- *  up storm shifts while there's still time (the full system-prepare —
- *  scouts + wider call handling — lives in the escalated SevereWeatherAlert). */
+/** Storm warning strip: the regime forecast gives days of notice — branded
+ *  by the Met-Office warning level (yellow/amber/red) with the forecast peak
+ *  gust in km/h and a remaining-lead countdown. Scale up storm shifts while
+ *  there's still time (the full system-prepare — scouts + wider call handling
+ *  — lives in the escalated SevereWeatherAlert, which auto-pops for the severe
+ *  ones). The banner rides BOTH the imminent front and the medium-range
+ *  outlook, so the ~7-day heads-up is visible even before a storm is severe. */
 function StormBanner() {
   const snapshot = useAppStore((s) => s.snapshot);
   const storm = snapshot?.stormForecast?.[0];
   if (!snapshot || !storm) return null;
-  const days = Math.max(0, (storm.etaMin - snapshot.simTimeMin) / 1440);
+  const remaining = Math.max(0, storm.etaMin - snapshot.simTimeMin);
+  const gust = gustKmh(storm.severity);
+  const warn = warningLevel(gust);
+  const warnColor = WARN_STYLE[warn].color;
+  const outlook = storm.confidence === 'outlook';
   const surging = (snapshot.fleet.vans.length ?? 0) > snapshot.fleet.fleetSize;
   return (
     <div
@@ -148,15 +158,37 @@ function StormBanner() {
         transform: 'translateX(-50%)',
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
-        padding: '5px 12px',
-        border: '1px solid rgba(224,105,122,0.6)',
+        gap: 9,
+        padding: '5px 11px',
+        border: `1px solid ${warnColor}`,
         fontSize: 12,
+        whiteSpace: 'nowrap',
       }}
     >
-      <span style={{ color: theme.danger }}>
-        ⛈ Storm {storm.name} in {days.toFixed(1)}d · severity {(storm.severity * 100).toFixed(0)}%
+      {/* Met-Office warning chip */}
+      <span
+        style={{
+          background: warnColor,
+          color: '#10162e',
+          fontSize: 9.5,
+          fontWeight: 800,
+          letterSpacing: '0.1em',
+          padding: '1px 6px',
+          borderRadius: 4,
+        }}
+      >
+        ⚠ {warn.toUpperCase()}
       </span>
+      <span style={{ color: theme.offWhite }}>
+        {outlook ? 'Outlook: ' : ''}
+        {storm.name}
+      </span>
+      <span style={{ color: theme.slate }}>·</span>
+      <span style={{ color: warnColor, fontWeight: 700 }}>
+        {gust} <span style={{ fontSize: 10, fontWeight: 600 }}>km/h gusts</span>
+      </span>
+      <span style={{ color: theme.slate }}>·</span>
+      <span style={{ color: theme.slate }}>landfall {formatEta(remaining)}</span>
       {!surging && (
         <button
           onClick={() => sendCommand({ type: 'stormPrep', action: 'shifts', days: 4 })}
@@ -238,7 +270,22 @@ function MarketTicker({ embedded = false }: { embedded?: boolean } = {}) {
       <span style={{ color: st.carbonG > 200 ? theme.sunset : theme.ok }}>
         {st.carbonG.toFixed(0)} g/kWh
       </span>
-      <span>{weatherIcon(snapshot.weather, snapshot.simTimeMin)}</span>
+      {(() => {
+        // live wind in real km/h (owner: km/h, not abstract %); tinted by the
+        // Met warning level when it's blowing hard enough to matter.
+        const sustained = windKmh(snapshot.weather.wind);
+        const lvl = warningLevel(gustKmh(snapshot.weather.wind));
+        const stormy = snapshot.weather.wind >= 0.7;
+        return (
+          <span
+            title="current sustained windspeed (km/h)"
+            style={{ color: stormy ? WARN_STYLE[lvl].color : theme.slate, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+          >
+            {weatherIcon(snapshot.weather, snapshot.simTimeMin)} {sustained}
+            <span style={{ fontSize: 10 }}>km/h</span>
+          </span>
+        );
+      })()}
     </div>
   );
 }
@@ -864,17 +911,16 @@ function Wordmark() {
         cursor: 'pointer',
         textAlign: 'left',
         whiteSpace: 'nowrap',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
       }}
     >
-      <img
-        src="/icon-192.png"
-        alt=""
-        width={26}
-        height={26}
-        style={{ verticalAlign: -6, marginRight: 8, borderRadius: 6 }}
-      />
-      <span style={{ color: theme.orange }}>ELECTRI</span>
-      <span style={{ color: theme.slate }}>CITY</span>
+      <BoltMark size={24} />
+      <span>
+        <span style={{ color: theme.orange }}>ELECTRI</span>
+        <span style={{ color: theme.slate }}>CITY</span>
+      </span>
     </button>
   );
 }

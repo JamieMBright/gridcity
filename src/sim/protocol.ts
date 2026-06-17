@@ -197,9 +197,18 @@ export interface SimSnapshot {
   security?: Array<[number, boolean]> | undefined;
   /** Service catchments for the headroom heatmap: [subId, peakMW, mvaMW]. */
   catchments?: Array<[number, number, number]> | undefined;
-  /** Named-storm forecast read off the weather regime pre-roll
-   *  (reliability/stormprep.ts; etaMin = game-minutes to landfall). */
-  stormForecast?: Array<{ name: string; etaMin: number; severity: number }> | undefined;
+  /** Named-storm forecast (reliability/stormprep.ts; etaMin = game-minutes
+   *  to landfall). `confidence` distinguishes the high-confidence IMMINENT
+   *  pre-rolled front from the deterministic medium-range OUTLOOK (the ~7-day
+   *  Met-Office-style heads-up). */
+  stormForecast?:
+    | Array<{
+        name: string;
+        etaMin: number;
+        severity: number;
+        confidence: 'imminent' | 'outlook';
+      }>
+    | undefined;
   /** Live storm call-handling readout (reliability/stormprep.ts): the
    *  call-response answer time vs the < 5 s target, the volume (interrupted
    *  customers calling) vs capacity, drafted office handlers, and the CSAT

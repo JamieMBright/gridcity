@@ -23,6 +23,7 @@ import {
   buildInboxMap,
   buildStepUpMap,
   buildStormMap,
+  buildSunStoreMap,
 } from './missions';
 
 export interface CityScenario {
@@ -249,6 +250,13 @@ export const CITY_SCENARIOS: CityScenario[] = [
     name: 'Every Pound on the Bill',
     tagline: 'Serve the town — and mind what lands on the bill.',
     build: buildBillMap,
+    mission: true,
+  },
+  {
+    id: 'm6-sun-store',
+    name: 'Sun & Store',
+    tagline: 'Solar fills the day; a battery carries it through the night.',
+    build: buildSunStoreMap,
     mission: true,
   },
 ];

@@ -12,7 +12,108 @@
 
 ## Open
 
-### 🏁 OWNER DIRECTIVE (2026-06-16 16:12): "Finish, test, critique all you're doing, then merge when ready."
+### 🛟 OWNER ASK (2026-06-16 21:55): crash capture + self-heal error logging — SHIPPED
+Owner: "The website just crashed on me. Need to capture all crashes and get the
+tracebacks so you can self-heal." Then (2026-06-17): "can't launch game. It crashes
+when I load London."
+- [x] **Wave C — crash capture (client):** ErrorBoundary + window error/rejection
+  handlers + sim Worker error forwarding → central `errorLog` (ring + localStorage).
+- [x] **Wave C — self-heal sink:** guarded Supabase `client_errors` insert; migration
+  APPLIED to prod (project mhgpzhtusrddwtgogjbv). Read: `select … from client_errors`.
+- [x] **Tests + design-gate:** 11 unit + 4 e2e; on-brand "tripped a fuse" screen.
+- [x] **SHIPPED to prod:** PR #64 squash-merged to main (00686ef); Vercel prod deploy
+  READY. So the next crash is captured with a full stack + shows a graceful screen.
+
+#### ✅ RESOLVED: London-load crash — fixed + shipped (#65, prod 7de71d6, deploy READY)
+Did NOT need the live trace: built an "every playable city" e2e that REPRODUCED the
+crash on cairo, then traced TWO distinct renderer crashes on city load / switch:
+1. **ImageData IndexSizeError** — a sprite/hero buffer whose length != 4*w*h. Root:
+   the cairo `grand-egyptian-museum` hero declared foot [3,3] but draws a 2x2
+   museumBlock (w768 vs real 512 → fractional height). Fixed footprint → [2,2].
+2. **City-switch teardown RACE** — init() awaits the atlas bake; a scenario switch can
+   destroy() the renderer mid-await, so the post-bake `boatLayer.addChild(...)` hit a
+   null layer ("Cannot read properties of null (reading 'addChild')"). TIMING-dependent
+   → why it hit the owner's iPhone (NE save → new-game London) but never the tests.
+   Re-check this.destroyed after the bake. ← the LIKELY owner crash.
+- [x] DEFENSIVE NET: `MapRenderer.safeImageData()` never hands a mismatched buffer to
+  ImageData — repairs (pad/truncate) + reports the sprite to client_errors. A malformed
+  graphic can no longer hard-crash, and the bad source is findable from prod.
+- [x] SHIPPED: PR #65 squash-merged to main (7de71d6); Vercel prod deploy READY/live.
+- [x] cityload.spec.ts loads + switches ALL 12 cities; green incl. `--retries=0`.
+- [ ] WATCH: client_errors after the owner reloads — confirm no residual crash.
+- NOTE: race-guard lives on main via #65 but not yet on THIS batch branch's MapRenderer;
+  the eventual batch→main merge keeps main's guard (3-way merge, no regression).
+
+### 🧪 OWNER ASK (2026-06-16 21:55): expand Playwright to EVERY button + EVERY map
+Owner: "expand your playwright testing to include every button and every map etc."
+- [ ] **Wave D — exhaustive e2e sweep:** drive EVERY button/control in every panel
+  (start menu, HUD, build tools, tenders, regulator, tutorials, settings…) and load
+  EVERY city/map; assert NO pageerror and NO console.error anywhere (doubles as the
+  crash-detection net). Data-driven over panel/city registries; shard for runtime.
+
+### 📱 OWNER ASK (2026-06-16 20:48): a BETTER iPhone home-screen logo
+Owner asked if I had their notes on "a better iPhone logo" — I do NOT (lost to
+compaction; nothing in TASKS/ROADMAP/docs). Capturing here so it sticks.
+- CURRENT STATE: the iPhone home-screen icon is the OLD pylon-bolt
+  `public/apple-touch-icon.png` (restored after the "Node" redesign was rejected
+  2026-06-13). W7a added a new `BoltMark` (bolt on a blue rounded tile) but used
+  it only for the in-app wordmark — the iPhone/PWA install icon was left unchanged.
+- [ ] **Action a better iPhone home-screen icon** once the owner confirms the
+  direction. Options to offer: (A) promote the new W7a bolt-on-blue BoltMark to
+  apple-touch-icon (180px) + icon-512/maskable + manifest; (B) a fresh bespoke
+  design; (C) something they describe. iOS ignores SVG → must ship a 180px PNG +
+  512px + maskable; update the web manifest + iOS metas; design-gate on a real
+  home-screen mock. AWAITING owner direction on what "better" should look like.
+- **UPDATE (2026-06-16 21:30):** rendered 4 bespoke concepts (Skyline+Bolt, Lit
+  Pylon, Grid Node, Energised E) — OWNER REJECTED ALL 4. New direction: "try again
+  WITH the design skills this time"; ideas: (1) a SCREEN GRAB of the in-game energy
+  flow turned into the icon; (2) a stylised cable — a horizontal ORANGE line ~2/3
+  up a BLUE square with electrical arcing. → v2 subagent running (uses color-theory/
+  game-ui-design/frontend-design/canvas-design; concept-only, no public/ changes).
+
+### 🎆 OWNER DIRECTIVE (2026-06-16 18:49): drive ALL remaining waves + FIX the night lights
+Owner picked ALL waves (W7 playtest, night-light fidelity, W8 operating models, W9/W10
+polish+economy) — "work through them in priority order as separate green, design-gated PRs
+while you're away." PLUS specific design feedback on the night lights:
+> "The night lights don't look great from the images you've sent. Just looks like a red
+> light. Think more fairy lights. The London Eye was a good example."
+- [~] **NIGHT-LIGHT FAIRY-LIGHTS REDESIGN — bulb redesign SHIPPED (heroLights.ts).** Rebuilt
+      the whole show as the fairy-lights idiom: festoon STRINGS + FIELDS of small TWINKLING
+      BULBS (each a hot-white core in a tight warm bloom), warm-dominant + sparing multicolour
+      (PARTYSTRAND); every halo-blob effect (towerCrown/facadeFlood/genericGlow/stadiumFlood/
+      archGlow) converted to point-fields; the harsh RED aircraft beacon → a small warm ember;
+      brighter+bigger bulbs. Used environment-art + color-theory skills. Design-gated
+      (herolights gate, many iterations). DEFERRED: a per-hero "dusk pocket" (local darken so
+      bulbs POP) was tried in 3 layer placements but never rendered on-screen (glow layer is
+      additive-only; city layer likely cached; a stage-level normal layer didn't show even at
+      magenta α0.9) — needs interactive renderer debugging. ⚠ OWNER DECISION NEEDED: fairy
+      lights pop best on a DARK night, but you earlier (2026-06-13) wanted night kept light/
+      cosy to avoid a "flashing" cycle — deepen the night (smoothly), or keep cosy + gentle?
+- [~] **W7 playtest** — W7e tutorials 1-5 (step-gating + lessons page + lesson 6) DONE+merged
+      (8558ba8). IN FLIGHT (subagents): W7b/c vans+turbine, W7a auth/menu, W7d severe-weather v2.
+- [x] **W8 per-country operating models — RESEARCH done + merged (8e3a33f):** 12 country docs +
+      DESIGN.md in docs/operating-models/. Key: powerProfile.ts already ships tested FR/AU/HK/BR
+      profiles, just unwired → Phase A is data-wiring. IMPLEMENTATION still to schedule.
+- [ ] **W9/W10 polish + economy** (thin-river glint, NE Alnwick; RAV/revenue) — then.
+PRIORITY ORDER (mine, owner can redirect): night-lights(shipped) → W7 → W8 impl → W9/W10.
+
+### 🏁 OWNER DIRECTIVE (2026-06-16 16:12): "Finish, test, critique all you're doing, then merge when ready." — ✅ DISCHARGED (18:49)
+**✅ DONE + LIVE IN PRODUCTION.** PR #63 merged to main (merge commit df320e7); Vercel
+production deploy READY on df320e7 (target=production). The other cities + hero/HUD work
+are now visible on the app. CI `test` job green; local tsc/eslint/vitest 711 + full e2e
+56 passed/0 failed; London byte-stable.
+- FINISH ✅ 1131 bespoke heroes; TEN cities at 100 (London/Paris/NYC/Cairo/Sydney/Berlin/
+  Shanghai/HK/Athens/NE); Cape Town 88 + Pune 31 at their researched ceilings (owner-allowed).
+- TEST ✅ full e2e green (56 passed, 0 fail).
+- CRITIQUE ✅ design-gate done; Giza-on-trees fixed (pyramids on sand, verified). NIGHT
+  LIGHT-SHOW verified in-game (herolights gate, servedCustomers 5055): Shard apex beam,
+  Gherkin/Parliament/BT-Tower glow all render; far-view uncluttered. CAVEATS (polish, not
+  defects): St Paul's + O2 read muted; scene is late-dusk not deep night; only London
+  night-verified so far → folded into a NIGHT-LIGHT FIDELITY polish item.
+- MERGE ✅ df320e7, deployed.
+NEXT: post-merge backlog (W7 playtest / night-light fidelity / W8 operating models /
+W9-W10 polish+economy) — awaiting owner steer on priority (asked 18:49).
+
 THE plan to close out this branch (PR #63) to PRODUCTION:
 1. FINISH heroes: Batch 8 (NYC/Cairo/Shanghai/Athens → 100), then NE 89→100. Every city
    with ≥100 notable buildings reaches 100; Cape Town (~88) + Pune (~31) at their real ceilings.
@@ -128,6 +229,37 @@ parallelisable waves; the main session keeps the keep-alive drumbeat + integrate
   wind-farm icon + capacity picker. W7d Severe-weather v2 (7-day notice, Met
   Office colours, km/h gusts, system-prepare levers). W7e Tutorials 1-5 overhaul
   + structure (campaign→tutorial, lessons page, step-gating, more lessons).
+
+  **W7d — SEVERE-WEATHER v2 execution ledger (this subagent, worktree branch):**
+  Prior Wave-18 PR already shipped the escalated `SevereWeatherAlert.tsx` modal
+  (Met yellow/amber/red, km/h gusts, paused clock, 4 prepare levers wired to a
+  deterministic `stormPrep` command → `reliability/stormprep.ts`, full
+  call-handling/CSAT model). Tests green. Remaining v2 gaps — ALL DONE:
+  - [x] **Genuine ~7-day lead time (SIM).** Forecast only read `nextRegime`
+        (one regime ahead, 2–6 days) so a storm was forecast ≤6d out, often 2–4.
+        Added a deterministic medium-range OUTLOOK: `projectStormWindow`
+        (events/weather.ts) projects the regime chain forward on a SEPARATE
+        projection RNG (seeded off the boundary, never the live tick stream) to a
+        ~10-day horizon. `forecastStorms` now returns IMMINENT (the pre-rolled
+        front) or OUTLOOK (the ~7-day heads-up) with a `confidence` field.
+        Live weather byte-identical (weather.test.ts determinism green); saves
+        replay identically; outlook stable per-regime, revises at turnover.
+  - [x] **Routine weather UI → Met colours + km/h.** Extracted pure helpers to
+        `src/ui/weatherFormat.ts` (gustKmh + new `windKmh` sustained + warning
+        level/colour). `StormBanner` now shows a Met yellow/amber/red chip,
+        forecast peak gust in km/h, landfall countdown (rides imminent AND
+        outlook). `MarketTicker` weather chip now shows live sustained km/h.
+        Modal surfaces the imminent vs outlook confidence. Fixed a double-"Storm"
+        prefix bug in the banner (caught in the design-eval).
+  - [x] **Unit tests** — tests/stormOutlook.test.ts (projection: determinism,
+        horizon/skip bounding, winter-cut, per-boundary independence);
+        tests/stormprep.test.ts rewritten for the two-tier contract;
+        windKmh + WARN_WORD in tests/severeWeather.test.ts. Determinism held.
+  - [x] **Design gate**: preview/severe-{red,amber,yellow,mobile}.png (modal,
+        desktop + phone-landscape) + preview/severe-banner-{desktop,mobile,crop,
+        mobile-crop}.png (routine banner + km/h chip). Reviewed + iterated.
+  - [x] **Port override**: playwright.config.ts honours `PW_PORT` (fallback
+        5199) so parallel worktree agents don't collide on the dev server.
 - **W8 — Per-country operating models** (FR/AU/HK/BR seams part 2b + tender flows).
 - **W9 — Per-city polish** (thin-river water glint Cairo/Pune/NE; NE Alnwick framing).
 - **W10 — Economy depth:** RAV/revenue/incentives; favour-login progression gating;
@@ -385,18 +517,30 @@ TOWER, proportionally, each one bespoke."
       heroes to light.
 
 ### 🔁 PLAYTEST RE-RAISE + NEW FEEDBACK (owner, 2026-06-15 13:30) — "previous feedback that doesn't feel well implemented; some slipped or wasn't verified" → ACTUALLY implement AND VERIFY each (re-opens the 2026-06-13 TUTORIAL OVERHAUL + GAME/UX BUGS sections below; this is the authoritative restatement).
-**AUTH / SETTINGS / MENU**
-- [ ] Password field: ENTER triggers the sign-in button.
-- [ ] Sign-in / Create-account TAB filters currently highlight the SAME as the
-      action "sign in" button → confusing. Make the tab filters a solid pale
-      infill, visually distinct from the action button.
-- [ ] Settings menu: sign-out is off-centre; add CHANGE PASSWORD (old / new /
-      confirm-new / submit). Consider making Settings its own popup (cleaner?).
-- [ ] Remove the SQUARE icon from the main menu (owner dislikes the square home
-      icon). Use the lightning BOLT from between the ELECTRI⚡CITY wordmark on a
-      blue background — super simple.
-- [ ] LOGIN didn't really work (re-raise — end-to-end auth, ties to Supabase
-      Site-URL + styled callback).
+**AUTH / SETTINGS / MENU** — W7a IN PROGRESS (worktree branch worktree-agent-a7e6a536f978986df)
+- [x] Password field: ENTER triggers the sign-in button. (AccountPanel: email +
+      password + username inputs submit the active flow on Enter via a shared
+      onEnter handler, gated on the same enable conditions as the button. The OTP
+      email + code inputs do likewise.)
+- [x] Sign-in / Create-account TAB filters currently highlight the SAME as the
+      action "sign in" button → confusing. Made the tab filters a SEGMENTED
+      control with a solid PALE infill for the active tab (slate-tinted, raised
+      pill in a recessed track) — visually distinct from the orange gradient
+      action button.
+- [x] Settings menu: sign-out is off-centre; add CHANGE PASSWORD (old / new /
+      confirm-new / submit). Settings is now its OWN centred popup (SettingsPanel)
+      with a centred signed-in row + sign-out, audio/colour-blind toggles, and an
+      inline change-password form (current / new / confirm) for signed-in users
+      (reauth via signInWithPassword then updatePassword).
+- [x] Remove the SQUARE icon from the main menu (owner dislikes the square home
+      icon). Replaced /icon-192.png in the StartMenu + both wordmarks (App + Hud)
+      with a simple lightning BOLT on a blue rounded background (BoltMark, drawn
+      from the wordmark bolt path) — super simple.
+- [~] LOGIN didn't really work (re-raise — end-to-end auth, ties to Supabase
+      Site-URL + styled callback). Code path verified end-to-end (sign-up → confirm
+      → sign-in → signed-in state); AuthCallback already styles the recovery/confirm
+      redirect. Supabase Site-URL/redirect-allowlist is a DASHBOARD config (noted
+      for the owner — cannot be set from code).
 **TUTORIAL 1 — onshore wind**
 - [ ] Highlight on the onshore-wind button must VANISH the moment it's clicked
       (same bug on the dist-sub/33kV-line highlight — disappear on click).
@@ -440,9 +584,11 @@ TOWER, proportionally, each one bespoke."
 - [ ] Confusion: the dist sub is 33 kV/LV immediately → add a PRIOR lesson
       teaching BSP / grid site / distribution site + the voltage levels.
 **TUTORIAL 1/3/5 — step gating + completion (applies broadly)**
-- [ ] Don't allow "next" until the step's GOAL is achieved.
-- [ ] Mission-complete popup must appear ONLY on clicking "finish tutorial" in the
-      steps area — not instantly the moment the objective is met.
+- [x] Don't allow "next" until the step's GOAL is achieved. (W7e: gated next/finish,
+      disabled until the step's `done` predicate is met; live ○→✓ objective row.)
+- [x] Mission-complete popup must appear ONLY on clicking "finish tutorial" in the
+      steps area — not instantly the moment the objective is met. (W7e: victory card
+      gated on `tutorialDone`, set only by the finish button; e2e-proven.)
 **TUTORIAL 2 — offshore**
 - [ ] 2nd-pane wording weird ("Try a 33 kV line…") → have them INSPECT the offshore
       unit to learn its kV instead.
@@ -482,10 +628,44 @@ fault icon but NO van)**
       sub's catchment.
 - [ ] Opening bill was sky-high; mission "completed" at £333/yr — sense-check targets.
 **TUTORIALS STRUCTURE**
-- [ ] Tutorials REPLACE campaign; campaign's expanded steps are better → rename
+- [x] Tutorials REPLACE campaign; campaign's expanded steps are better → rename
       campaign→tutorial, delete the old tutorial. Clicking "tutorial" opens a
-      lessons page: every lesson, what it teaches, 0/1/2/3-star rating.
-- [ ] MANY more tutorials covering all the game's mechanisms.
+      lessons page: every lesson, what it teaches, 0/1/2/3-star rating. (Already the
+      model — the campaign IS the tutorial; W7e adds the expandable curriculum, the
+      core-loop intro, and "x/N complete" progress to the lessons page.)
+- [~] MANY more tutorials covering all the game's mechanisms. (W7e adds lesson 6 solar
+      + storage; the curriculum is data-driven so adding more is a steps array. Further
+      lessons — flex markets, interconnectors, reinforcement — are a follow-up.)
+
+### 🌊 W7e — TUTORIALS 1-5 OVERHAUL + STRUCTURE (subagent, branch worktree-agent-a356abf5d51f5e8f9)
+Wave: teach the core loop progressively (designate → bid → award → plant+wires →
+bill), missions 1-5, with CLEAR STEP-GATING, a LESSONS PAGE, more/clearer lessons,
+polished on desktop AND phone-landscape. Found a SOLID existing system (Tutorial.tsx
+step-strip + spotlight + victory; LessonsPage with sequential lock + 0-3 stars;
+missions.ts with done/unlocks/focus/spot; e2e/campaign.spec.ts + tests/missions.test.ts
+green) → IMPROVING it, not rebuilding. Build-ready sub-tasks:
+- [x] STEP-GATING (headline): `next`/`finish` now GATED — a step with a `done` predicate
+      keeps the button DISABLED until the goal is met, with a live OBJECTIVE row (○ → ✓
+      "done!"), a "do the step above to continue" hint, progress dots, and the spotlight
+      dropping once met. Concept steps (no `done`) keep a freely-enabled `continue ▸`.
+      Added `MissionStep.objective` + opt-in `auto`. (Tutorial.tsx StepStrip; e2e asserts
+      next is disabled while pending, enabled when done.)
+- [x] MISSION-COMPLETE only on finish: victory card now gated on a new `tutorialDone`
+      flag set ONLY by "finish tutorial" — never the instant the objective latches (owner).
+      e2e proves the card is absent at missionComplete, appears after finish.
+- [x] LESSONS PAGE polish: expandable per-lesson curriculum (ordered objectives read off
+      the mission steps), star criteria, "x/N complete" progress, clearer core-loop intro,
+      dedicated start/replay button. (LessonsPage.tsx.)
+- [x] MORE/CLEARER lessons: `objective` on every gated step + clearer copy m1-m5; new 6th
+      lesson "Sun & Store" (solar farm + battery storage + firming); curriculum data-driven.
+- [x] GATES: tsc/eslint clean; vitest green (missions 19/19; only pre-existing env
+      perf-flakes — security 50ms budget, landmarks atlas timeout — fail under full-suite
+      contention, all pass in isolation); build OK; campaign e2e (4 functional) green incl.
+      new gating + 6/6 SHOTS green (they ASSERT next disabled-while-pending / enabled-when-done).
+      DESIGN GATE done: preview/w7e-{lessons,step-pending,step-done}-{desktop,mobile}.png —
+      inspected + critiqued; the pinned-objective/buttons fix resolved a phone-landscape
+      off-screen-controls bug; both viewports read clearly. London untouched (tutorials are
+      own scenarios; no map/atlas change).
 **GAME FUNCTIONALITY / GRAPHICS / HUD (re-raise — verify each actually works)**
 - [ ] Tile footprint pre-determined so side-by-side bids can't EXPLODE OUT on
       award (was marked done — re-verify against the turbine-footprint bug above).

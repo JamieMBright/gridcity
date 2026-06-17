@@ -38,12 +38,13 @@ function viewOf(state: GameState, ctx: SimContext): MissionView {
 describe('mission maps', () => {
   const missions = CITY_SCENARIOS.filter((s) => s.mission);
 
-  it('registers five missions in campaign order, london first/default', () => {
-    expect(missions).toHaveLength(5);
+  it('registers the campaign missions in order, london first/default', () => {
+    expect(missions).toHaveLength(6);
     expect(CITY_SCENARIOS[0]?.id).toBe('london');
     expect(MISSIONS.map((m) => m.id)).toEqual(missions.map((s) => s.id));
     expect(nextMission('m1-first-light')?.id).toBe('m2-step-up');
-    expect(nextMission('m5-bill')).toBeUndefined();
+    expect(nextMission('m5-bill')?.id).toBe('m6-sun-store');
+    expect(nextMission('m6-sun-store')).toBeUndefined();
   });
 
   it('every mission map decodes: dims, arrays, customers, councils', () => {
@@ -89,6 +90,8 @@ describe('progressive disclosure: per-step cumulative unlocks', () => {
     const m1 = missionOf('m1-first-light');
     expect(m1).toBeDefined();
     if (!m1) return;
+    // steps (overhauled): 0 intro · 1 designate wind · 2 watch a bid land ·
+    // 3 award a bid · 4 voltage primer · 5 dist sub · 6 33 kV line · 7 light all
     // step 0 (intro): only the always-on tools, no build kit yet
     const s0 = missionUnlocks(m1, 0);
     expect(s0.has('inspect')).toBe(true);
@@ -100,25 +103,54 @@ describe('progressive disclosure: per-step cumulative unlocks', () => {
     expect(s1.has('gen:nuclear')).toBe(false);
     expect(s1.has('sub:dist')).toBe(false);
     expect(s1.has('line:33')).toBe(false);
-    // step 2 adds the inbox HUD surface (award the bid)
+    // steps 2-3 add the inbox HUD surface (watch then award the bid)
     expect(missionUnlocks(m1, 2).has('hud:inbox')).toBe(true);
-    // step 3 is the voltage-hierarchy PRIMER — teaches a concept, unlocks
+    expect(missionUnlocks(m1, 3).has('hud:inbox')).toBe(true);
+    // step 4 is the voltage-hierarchy PRIMER — teaches a concept, unlocks
     // nothing new (the dist sub is still one step away)
-    const s3 = missionUnlocks(m1, 3);
-    expect(s3.has('gen:windOnshore')).toBe(true);
-    expect(s3.has('sub:dist')).toBe(false);
-    // step 4 adds the distribution substation, cumulatively
     const s4 = missionUnlocks(m1, 4);
-    expect(s4.has('sub:dist')).toBe(true);
-    expect(s4.has('sub:grid')).toBe(false);
-    expect(s4.has('line:33')).toBe(false);
-    // step 5 adds the 33 kV line; the full set is now available
+    expect(s4.has('gen:windOnshore')).toBe(true);
+    expect(s4.has('sub:dist')).toBe(false);
+    // step 5 adds the distribution substation, cumulatively
     const s5 = missionUnlocks(m1, 5);
-    expect(s5.has('line:33')).toBe(true);
+    expect(s5.has('sub:dist')).toBe(true);
+    expect(s5.has('sub:grid')).toBe(false);
+    expect(s5.has('line:33')).toBe(false);
+    // step 6 adds the 33 kV line; the full set is now available
+    const s6 = missionUnlocks(m1, 6);
+    expect(s6.has('line:33')).toBe(true);
     // a finished strip (undefined step) keeps everything unlocked
     const done = missionUnlocks(m1, undefined);
     expect(done.has('line:33')).toBe(true);
     expect(done.has('sub:dist')).toBe(true);
+  });
+
+  it('every gated step carries an objective; concept steps do not', () => {
+    for (const m of MISSIONS) {
+      for (const step of m.steps) {
+        if (step.done) {
+          // a gated step must tell the player WHAT unlocks "next"
+          expect(step.objective, `${m.id}: gated step needs an objective`).toBeTruthy();
+        } else {
+          // a pure concept step has no goal, so no objective row
+          expect(step.objective).toBeUndefined();
+        }
+      }
+    }
+  });
+
+  it('mission 6 teaches solar + storage: solar farm, battery, then wires', () => {
+    const m6 = missionOf('m6-sun-store');
+    expect(m6).toBeDefined();
+    if (!m6) return;
+    expect(missionUnlocks(m6, 1).has('gen:solarFarm')).toBe(true);
+    expect(missionUnlocks(m6, 2).has('gen:battery')).toBe(true);
+    const end = missionUnlocks(m6, undefined);
+    expect(end.has('sub:dist')).toBe(true);
+    expect(end.has('line:33')).toBe(true);
+    // it never reaches for fossil generation or transmission voltages
+    expect(end.has('gen:gasCCGT')).toBe(false);
+    expect(end.has('line:132')).toBe(false);
   });
 
   it('every mission only ever unlocks tools it actually teaches in its steps', () => {
@@ -316,6 +348,62 @@ describe('mission 5: the bill target', () => {
     v = viewOf(state, ctx);
     expect(v.bill.perCustomerDuosYr).toBeGreaterThan(M5_DUOS_TARGET);
     expect(m5.win(v)).toBe(false);
+  });
+});
+
+describe('mission 6: sun & store', () => {
+  it('needs BOTH a solar farm and a battery to win', () => {
+    const state = newGame('m6-sun-store');
+    const ctx = newContext('m6-sun-store');
+    const m6 = missionOf('m6-sun-store');
+    expect(m6).toBeDefined();
+    if (!m6) return;
+    const village = { x: 9, y: 12 };
+    const solar = { x: 26, y: 17 };
+    const battery = { x: 22, y: 14 };
+
+    // solar + dist sub + a 33 kV line, but NO battery: the lesson's point is
+    // that solar alone isn't enough — the win must require storage too
+    directBuildGen(state, ctx.map, 'solarFarm', solar.x, solar.y);
+    mustApply(state, ctx.map, {
+      type: 'build',
+      spec: { kind: 'sub', sub: 'dist', x: village.x, y: village.y },
+    });
+    mustApply(state, ctx.map, {
+      type: 'build',
+      spec: {
+        kind: 'line',
+        level: 33,
+        build: 'overhead',
+        ax: solar.x,
+        ay: solar.y,
+        bx: village.x,
+        by: village.y,
+      },
+    });
+    commissionAll(state);
+    let v = viewOf(state, ctx);
+    expect(m6.win(v)).toBe(false); // no battery yet
+
+    // add the battery beside the field: the storage requirement is met
+    directBuildGen(state, ctx.map, 'battery', battery.x, battery.y);
+    mustApply(state, ctx.map, {
+      type: 'build',
+      spec: {
+        kind: 'line',
+        level: 33,
+        build: 'overhead',
+        ax: battery.x,
+        ay: battery.y,
+        bx: village.x,
+        by: village.y,
+      },
+    });
+    commissionAll(state);
+    v = viewOf(state, ctx);
+    // both required generators are now present and wired in
+    expect(v.assets.some((a) => a.kind === 'gen' && a.gen === 'solarFarm')).toBe(true);
+    expect(v.assets.some((a) => a.kind === 'gen' && a.gen === 'battery')).toBe(true);
   });
 });
 

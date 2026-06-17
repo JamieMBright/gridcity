@@ -147,25 +147,51 @@ export function IconSolar(p: IconProps) {
   );
 }
 
-/** Onshore wind: a three-blade turbine on a slim tower. */
+// Wind-farm glyph (owner playtest W7c): a proper turbine, not three thin
+// matchsticks. A TAPERING mast (wide at the base, narrowing to the hub) and
+// three big WING-shaped blades — narrow at the hub, widening, then tapering
+// to a point — each ≥60% of the hub height, so the silhouette reads as a
+// real wind turbine even at 16px. Blades are FILLED wings (currentColor) so
+// the taper shows; the mast is a filled taper. Hub at (12,9): blades reach
+// out ~7 units ≈ 70% of the 10-unit hub height.
+const WIND_BLADES = (cx: number, cy: number) => {
+  // one wing pointing up; the other two are this wing rotated 120°/240°.
+  // wing outline in hub-local space: hub root → swelling belly → point.
+  const wing = (deg: number) => {
+    const a = (deg * Math.PI) / 180;
+    const ca = Math.cos(a);
+    const sa = Math.sin(a);
+    // local (along-blade r, across-blade w) → world, rotated by `a`
+    const pt = (r: number, w: number) =>
+      `${(cx + r * sa + w * ca).toFixed(2)} ${(cy - r * ca + w * sa).toFixed(2)}`;
+    // root narrow, belly wide ~60% out, taper to a point at the tip
+    return `M${pt(0.6, -0.5)} C${pt(3.2, -1.6)} ${pt(6.2, -1.2)} ${pt(7.2, 0)} C${pt(6.2, 1.0)} ${pt(3.2, 1.1)} ${pt(0.6, 0.5)} Z`;
+  };
+  return `${wing(0)}${wing(120)}${wing(240)}`;
+};
+
+/** Onshore wind: a three-blade turbine — tapering mast, wing-shaped blades. */
 export function IconWind(p: IconProps) {
   return (
     <Svg {...p}>
-      <path d="M12 13v8M9.5 21h5" />
-      <circle cx="12" cy="11" r="1.3" />
-      <path d="M12 9.7 12 3M13.1 11.8l5.6 3.2M10.9 11.8l-5.6 3.2" />
+      {/* tapering mast: wide at the base (10.8–13.2) up to a slim hub (11.4–12.6) */}
+      <path d="M10.9 21 11.4 9.4h1.2L13.1 21Z" fill="currentColor" stroke="none" />
+      <path d="M9.4 21h5.2" />
+      {/* hub + three wing blades */}
+      <path d={WIND_BLADES(12, 9)} fill="currentColor" stroke="currentColor" strokeWidth={0.6} />
+      <circle cx="12" cy="9" r="1.15" fill="currentColor" stroke="none" />
     </Svg>
   );
 }
 
-/** Offshore wind: a turbine standing in water (wave line at the base). */
+/** Offshore wind: the same turbine standing in water (wave line at the base). */
 export function IconWindSea(p: IconProps) {
   return (
     <Svg {...p}>
-      <circle cx="12" cy="9" r="1.2" />
-      <path d="M12 7.8 12 2.5M13 9.6l5 3M11 9.6l-5 3" />
-      <path d="M12 10.2V18" />
-      <path d="M3 19c1.5 0 1.5-1.2 3-1.2S7.5 19 9 19s1.5-1.2 3-1.2 1.5 1.2 3 1.2 1.5-1.2 3-1.2 1.5 1.2 3 1.2" />
+      <path d="M11 18 11.45 8.4h1.1L13 18Z" fill="currentColor" stroke="none" />
+      <path d={WIND_BLADES(12, 8)} fill="currentColor" stroke="currentColor" strokeWidth={0.6} />
+      <circle cx="12" cy="8" r="1.05" fill="currentColor" stroke="none" />
+      <path d="M3 20c1.5 0 1.5-1.2 3-1.2S7.5 20 9 20s1.5-1.2 3-1.2 1.5 1.2 3 1.2 1.5-1.2 3-1.2 1.5 1.2 3 1.2" />
     </Svg>
   );
 }

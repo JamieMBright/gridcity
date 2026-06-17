@@ -456,7 +456,9 @@ function CapacityPicker({ gen }: { gen: GenType }) {
   const clamp = (v: number): number => Math.min(cap, Math.max(per, Math.round(v / step) * step));
   const change = (dir: -1 | 1): void => setMw(clamp(value + dir * step));
   const homes = homesPowered(gen, value);
-  const tiles = Math.max(1, Math.round(value / per));
+  // tiles claimed == ceil(MW / per): one ~5-MW turbine per square (matches the
+  // compact footprint that actually lands — W7c, no checkerboard sprawl)
+  const tiles = Math.max(1, Math.ceil(value / per));
   return (
     <div style={{ borderTop: `1px solid ${theme.navyLight}`, marginTop: 4, paddingTop: 2 }}>
       <div style={{ color: theme.slate, fontSize: 10, letterSpacing: '0.1em', margin: '2px 9px' }}>

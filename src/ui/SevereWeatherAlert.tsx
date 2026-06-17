@@ -11,6 +11,12 @@ import { useAppStore } from '../app/store';
 import { sendCommand, setSimSpeed } from '../app/workerBridge';
 import type { PlacedAsset } from '../sim/assets';
 import { theme } from './theme';
+import { formatEta, gustKmh, WARN_STYLE, warningLevel, type WarnLevel } from './weatherFormat';
+
+// The km/h + Met-warning helpers now live in weatherFormat.ts so the
+// always-on HUD chips and this modal share one source of truth; re-exported
+// here for the existing call sites / tests.
+export { formatEta, gustKmh, WARN_STYLE, warningLevel, type WarnLevel };
 
 /** Forecast row shape (mirrors snapshot.stormForecast[i]). */
 export interface StormForecastRow {
@@ -19,6 +25,9 @@ export interface StormForecastRow {
    *  minute on the snapshot, not a remaining delta — see comment below). */
   etaMin: number;
   severity: number;
+  /** Imminent pre-rolled front vs the medium-range outlook (optional so the
+   *  pure helpers stay testable with bare rows). */
+  confidence?: 'imminent' | 'outlook';
 }
 
 // --- severity / selection helpers (pure, unit-tested) ------------------------
@@ -37,34 +46,6 @@ export const SEVERE_SEVERITY = 0.85;
  *  notice of a severe storm and runs the system-prepare over that lead time
  *  (owner, 2026-06-14), so we warn a full 7 game-days out. */
 export const SEVERE_ETA_WINDOW_MIN = 7 * 1440;
-
-/** Forecast peak GUST in km/h from the sim's wind-intensity `severity`
- *  (0..1). Anchored to real GB storms: Beaufort gale 62–88, storm 89–117,
- *  violent storm 103–117, hurricane-force ≥118; named UK storms commonly
- *  gust 120–160+ km/h (e.g. Éowyn 2025), a routine windy front ~60–90. We
- *  peg severity 0.85 (the sim's severe cut) ≈ 95 km/h and 1.0 ≈ 150, so
- *  named storms (0.92+) land 120–160 and routine fronts sit below. */
-export function gustKmh(severity: number): number {
-  return Math.round(Math.max(50, Math.min(165, 95 + (severity - 0.85) * 367)));
-}
-
-/** Met Office-style warning level from the peak gust (km/h): YELLOW = some
- *  low-level disruption; AMBER ≈ 60–90 mph (~100–145 km/h), significant
- *  impact / danger to life; RED = exceptional, ~145+ km/h. */
-export type WarnLevel = 'yellow' | 'amber' | 'red';
-export function warningLevel(gust: number): WarnLevel {
-  if (gust >= 145) return 'red';
-  if (gust >= 100) return 'amber';
-  return 'yellow';
-}
-
-/** Colour + label for a warning level (the hazardous yellow→amber→red
- *  branding the public sees). */
-export const WARN_STYLE: Record<WarnLevel, { color: string; label: string }> = {
-  yellow: { color: '#e9c84a', label: 'YELLOW WARNING' },
-  amber: { color: '#ff8a1e', label: 'AMBER WARNING' },
-  red: { color: '#e0697a', label: 'RED WARNING' },
-};
 
 /** Is this forecast row a severe storm bearing down within the window?
  *  `nowMin` = snapshot.simTimeMin; etaMin is the absolute window-open
@@ -100,17 +81,6 @@ export function pickVegLine(assets: ReadonlyArray<PlacedAsset> | undefined): num
     if (!best || a.lengthTiles > best.len) best = { id: a.id, len: a.lengthTiles };
   }
   return best?.id;
-}
-
-/** Game-minutes → a friendly "1d 4h" / "5h 20m" countdown. */
-export function formatEta(remainingMin: number): string {
-  const m = Math.max(0, Math.round(remainingMin));
-  const days = Math.floor(m / 1440);
-  const hours = Math.floor((m % 1440) / 60);
-  const mins = m % 60;
-  if (days > 0) return `${days}d ${hours}h`;
-  if (hours > 0) return `${hours}h ${mins}m`;
-  return `${mins}m`;
 }
 
 // --- the schematic weather map -----------------------------------------------
@@ -372,11 +342,30 @@ export function SevereWeatherAlert() {
             <span style={{ color: warnColor, fontSize: 12, letterSpacing: '0.18em', fontWeight: 700 }}>
               WIND
             </span>
+            {/* confidence tag: the high-confidence imminent front vs the
+                deterministic medium-range projection */}
+            <span
+              style={{
+                marginLeft: 'auto',
+                color: theme.slate,
+                fontSize: 9.5,
+                letterSpacing: '0.14em',
+                fontWeight: 700,
+                border: `1px solid ${theme.navyLight}`,
+                borderRadius: 4,
+                padding: '2px 6px',
+              }}
+            >
+              {storm.confidence === 'outlook' ? 'MEDIUM-RANGE OUTLOOK' : 'IMMINENT'}
+            </span>
           </div>
           <div style={{ fontSize: 22, fontWeight: 800, marginTop: 6 }}>{storm.name}</div>
           <div style={{ color: theme.slate, fontSize: 12.5, marginTop: 4 }}>
-            ~7 days' notice — the clock is <span style={{ color: theme.gold }}>paused</span> so you
-            can run the system-prepare before landfall.
+            {storm.confidence === 'outlook'
+              ? "Met Office medium-range outlook — about a week out. The clock is "
+              : 'Confirmed front bearing down — the clock is '}
+            <span style={{ color: theme.gold }}>paused</span> so you can run the system-prepare
+            before landfall.
           </div>
         </div>
 

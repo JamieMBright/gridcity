@@ -9,7 +9,7 @@
 // the classic morning shoulder and evening peak that the whole game's
 // reinforcement pressure hangs off.
 
-import type { Rng } from '../rng';
+import { Rng } from '../rng';
 import {
   LONDON_WEATHER,
   type RegimeSpec,
@@ -152,6 +152,85 @@ function pickRegime(rng: Rng, peakness: number): WeatherRegime {
   if ((roll -= calmCold) < 0) return 'calm-cold';
   if ((roll -= heatwave) < 0) return 'heatwave';
   return 'mild';
+}
+
+// ----------------------------------------------------------------------
+// Medium-range outlook (the 7-day storm forecast, owner 2026-06-14).
+//
+// The live machine only pre-rolls ONE regime ahead (nextRegime), and a
+// regime runs 2–6 days — so reading nextRegime alone gives a severe storm
+// at most ~6 days' notice, usually 2–4. A real GB network operator gets a
+// Met-Office medium-range heads-up ~7 days out and runs the system-prepare
+// over that lead. We model that as a deterministic forward PROJECTION of
+// the regime chain: from the current regime's end boundary we walk the
+// season-weighted draw forward on a SEPARATE, seeded projection RNG until
+// a storm (or a winter windy-wet front) opens inside the horizon.
+//
+// Determinism + save-safety: the projection RNG is seeded off a stable
+// calendar key (the regime boundary), NOT the live tick stream, so it (a)
+// never perturbs the actual weather the sim rolls — every existing test
+// stays byte-identical — and (b) is fixed for the life of a regime, so the
+// outlook doesn't flicker tick-to-tick; it REVISES at each turnover, just
+// as a real medium-range forecast firms up as it nears. This is a
+// projection, not an oracle: realistic precisely because 7-day forecasts
+// are uncertain and get updated.
+
+/** mulberry32-friendly 32-bit mix of a calendar minute → a projection seed
+ *  distinct from the live stream. Pure + stable for a given key. */
+function projectionSeed(key: number): number {
+  let h = (Math.floor(key) ^ 0x9e3779b9) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x21f0aaad) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 0x735a2d97) >>> 0;
+  return (h ^ (h >>> 15)) >>> 0;
+}
+
+/** A projected severe-weather window found by the medium-range outlook. */
+export interface ProjectedStorm {
+  /** Absolute sim-minute the window opens. */
+  startMin: number;
+  /** The regime that opens it. */
+  regime: WeatherRegime;
+  /** seasonFactor (winterness) at the window — drives forecast severity. */
+  winterness: number;
+}
+
+/** Project the regime chain forward and return the FIRST storm — or winter
+ *  windy-wet front — that opens within `horizonMin` of `fromMin`, starting
+ *  the search at least `skipMin` past `fromMin`. Deterministic: seeded off
+ *  the boundary, fully independent of the live tick RNG, so it never
+ *  perturbs the weather the sim actually rolls. `winterCut` mirrors
+ *  STORM_WINTERNESS so a windy-wet front only counts in the cold half of the
+ *  year. Returns undefined when the projected horizon is calm.
+ *
+ *  `skipMin` lets the caller hold the search past the already-known imminent
+ *  front (whose slot is covered by the high-confidence forecast), so the
+ *  outlook genuinely reports the MEDIUM range rather than re-claiming the
+ *  next-day slot. The walk begins by drawing the regime that opens at
+ *  `fromMin` and accumulating real (seeded) durations from there. */
+export function projectStormWindow(
+  fromMin: number,
+  horizonMin: number,
+  winterCut: number,
+  skipMin = 0,
+  profile: WeatherProfile = LONDON_WEATHER,
+): ProjectedStorm | undefined {
+  // seed off the boundary so the outlook is stable per-regime AND fully
+  // independent of the live tick stream (we never touch the game RNG here)
+  const rng = new Rng(projectionSeed(fromMin));
+  let cursor = fromMin;
+  // a hard cap on the walk (defensive — the horizon bounds it in practice)
+  for (let i = 0; i < 64; i++) {
+    if (cursor - fromMin > horizonMin) return undefined;
+    const winterness = seasonFactor(cursor, profile);
+    const regime = pickRegime(rng, winterness);
+    const isForecastable =
+      regime === 'storm' || (regime === 'windy-wet' && winterness >= winterCut);
+    if (isForecastable && cursor - fromMin >= skipMin) {
+      return { startMin: cursor, regime, winterness };
+    }
+    cursor += regimeDurationMin(rng, regime);
+  }
+  return undefined;
 }
 
 export function newWeather(): WeatherState {

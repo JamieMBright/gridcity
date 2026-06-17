@@ -3,6 +3,7 @@ import { EventLog } from '../ui/AlertsFeed';
 import { AssetGuide } from '../ui/AssetGuide';
 import { AuthCallback } from '../ui/AuthCallback';
 import { BalancePanel } from '../ui/BalancePanel';
+import { BoltMark } from '../ui/BoltMark';
 import { BuildLabelChip } from '../ui/BuildLabelChip';
 import { CameraBookmarks } from '../ui/CameraBookmarks';
 import { GameMenu } from '../ui/GameMenu';
@@ -53,17 +54,16 @@ function Wordmark() {
         letterSpacing: '0.05em',
         cursor: 'pointer',
         textAlign: 'left',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
       }}
     >
-      <img
-        src="/icon-192.png"
-        alt=""
-        width={26}
-        height={26}
-        style={{ verticalAlign: -6, marginRight: 8, borderRadius: 6 }}
-      />
-      <span style={{ color: theme.orange }}>ELECTRI</span>
-      <span style={{ color: theme.slate }}>CITY</span>
+      <BoltMark size={24} />
+      <span>
+        <span style={{ color: theme.orange }}>ELECTRI</span>
+        <span style={{ color: theme.slate }}>CITY</span>
+      </span>
     </button>
   );
 }

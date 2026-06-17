@@ -6,17 +6,17 @@ import { useEffect, useState } from 'react';
 import { useAppStore } from '../app/store';
 import { newGameCommand } from '../app/workerBridge';
 import { currentUser } from '../online/auth';
-import { getAudioSettings, startMusic, updateAudioSettings } from '../audio/audio';
-import { pushSettings } from '../online/cloud';
+import { startMusic } from '../audio/audio';
 import { localStorageStore } from '../persistence/localStorageStore';
 import { listSlots } from '../persistence/slotStore';
 import { AccountPanel } from './AccountPanel';
+import { BoltMark } from './BoltMark';
 import { CityPicker } from './CityPicker';
 import { LessonsPage } from './LessonsPage';
 import { RankBadge } from './RankPanel';
+import { SettingsPanel } from './SettingsPanel';
 import { STORY_KEY } from './StoryIntro';
 import { theme } from './theme';
-import { ColourBlindSetting } from './ColourBlindSetting';
 
 const bigBtn = (primary: boolean): React.CSSProperties => ({
   display: 'block',
@@ -60,9 +60,9 @@ export function StartMenu() {
   const setTourActive = useAppStore((s) => s.setTourActive);
   const setSavesOpen = useAppStore((s) => s.setSavesOpen);
   const setLessonsOpen = useAppStore((s) => s.setLessonsOpen);
-  const [foot, setFoot] = useState<'settings' | 'leaderboard' | 'credits' | undefined>(undefined);
+  const [foot, setFoot] = useState<'leaderboard' | 'credits' | undefined>(undefined);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [pickingCity, setPickingCity] = useState(false);
-  const [, force] = useState(0);
   // guest vs signed-in: drives the gentle "sign in to keep your rank" nudge
   // under the rank badge (signed-in players don't see it). undefined while
   // the session check is in flight, so nothing flashes.
@@ -79,7 +79,6 @@ export function StartMenu() {
   if (!menuOpen) return null;
   const hasSave = localStorageStore.load() !== undefined;
   const slotCount = listSlots().length;
-  const audio = getAudioSettings();
 
   // sandbox: continue a save (fresh=false) or start a clean new game
   // (fresh=true). The London tutorial step strip is RETIRED — the campaign
@@ -143,7 +142,9 @@ export function StartMenu() {
           fontFamily: theme.font,
         }}
       >
-        <img src="/icon-192.png" alt="" width={72} height={72} style={{ borderRadius: 17 }} />
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <BoltMark size={64} radius={16} />
+        </div>
         <img
           src="/logotype.png"
           alt="ElectriCity"
@@ -196,29 +197,6 @@ export function StartMenu() {
         )}
         <AccountPanel showBoard={foot === 'leaderboard'} />
 
-        {foot === 'settings' && (
-          <div style={{ marginTop: 10, fontSize: 12 }}>
-            {(['musicOn', 'sfxOn'] as const).map((k) => (
-              <button
-                key={k}
-                style={{
-                  ...footBtn,
-                  color: audio[k] ? theme.gold : theme.slate,
-                  border: `1px solid ${theme.navyLight}`,
-                  borderRadius: 6,
-                  margin: '0 4px',
-                }}
-                onClick={() => {
-                  pushSettings(updateAudioSettings({ [k]: !audio[k] }));
-                  force((n) => n + 1);
-                }}
-              >
-                {k === 'musicOn' ? 'music' : 'sfx'} {audio[k] ? 'on' : 'off'}
-              </button>
-            ))}
-            <ColourBlindSetting />
-          </div>
-        )}
         {foot === 'credits' && (
           <div style={{ marginTop: 10, fontSize: 11, color: theme.slate }}>
             built with care by Jamie + Claude · all art is code · no city was harmed
@@ -235,8 +213,8 @@ export function StartMenu() {
           }}
         >
           <button
-            style={{ ...footBtn, color: foot === 'settings' ? theme.gold : theme.slate }}
-            onClick={() => setFoot(foot === 'settings' ? undefined : 'settings')}
+            style={{ ...footBtn, color: settingsOpen ? theme.gold : theme.slate }}
+            onClick={() => setSettingsOpen(true)}
           >
             ⚙ settings
           </button>
@@ -258,6 +236,7 @@ export function StartMenu() {
       {pickingCity && (
         <CityPicker onPick={beginCity} onClose={() => setPickingCity(false)} />
       )}
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }

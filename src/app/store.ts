@@ -91,6 +91,9 @@ interface AppState {
   billDetail: { line: BillDetailLine; rows: BillDetailRow[] } | undefined;
   /** Headroom heatmap toggle (corridors coloured by spare capacity). */
   headroom: boolean;
+  /** The bill panel has been opened/shown at least once this session
+   *  (mission 5's "open the bill" step gates on it; set by BillPanel). */
+  billSeen: boolean;
   /** N-1 security rings toggle. */
   n1: boolean;
   /** 5-year demand-growth forecast overlay. */
@@ -107,6 +110,12 @@ interface AppState {
   /** Current tutorial step index, or undefined when not in the tutorial.
    *  Drives the London step strip AND the active mission's steps. */
   tutorialStep: number | undefined;
+  /** The mission id the player has explicitly FINISHED (clicked "finish
+   *  tutorial" on the last step). Gates the mission-complete victory card,
+   *  so it appears ONLY on finish — never the instant the objective is met
+   *  (owner). Cleared on a scenario switch. */
+  tutorialDone: string | undefined;
+  setTutorialDone: (id: string | undefined) => void;
   /** Active scenario id ('london' or a campaign mission); mirrors the
    *  worker's authoritative value via the snapshot. The renderer keys
    *  its map off this. */
@@ -172,6 +181,7 @@ interface AppState {
   setPlan: (plan: ReinforcementPlan | undefined) => void;
   setBillDetail: (d: { line: BillDetailLine; rows: BillDetailRow[] } | undefined) => void;
   setHeadroom: (on: boolean) => void;
+  setBillSeen: (seen: boolean) => void;
   setN1: (on: boolean) => void;
   setForecastOn: (on: boolean) => void;
   setForecast: (rows: CatchmentForecast[]) => void;
@@ -401,6 +411,7 @@ export const useAppStore = create<AppState>((set) => ({
   plan: undefined,
   billDetail: undefined,
   headroom: false,
+  billSeen: false,
   n1: false,
   forecastOn: false,
   forecast: undefined,
@@ -409,6 +420,8 @@ export const useAppStore = create<AppState>((set) => ({
   gameMenuOpen: false,
   setGameMenuOpen: (gameMenuOpen) => set({ gameMenuOpen }),
   tutorialStep: undefined,
+  tutorialDone: undefined,
+  setTutorialDone: (tutorialDone) => set({ tutorialDone }),
   scenarioId: 'london',
   kpiOpen: false,
   directoratesOpen: false,
@@ -515,6 +528,7 @@ export const useAppStore = create<AppState>((set) => ({
   setPlan: (plan) => set({ plan }),
   setBillDetail: (billDetail) => set({ billDetail }),
   setHeadroom: (headroom) => set({ headroom }),
+  setBillSeen: (billSeen) => set({ billSeen }),
   setN1: (n1) => set({ n1 }),
   setForecastOn: (forecastOn) => set({ forecastOn }),
   setForecast: (forecast) => set({ forecast }),
@@ -533,6 +547,12 @@ export const useAppStore = create<AppState>((set) => ({
             selectedLine: undefined,
             selectedLineAt: undefined,
             studies: {},
+            // reset the UI-only step gates so a replayed mission re-teaches
+            // them (these never reach the sim; missions read them via the
+            // MissionUiView in Tutorial.tsx)
+            headroom: false,
+            billSeen: false,
+            tutorialDone: undefined,
             tool: { t: 'inspect' },
           },
     ),
