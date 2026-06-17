@@ -491,6 +491,12 @@ export class MapRenderer {
     host.appendChild(this.app.canvas);
 
     await this.buildTextures();
+    // a scenario switch (city change) can destroy() this renderer mid-bake —
+    // buildTextures awaits the IndexedDB atlas cache — so re-check before
+    // touching the now-torn-down layers. Without this, the post-bake
+    // `this.boatLayer.addChild(...)` hit a null layer and crashed the app on a
+    // city switch ("Cannot read properties of null (reading 'addChild')").
+    if (this.destroyed) return;
     this.buildRoutePaths(map);
     this.buildWorld(map);
     this.drawShore(map);
