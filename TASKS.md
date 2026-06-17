@@ -70,6 +70,51 @@ SAVE_VERSION bump or are avoided. Gates: tsc/eslint/vitest/build +
       that would otherwise have had their 0.3 MW dropped. Deterministic. (demand.test.ts)
 - [ ] GATES all green; commit incrementally; push branch; PR to main.
 
+### 🏙️ WP6 — PER-CITY BUILDING CHARACTER (this session, branch wp6-city-building-character)
+Cities stop looking like reskinned London terraces: era/region-appropriate housing +
+building stock per city, wired through the fabric system (London byte-identical anchor).
+This is WAVE ζ "Per-city asset packs & richer building stock", scoped to a COHERENT
+increment + a reusable PATTERN (not a shallow pass over all 11). Model: Opus.
+Gates: tsc / eslint / vitest / build + `bash tools/e2e-shards.sh cityload`. Atlas ≤4096.
+- [x] **Reusable pattern + scalable baking** — bespoke domestic stock baked OFF-ATLAS to its
+      OWN tight buffers (atlas.buildCityStockBufs, merged into the heroes map), gated on
+      `activeFabric()` — NOT on the shared sheet. London adds zero off-atlas stock ⇒ its
+      sheet is byte-identical (verified: SHA-256 of London's atlas sheet + hero bufs matches
+      main 34e5cf8 exactly). Every fabric's shared sheet stays ≤3968×3966px (probe across all
+      12 fabrics; 4096 ceiling untouched). Pattern documented in atlas.ts + tileChooser.ts:
+      add a `<city>` archetype fn → bake it under a `case` in buildCityStockBufs → dispatch
+      it in cityStockFor per zone. (atlas.ts:300, tileChooser.ts:202)
+- [x] **New York** — `brownstoneTile` (russet sandstone stoops/cornices/bays, flat charcoal
+      roof) + `setbackTile` (1916-zoning wedding-cake tiers, water towers on steel legs).
+      Reads as Manhattan canyon walls, NOT London terraces. (buildingSprites.ts:888,957)
+- [x] **Hong Kong** — `hktowerTile` (slender flat-topped slab on a glazed retail podium,
+      gridded windows, bay wings, AC units, rooftop tanks + lift overrun) + `tonglauTile`
+      (older walk-up: projecting balconies, five-foot-way shopfront, shop banners). The
+      wall-of-towers tell. (buildingSprites.ts:1011,1082)
+- [x] **Cairo** — `cairoblockTile`: exposed concrete frame + recessed bare-brick infill,
+      proud floor slabs, UNFINISHED rebar top, flat roof crammed w/ dishes+tanks, jagged
+      mismatched neighbour heights, sandy-ochre dust palette. (buildingSprites.ts:1136)
+- [x] **Wire through tileChooser** — `cityStockFor(fabric, zone, …)` dispatches per zone
+      (NYC: setback in cbd/core, brownstone in boroughs; HK: hktower in core/cbd, tonglau in
+      urban; Cairo: cairoblock across residential; Paris: haussmann). London + the 7
+      un-converted cities return undefined ⇒ shared London logic. Audited consistent: every
+      referenced sprite is baked exactly once (modulos match baked counts), no missing-sprite
+      bug, no dead art. (tileChooser.ts:215, structureSpriteFor:397)
+- [x] **TODOs left** for the remaining 7 cities (Sydney/Berlin/Shanghai/Cape Town/Athens/
+      Pune/North-East) — they already carry bespoke env+wall/roof colourways; the clear
+      add-an-archetype pattern is in tileChooser.ts:211-214 + atlas.ts:291-299.
+- [x] **DESIGN GATE** — real IN-GAME screenshots of NYC/HK/Cairo at mid+close, dusk, desktop
+      (1100×700) AND phone-landscape (844×390) via e2e/wp6shots.helper.spec.ts → preview/wp6/
+      ingame-<city>-<desktop|phone>-<mid|close>.png (12 imgs), PLUS per-archetype contact
+      sheets preview/wp6/stock-<city>.png. Critiqued vs the docs/cities research: all three
+      read as genuinely distinct, era/region-appropriate, NOT recoloured London. London
+      comparison sheet (preview/wp6/contact-london.png) confirms the contrast (pitched slate
+      + brick-red vs flat roofs + russet/grey/ochre).
+- [x] **GATES all green** — tsc 0 · eslint 0 (no `tools/_*.ts` scratch remain) · vitest
+      797/797 · build OK · `bash tools/e2e-shards.sh cityload` 16/16 (a 1st run flaked on a
+      leftover foreign dev-server on the shared port — re-ran clean on an isolated port).
+      Atlas ≤4096 verified. PR to main next.
+
 ### 🎓 WP1 — TUTORIAL GUIDED-PLAY POLISH (this session, branch wp1-tutorial-guided-play)
 Owner playtest-feedback items for the tutorial/onboarding (drawn from the re-raise
 ledger below). Scope: tutorial/onboarding UX ONLY — must not regress normal
