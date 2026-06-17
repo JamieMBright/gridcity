@@ -12,6 +12,28 @@
 
 ## Open
 
+### 🔺 WP3 — Giza Sound-&-Light as an ENERGISABLE DEMAND POINT (Cairo) — IN PROGRESS (2026-06-17)
+Owner ask (WAVE γ): "Pyramids of Giza must feature + the Sound-&-Light floodlighting needs
+[to be energised]." The Giza sprites (pyramids + Sphinx) and the `pyramidFlood`/`sphinxFlood`
+light-shows already exist as ART + light specs; the missing piece is the gameplay LOAD —
+connecting power to Giza does nothing today, and the floodlights gate only off the
+8-neighbour fallback (zero own-demand). Research (2 explorers + direct trace) confirms:
+demand is `tileDemandMW(map,i)` → `buildDemandField`/`assignServiceAreas` → `demandTiles` →
+`coverage` (`unserved` until a healthy sub serves the tile); a hero floodlight lights when any
+FOOTPRINT tile reads `COV.on|brownout`, and a tile with its OWN demand (not `COV.empty`) gates
+on its own energisation. CityMap already carries non-serialized, rebuilt-from-scenarioId fields
+(`named`/`towns`/`heroTable`) with explicit "no SAVE_VERSION implication."
+- [ ] Add a deterministic, non-serialized sparse heritage-load field on CityMap, derived at
+  build time (`buildCityFromData`) from the Giza heroes' footprints — Cairo only.
+- [ ] Flow that bonus MW through `tileDemandMW`/`tileDemand` (a process-load term) so it lands
+  in `buildDemandField`, `assignServiceAreas`, `demandTiles` and coverage — no hack.
+- [ ] Result: Giza tiles read `unserved` until the player builds network out + energises them;
+  the Sound-&-Light floodlights then activate on REAL energisation (dark when unpowered).
+- [ ] Unit test: Cairo demand includes the Giza load; energising the Giza sub lights the tiles.
+- [ ] DESIGN GATE: real screenshots Giza UNPOWERED vs POWERED, close zoom, desktop +
+  phone-landscape, saved under preview/.
+- [ ] Gates green (vitest/tsc/eslint/build + `bash tools/e2e-shards.sh cityload`); PR to main.
+
 ### 🧾 LEDGER RECONCILE (2026-06-17) — honest audit of every open/partial item vs the shipped code (origin/main @ 2099b94, PRs #63–#66)
 The owner flagged that the ledger had drifted untrustworthy (~134 unchecked items, many
 already shipped). This pass VERIFIED every `- [ ]`/`- [~]` against the actual codebase

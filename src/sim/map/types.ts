@@ -284,6 +284,15 @@ export interface CityMap {
    *  serialized into a save — so adding it has no SAVE_VERSION implication.
    *  Omitted/empty ⇒ no bespoke heroes ⇒ the map renders byte-identically. */
   heroTable?: HeroSlot[] | undefined;
+  /** Sparse heritage / civic point-load, MW per tile index, on top of the
+   *  zone-derived domestic + process demand. A heritage landmark (e.g. the Giza
+   *  Sound-&-Light show) is a real electrical load the player must build out to
+   *  and energise — its tiles read `unserved` until a sub serves them, which is
+   *  what gates the hero's floodlight on REAL energisation. Like `heroTable`,
+   *  this is DERIVED from scenarioId at load (buildCityFromData → buildHeritageLoads)
+   *  and is NEVER serialized — so it has no SAVE_VERSION implication. Omitted ⇒
+   *  no heritage loads ⇒ demand is byte-identical to before. */
+  heritageMW?: Map<number, number> | undefined;
 }
 
 export const NO_COUNCIL = 255;
