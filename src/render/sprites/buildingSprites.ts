@@ -1787,6 +1787,137 @@ export function polykatoikiaTile(seed: number, variant: number): Uint8ClampedArr
 }
 
 /**
+ * Bespoke PUNE stock — the RCC concrete-frame mid-rise FLAT, the workhorse of
+ * the IT city. A 5–9 storey reinforced-concrete-frame block in warm
+ * cream/ochre cement render, projecting balconies with painted railings (some
+ * with drying laundry), an external stair/lift core, window AC units, and a
+ * flat RCC roofscape CRAMMED with black water tanks, satellite dishes and a
+ * solar heater. Reads warm-ochre and flat-topped with cluttered roofs — the
+ * dusty Deccan apartment block, not a London terrace.
+ */
+export function puneflatTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 53609 + variant * 139 + 19);
+  // warm cement renders: cream, buff ochre, pale terracotta-wash, grey-buff
+  const skinSet: RGBA[] = [hex('#d9c39a'), hex('#c9a86a'), hex('#e7e0ce'), hex('#d4b378'), hex('#cabb92'), hex('#b29464')];
+  const skin = skinSet[variant % skinSet.length] ?? skinSet[0]!;
+  const railHues: RGBA[] = [hex('#3f6e8a'), hex('#8a5a3a'), hex('#5e7a45'), hex('#b5485f')];
+  const u0 = 0.12;
+  const u1 = 0.84;
+  const v0 = 0.2;
+  const v1 = 0.66;
+  const floors = 5 + (variant % 5); // 5–9 storeys
+  const fh = 9.5;
+  const H = floors * fh + 3;
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.26);
+  iso.box(u0, v0, u1, v1, 0, H, skin);
+  // exposed RCC frame: floor-slab bands + a couple of column lines proud
+  for (let f = 1; f <= floors; f++) {
+    const z = f * fh;
+    iso.r.line(P(u0, v1, z), P(u1, v1, z), INK_W * 0.4, alpha(lit(skin, 0.08), 0.7));
+  }
+  const rail = railHues[variant % railHues.length]!;
+  // ground floor: a recessed parking pilotis (stilts) — near-universal here
+  iso.r.poly([P(u0 + 0.04, v1, fh - 1), P(u1 - 0.04, v1, fh - 1), P(u1 - 0.04, v1, 1), P(u0 + 0.04, v1, 1)], shaded(skin, 0.16));
+  for (let cu = u0 + 0.12; cu < u1; cu += 0.18) {
+    iso.r.line(P(cu, v1, fh - 1), P(cu, v1, 1), INK_W * 0.5, alpha(skin, 0.9)); // stilt columns
+  }
+  // upper floors: window band + a projecting balcony with a painted railing
+  for (let f = 1; f < floors; f++) {
+    const z = f * fh;
+    iso.windowsLeft(v1, u0 + 0.04, u1 - 0.04, z + 2, z + fh - 2.5, 4, glass(rng, 0.4), COLORS.white);
+    iso.windowsRight(u1, v0 + 0.04, v1 - 0.04, z + 2, z + fh - 2.5, 3, glass(rng, 0.34), COLORS.white);
+    // a balcony on the left face (projecting slab + coloured rail)
+    const out = v1 + 0.05;
+    const bu0 = u0 + (f % 2 === 0 ? 0.04 : 0.32);
+    const bu1 = bu0 + 0.3;
+    iso.r.poly([P(bu0, v1, z + 0.4), P(bu1, v1, z + 0.4), P(bu1, out, z + 0.4), P(bu0, out, z + 0.4)], lit(skin, 0.04));
+    iso.r.poly([P(bu0, out, z + 0.4), P(bu1, out, z + 0.4), P(bu1, out, z - 1), P(bu0, out, z - 1)], shaded(skin, 0.12));
+    iso.r.poly([P(bu0, out, z + 4), P(bu1, out, z + 4), P(bu1, out, z + 0.6), P(bu0, out, z + 0.6)], alpha(rail, 0.85));
+    iso.r.line(P(bu0, out, z + 4), P(bu1, out, z + 4), INK_W * 0.55, darken(rail, 0.15));
+    // hanging laundry on some balconies (the lived-in tell)
+    if (rng.chance(0.4)) {
+      for (const lc of [hex('#d8d2c4'), railHues[(seed + f) % 4]!]) {
+        const lu = rng.range(bu0 + 0.04, bu1 - 0.06);
+        iso.r.poly([P(lu, out, z + 3.6), P(lu + 0.03, out, z + 3.6), P(lu + 0.03, out, z + 1.2), P(lu, out, z + 1.2)], alpha(lc, 0.7));
+      }
+    }
+    // a window AC unit poking from the facade now and then
+    if (rng.chance(0.4)) {
+      const au = rng.range(u0 + 0.08, u1 - 0.08);
+      iso.box(au, v1, au + 0.03, v1 + 0.016, z + 2, z + 5, hex('#d7d4cc'), { ink: false });
+    }
+  }
+  // flat RCC roof crammed with black water tanks, dishes + a solar heater
+  iso.box(u0, v0, u1, v1, H, H + 3, skin, { ink: false, topC: shaded(hex('#8a7c6a'), 0.05) });
+  iso.box(u0 + 0.08, v0 + 0.06, u0 + 0.2, v0 + 0.16, H + 3, H + 13, shaded(skin, 0.1)); // lift/stair head
+  roofTank(iso, u1 - 0.16, v0 + 0.14, H + 3, 0.032, 'tank', rng);
+  roofTank(iso, u0 + 0.34, v1 - 0.1, H + 3, 0.028, 'tank', rng);
+  roofDishes(iso, u0 + 0.1, u1 - 0.1, v0, v1, H + 3, rng, 4);
+  iso.box(u1 - 0.32, v0 + 0.1, u1 - 0.24, v0 + 0.13, H + 3, H + 7, hex('#d8d2c4'), { ink: false }); // solar heater
+  return iso.build();
+}
+
+/**
+ * Bespoke PUNE stock — the heritage Maratha WADA: the old fortified courtyard
+ * townhouse of the Peshwa-era city (Shaniwar Peth, Kasba). A 2–3 storey
+ * structure in warm stone/render with thick walls, carved TIMBER columns and
+ * brackets along a deep first-floor VERANDAH / jharokha balcony, small timber-
+ * shuttered windows, crowned by sloping MANGALORE-TILE eaves (warm red) with
+ * deep overhangs. The carved-timber verandah under low red-tile eaves is the
+ * heritage tell, distinct from the flat RCC blocks and the hero monuments.
+ */
+export function wadaTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 60493 + variant * 151 + 23);
+  const wallSet: RGBA[] = [hex('#c9a86a'), hex('#b89464'), hex('#d9c39a'), hex('#a8895a')];
+  const wall = wallSet[variant % wallSet.length] ?? wallSet[0]!;
+  const timber = hex('#6e4a2e'); // carved teak
+  const tile = hex('#a4452e'); // Mangalore terracotta tile
+  const v0 = 0.14;
+  const v1 = 0.72;
+  const floors = 2 + (variant % 2); // 2–3 storeys
+  const fh = 12;
+  const H = floors * fh + 2;
+  iso.shadow(0, v0, 1, v1, 0.2, 0.22);
+  // two attached wada fronts
+  for (let i = 0; i < 2; i++) {
+    const u0 = i * 0.5;
+    const u1 = u0 + 0.5;
+    const w = i === 0 ? wall : lighten(wall, 0.04);
+    iso.box(u0, v0, u1, v1, 0, H, w);
+    // thick plinth band
+    iso.r.poly([P(u0, v1, 4), P(u1, v1, 4), P(u1, v1, 0), P(u0, v1, 0)], shaded(w, 0.14));
+    // small timber-shuttered windows, upper floors
+    for (let f = 1; f < floors; f++) {
+      const z = f * fh;
+      iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, z + 2, z + fh - 3, 2, glass(rng, 0.36), timber);
+    }
+    // ground floor: a deep carved-timber VERANDAH on columns (the wada tell)
+    const out = v1 + 0.05;
+    iso.r.poly([P(u0 + 0.02, v1, fh - 1), P(u1 - 0.02, v1, fh - 1), P(u1 - 0.02, out, fh - 1), P(u0 + 0.02, out, fh - 1)], shaded(timber, 0.05)); // verandah ceiling
+    for (let cu = u0 + 0.06; cu <= u1 - 0.04; cu += 0.12) {
+      // carved column: a turned timber post with a bracket capital
+      iso.box(cu - 0.012, out - 0.004, cu + 0.012, out + 0.004, 0, fh - 1.5, timber, { ink: false });
+      iso.r.poly([P(cu - 0.03, out, fh - 1.5), P(cu + 0.03, out, fh - 1.5), P(cu + 0.018, out, fh - 1), P(cu - 0.018, out, fh - 1)], darken(timber, 0.1));
+    }
+    // a carved timber railing along the first-floor edge
+    if (floors >= 2) {
+      iso.r.poly([P(u0 + 0.02, out, fh + 4), P(u1 - 0.02, out, fh + 4), P(u1 - 0.02, out, fh - 1), P(u0 + 0.02, out, fh - 1)], alpha(timber, 0.85));
+      for (let u = u0 + 0.04; u < u1; u += 0.025) {
+        iso.r.line(P(u, out, fh + 4), P(u, out, fh - 0.5), INK_W * 0.4, alpha(darken(timber, 0.1), 0.7));
+      }
+    }
+  }
+  iso.windowsRight(1, v0 + 0.08, v1 - 0.08, fh + 2, H - 4, floors >= 3 ? 3 : 2, glass(rng, 0.3), timber);
+  // sloping Mangalore-tile roof with deep eaves (a hipped cap over the row)
+  iso.hip(-0.03, v0 - 0.03, 1.03, v1 + 0.03, H, 13, tile);
+  // a small ridge finial + chajja eave line shadow
+  iso.edge(P(0, v1 + 0.03, H), P(1, v1 + 0.03, H), INK_W * 0.7);
+  return iso.build();
+}
+
+/**
  * Bespoke PARIS building stock: a Haussmann apartment block. Researched from
  * the reference photos (owner, 2026-06-14): uniform ~6-storey cream
  * pierre-de-taille ashlar facade with a strong cornice, regular tall French

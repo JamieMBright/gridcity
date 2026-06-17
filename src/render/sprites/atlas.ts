@@ -24,6 +24,7 @@ import {
   officeTile,
   plattenbauTile,
   polykatoikiaTile,
+  puneflatTile,
   semiTile,
   setbackTile,
   shikumenTile,
@@ -37,6 +38,7 @@ import {
   vicshopTile,
   victerraceTile,
   villaTile,
+  wadaTile,
   warehouseTile,
 } from './buildingSprites';
 import {
@@ -350,6 +352,11 @@ function buildCityStockBufs(): Map<string, HeroBuf> {
     case 'athens':
       // the ubiquitous pale polykatoikia: deep-balconied concrete-frame flats
       for (let i = 0; i < 6; i++) add(`polykatoikia_${i}`, polykatoikiaTile(491 + i, i));
+      break;
+    case 'pune':
+      // warm-ochre RCC concrete-frame mid-rise flats + heritage Maratha wadas
+      for (let i = 0; i < 5; i++) add(`puneflat_${i}`, puneflatTile(501 + i, i));
+      for (let i = 0; i < 3; i++) add(`wada_${i}`, wadaTile(507 + i, i));
       break;
     default:
       break;

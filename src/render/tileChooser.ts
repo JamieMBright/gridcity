@@ -324,6 +324,19 @@ function cityStockFor(
       }
       return undefined;
     }
+    case 'pune': {
+      // warm-ochre RCC mid-rise flats blanket the residential fabric; heritage
+      // Maratha wadas (carved-timber verandah under red Mangalore-tile) seed the
+      // dense old core (Kasba/Shaniwar Peth). Hinjewadi-style IT CBD keeps glass.
+      void shops;
+      if (zone === ZONE.urbanCore) {
+        return th % 6 === 0 ? `wada_${(estate + (v % 2)) % 3}` : `puneflat_${(estate + (v % 2)) % 5}`;
+      }
+      if (zone === ZONE.urban || zone === ZONE.suburb) {
+        return `puneflat_${(estate + (v % 2)) % 5}`;
+      }
+      return undefined;
+    }
     default:
       return undefined;
   }
