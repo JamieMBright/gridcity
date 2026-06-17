@@ -1946,6 +1946,612 @@ function windmillTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 }
 
 // =====================================================================
+// ROUND 4 — TOWARD THE 100/CITY DOCTRINE (owner, 2026-06-16). Fifteen more
+// hand-built bespoke Cape Town landmarks from the unused docs/heroes/capetown/
+// research, each its OWN draw fn (no reuse) + its own night-light spec. Pushes
+// Cape Town 88 → 103 (bespoke, lit, placed).
+// =====================================================================
+const COOL_GLASS = hex('#9fc6e8'); // a cool dusk curtain-wall glass
+
+// --- OLD TOWN HOUSE (Greenmarket Square) — the 1755 Cape ROCOCO burgher-watch
+// house (the Michaelis art collection): a richly plastered honey-and-white
+// double-storey with a flat balustraded roof, a central pedimented entrance bay
+// breaking the parapet, and tall shuttered sash windows. The ornate plastered
+// pediment-bay against the flat roofline is the read. 1×1 (wide).
+// =====================================================================
+function oldTownHouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 80 });
+  void seed;
+  const u0 = 0.14, u1 = 0.86, v0 = 0.22, v1 = 0.82;
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.22);
+  const z = 46;
+  // the honey-plastered body with a rusticated base
+  iso.box(u0, v0, u1, v1, 0, z, SAND, { leftC: shaded(SAND_D, 0.05), rightC: lit(SAND, 0.05) });
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 10, shaded(SAND_D, 0.04), { ink: false });
+  // two storeys of white-framed shuttered sash windows
+  iso.windowsLeft(v1, u0 + 0.07, u1 - 0.07, 14, 22, 5, alpha(COLORS.glassDark, 0.8), WASH);
+  iso.windowsLeft(v1, u0 + 0.07, u1 - 0.07, 28, 38, 5, alpha(COLORS.glassDark, 0.8), WASH);
+  // a flat roof with a white balustraded parapet (rows of little urn-balusters)
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, z, z + 3, WASH, { topC: top(WASH, 0.2) });
+  const [bxA, by] = iso.P(u0, v1 + 0.02, z + 3);
+  const [bxB] = iso.P(u1, v1 + 0.02, z + 3);
+  for (let k = 0; k <= 12; k++) {
+    const x = bxA + (bxB - bxA) * (k / 12);
+    iso.r.line([x, by], [x, by - 2.4 * RES], 0.7 * RES, alpha(WASH, 0.9));
+  }
+  // the central ROCOCO entrance bay breaking up through the parapet — a white
+  // pilastered frontispiece capped by a scrolled segmental pediment
+  const cu0 = u0 + 0.26, cu1 = u1 - 0.26;
+  iso.box(cu0, v1 - 0.02, cu1, v1 + 0.05, 0, z + 8, lighten(SAND, 0.06), { rightC: lit(SAND, 0.08) });
+  const [px, pyB] = iso.P((cu0 + cu1) / 2, v1 + 0.05, z + 8);
+  const wHalf = 6 * RES;
+  // a swan-neck (broken segmental) pediment — two scrolls meeting a central vase
+  const ped: Pt[] = [
+    [px - wHalf, pyB], [px - wHalf, pyB - 3 * RES],
+    [px - wHalf * 0.4, pyB - 7 * RES], [px - wHalf * 0.18, pyB - 5.4 * RES],
+    [px, pyB - 8 * RES],
+    [px + wHalf * 0.18, pyB - 5.4 * RES], [px + wHalf * 0.4, pyB - 7 * RES],
+    [px + wHalf, pyB - 3 * RES], [px + wHalf, pyB],
+  ];
+  iso.r.poly(ped, lighten(WASH, 0.04));
+  iso.r.polyline(ped, INK_W * 0.7, INK, true);
+  iso.r.line([px, pyB - 8 * RES], [px, pyB - 12 * RES], 1.2 * RES, WASH); // central vase
+  // a tall arched front door under the bay
+  iso.r.poly([iso.P((cu0 + cu1) / 2 - 0.05, v1, 2), iso.P((cu0 + cu1) / 2 + 0.05, v1, 2), iso.P((cu0 + cu1) / 2 + 0.05, v1, 12), iso.P((cu0 + cu1) / 2, v1, 16), iso.P((cu0 + cu1) / 2 - 0.05, v1, 12)], alpha(hex('#3a2d22'), 0.85));
+  return iso.build();
+}
+
+// --- GARDENS SHUL (the Great Synagogue, 1905) — the Cape Town Hebrew
+// Congregation in the Company's Garden: a honey-stone Baroque-revival facade
+// crowned by TWIN domed octagonal TOWERS flanking a tall central arched window
+// with a Star-of-David rondel above. The pair of onion-ish copper-green domes is
+// the read. 2×2.
+// =====================================================================
+function gardensShulTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 140 });
+  void seed;
+  const u0 = 0.34, u1 = 1.66, v0 = 0.4, v1 = 1.6;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  const z = 56;
+  // the honey-stone body
+  iso.box(u0, v0, u1, v1, 0, z, SAND, { leftC: shaded(SAND_D, 0.05), rightC: lit(SAND, 0.05) });
+  // a great central arched window (the rose) on the front
+  const cu = (u0 + u1) / 2;
+  iso.r.poly([iso.P(cu - 0.18, v1, 18), iso.P(cu + 0.18, v1, 18), iso.P(cu + 0.18, v1, 40), iso.P(cu, v1, 50), iso.P(cu - 0.18, v1, 40)], alpha(GILT_HOT, 0.5));
+  // a Star-of-David rondel above the arch
+  const [sx, sy] = iso.P(cu, v1, 52);
+  for (let k = 0; k < 2; k++) {
+    const rot = k * Math.PI / 3 + Math.PI / 6;
+    const tri: Pt[] = [];
+    for (let t = 0; t < 3; t++) {
+      const a = rot + (t / 3) * Math.PI * 2;
+      tri.push([sx + Math.cos(a) * 3 * RES, sy + Math.sin(a) * 3 * RES]);
+    }
+    iso.r.polyline(tri, 0.7 * RES, alpha(GILT, 0.9), true);
+  }
+  // a parapet
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, z, z + 4, lighten(SAND, 0.06), { ink: false });
+  // the TWIN domed octagonal towers flanking the front
+  for (const tu of [u0 + 0.16, u1 - 0.16] as const) {
+    const tv = v1 - 0.12;
+    iso.box(tu - 0.12, tv - 0.12, tu + 0.12, tv + 0.12, z, z + 20, WASH, { rightC: lit(WASH, 0.05) });
+    // a small arched belfry opening
+    iso.r.poly([iso.P(tu - 0.05, tv + 0.12, z + 5), iso.P(tu + 0.05, tv + 0.12, z + 5), iso.P(tu + 0.05, tv + 0.12, z + 13), iso.P(tu, tv + 0.12, z + 16), iso.P(tu - 0.05, tv + 0.12, z + 13)], alpha(COLORS.glassDark, 0.7));
+    domeAt(iso, tu, tv, z + 20, 7 * RES, 1.1, COPPER, { bulb: true, ribs: 5 });
+    // a gilt finial
+    const [fx, fyB] = iso.P(tu, tv, z + 20);
+    iso.r.line([fx, fyB - 15 * RES], [fx, fyB - 20 * RES], 1 * RES, GILT_HOT);
+  }
+  return iso.build();
+}
+
+// --- SOUTH AFRICAN JEWISH MUSEUM — a modern museum (in the Gardens Shul
+// grounds): a glazed contemporary block bridging onto the old whitewashed Cape-
+// Dutch Old Synagogue (1863). A low gabled white heritage wing beside a crisp
+// glass-and-Jerusalem-stone modern hall with a clerestory ridge. 2×2.
+// =====================================================================
+function jewishMuseumTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 100 });
+  void seed;
+  const STONE = hex('#dac9a4'); // warm Jerusalem-stone
+  const u0 = 0.32, u1 = 1.68, v0 = 0.36, v1 = 1.66;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  // the old whitewashed Cape-Dutch wing in front-left (low, gabled)
+  iso.box(u0, v1 - 0.46, u0 + 0.62, v1, 0, 30, WASH, { rightC: lit(WASH, 0.05) });
+  iso.gable(u0, v1 - 0.46, u0 + 0.62, v1, 30, 12, 'v', ROOFSL, WASH);
+  iso.windowsLeft(v1, u0 + 0.05, u0 + 0.56, 8, 20, 3, alpha(COLORS.glassDark, 0.8), TEAL);
+  // the modern stone-and-glass hall behind/right (taller, flat)
+  const z = 52;
+  iso.box(u0 + 0.5, v0, u1, v1 - 0.2, 0, z, STONE, { leftC: shaded(STONE, 0.06), rightC: lit(STONE, 0.05) });
+  // a tall glazed curtain-wall slice catching the dusk
+  iso.r.poly([iso.P(u1, v0 + 0.1, 10), iso.P(u1, v1 - 0.3, 10), iso.P(u1, v1 - 0.3, z - 6), iso.P(u1, v0 + 0.1, z - 6)], alpha(GLASSCT, 0.55));
+  for (let k = 1; k < 6; k++) {
+    iso.r.line(iso.P(u1, v0 + 0.1 + k * 0.07, 10), iso.P(u1, v0 + 0.1 + k * 0.07, z - 6), 0.5 * RES, alpha(WASH, 0.35));
+  }
+  iso.windowsLeft(v1 - 0.2, u0 + 0.56, u1 - 0.06, 12, z - 8, 6, alpha(COLORS.glassLit, 0.45), undefined);
+  // a clerestory ridge lantern on the modern roof
+  iso.box(u0 + 0.8, v0 + 0.3, u1 - 0.3, v0 + 0.55, z, z + 8, alpha(COOL_GLASS, 0.6), { ink: false });
+  iso.box(u0 + 0.5, v0 - 0.02, u1 + 0.02, v1 - 0.18, z, z + 3, lighten(STONE, 0.06), { ink: false });
+  return iso.build();
+}
+
+// --- MANDELA RHODES BUILDING (Herbert Baker) — a grand Edwardian Cape-Dutch-
+// revival commercial block on St George's Mall: a honey-stone five-storey with a
+// rusticated arcaded ground floor, regular pilastered windows, a heavy bracketed
+// cornice and a big curved Baroque scrolled GABLE crowning the centre. 2×2.
+// =====================================================================
+function mandelaRhodesTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 110 });
+  void seed;
+  const u0 = 0.32, u1 = 1.68, v0 = 0.38, v1 = 1.64;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  const z = 76;
+  iso.box(u0, v0, u1, v1, 0, z, SAND, { leftC: shaded(SAND_D, 0.05), rightC: lit(SAND, 0.05) });
+  // a rusticated arcaded ground floor (a row of round arches)
+  const [axA, ay] = iso.P(u0 + 0.06, v1, 16);
+  const [axB] = iso.P(u1 - 0.06, v1, 16);
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 16, shaded(SAND_D, 0.05), { ink: false });
+  for (let k = 0; k < 6; k++) {
+    const x = axA + (axB - axA) * ((k + 0.5) / 6);
+    iso.r.poly([[x - 3 * RES, ay], [x - 3 * RES, ay - 6 * RES], [x, ay - 9 * RES], [x + 3 * RES, ay - 6 * RES], [x + 3 * RES, ay]], alpha(hex('#2c2218'), 0.8));
+  }
+  // four storeys of pilastered windows
+  for (let r = 0; r < 4; r++) {
+    const zb = 22 + r * 13;
+    iso.windowsLeft(v1, u0 + 0.07, u1 - 0.07, zb, zb + 8, 7, alpha(COLORS.glassDark, 0.78), WASH);
+    iso.windowsRight(u1, v0 + 0.07, v1 - 0.07, zb, zb + 8, 7, alpha(COLORS.glassDark, 0.78), WASH);
+  }
+  // heavy bracketed cornice + parapet
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, z, z + 5, lighten(SAND, 0.08), { topC: top(SAND, 0.22) });
+  // the big central scrolled Baroque GABLE (the Cape-Dutch-revival read)
+  const cu = (u0 + u1) / 2;
+  const [gx, gyB] = iso.P(cu, v1 + 0.03, z + 5);
+  const gw = 10 * RES;
+  const gable: Pt[] = [
+    [gx - gw, gyB], [gx - gw, gyB - 4 * RES],
+    [gx - gw * 0.5, gyB - 11 * RES], [gx - gw * 0.6, gyB - 15 * RES],
+    [gx, gyB - 21 * RES],
+    [gx + gw * 0.6, gyB - 15 * RES], [gx + gw * 0.5, gyB - 11 * RES],
+    [gx + gw, gyB - 4 * RES], [gx + gw, gyB],
+  ];
+  iso.r.poly(gable, lit(SAND, 0.06));
+  iso.r.polyline(gable, INK_W * 0.7, INK, true);
+  iso.r.poly(circlePts(gx, gyB - 11 * RES, 2.4 * RES), alpha(COLORS.glassDark, 0.7)); // gable oculus
+  return iso.build();
+}
+
+// --- CENTRAL METHODIST CHURCH (Greenmarket Square) — a tall honey-sandstone
+// Gothic-Revival church wedged into the city block: a steep gabled nave with a
+// huge pointed traceried window and a SLENDER corner spire/pinnacle turret. The
+// city-tight verticality + the single corner spire is the read. 2×2.
+// =====================================================================
+function methodistChurchTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 160 });
+  void seed;
+  const u0 = 0.36, u1 = 1.64, v0 = 0.42, v1 = 1.6;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  const z = 70;
+  // the tall sandstone nave
+  iso.box(u0, v0, u1, v1, 0, z, SAND, { leftC: shaded(SAND_D, 0.06), rightC: lit(SAND, 0.05) });
+  // a steep gable end on the front
+  iso.gable(u0, v0, u1, v1, z, 30, 'v', ROOFSL, SAND);
+  // a huge pointed traceried window dominating the front gable
+  const cu = (u0 + u1) / 2;
+  iso.r.poly([iso.P(cu - 0.28, v1, 16), iso.P(cu + 0.28, v1, 16), iso.P(cu + 0.28, v1, 52), iso.P(cu, v1, 72), iso.P(cu - 0.28, v1, 52)], alpha(GILT_HOT, 0.5));
+  // stone mullions in the window
+  for (const mu of [cu - 0.14, cu, cu + 0.14] as const) {
+    iso.r.line(iso.P(mu, v1, 18), iso.P(mu, v1, 56), 0.7 * RES, alpha(SAND_D, 0.9));
+  }
+  // a band of small lancets along the aisle (right face)
+  for (let k = 0; k < 4; k++) {
+    const vv = v0 + 0.18 + k * 0.3;
+    iso.r.poly([iso.P(u1, vv, 16), iso.P(u1, vv + 0.12, 16), iso.P(u1, vv + 0.12, 34), iso.P(u1, vv + 0.06, 40), iso.P(u1, vv, 34)], alpha(COLORS.glassDark, 0.75));
+  }
+  // the SLENDER corner spire/turret rising at the near corner
+  const tu = u1 - 0.12, tv = v1 - 0.12;
+  iso.box(tu - 0.1, tv - 0.1, tu + 0.1, tv + 0.1, 0, z + 18, SAND, { rightC: lit(SAND, 0.06) });
+  const [spx, spyB] = iso.P(tu, tv, z + 18);
+  // four corner pinnacles + the central octagonal spire
+  for (const off of [-5, 5] as const) {
+    iso.r.line([spx + off * RES, spyB], [spx + off * RES, spyB - 6 * RES], 1.1 * RES, SAND_D);
+  }
+  const spire: Pt[] = [[spx - 5 * RES, spyB], [spx + 5 * RES, spyB], [spx, spyB - 30 * RES]];
+  iso.r.poly(spire, shaded(ROOFSL, 0.04));
+  iso.r.polyline(spire, INK_W * 0.7, INK, true);
+  iso.r.line([spx, spyB - 30 * RES], [spx, spyB - 35 * RES], 1 * RES, GILT); // finial
+  return iso.build();
+}
+
+// --- QUEEN VICTORIA MOSQUE (Jamia Mosque, Bo-Kaap, 1850s) — the oldest, largest
+// Bo-Kaap mosque on the corner of Chiappini & Castle: a bright Cape-Malay
+// whitewashed double-storey with a tall slim GREEN-domed corner MINARET, a
+// crescent finial, and arched fenestration. Bigger + grander than the little
+// Bo-Kaap mosques. 2×2.
+// =====================================================================
+function queenVictoriaMosqueTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 150 });
+  void seed;
+  const GREEN = hex('#2e8b6a'); // Islamic green
+  const u0 = 0.36, u1 = 1.64, v0 = 0.42, v1 = 1.6;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  const z = 50;
+  // the bright whitewashed body
+  iso.box(u0, v0, u1, v1, 0, z, WASH, { leftC: shaded(WASH_D, 0.05), rightC: lit(WASH, 0.05) });
+  // a green dado band at the base + green-framed arched windows
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 8, shaded(GREEN, 0.04), { ink: false });
+  for (let k = 0; k < 5; k++) {
+    const uu = u0 + 0.1 + k * 0.27;
+    iso.r.poly([iso.P(uu, v1, 14), iso.P(uu + 0.13, v1, 14), iso.P(uu + 0.13, v1, 28), iso.P(uu + 0.065, v1, 34), iso.P(uu, v1, 28)], alpha(COLORS.glassDark, 0.78));
+  }
+  iso.windowsRight(u1, v0 + 0.08, v1 - 0.08, 16, 26, 4, alpha(COLORS.glassDark, 0.75), GREEN);
+  // a green parapet with little merlons
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, z, z + 4, GREEN, { ink: false });
+  // the tall slim corner MINARET with a green onion dome + crescent
+  const tu = u1 - 0.14, tv = v1 - 0.14;
+  const MZ = z + 46;
+  iso.box(tu - 0.08, tv - 0.08, tu + 0.08, tv + 0.08, 0, MZ, WASH, { rightC: lit(WASH, 0.05) });
+  // a ring balcony (the muezzin's gallery) near the top
+  iso.box(tu - 0.11, tv - 0.11, tu + 0.11, tv + 0.11, MZ - 8, MZ - 5, GREEN, { ink: false });
+  const dome = domeAt(iso, tu, tv, MZ, 5.5 * RES, 1.4, GREEN, { bulb: true });
+  // the crescent finial
+  iso.r.poly(circlePts(dome.tipX, dome.tipY - 5 * RES, 2.4 * RES), GILT_HOT);
+  iso.r.poly(circlePts(dome.tipX + 1.2 * RES, dome.tipY - 5 * RES, 2 * RES), alpha(hex('#1b1430'), 1)); // crescent cut
+  return iso.build();
+}
+
+// --- MTN SCIENCENTRE (Cape Town Science Centre, Observatory) — a fun modern
+// science museum: a low industrial shed re-skinned in bright primary colour
+// panels with a big tilted glazed entrance prism and rooftop solar/exhibit
+// gizmos. The playful colour-block + glass prism is the read. 2×2.
+// =====================================================================
+function scienceCentreTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 100 });
+  void seed;
+  const u0 = 0.32, u1 = 1.68, v0 = 0.36, v1 = 1.66;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  const z = 38;
+  // the low shed body in pale industrial grey
+  iso.box(u0, v0, u1, v1, 0, z, hex('#cfcabe'));
+  // bright primary colour panels banded across the front (yellow/red/blue/green)
+  const panels = [BOKAAP[3]!, STRIPE_R, BOKAAP[2]!, hex('#6fbf4a')];
+  for (let k = 0; k < 4; k++) {
+    const uu0 = u0 + 0.06 + k * 0.34;
+    iso.r.poly([iso.P(uu0, v1, 8), iso.P(uu0 + 0.3, v1, 8), iso.P(uu0 + 0.3, v1, z - 4), iso.P(uu0, v1, z - 4)], alpha(panels[k]!, 0.85));
+  }
+  // a big tilted glazed entrance prism projecting at the near corner
+  const [gx0, gy0] = iso.P(u1 - 0.5, v1, 0);
+  const [gx1] = iso.P(u1 - 0.06, v1, 0);
+  const [, gyT] = iso.P(u1 - 0.5, v1, z + 12);
+  iso.r.poly([[gx0, gy0], [gx1, gy0], [gx1, gy0 - 4 * RES], [gx0 + (gx1 - gx0) * 0.5, gyT]], alpha(COOL_GLASS, 0.6));
+  iso.r.polyline([[gx0, gy0], [gx0 + (gx1 - gx0) * 0.5, gyT], [gx1, gy0 - 4 * RES]], INK_W * 0.7, INK);
+  // a glazed clerestory ribbon on the right face
+  iso.windowsRight(u1, v0 + 0.08, v1 - 0.5, 14, 26, 5, alpha(COLORS.glassLit, 0.5), undefined);
+  // parapet + rooftop exhibit gizmos (a dish + a little solar array)
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, z, z + 3, lighten(hex('#cfcabe'), 0.06), { ink: false });
+  const [dx, dyB] = iso.P(u0 + 0.5, v0 + 0.5, z + 3);
+  iso.r.line([dx, dyB], [dx, dyB - 10 * RES], 1 * RES, COLORS.steelDark);
+  iso.r.poly(circlePts(dx, dyB - 11 * RES, 4 * RES, 0.5), alpha(WASH, 0.85)); // dish
+  iso.box(u0 + 0.9, v0 + 0.3, u1 - 0.3, v0 + 0.5, z + 3, z + 6, alpha(GLASSCT, 0.7), { ink: false }); // solar
+  return iso.build();
+}
+
+// --- BREAKWATER LODGE / UCT GSB (V&A Waterfront) — the 1859 Breakwater Prison,
+// now the Graduate School of Business + a hotel: a long austere whitewashed
+// three-storey range with deep tiny barred windows, low pitched roofs and a
+// stubby castellated stair turret recalling its prison past. 2×2.
+// =====================================================================
+function breakwaterLodgeTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 100 });
+  void seed;
+  const u0 = 0.3, u1 = 1.7, v0 = 0.4, v1 = 1.62;
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  const z = 50;
+  // the long austere whitewashed range
+  iso.box(u0, v0, u1, v1, 0, z, WASH, { leftC: shaded(WASH_D, 0.06), rightC: lit(WASH, 0.04) });
+  // a grey stone plinth
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 10, shaded(GRANITE, 0.06), { ink: false });
+  // three storeys of small deep barred windows (prison read: small + regular)
+  for (let r = 0; r < 3; r++) {
+    const zb = 16 + r * 12;
+    iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, zb, zb + 6, 9, alpha(COLORS.glassDark, 0.85), WASH_D);
+    iso.windowsRight(u1, v0 + 0.06, v1 - 0.06, zb, zb + 6, 8, alpha(COLORS.glassDark, 0.85), WASH_D);
+  }
+  // a low pitched slate roof
+  iso.gable(u0, v0, u1, v1, z, 12, 'u', ROOFSL, WASH);
+  // the stubby castellated stair turret (the prison memory) at the near corner
+  const tu = u1 - 0.16, tv = v1 - 0.16;
+  iso.box(tu - 0.12, tv - 0.12, tu + 0.12, tv + 0.12, 0, z + 14, WASH_D, { rightC: lit(WASH_D, 0.05) });
+  // crenellations on the turret top
+  const [cxA, cy] = iso.P(tu - 0.12, tv + 0.12, z + 14);
+  const [cxB] = iso.P(tu + 0.12, tv + 0.12, z + 14);
+  for (let k = 0; k <= 4; k++) {
+    const x = cxA + (cxB - cxA) * (k / 4);
+    iso.r.rect(x - 1.2 * RES, cy - 3 * RES, x + 1.2 * RES, cy, GRANITE_L);
+  }
+  return iso.build();
+}
+
+// --- LEEUWENHOF (the Premier of the Western Cape's official residence,
+// Gardens) — a grand 18th-C Cape-Dutch werf homestead on the mountain slope: a
+// long whitewashed H-plan house with green shutters, a thatch hip roof and the
+// signature tall ornate curved Baroque "holbol" gable + a flagpole, set in a
+// vineyard/garden apron with oaks. 2×2.
+// =====================================================================
+function leeuwenhofTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 110 });
+  void seed;
+  const u0 = 0.32, u1 = 1.68, v0 = 0.5, v1 = 1.62;
+  // a green garden/vineyard apron with two oaks flanking
+  iso.box(u0 - 0.08, v1 - 0.04, u1 + 0.08, v1 + 0.18, 0, 2, shaded(COLORS.grass, 0.06), { ink: false });
+  iso.shadow(u0, v0, u1, v1, 0.22, 0.22);
+  const z = 36;
+  // the long low whitewashed homestead body
+  iso.box(u0, v0, u1, v1, 0, z, WASH, { leftC: shaded(WASH_D, 0.05), rightC: lit(WASH, 0.05) });
+  // green-shuttered sash windows + a central door
+  iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, 10, 24, 7, alpha(COLORS.glassDark, 0.8), TEAL);
+  // a thatch hip roof
+  iso.hip(u0, v0, u1, v1, z, 16, hex('#9a7d52'));
+  // the ornate curved BAROQUE GABLE over the central entrance (the Cape read)
+  const cu = (u0 + u1) / 2;
+  const [gx, gyB] = iso.P(cu, v1, z);
+  const gw = 8 * RES;
+  const gable: Pt[] = [
+    [gx - gw, gyB], [gx - gw, gyB - 5 * RES],
+    [gx - gw * 0.5, gyB - 12 * RES], [gx - gw * 0.62, gyB - 17 * RES],
+    [gx, gyB - 24 * RES],
+    [gx + gw * 0.62, gyB - 17 * RES], [gx + gw * 0.5, gyB - 12 * RES],
+    [gx + gw, gyB - 5 * RES], [gx + gw, gyB],
+  ];
+  iso.r.poly(gable, lit(WASH, 0.04));
+  iso.r.polyline(gable, INK_W * 0.7, INK, true);
+  iso.r.poly(circlePts(gx, gyB - 13 * RES, 2.2 * RES), alpha(COLORS.glassDark, 0.7)); // gable light
+  // a flagpole at the gable
+  iso.r.line([gx, gyB - 24 * RES], [gx, gyB - 32 * RES], 0.9 * RES, hex('#6f5a3a'));
+  // two oaks flanking the front
+  iso.ball(u0 + 0.04, v1 + 0.1, 0.2, 22, COLORS.treeGreen);
+  iso.ball(u1 - 0.04, v1 + 0.1, 0.2, 22, COLORS.treeGreen);
+  return iso.build();
+}
+
+// --- CHARLY'S BAKERY (Canterbury Street) — Cape Town's famously kitsch bakery:
+// a small flat-roofed shop painted hot PINK and splashed all over with big
+// POLKA-DOTS in candy colours, with a striped awning over the shopfront. The
+// polka-dot pink box is unmistakable. 1×1 (wide).
+// =====================================================================
+function charlysBakeryTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 60 });
+  void seed;
+  const HOTPINK = hex('#e8569a');
+  const u0 = 0.16, u1 = 0.84, v0 = 0.26, v1 = 0.82;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.22);
+  const z = 30;
+  // the hot-pink box
+  iso.box(u0, v0, u1, v1, 0, z, HOTPINK, { leftC: shaded(HOTPINK, 0.08), rightC: lit(HOTPINK, 0.06) });
+  // big POLKA-DOTS scattered over the two visible faces (candy colours)
+  const dotCols = [BOKAAP[3]!, BOKAAP[2]!, hex('#6fbf4a'), WASH, BOKAAP[1]!];
+  const placeDots = (face: 'L' | 'R'): void => {
+    for (let i = 0; i < 7; i++) {
+      const a = (i * 0.61) % 1, b = (i * 0.37 + 0.2) % 1;
+      const u = u0 + 0.08 + a * (u1 - u0 - 0.16);
+      const zz = 6 + b * (z - 12);
+      const [dx, dy] = face === 'L' ? iso.P(u, v1, zz) : iso.P(u1, v0 + 0.08 + a * (v1 - v0 - 0.16), zz);
+      iso.r.poly(circlePts(dx, dy, 2.6 * RES), dotCols[i % dotCols.length]!);
+      iso.r.polyline(circlePts(dx, dy, 2.6 * RES), 0.5 * RES, alpha(INK, 0.5), true);
+    }
+  };
+  placeDots('L');
+  placeDots('R');
+  // a striped awning over the shopfront + a dark glazed shop window
+  iso.r.poly([iso.P(u0 + 0.04, v1, 12), iso.P(u1 - 0.04, v1, 12), iso.P(u1 - 0.04, v1, 2), iso.P(u0 + 0.04, v1, 2)], alpha(COLORS.glassDark, 0.85));
+  const [awA, awy] = iso.P(u0 + 0.02, v1 + 0.08, 14);
+  const [awB] = iso.P(u1 - 0.02, v1 + 0.08, 14);
+  for (let k = 0; k <= 8; k++) {
+    const x = awA + (awB - awA) * (k / 8);
+    iso.r.line([x, awy], [x, awy + 2.4 * RES], 1.5 * RES, k % 2 ? WASH : STRIPE_R);
+  }
+  // a flat parapet
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, z, z + 3, lighten(HOTPINK, 0.1), { ink: false });
+  return iso.build();
+}
+
+// --- ZIP ZAP ACADEMY (the circus school, Founders Garden / Foreshore) — a
+// permanent big-top: a tall conical striped CIRCUS TENT (red-and-white canvas)
+// with a peaked centre pole + pennant flags, ringed by a low entrance drum. The
+// candy-striped tent cone is the read. 2×2.
+// =====================================================================
+function zipZapTentTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2, { swAnchor: true, headroom: 150 });
+  void seed;
+  const cu = 1.0, cv = 1.0;
+  iso.shadow(cu - 0.6, cv - 0.4, cu + 0.6, cv + 0.5, 0.3, 0.2);
+  // a low circular entrance drum (a ring of plain canvas)
+  const drumZ = 14;
+  const [drx, dry] = iso.P(cu, cv, drumZ);
+  iso.r.poly(circlePts(drx, dry, 0.62 * (CELL_W / 2), 0.5), shaded(WASH, 0.05));
+  // the big-top CONE — red-and-white radial canvas gores
+  const baseR = 0.62 * (CELL_W / 2);
+  const [bx, byB] = iso.P(cu, cv, drumZ);
+  const apexZ = drumZ + 64;
+  const [, apexYraw] = iso.P(cu, cv, apexZ);
+  const apex: Pt = [bx, apexYraw];
+  const N = 14;
+  for (let i = 0; i < N; i++) {
+    const a0 = (i / N) * Math.PI * 2;
+    const a1 = ((i + 1) / N) * Math.PI * 2;
+    const p0: Pt = [bx + Math.cos(a0) * baseR, byB + Math.sin(a0) * baseR * 0.5];
+    const p1: Pt = [bx + Math.cos(a1) * baseR, byB + Math.sin(a1) * baseR * 0.5];
+    // alternate red/white gores; shade the back-facing ones darker
+    const stripe = i % 2 ? STRIPE_R : WASH;
+    const shade = Math.sin((a0 + a1) / 2) > 0 ? lit(stripe, 0.05) : shaded(stripe, 0.08);
+    iso.r.poly([p0, p1, apex], shade);
+  }
+  // the ink silhouette of the cone
+  iso.r.polyline([apex, [bx - baseR, byB], [bx, byB + baseR * 0.5], [bx + baseR, byB], apex], INK_W * 0.7, INK);
+  // a centre-pole finial + pennant flags
+  iso.r.line([apex[0], apex[1]], [apex[0], apex[1] - 10 * RES], 1 * RES, COLORS.steelDark);
+  for (let k = 0; k < 3; k++) {
+    const fy = apex[1] - 10 * RES + k * 3 * RES;
+    iso.r.poly([[apex[0], fy], [apex[0] + 7 * RES, fy + 1.5 * RES], [apex[0], fy + 3 * RES]], [STRIPE_R, BOKAAP[3]!, BOKAAP[2]!][k]!);
+  }
+  // a small striped entrance porch at the front
+  iso.r.poly([iso.P(cu - 0.18, cv + 0.5, 0), iso.P(cu + 0.18, cv + 0.5, 0), iso.P(cu + 0.18, cv + 0.5, 16), iso.P(cu - 0.18, cv + 0.5, 16)], alpha(STRIPE_R, 0.85));
+  return iso.build();
+}
+
+// --- MARTIN MELCK HOUSE (96 Strand Street) — a fine 18th-C Cape-Dutch townhouse
+// beside the Lutheran Church: a whitewashed double-storey with a thatch roof, a
+// tall ornate curved central gable and a teak-canopied stoep. Taller/narrower
+// than the single-storey Cape-Dutch cottage. 1×1 (wide).
+// =====================================================================
+function martinMelckTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 90 });
+  void seed;
+  const u0 = 0.16, u1 = 0.84, v0 = 0.24, v1 = 0.82;
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.22);
+  const z = 40;
+  // the whitewashed double-storey body
+  iso.box(u0, v0, u1, v1, 0, z, WASH, { leftC: shaded(WASH_D, 0.05), rightC: lit(WASH, 0.05) });
+  // two storeys of green-shuttered sash windows
+  iso.windowsLeft(v1, u0 + 0.07, u1 - 0.07, 18, 26, 4, alpha(COLORS.glassDark, 0.8), TEAL);
+  iso.windowsLeft(v1, u0 + 0.07, u1 - 0.07, 6, 14, 4, alpha(COLORS.glassDark, 0.8), TEAL);
+  // a teak stoep canopy over the ground floor
+  iso.r.poly([iso.P(u0 + 0.02, v1 + 0.06, 16), iso.P(u1 - 0.02, v1 + 0.06, 16), iso.P(u1 - 0.02, v1 + 0.06, 14), iso.P(u0 + 0.02, v1 + 0.06, 14)], hex('#7a5a38'));
+  // a thatch hip roof
+  iso.hip(u0, v0, u1, v1, z, 13, hex('#9a7d52'));
+  // the tall ornate curved central GABLE
+  const cu = (u0 + u1) / 2;
+  const [gx, gyB] = iso.P(cu, v1, z);
+  const gw = 7 * RES;
+  const gable: Pt[] = [
+    [gx - gw, gyB], [gx - gw, gyB - 6 * RES],
+    [gx - gw * 0.45, gyB - 13 * RES], [gx - gw * 0.6, gyB - 17 * RES],
+    [gx, gyB - 23 * RES],
+    [gx + gw * 0.6, gyB - 17 * RES], [gx + gw * 0.45, gyB - 13 * RES],
+    [gx + gw, gyB - 6 * RES], [gx + gw, gyB],
+  ];
+  iso.r.poly(gable, lit(WASH, 0.04));
+  iso.r.polyline(gable, INK_W * 0.7, INK, true);
+  iso.r.poly(circlePts(gx, gyB - 13 * RES, 2 * RES), alpha(COLORS.glassDark, 0.7));
+  return iso.build();
+}
+
+// --- NATIONAL LIBRARY OF SOUTH AFRICA (Company's Garden) — the grand 1860
+// neoclassical SA Public Library: a long honey-sandstone palazzo with a
+// rusticated arcaded ground floor, a piano-nobile of round-arched windows, a
+// heavy cornice + balustrade, and a central pedimented portico. A stately
+// 3×3 civic block. 3×3.
+// =====================================================================
+function nationalLibraryTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(3, 3, { swAnchor: true, headroom: 110 });
+  void seed;
+  const u0 = 0.32, u1 = 2.68, v0 = 0.42, v1 = 2.62;
+  iso.shadow(u0, v0, u1, v1, 0.2, 0.22);
+  const z = 56;
+  iso.box(u0, v0, u1, v1, 0, z, SANDP, { leftC: shaded(SANDP, 0.06), rightC: lit(SANDP, 0.05) });
+  // rusticated arcaded ground floor — a long row of round arches
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 16, shaded(SANDP, 0.05), { ink: false });
+  const [axA, ay] = iso.P(u0 + 0.06, v1, 16);
+  const [axB] = iso.P(u1 - 0.06, v1, 16);
+  for (let k = 0; k < 9; k++) {
+    const x = axA + (axB - axA) * ((k + 0.5) / 9);
+    iso.r.poly([[x - 2.4 * RES, ay], [x - 2.4 * RES, ay - 5 * RES], [x, ay - 8 * RES], [x + 2.4 * RES, ay - 5 * RES], [x + 2.4 * RES, ay]], alpha(hex('#2c2218'), 0.8));
+  }
+  // a piano-nobile of round-arched windows
+  iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, 24, 40, 9, alpha(COLORS.glassDark, 0.78), WASH);
+  iso.windowsRight(u1, v0 + 0.06, v1 - 0.06, 24, 40, 9, alpha(COLORS.glassDark, 0.78), WASH);
+  // heavy cornice + a balustraded parapet
+  iso.box(u0 - 0.03, v0 - 0.03, u1 + 0.03, v1 + 0.03, z, z + 4, lighten(SANDP, 0.07), { topC: top(SANDP, 0.22) });
+  const [bxA, by] = iso.P(u0, v1 + 0.03, z + 4);
+  const [bxB] = iso.P(u1, v1 + 0.03, z + 4);
+  for (let k = 0; k <= 20; k++) {
+    const x = bxA + (bxB - bxA) * (k / 20);
+    iso.r.line([x, by], [x, by - 2.4 * RES], 0.6 * RES, alpha(WASH, 0.85));
+  }
+  // the central pedimented portico breaking forward
+  const cu0 = u0 + 0.85, cu1 = u1 - 0.85;
+  colonnade(iso, v1 + 0.03, cu0, cu1, 6, 18, 40, WASH);
+  iso.box(cu0 - 0.04, v1 - 0.02, cu1 + 0.04, v1 + 0.06, 40, 46, WASH);
+  pediment(iso, v1 + 0.06, cu0, cu1, 46, 12, WASH);
+  return iso.build();
+}
+
+// --- PERSEVERANCE TAVERN (83 Buitenkant Street, 1808) — "The Percy", the oldest
+// pub in South Africa: a small, cheerful single-storey corner tavern, rendered
+// in a warm ochre with a green-painted dado, big timber-framed pub windows, a
+// hanging sign bracket and a green corrugated-iron verandah roof. 1×1 (wide).
+// =====================================================================
+function perseveranceTavernTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 60 });
+  void seed;
+  const OCHRE = hex('#d99a4e');
+  const PUBGREEN = hex('#2f6b4a');
+  const u0 = 0.16, u1 = 0.84, v0 = 0.26, v1 = 0.82;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.22);
+  const z = 28;
+  // the warm ochre body with a green dado
+  iso.box(u0, v0, u1, v1, 0, z, OCHRE, { leftC: shaded(OCHRE, 0.08), rightC: lit(OCHRE, 0.05) });
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, 0, 9, PUBGREEN, { ink: false });
+  // big timber-framed pub windows (warm glow inside)
+  iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, 11, 22, 3, alpha(GILT_HOT, 0.45), hex('#5a3a22'));
+  iso.windowsRight(u1, v0 + 0.06, v1 - 0.06, 11, 22, 3, alpha(GILT_HOT, 0.45), hex('#5a3a22'));
+  // a green corrugated verandah roof over the stoep
+  iso.box(u0 - 0.06, v1 - 0.02, u1 + 0.06, v1 + 0.12, 22, 25, PUBGREEN, { topC: top(PUBGREEN, 0.2) });
+  // verandah posts
+  for (const pu of [u0, u1] as const) {
+    iso.r.line(iso.P(pu, v1 + 0.1, 0), iso.P(pu, v1 + 0.1, 22), 1 * RES, hex('#5a3a22'));
+  }
+  // a flat parapet + a hanging pub sign on a bracket
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, z, z + 3, lighten(OCHRE, 0.08), { ink: false });
+  const [hx, hy] = iso.P(u1, v1 - 0.1, 20);
+  iso.r.line([hx, hy], [hx + 6 * RES, hy], 0.8 * RES, COLORS.steelDark);
+  iso.r.rect(hx + 5 * RES, hy + 1 * RES, hx + 9 * RES, hy + 6 * RES, PUBGREEN);
+  iso.r.polyline([[hx + 5 * RES, hy + 1 * RES], [hx + 9 * RES, hy + 1 * RES], [hx + 9 * RES, hy + 6 * RES], [hx + 5 * RES, hy + 6 * RES]], 0.6 * RES, alpha(GILT, 0.9), true);
+  return iso.build();
+}
+
+// --- PALACE THEATRE (a city-block cinema/variety theatre) — a tall narrow
+// Art-Deco entertainment frontage wedged into the street: a stepped Deco parapet,
+// a horizontal marquee canopy with chasing bulb-lights, and a tall vertical NEON
+// BLADE sign running up the facade. The lit Deco blade is the read. 1×1 (wide).
+// =====================================================================
+function palaceTheatreTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(1, 1, { headroom: 110 });
+  void seed;
+  const DECO = hex('#c9b48a');
+  const u0 = 0.18, u1 = 0.82, v0 = 0.26, v1 = 0.82;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.22);
+  const z = 70;
+  // the tall narrow Deco frontage
+  iso.box(u0, v0, u1, v1, 0, z, DECO, { leftC: shaded(DECO, 0.06), rightC: lit(DECO, 0.05) });
+  // vertical Deco pilaster fluting on the front
+  for (let k = 1; k < 5; k++) {
+    const uu = u0 + (u1 - u0) * (k / 5);
+    iso.r.line(iso.P(uu, v1, 20), iso.P(uu, v1, z - 6), 0.7 * RES, shaded(DECO, 0.14));
+  }
+  // a stepped Deco parapet crown
+  iso.box(u0 + 0.06, v0 + 0.06, u1 - 0.06, v1 - 0.06, z, z + 5, lighten(DECO, 0.08), { ink: false });
+  iso.box(u0 + 0.18, v0 + 0.18, u1 - 0.18, v1 - 0.18, z + 5, z + 9, lighten(DECO, 0.12), { ink: false });
+  // the projecting horizontal marquee canopy with a row of bulb-lights
+  iso.box(u0 - 0.06, v1 - 0.02, u1 + 0.06, v1 + 0.1, 20, 25, hex('#8a2f33'));
+  const [mxA, my] = iso.P(u0, v1 + 0.08, 20);
+  const [mxB] = iso.P(u1, v1 + 0.08, 20);
+  for (let k = 0; k <= 9; k++) {
+    const x = mxA + (mxB - mxA) * (k / 9);
+    iso.r.line([x, my], [x, my + 1.6 * RES], 1.4 * RES, alpha(GILT_HOT, 0.9));
+  }
+  // a dark glazed entrance below the marquee
+  iso.r.poly([iso.P(u0 + 0.06, v1, 2), iso.P(u1 - 0.06, v1, 2), iso.P(u1 - 0.06, v1, 18), iso.P(u0 + 0.06, v1, 18)], alpha(COLORS.glassDark, 0.85));
+  // the tall vertical NEON BLADE sign running up the front-right corner
+  const [blx, bly] = iso.P(u1, v1 - 0.06, 28);
+  iso.r.rect(blx + 1 * RES, bly - 38 * RES, blx + 4 * RES, bly, hex('#7a1f3a'));
+  iso.r.polyline([[blx + 1 * RES, bly - 38 * RES], [blx + 4 * RES, bly - 38 * RES], [blx + 4 * RES, bly], [blx + 1 * RES, bly]], 0.6 * RES, alpha(STRIPE_R, 0.95), true);
+  for (let k = 0; k < 6; k++) {
+    iso.r.poly(circlePts(blx + 2.5 * RES, bly - 4 * RES - k * 6 * RES, 1.1 * RES), alpha(GILT_HOT, 0.95));
+  }
+  return iso.build();
+}
+
+// =====================================================================
 // THE REGISTRY — placed-name → bespoke sprite + bespoke electrification light.
 // `match` is tested against Cape Town's placed `named` strings (see
 // src/data/cities/capetown.ts); first match wins. `foot` MUST equal what each
@@ -2805,5 +3411,169 @@ export const CITY_HEROES: BespokeHero[] = [
     seed: 5388,
     draw: (seed) => longStreetTile(seed, SAND),
     light: { kind: 'facadeFlood', topZ: 56, halfW: 0.9 },
+  },
+
+  // ================= ROUND 4 — TOWARD 100 (bespoke draws + lights) =================
+  {
+    // Old Town House — the 1755 Cape Rococo burgher house on Greenmarket Sq
+    // (the Michaelis art collection).
+    city: 'capetown',
+    key: 'old-town-house',
+    match: /Old Town House/i,
+    foot: [1, 1],
+    seed: 5389,
+    draw: (seed) => oldTownHouseTile(seed),
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 0.9 },
+  },
+  {
+    // Gardens Shul — the Great Synagogue (Cape Town Hebrew Congregation), 1905.
+    city: 'capetown',
+    key: 'gardens-shul',
+    match: /Gardens Shul|Hebrew Congregation|Great Synagogue/i,
+    foot: [2, 2],
+    seed: 5390,
+    draw: (seed) => gardensShulTile(seed),
+    // the twin copper domes glow as lit lanterns
+    light: { kind: 'facadeFlood', topZ: 120, halfW: 1.3 },
+  },
+  {
+    // South African Jewish Museum — the modern glass+stone hall on the Old
+    // Synagogue (in the Gardens Shul grounds).
+    city: 'capetown',
+    key: 'sa-jewish-museum',
+    match: /Jewish Museum/i,
+    foot: [2, 2],
+    seed: 5391,
+    draw: (seed) => jewishMuseumTile(seed),
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 1.3 },
+  },
+  {
+    // Mandela Rhodes Building — Herbert Baker's Cape-Dutch-revival commercial
+    // block on St George's Mall.
+    city: 'capetown',
+    key: 'mandela-rhodes-building',
+    match: /Mandela Rhodes/i,
+    foot: [2, 2],
+    seed: 5392,
+    draw: (seed) => mandelaRhodesTile(seed),
+    light: { kind: 'towerCrown', topZ: 110, halfW: 1.3 },
+  },
+  {
+    // Central Methodist Church — the Gothic-Revival mission church on
+    // Greenmarket Square (slender corner spire).
+    city: 'capetown',
+    key: 'central-methodist-church',
+    match: /Central Methodist|Metropolitan Methodist/i,
+    foot: [2, 2],
+    seed: 5393,
+    draw: (seed) => methodistChurchTile(seed),
+    light: { kind: 'facadeFlood', topZ: 150, halfW: 1.3 },
+  },
+  {
+    // Queen Victoria Mosque (Jamia Mosque) — the oldest/largest Bo-Kaap mosque.
+    city: 'capetown',
+    key: 'queen-victoria-mosque',
+    match: /Queen Victoria Mosque|Jamia Mosque/i,
+    foot: [2, 2],
+    seed: 5394,
+    draw: (seed) => queenVictoriaMosqueTile(seed),
+    // the lit green minaret dome
+    light: { kind: 'facadeFlood', topZ: 142, halfW: 1.2 },
+  },
+  {
+    // Cape Town Science Centre (MTN Sciencentre) — the colourful Observatory
+    // science museum.
+    city: 'capetown',
+    key: 'cape-town-science-centre',
+    match: /Science Cent(re|er)|Sciencentre/i,
+    foot: [2, 2],
+    seed: 5395,
+    draw: (seed) => scienceCentreTile(seed),
+    light: { kind: 'genericGlow', topZ: 50, halfW: 1.4 },
+  },
+  {
+    // Breakwater Lodge / UCT Graduate School of Business — the 1859 Breakwater
+    // Prison on the Waterfront.
+    city: 'capetown',
+    key: 'breakwater-lodge',
+    match: /Breakwater Lodge|Graduate School of Business/i,
+    foot: [2, 2],
+    seed: 5396,
+    draw: (seed) => breakwaterLodgeTile(seed),
+    light: { kind: 'facadeFlood', topZ: 64, halfW: 1.4 },
+  },
+  {
+    // Leeuwenhof — the Premier of the Western Cape's official Cape-Dutch
+    // residence in the Gardens.
+    city: 'capetown',
+    key: 'leeuwenhof',
+    match: /Leeuwenhof/i,
+    foot: [2, 2],
+    seed: 5397,
+    draw: (seed) => leeuwenhofTile(seed),
+    light: { kind: 'facadeFlood', topZ: 56, halfW: 1.4 },
+  },
+  {
+    // Charly's Bakery — the famous hot-pink polka-dot bakery on Canterbury St.
+    city: 'capetown',
+    key: 'charlys-bakery',
+    match: /Charly'?s Bakery/i,
+    foot: [1, 1],
+    seed: 5398,
+    draw: (seed) => charlysBakeryTile(seed),
+    light: { kind: 'genericGlow', topZ: 40, halfW: 0.9 },
+  },
+  {
+    // Zip Zap Academy — the circus-school big-top tent.
+    city: 'capetown',
+    key: 'zip-zap-academy',
+    match: /Zip ?Zap/i,
+    foot: [2, 2],
+    seed: 5399,
+    draw: (seed) => zipZapTentTile(seed),
+    // a festoon ring + lit canvas (a stadium-style bowl flood reads as the tent)
+    light: { kind: 'stadiumFlood', topZ: 90, halfW: 1.4 },
+  },
+  {
+    // Martin Melck House — the 18th-C Cape-Dutch townhouse on Strand Street.
+    city: 'capetown',
+    key: 'martin-melck-house',
+    match: /Martin Melck/i,
+    foot: [1, 1],
+    seed: 5400,
+    draw: (seed) => martinMelckTile(seed),
+    light: { kind: 'facadeFlood', topZ: 60, halfW: 0.9 },
+  },
+  {
+    // National Library of South Africa — the grand 1860 neoclassical library in
+    // the Company's Garden.
+    city: 'capetown',
+    key: 'national-library-sa',
+    match: /National Library/i,
+    foot: [3, 3],
+    seed: 5401,
+    draw: (seed) => nationalLibraryTile(seed),
+    light: { kind: 'facadeFlood', topZ: 70, halfW: 1.6 },
+  },
+  {
+    // Perseverance Tavern — "The Percy", the oldest pub in South Africa.
+    city: 'capetown',
+    key: 'perseverance-tavern',
+    match: /Perseverance Tavern/i,
+    foot: [1, 1],
+    seed: 5402,
+    draw: (seed) => perseveranceTavernTile(seed),
+    light: { kind: 'genericGlow', topZ: 36, halfW: 0.9 },
+  },
+  {
+    // Palace Theatre — an Art-Deco city-block cinema/variety theatre.
+    city: 'capetown',
+    key: 'palace-theatre',
+    match: /Palace Theatre/i,
+    foot: [1, 1],
+    seed: 5403,
+    draw: (seed) => palaceTheatreTile(seed),
+    // the lit Deco blade sign + marquee
+    light: { kind: 'towerCrown', topZ: 100, halfW: 0.6 },
   },
 ];
