@@ -38,9 +38,14 @@ SAVE_VERSION bump or are avoided. Gates: tsc/eslint/vitest/build +
       SAVE_VERSION bump (non-geometry, self-healing). KpiDashboard depreciation hint
       updated. Tests: SoD curve, back-loading/holiday, full-life recovery, phase-in ramp,
       per-vintage holiday, save round-trip + self-heal. (rav.test.ts)
-- [ ] **Car-park EV load** — car-park tiles (LANDMARK.carpark) draw a modest, growing
-      EV-charging demand in the demand field (scaled by the surrounding council's EV
-      adoption so it grows over time). Scope to the demand model; deterministic.
+- [x] **Car-park EV load** — LANDMARK.carpark tiles now draw a modest public
+      EV-charging load (CARPARK_EV_MW = 0.3 MW at full local adoption) in the demand
+      field's evMW, scaled by the surrounding council's EV fraction so it GROWS as the
+      area electrifies (0 at no uptake). Lives in tileDemand (DER, not the no-DER base),
+      so it flows through service catchments, the headroom heatmap + balance. Fixed the
+      service-area gate (was base-demand-only) to admit car-park-only tiles — verified
+      against real London: 18 car-park tiles, all council-backed, several with 0 homes
+      that would otherwise have had their 0.3 MW dropped. Deterministic. (demand.test.ts)
 - [ ] GATES all green; commit incrementally; push branch; PR to main.
 
 ### 🎓 WP1 — TUTORIAL GUIDED-PLAY POLISH (this session, branch wp1-tutorial-guided-play)
