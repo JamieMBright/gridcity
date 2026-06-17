@@ -336,5 +336,24 @@ for (const variant of [
       await page.waitForTimeout(500);
       await page.screenshot({ path: `preview/w7e-step-done-${variant.tag}.png` });
     });
+
+    // WP1: the guided spotlight (bouncing arrow at the target) + the
+    // de-cluttered tutorial HUD (no minimap / market ticker). Desktop shows
+    // the arrow on the always-mounted build rail; mobile opens the build
+    // drawer first so the onshore-wind tool (and its arrow) are on screen.
+    test('guided spotlight arrow + de-cluttered tutorial HUD', async ({ page }) => {
+      test.setTimeout(120_000);
+      await intoMission1(page);
+      await clickButton(page, 'continue');
+      await expect(page.getByText(/Designate an onshore-wind site/)).toBeVisible();
+      if (variant.tag === 'mobile') {
+        // open the build drawer so the spotlit tool is mounted on screen
+        const build = page.getByRole('button', { name: /build/i });
+        if ((await build.count()) > 0) await build.first().dispatchEvent('click');
+        await page.waitForTimeout(300);
+      }
+      await page.waitForTimeout(500);
+      await page.screenshot({ path: `preview/wp1-spotlight-${variant.tag}.png` });
+    });
   });
 }
