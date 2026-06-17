@@ -81,6 +81,15 @@ const MIN_ZOOM = 0.05 / RES;
 const MAX_ZOOM = 3.2 / RES;
 const CLICK_SLOP_PX = 6;
 
+// Night-deepening pass (owner-contested — keep/revert knob). To make powered
+// areas POP harder at night WITHOUT a harsh/dark grade, the energized-window
+// glow + kit bloom (both additive layers) carry a touch more strength at full
+// glow. Paired with a one-step-deeper night tint in grade.ts. Conservative:
+// the glow already maxes at glow=1 in deep night, so this only lifts how
+// bright the lit windows read against the (slightly deeper) cosy dusk wash.
+const WINDOW_GLOW_GAIN = 0.95; // was 0.85
+const KIT_BLOOM_GAIN = 1.0; // was 0.9
+
 export const LEVEL_COLOR: Record<VoltageLevel, number> = {
   400: 0x5ea3ff,
   132: 0x7bc47f,
@@ -1006,8 +1015,8 @@ export class MapRenderer {
     this.glowWorld.position.copyFrom(this.world.position);
     this.glowWorld.scale.copyFrom(this.world.scale);
     const glowOn = !this.gridViewOn;
-    if (this.lightsSprite) this.lightsSprite.alpha = glowOn ? g.glow * 0.85 : 0;
-    this.bloomG.alpha = glowOn ? g.glow * 0.9 : 0;
+    if (this.lightsSprite) this.lightsSprite.alpha = glowOn ? g.glow * WINDOW_GLOW_GAIN : 0;
+    this.bloomG.alpha = glowOn ? g.glow * KIT_BLOOM_GAIN : 0;
     this.stepRain(dt, g, w, h);
   }
 
@@ -1095,7 +1104,7 @@ export class MapRenderer {
     const sprite = new Sprite(Texture.from(canvas));
     sprite.setFromMatrix(new Matrix(HALF_W, HALF_H, -HALF_W, HALF_H, 0, -HALF_H));
     sprite.blendMode = 'add';
-    sprite.alpha = this.grade ? this.grade.glow * 0.85 : 0;
+    sprite.alpha = this.grade ? this.grade.glow * WINDOW_GLOW_GAIN : 0;
     this.glowWorld.addChildAt(sprite, 0);
     this.lightsSprite = sprite;
   }
