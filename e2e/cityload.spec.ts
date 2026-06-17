@@ -27,6 +27,31 @@ async function loadCity(page: import('@playwright/test').Page, city: string): Pr
   await page.waitForTimeout(900);
 }
 
+/** A few cheap HUD interactions on the loaded map (owner: "a few interactions
+ *  per city", not just boot). The start menu is dismissed first so the HUD
+ *  (chrome = !menuOpen) actually mounts; then we toggle a couple of render
+ *  overlays and open the RIIO dashboard — render-heavy paths that walk the
+ *  city's tiles/assets, so a city-specific renderer crash surfaces here, not
+ *  just on first paint. */
+async function pokeHud(page: import('@playwright/test').Page): Promise<void> {
+  // close the front-door menu so the in-game HUD renders over the loaded city
+  await page.evaluate(() => window.__ec!.getState().setMenuOpen(false));
+  await page.waitForTimeout(150);
+  // overlays repaint the whole map for the active scenario
+  for (const key of ['g', 'h', 'g', 'h']) {
+    await page.keyboard.press(key).catch(() => undefined);
+    await page.waitForTimeout(120);
+  }
+  // open + close the RIIO report card (reads the city's KPIs)
+  const riio = page.getByRole('button', { name: 'RIIO' }).first();
+  if ((await riio.count()) > 0) {
+    await riio.dispatchEvent('click').catch(() => undefined);
+    await page.waitForTimeout(150);
+    await page.keyboard.press('k').catch(() => undefined);
+  }
+  await page.waitForTimeout(150);
+}
+
 test.describe('city load — every map loads without crashing', () => {
   for (const city of ['london', ...DATA_CITIES]) {
     test(`loads ${city}`, async ({ page }) => {
@@ -35,6 +60,9 @@ test.describe('city load — every map loads without crashing', () => {
       await waitReady(page);
       await loadCity(page, city);
       await assertNoCrash(page, watch, `loaded ${city}`);
+      // and survive a few interactions on the loaded map (not just first paint)
+      await pokeHud(page);
+      await assertNoCrash(page, watch, `interacted on ${city}`);
     });
   }
 

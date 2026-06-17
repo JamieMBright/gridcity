@@ -314,10 +314,26 @@ crash on cairo, then traced TWO distinct renderer crashes on city load / switch:
 
 ### 🧪 OWNER ASK (2026-06-16 21:55): expand Playwright to EVERY button + EVERY map
 Owner: "expand your playwright testing to include every button and every map etc."
-- [ ] **Wave D — exhaustive e2e sweep:** drive EVERY button/control in every panel
-  (start menu, HUD, build tools, tenders, regulator, tutorials, settings…) and load
-  EVERY city/map; assert NO pageerror and NO console.error anywhere (doubles as the
-  crash-detection net). Data-driven over panel/city registries; shard for runtime.
+- [x] **Wave D — exhaustive e2e sweep — SHIPPED (PR #__).** Data-driven crash net that
+  opens EVERY panel/overlay and programmatically clicks EVERY visible button/toggle/tab in
+  it, asserting no pageerror / console.error (crashnet.helper) after each click. New bite-size
+  specs: `e2e/sweep-buttons.spec.ts` (registry-driven: clicks every visible button in start
+  menu, regulator cluster, grid overlays, build palette, game/saves/help/guide/lessons/city
+  picker — each panel its own test), `e2e/sweep-panels.spec.ts` (deep in-game surfaces that
+  need state: tile INSPECTOR action buttons via inspecting a placed sub + a line + a battery,
+  FleetPanel ± + every veg-policy, EventLog filters/search/snooze/ack, BalancePanel plan-works
+  /smart-charging/approve, BillPanel trend + itemise drill-down + levy, TemplatePaste save/
+  stamp/cancel, search-to-fly). RIIO help-dots + directorate dials live in sweep-buttons.
+  Extended `cityload.spec.ts` to do a few interactions (close menu → overlay toggles + RIIO
+  open) per city, not just boot. Gaps closed vs the pre-existing panels/buildtools/flows net:
+  the tile **InfoPanel inspector** (re-conductor / underground span+whole / veg-cut / demolish
+  / replace / maintenance / battery policy / GIS rebuild / MVA sizer — NONE were driven
+  before), **EventLog/AlertsFeed**, **FleetPanel** steppers, **BalancePanel** deep, **BillPanel**
+  drill-down, **KpiDashboard** help-dots, **TemplatePaste**, speed/search controls, and per-city
+  interaction (not just load). Also hardened the shared `pauseSim` helper to RE-ISSUE setSpeed:0
+  each poll tick (the sweep surfaced a boot-race where the worker, still baking the atlas, drops
+  the first command and the clock keeps running). Runner: `bash tools/e2e-shards.sh sweep`
+  (bite-size, isolated port per spec). No app-`src` changes (test-helper only).
 
 ### 📱 OWNER ASK (2026-06-16 20:48): a BETTER iPhone home-screen logo
 Owner asked if I had their notes on "a better iPhone logo" — I do NOT (lost to

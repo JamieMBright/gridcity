@@ -108,11 +108,22 @@ export async function bootWatched(page: Page): Promise<CrashWatch> {
   return watch;
 }
 
-/** Pause the clock so deterministic UI sweeps don't race the sim. */
+/** Pause the clock so deterministic UI sweeps don't race the sim. The pause
+ *  command is RE-ISSUED on every poll tick: right after a fresh-game boot the
+ *  worker can still be baking / initialising and drop the very first setSpeed,
+ *  leaving the clock running (a boot-race flake that surfaced in the Wave-D
+ *  sweep). Re-sending until the snapshot actually reports speed 0 self-heals
+ *  that without masking a genuine stall (it still fails after 20s). */
 export async function pauseSim(page: Page): Promise<void> {
-  await page.evaluate(() => window.__ec?.sendCommand({ type: 'setSpeed', speed: 0 }));
   await expect
-    .poll(() => page.evaluate(() => window.__ec?.getState().snapshot?.speed))
+    .poll(
+      () =>
+        page.evaluate(() => {
+          window.__ec?.sendCommand({ type: 'setSpeed', speed: 0 });
+          return window.__ec?.getState().snapshot?.speed;
+        }),
+      { timeout: 20_000 },
+    )
     .toBe(0);
 }
 
