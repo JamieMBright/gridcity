@@ -9,8 +9,10 @@ import { activeFabric } from './buildingSprites';
 import { bespokeHeroesFor, frameIdFor } from './heroes/registry';
 import {
   altbauTile,
+  bokaapTile,
   brownstoneTile,
   cairoblockTile,
+  capecottageTile,
   cottageTile,
   councilflatTile,
   factoryTile,
@@ -338,6 +340,11 @@ function buildCityStockBufs(): Map<string, HeroBuf> {
       // grey-brick shikumen stone-gate lane houses + concrete/glassy walk-ups
       for (let i = 0; i < 4; i++) add(`shikumen_${i}`, shikumenTile(451 + i, i));
       for (let i = 0; i < 4; i++) add(`shwalkup_${i}`, shwalkupTile(461 + i, i));
+      break;
+    case 'capetown':
+      // candy-coloured Bo-Kaap flat-roof rows + Cape-Victorian / face-brick cottages
+      for (let i = 0; i < 4; i++) add(`bokaap_${i}`, bokaapTile(471 + i, i));
+      for (let i = 0; i < 4; i++) add(`capecottage_${i}`, capecottageTile(481 + i, i));
       break;
     default:
       break;

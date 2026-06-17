@@ -1601,6 +1601,110 @@ export function shwalkupTile(seed: number, variant: number): Uint8ClampedArray<A
 }
 
 /**
+ * Bespoke CAPE TOWN stock — the BO-KAAP colour row. A row of single-storey
+ * flat-roofed cottages painted in vivid candy hues (the city's signature),
+ * each with a low parapet, a raised stoep (front step/platform) reached by a
+ * couple of steps, tall multi-pane sash windows with shutters, a panelled
+ * door, and the odd pitched-roof house breaking the line. The riot of
+ * saturated wall colour against the white trim is the unmistakable tell.
+ */
+export function bokaapTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 51407 + variant * 113 + 17);
+  // the candy hues — pull straight from the city's bright wall rotation so the
+  // row reads as the Bo-Kaap palette (turquoise, ochre, pink, green, blue…)
+  const hues: RGBA[] = [
+    wallColor(variant), wallColor(variant + 2), wallColor(variant + 4), wallColor(variant + 1),
+  ];
+  const trim = lighten(COLORS.white, 0.02);
+  const v0 = 0.14;
+  const v1 = 0.72;
+  const H = 22; // single storey, tall for the era
+  iso.shadow(0, v0, 1, v1, 0.2, 0.22);
+  for (let i = 0; i < 3; i++) {
+    const u0 = i / 3;
+    const u1 = (i + 1) / 3;
+    const hue = hues[i % hues.length] ?? hues[0]!;
+    const pitched = (variant + i) % 4 === 3; // a minority break the flat line
+    iso.box(u0, v0, u1, v1, 0, H, hue);
+    // a white plinth band + cornice band (the crisp Cape trim)
+    iso.r.poly([P(u0, v1, 4), P(u1, v1, 4), P(u1, v1, 2.5), P(u0, v1, 2.5)], trim);
+    iso.r.poly([P(u0, v1, H), P(u1, v1, H), P(u1, v1, H - 2.5), P(u0, v1, H - 2.5)], trim);
+    // tall multi-pane sash windows with shutters either side
+    iso.windowsLeft(v1, u0 + 0.06, u1 - 0.16, 7, 16, 1, glass(rng, 0.45), trim);
+    for (const su of [u0 + 0.045, u0 + 0.145]) {
+      iso.r.poly([P(su, v1, 16), P(su + 0.012, v1, 16), P(su + 0.012, v1, 7), P(su, v1, 7)], shaded(hue, 0.16));
+    }
+    // panelled front door + the raised STOEP (platform + 2 steps) before it
+    const du = u1 - 0.085;
+    iso.r.poly([P(du - 0.04, v1, 15), P(du + 0.04, v1, 15), P(du + 0.04, v1, 0), P(du - 0.04, v1, 0)], darken(hue, 0.4));
+    iso.r.poly([P(du - 0.05, v1, 16), P(du + 0.05, v1, 16), P(du + 0.05, v1, 15), P(du - 0.05, v1, 15)], trim);
+    for (let s = 0; s < 2; s++) {
+      const sv = v1 + 0.02 + s * 0.025;
+      const sz = 4 - s * 2;
+      iso.r.poly([P(du - 0.06, sv, sz), P(du + 0.06, sv, sz), P(du + 0.06, sv + 0.025, sz), P(du - 0.06, sv + 0.025, sz)], lighten(trim, 0.02));
+    }
+    if (pitched) {
+      domesticRoof(iso, u0 - 0.005, v0 - 0.005, u1 + 0.005, v1 + 0.005, H, 9, 'u', TILE_RED, hue, rng);
+    } else {
+      // flat parapet roof
+      iso.box(u0, v0, u1, v1, H, H + 2.5, hue, { ink: false, topC: shaded(hex('#6a665e'), 0.06) });
+    }
+  }
+  iso.windowsRight(1, v0 + 0.1, v1 - 0.1, 6, H - 4, 1, glass(rng, 0.3), trim);
+  return iso.build();
+}
+
+/**
+ * Bespoke CAPE TOWN stock — the Cape-Victorian / face-brick suburban house.
+ * Two looks by variant: (a) a white-render VICTORIAN semi-detached villa with
+ * a "broekie-lace" cast-iron verandah and a pitched corrugated-iron roof, the
+ * Woodstock/Observatory tell; (b) a darker FACE-BRICK walk-up cottage. Set in
+ * a small garden behind a low wall, under the bright Cape light.
+ */
+export function capecottageTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 58171 + variant * 131 + 23);
+  const faceBrick = variant % 2 === 1;
+  const wall = faceBrick
+    ? (([BRICK_RED, BRICK_BROWN] as RGBA[])[variant % 2] ?? BRICK_RED)
+    : lighten(COLORS.white, 0.02); // whitewashed render
+  const iron = hex('#2c2c32');
+  const u0 = 0.12;
+  const u1 = 0.7;
+  const v0 = 0.16;
+  const v1 = 0.64;
+  const H = faceBrick ? 26 : 22;
+  iso.shadow(u0, v0, u1 + 0.04, v1 + 0.02, 0.18, 0.2);
+  iso.box(u0, v0, u1, v1, 0, H, wall);
+  // corrugated-iron pitched roof (grey) — wide, low pitch
+  const roofC = hex('#7a7d80');
+  iso.gable(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, H, 12, 'u', roofC, wall);
+  // window(s) on the street face
+  iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, H - 10, H - 2, 2, glass(rng, 0.42), COLORS.white);
+  // a single-storey verandah across the front on slender iron posts, with a
+  // pierced "broekie-lace" valance (the Cape-Victorian tell)
+  const vf = v1 + 0.14;
+  const vH = 13;
+  iso.r.poly([P(u0, v1, vH), P(u1, v1, vH), P(u1, vf, vH - 1.5), P(u0, vf, vH - 1.5)], lit(roofC, 0.04)); // skillion verandah roof
+  for (let u = u0 + 0.05; u <= u1 - 0.02; u += 0.14) {
+    iso.r.line(P(u, vf, 0), P(u, vf, vH - 1.5), INK_W * 0.7, iron);
+  }
+  // lace valance band
+  iso.r.poly([P(u0, vf, vH - 1.5), P(u1, vf, vH - 1.5), P(u1, vf, vH - 4.5), P(u0, vf, vH - 4.5)], alpha(lighten(COLORS.white, 0.02), 0.9));
+  for (let u = u0 + 0.02; u < u1; u += 0.02) {
+    iso.r.line(P(u, vf, vH - 1.5), P(u, vf, vH - 4), INK_W * 0.4, alpha(iron, 0.55));
+  }
+  // door behind the verandah
+  iso.r.poly([P(u1 - 0.12, v1, 11), P(u1 - 0.05, v1, 11), P(u1 - 0.05, v1, 0), P(u1 - 0.12, v1, 0)], darken(wall, faceBrick ? 0.3 : 0.5));
+  // chimney + a garden shrub behind a low wall
+  iso.box(u0 + 0.08, (v0 + v1) / 2, u0 + 0.12, (v0 + v1) / 2 + 0.04, H + 10, H + 18, faceBrick ? darken(wall, 0.12) : shaded(roofC, 0.1));
+  iso.box(u0 - 0.04, 0.92, u1 + 0.04, 0.96, 0, 4, faceBrick ? shaded(wall, 0.08) : shaded(COLORS.white, 0.06));
+  if (rng.chance(0.7)) iso.ball(u0 + 0.02, 0.82, 0.06, 13, COLORS.treeGreen);
+  return iso.build();
+}
+
+/**
  * Bespoke PARIS building stock: a Haussmann apartment block. Researched from
  * the reference photos (owner, 2026-06-14): uniform ~6-storey cream
  * pierre-de-taille ashlar facade with a strong cornice, regular tall French

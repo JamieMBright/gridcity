@@ -301,6 +301,19 @@ function cityStockFor(
       }
       return undefined;
     }
+    case 'capetown': {
+      // the candy Bo-Kaap colour rows fill the dense City-Bowl core; Cape-
+      // Victorian / face-brick cottages fill the suburbs. The Foreshore CBD keeps
+      // the generic glass towers.
+      void shops;
+      if (zone === ZONE.urbanCore || zone === ZONE.urban) {
+        return `bokaap_${(estate + (v % 2)) % 4}`;
+      }
+      if (zone === ZONE.suburb) {
+        return th % 4 === 0 ? `bokaap_${(estate + (v % 2)) % 4}` : `capecottage_${(estate + (v % 2)) % 4}`;
+      }
+      return undefined;
+    }
     default:
       return undefined;
   }
