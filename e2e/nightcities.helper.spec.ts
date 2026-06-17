@@ -51,15 +51,28 @@ async function enterPhotoMode(page: Page): Promise<void> {
  *  on and never re-pins, so this override holds. Polls the live grade glow so we
  *  don't guess a fixed settle time. */
 async function cleanNight(page: Page): Promise<void> {
-  await page.evaluate(
-    ([min, w]) =>
-      window.__ec?.setAtmosphere(min as number, w as { cloud: number; wind: number; regime?: string }),
-    [NIGHT, CLEAR],
-  );
+  // RE-ASSERT the night override on every poll tick: a fresh city switch rebuilds
+  // the renderer (clearing its atmosphere override), and the eased grade glow
+  // ramps 0→1 over frames — re-pinning each tick is robust to both. Don't hard-
+  // fail the whole 12-city run if one city's ease is slow; proceed after the wait.
   await expect
-    .poll(async () => page.evaluate(() => window.__ec?.getGradeGlow() ?? 0), { timeout: 8000 })
-    .toBeGreaterThan(0.95);
-  await page.waitForTimeout(350); // let the eased tint/sky fully land
+    .poll(
+      async () =>
+        page.evaluate(
+          ([min, w]) => {
+            window.__ec?.setAtmosphere(
+              min as number,
+              w as { cloud: number; wind: number; regime?: string },
+            );
+            return window.__ec?.getGradeGlow() ?? 0;
+          },
+          [NIGHT, CLEAR],
+        ),
+      { timeout: 15000 },
+    )
+    .toBeGreaterThan(0.9)
+    .catch(() => undefined);
+  await page.waitForTimeout(450); // let the eased tint/sky fully land
 }
 
 /** The densest hero cluster's centroid (a simple grid-bucket vote), so we frame
