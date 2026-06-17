@@ -42,6 +42,12 @@ import { BIG_BUILDING_ZONES, RC, TERRAIN, ZONE, type CityMap } from './map/types
 import { pushEvent, type GameState } from './state';
 import type { SimSpeed } from './protocol';
 
+/** Tutorial missions where the lesson is built around a SINGLE onshore-wind
+ *  farm (owner: "allow only one onshore-wind facility" for simplicity). In
+ *  these, a second onshore-wind designation is refused. Kept here (not in
+ *  missions.ts) to avoid a commands↔missions import cycle. */
+const SINGLE_ONSHORE_MISSIONS: ReadonlySet<string> = new Set(['m1-first-light', 'm5-bill']);
+
 export type Command =
   | { type: 'setSpeed'; speed: SimSpeed }
   | { type: 'build'; spec: BuildSpec }
@@ -583,6 +589,22 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
         return { ok: true, assetId: id };
       }
       if (spec.kind === 'gen') {
+        // TUTORIAL SIMPLICITY (owner): the early onshore-wind lessons teach
+        // ONE farm end to end — a learner designating a second farm just
+        // muddies the lesson. In those missions, refuse a second onshore
+        // wind designation (counting open/awarded tenders AND any already
+        // built onshore gen). Sandbox + every other mission are unaffected.
+        if (spec.gen === 'windOnshore' && SINGLE_ONSHORE_MISSIONS.has(state.scenarioId)) {
+          const already =
+            state.tenders.some((t) => t.gen === 'windOnshore' && t.status !== 'lapsed') ||
+            [...state.assets.values()].some((a) => a.kind === 'gen' && a.gen === 'windOnshore');
+          if (already) {
+            return {
+              ok: false,
+              error: 'this lesson uses one onshore wind farm — build out the one you designated',
+            };
+          }
+        }
         // the operator doesn't build power stations: designating a site
         // opens a tender that developers bid on (accepted via acceptBid)
         const g = GENS[spec.gen];

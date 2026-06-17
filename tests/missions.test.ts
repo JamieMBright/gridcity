@@ -23,6 +23,7 @@ import {
 import { deserialize, newContext, newGame, seedScenario, serialize, type SaveData } from '../src/sim/state';
 import { advanceTime, derive, deriveKey, solveTick, type TickOutputs } from '../src/sim/tick';
 import type { GameState, SimContext } from '../src/sim/state';
+import { applyCommand } from '../src/sim/commands';
 import { commissionAll, directBuildGen, mustApply } from './helpers';
 
 function solve(state: GameState, ctx: SimContext): { out: TickOutputs; total: number } {
@@ -304,6 +305,62 @@ describe('mission 4: the seeded application', () => {
     // and the town is already served, so the lesson is the connection
     const v = viewOf(state, ctx);
     expect(v.stats.servedCustomers).toBe(v.stats.totalCustomers);
+  });
+});
+
+describe('tutorial: only ONE onshore-wind farm in the relevant lessons', () => {
+  // two well-separated valid ridge tiles, so the ONLY reason a second
+  // designation can fail is the single-farm guard (not a reservation clash)
+  const A = { x: 2, y: 8 };
+  const B = { x: 11, y: 9 };
+
+  it('m1 refuses a SECOND onshore-wind designation (tender already open)', () => {
+    const state = newGame('m1-first-light');
+    const ctx = newContext('m1-first-light');
+    const first = applyCommand(state, ctx.map, {
+      type: 'build',
+      spec: { kind: 'gen', gen: 'windOnshore', x: A.x, y: A.y },
+    });
+    expect(first.ok).toBe(true);
+    expect(state.tenders.filter((t) => t.gen === 'windOnshore')).toHaveLength(1);
+    const second = applyCommand(state, ctx.map, {
+      type: 'build',
+      spec: { kind: 'gen', gen: 'windOnshore', x: B.x, y: B.y },
+    });
+    expect(second.ok).toBe(false);
+    expect(second.error).toMatch(/one onshore wind/i);
+    // still exactly one tender — the refusal didn't create a second
+    expect(state.tenders.filter((t) => t.gen === 'windOnshore')).toHaveLength(1);
+  });
+
+  it('a BUILT onshore gen also blocks a fresh onshore designation in m5', () => {
+    const state = newGame('m5-bill');
+    const ctx = newContext('m5-bill');
+    directBuildGen(state, ctx.map, 'windOnshore', M5_WIND.x, M5_WIND.y);
+    const r = applyCommand(state, ctx.map, {
+      type: 'build',
+      spec: { kind: 'gen', gen: 'windOnshore', x: A.x, y: A.y },
+    });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/one onshore wind/i);
+  });
+
+  it('the SANDBOX (london) is NOT limited — designate as many as you like', () => {
+    const state = newGame('london');
+    const ctx = newContext('london');
+    // two well-separated valid onshore sites in the london countryside: the
+    // guard is mission-only, so BOTH designations must succeed.
+    const a = applyCommand(state, ctx.map, {
+      type: 'build',
+      spec: { kind: 'gen', gen: 'windOnshore', x: 0, y: 0 },
+    });
+    const b = applyCommand(state, ctx.map, {
+      type: 'build',
+      spec: { kind: 'gen', gen: 'windOnshore', x: 15, y: 0 },
+    });
+    expect(a.ok).toBe(true);
+    expect(b.ok).toBe(true);
+    expect(state.tenders.filter((t) => t.gen === 'windOnshore')).toHaveLength(2);
   });
 });
 
