@@ -33,7 +33,8 @@ Three independent backlog-polish items. Gates: tsc/eslint/vitest/build +
       for the owner. Stays cosy, not horror-dark. FLAGGED for owner keep-or-revert.
 - [x] GATES all green (tsc/eslint/vitest 774/build/cityload 16-16; London determinism
       held); branch pushed; PR to main; before/after night screenshots in preview/.
-=======
+
+### 💷 WP5 — ECONOMY & TIME-SKIP POLISH (this session, branch wp5-economy-timeskip)
 Three focused, independent backlog items. Deterministic sim (seeded RNG); London/
 missions determinism anchors must not regress; serialized-state changes justify a
 SAVE_VERSION bump or are avoided. Gates: tsc/eslint/vitest/build +
@@ -68,7 +69,7 @@ SAVE_VERSION bump or are avoided. Gates: tsc/eslint/vitest/build +
       against real London: 18 car-park tiles, all council-backed, several with 0 homes
       that would otherwise have had their 0.3 MW dropped. Deterministic. (demand.test.ts)
 - [ ] GATES all green; commit incrementally; push branch; PR to main.
->>>>>>> origin/main
+
 ### 🎓 WP1 — TUTORIAL GUIDED-PLAY POLISH (this session, branch wp1-tutorial-guided-play)
 Owner playtest-feedback items for the tutorial/onboarding (drawn from the re-raise
 ledger below). Scope: tutorial/onboarding UX ONLY — must not regress normal
