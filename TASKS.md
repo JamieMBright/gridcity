@@ -27,10 +27,17 @@ SAVE_VERSION bump or are avoided. Gates: tsc/eslint/vitest/build +
       stays byte-identical to live play); bridge toasts "Skip stopped: <reason>".
       Tests: predicate rules + seeded integration (major halts +30d, routine fault does
       not, same fault halts +7d). (skip.test.ts)
-- [ ] **RAV phase-in tuning** — review rav.ts vs docs/riio-ed3-coverage.md (SSMD:
-      45-yr life, SUM-OF-DIGITS profile → a near-term "depreciation holiday" that ramps
-      revenue sensibly, not a cliff). Tune the depreciation phase-in to the documented
-      intent; don't invent figures.
+- [x] **RAV phase-in tuning** — replaced flat straight-line RAV depreciation with the
+      documented ED3 SUM-OF-DIGITS profile (docs/riio-ed3-coverage.md §A: 45-yr life,
+      sum-of-digits, the "depreciation holiday"). The pool is now a set of VINTAGES (each
+      addition keeps its own age); a vintage's remaining book follows f(t)=1−(t/L)² so
+      depreciation revenue starts near-zero and RAMPS with age — a big capex wave phases
+      in gently instead of jumping to a cliff. grossK/netK kept as pool-total caches the
+      tick reads. Life/WACC figures unchanged (no invented numbers). Additive serialized
+      field (vintages) with reconcileVintages self-heal for pre-SoD saves — no
+      SAVE_VERSION bump (non-geometry, self-healing). KpiDashboard depreciation hint
+      updated. Tests: SoD curve, back-loading/holiday, full-life recovery, phase-in ramp,
+      per-vintage holiday, save round-trip + self-heal. (rav.test.ts)
 - [ ] **Car-park EV load** — car-park tiles (LANDMARK.carpark) draw a modest, growing
       EV-charging demand in the demand field (scaled by the surrounding council's EV
       adoption so it grows over time). Scope to the demand model; deterministic.
