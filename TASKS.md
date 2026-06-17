@@ -48,6 +48,28 @@ SAVE_VERSION bump or are avoided. Gates: tsc/eslint/vitest/build +
       that would otherwise have had their 0.3 MW dropped. Deterministic. (demand.test.ts)
 - [ ] GATES all green; commit incrementally; push branch; PR to main.
 
+### 🏙️ WP6 — PER-CITY BUILDING CHARACTER (this session, branch wp6-city-building-character)
+Cities stop looking like reskinned London terraces: era/region-appropriate housing +
+building stock per city, wired through the fabric system (London byte-identical anchor).
+This is WAVE ζ "Per-city asset packs & richer building stock", scoped to a COHERENT
+increment + a reusable PATTERN (not a shallow pass over all 11). Model: Opus.
+Gates: tsc / eslint / vitest / build + `bash tools/e2e-shards.sh cityload`. Atlas ≤4096.
+- [ ] **Reusable pattern + scalable baking** — bespoke domestic sprites baked CONDITIONALLY
+      on `activeFabric()` (shared sheet has only ~128px headroom at ~3968px; unconditional
+      3× would risk the 4096 ceiling). London adds zero frames ⇒ byte-identical. Fabric
+      fingerprint already busts cache per fabric + per sprite-source change.
+- [ ] **New York** — brownstone rows (stoops, cornices, flat parapets) + setback towers
+      (the ziggurat/wedding-cake silhouette). NOT recoloured London terraces.
+- [ ] **Hong Kong** — dense vertical residential slabs on retail podiums, AC-unit/laundry
+      texture, rooftop water tanks — the wall-of-towers tell.
+- [ ] **Cairo** — desert low-rise vernacular: flat-roof concrete-frame walk-ups, red-brick
+      infill, unfinished top floors with rebar columns, rooftop clutter/dishes.
+- [ ] **Wire through tileChooser** — right city shows right stock (London default/anchor).
+- [ ] **TODOs left** for the remaining cities (clear pattern to follow).
+- [ ] **DESIGN GATE** — real in-game/preview screenshots EACH new city, mid + close, dusk,
+      desktop AND phone-landscape; critique vs real architecture; iterate; saved to preview/.
+- [ ] GATES all green; PR to main; report cities done + screenshot paths + the pattern.
+
 ### 🎓 WP1 — TUTORIAL GUIDED-PLAY POLISH (this session, branch wp1-tutorial-guided-play)
 Owner playtest-feedback items for the tutorial/onboarding (drawn from the re-raise
 ledger below). Scope: tutorial/onboarding UX ONLY — must not regress normal
