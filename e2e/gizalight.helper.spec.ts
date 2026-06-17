@@ -97,6 +97,22 @@ test('Giza Sound-&-Light electrification', async ({ page }) => {
   // single face. setZoom BEFORE panTo (panTo centres at the live zoom). The
   // plateau is in the far SW corner, so the camera clamp may nudge the centre
   // — getCamera() is logged so the framing is auditable.
+  // The build phase fast-forwards game time (for the gas-peaker bid), which can
+  // roll a severe-weather event whose centre modal would occlude the plateau in
+  // a screenshot. Dismiss any such blocking modal before each framed shot so the
+  // design-gate images are never at the mercy of a weather roll. (The lit-hero
+  // assertion reads renderer state, so it is unaffected either way — this only
+  // keeps the PNGs clean.)
+  const dismissModals = async (): Promise<void> => {
+    for (const name of ['ride it out', 'skip', 'rebuild it', 'got it', 'continue']) {
+      const b = page.getByRole('button', { name, exact: false });
+      if ((await b.count()) > 0 && (await b.first().isVisible().catch(() => false))) {
+        await b.first().dispatchEvent('click').catch(() => undefined);
+        await page.waitForTimeout(150);
+      }
+    }
+  };
+
   const frameGiza = async (zoom = 0.62, cx = 25, cy = 154): Promise<void> => {
     // setZoom BEFORE panTo (panTo centres at the live zoom). Apply twice with a
     // beat between — the very first call can race the renderer init and clamp
@@ -114,6 +130,7 @@ test('Giza Sound-&-Light electrification', async ({ page }) => {
     await page.waitForTimeout(500);
     await apply();
     await page.waitForTimeout(900);
+    await dismissModals(); // clear any storm/event modal so the shot is clean
     const cam = await page.evaluate(() => window.__ec?.getCamera());
     console.log('GIZA frame -> camera', JSON.stringify(cam));
   };
