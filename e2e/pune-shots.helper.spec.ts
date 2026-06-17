@@ -12,9 +12,9 @@ async function bootPune(page: Page): Promise<void> {
     .poll(() => page.evaluate(() => window.__ec?.getState().snapshot !== undefined), { timeout: 30_000 })
     .toBe(true);
   if (await page.evaluate(() => window.__ec?.getState().menuOpen)) {
-    const cont = page.getByRole('button', { name: 'continue' });
-    if ((await cont.count()) > 0) await cont.dispatchEvent('click');
-    await page.getByRole('button', { name: 'new game' }).dispatchEvent('click').catch(() => {});
+    // ALWAYS start a fresh Pune game (never "continue" — a prior save could be
+    // any city). New Game → city picker → Pune.
+    await page.getByRole('button', { name: 'new game' }).dispatchEvent('click');
     const pune = page.getByTitle(/power Pune/i);
     await expect.poll(() => pune.count(), { timeout: 15_000 }).toBeGreaterThan(0);
     await pune.first().dispatchEvent('click');
