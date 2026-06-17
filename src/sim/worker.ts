@@ -558,7 +558,9 @@ async function handleMessage(msg: MainToWorker): Promise<void> {
           post({ type: 'saveData', data: serialize(state) });
           break;
         }
-        const mutating = msg.cmd.type !== 'setSpeed';
+        // setSpeed and the dev __testServeAll cheat aren't real edits — they
+        // don't push an undo step or trigger a save (the flag is never saved).
+        const mutating = msg.cmd.type !== 'setSpeed' && msg.cmd.type !== '__testServeAll';
         let label = '';
         if (mutating) {
           label = describeCommand(msg.cmd, state);

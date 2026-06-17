@@ -25,6 +25,15 @@ export interface EcTestApi {
    *  the monuments carry heritage load but no domestic customers, so this is a
    *  truer energisation signal than servedCustomers. */
   getLitHeroKinds(): string[];
+  /** TEST ONLY: every hero-light anchor as a tile coord + effect kind, so the
+   *  night design-gate can frame a city's hero district and verify placement. */
+  getHeroAnchors(): Array<{ x: number; y: number; kind: string }>;
+  /** TEST ONLY: the live eased grade glow (0 day → ~1 night), so a night
+   *  screenshot helper can wait until the night grade has actually arrived. */
+  getGradeGlow(): number;
+  /** TEST ONLY: the live eased grade as numbers (glow + tint + skyTop +
+   *  override flag) for diagnosing a night shot that renders wrong. */
+  getGradeDebug(): { glow: number; tint: number; skyTop: number; override: boolean };
   getState(): ReturnType<typeof useAppStore.getState>;
   /** First `count` open land tiles (spread out), for siting test builds. */
   openLand(count: number): Array<{ x: number; y: number }>;
@@ -33,6 +42,11 @@ export interface EcTestApi {
   getRoad(x: number, y: number): number;
   /** Drive the sim directly (build/demolish/speed …). */
   sendCommand(cmd: Command): void;
+  /** TEST ONLY: force tiles to read as POWERED so a night-electrification
+   *  screenshot can show an energised city without hand-wiring its grid.
+   *  'all' = whole city; a number = only powered hero districts within that
+   *  radius; false = off. Defaults to 'all'. */
+  serveAll(mode?: 'all' | number | false): void;
   /** Fast-forward the sim a week/month/to-next-event (the HUD skip), so a
    *  screenshot helper can commission generation without minutes of 16× wait. */
   skip(to: SkipTarget): void;
@@ -66,8 +80,12 @@ export function installTestHook(renderer: MapRenderer): void {
     setZoom: (scale) => renderer.setZoom(scale),
     getCamera: () => renderer.getCamera(),
     getLitHeroKinds: () => renderer.getLitHeroKinds(),
+    getHeroAnchors: () => renderer.getHeroAnchors(),
+    getGradeGlow: () => renderer.getGradeGlow(),
+    getGradeDebug: () => renderer.getGradeDebug(),
     getState: () => useAppStore.getState(),
     sendCommand: (cmd) => sendCommand(cmd),
+    serveAll: (mode) => sendCommand({ type: '__testServeAll', mode: mode ?? 'all' }),
     skip: (to) => requestSkip(to),
     getRoad: (x, y) =>
       x >= 0 && x < map.width && y >= 0 && y < map.height ? (map.road[y * map.width + x] ?? 0) : 0,

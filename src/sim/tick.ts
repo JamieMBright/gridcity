@@ -1435,6 +1435,58 @@ function buildCoverage(
   const coverage = new Uint8Array(map.width * map.height);
   const { service } = derived;
 
+  // DEV/TEST cheat (night-electrification design-gate): mark tiles powered so a
+  // screenshot helper can show an energised city at night without wiring up that
+  // city's grid by hand. Render-only in effect; the flag is never saved.
+  //   forceServeAll === 'all'  → every demand tile + every hero/landmark tile
+  //     (a fully-lit metropolis — bright; useful for a worst-case glow check).
+  //   forceServeAll  >  0      → the powered HERO DISTRICTS: every hero/landmark
+  //     tile, PLUS a deterministic SPARSE ~40% of demand tiles within that
+  //     radius of a hero. The sparseness is the point — even a dense downtown
+  //     gets lit/unlit alternation (some windows on, some dark), so the night
+  //     reads as cosy "a city glowing in the dark", not a flat bright wash.
+  if (state.forceServeAll !== undefined && state.forceServeAll !== false) {
+    const lm = map.landmark;
+    if (state.forceServeAll === 'all') {
+      for (const tile of service.demandTiles) coverage[tile] = COV.on;
+      if (lm) for (let i = 0; i < lm.length; i++) if (lm[i]) coverage[i] = COV.on;
+      return coverage;
+    }
+    const radius = typeof state.forceServeAll === 'number' ? state.forceServeAll : 8;
+    const W = map.width;
+    if (lm) {
+      // every hero/landmark footprint lights fully (the heroes are the stars)
+      const heroTiles: number[] = [];
+      for (let i = 0; i < lm.length; i++) {
+        if (lm[i]) {
+          coverage[i] = COV.on;
+          heroTiles.push(i);
+        }
+      }
+      // a deterministic, stable ~16% of demand tiles within `radius` of a hero
+      // also light — sparse so dense districts keep dark gaps between lit windows
+      const r2 = radius * radius;
+      for (const tile of service.demandTiles) {
+        // stable per-tile hash → keep ~16% (no runtime RNG; same every frame).
+        // Deliberately SPARSE: the additive window-glow blankets (and blows out)
+        // any DENSE lit patch, so we keep only a scattering of lit windows — the
+        // dark gaps are what make the night cosy and let the heroes be the stars.
+        if ((((tile * 2654435761) >>> 0) % 100) >= 16) continue;
+        const tx = tile % W;
+        const ty = (tile / W) | 0;
+        for (const hi of heroTiles) {
+          const dx = (hi % W) - tx;
+          const dy = ((hi / W) | 0) - ty;
+          if (dx * dx + dy * dy <= r2) {
+            coverage[tile] = COV.on;
+            break;
+          }
+        }
+      }
+    }
+    return coverage;
+  }
+
   // every demand tile starts unserved; assignment upgrades it below
   for (const tile of service.demandTiles) coverage[tile] = COV.unserved;
 
