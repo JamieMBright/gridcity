@@ -910,6 +910,9 @@ function MvaControls({
   const min = steps[0] ?? mva;
   return (
     <div
+      // data-spot lets the tutorial spotlight the reinforcement sizer when it
+      // teaches reinforcing an existing sub (inspect → increase) — T5
+      data-spot="reinforce"
       style={{ pointerEvents: 'auto', marginTop: 6, fontSize: 11 }}
       // scroll over the control to size up/down — quick reinforcement sizing
       onWheel={(e) => {

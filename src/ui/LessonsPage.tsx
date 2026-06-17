@@ -282,9 +282,9 @@ export function LessonsPage(): React.JSX.Element | null {
  *  it stays meaningful even as taglines change. */
 const LESSON_TEACHES: Record<string, string> = {
   'm1-first-light': 'generation tenders · distribution substations · 33 kV lines',
-  'm2-step-up': 'voltage levels · grid substations & bays · 132 kV transmission',
-  'm3-storm': 'depots & vans · vegetation programmes · storms, CI & CML',
-  'm4-inbox': 'connection applications · studies · firm vs flexible connections',
-  'm5-bill': 'the bill breakdown · headroom · building lean to hit a DUoS target',
-  'm6-sun-store': 'solar farms · battery storage · firming intermittent generation',
+  'm2-step-up': 'voltage levels · grid substations & bays · 132 kV · underground cables',
+  'm3-storm': 'depots · sizing your van fleet · vegetation · storms, CI & CML',
+  'm4-inbox': 'connection applications · studies · firm vs flexible (side by side)',
+  'm5-bill': 'the bill breakdown · headroom · reinforcing a sub · building lean',
+  'm6-sun-store': 'solar farms · battery storage · firming · auto-connect',
 };
