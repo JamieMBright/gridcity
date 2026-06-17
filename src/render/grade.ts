@@ -107,9 +107,13 @@ function keysFor(dawn: number, dusk: number): Key[] {
   const NIGHT: Omit<Key, 'h'> = {
     skyTop: 0x0a0e22,
     skyBottom: 0x221a38,
-    // a soft dusk-lilac wash, only ~one stop below day — the night READ now
-    // lives in the windows (glow:1), not in a dark global multiply
-    tint: 0xb9b2cc,
+    // a soft dusk-lilac wash — deliberately NOT a dark navy (the owner asked
+    // the 2026-06-13 "flashing" cycle be calmed; the time-of-day READ lives
+    // in the WINDOW GLOW, glow:1). Night-deepening pass (owner-contested):
+    // nudged one gentle step deeper (0xb9b2cc→0xada5c6, lum 0.465→0.399) so
+    // powered windows POP harder by contrast, while staying well above the
+    // cosy floor (grade.test pins lum>0.2) — a softer lilac, never horror-dark.
+    tint: 0xada5c6,
     glow: 1,
   };
   const DAY: Omit<Key, 'h'> = {
