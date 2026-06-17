@@ -10,6 +10,23 @@
 
 ---
 
+### 🎮 PLAYTEST FEEDBACK (owner, 2026-06-17 20:20)
+Four rendering/map bugs from the owner's playtest. Isolated worktree; London stays
+byte-identical except where a general renderer fix correctly also affects it (bugs 2 & 3).
+- [ ] **(1) Town/city REGION labels not rendered for non-London cities.** Owner: town/city
+  regions (Newcastle, Gateshead, Sunderland…) don't render. Renderer reads `map.towns`
+  (buildLabels) but NO generated city ships a `towns:` array → only `named` monuments label.
+  Add `towns:` to `src/data/cities/northeast.ts` at true-relative positions.
+- [ ] **(2) Hero NAME labels inverted on zoom.** Owner: hero names show zoomed OUT, vanish
+  zoomed IN — backwards. Landmark/hero labels should appear zoomed IN, hide zoomed OUT
+  (keep far view uncluttered). Fix MapRenderer label LOD.
+- [ ] **(3) Transport (rail/road) renders OFF the map edge.** Owner: Pune artefact, likely
+  everywhere — routes draw past the map bounds. General renderer clip fix (do NOT edit
+  pune.ts — another agent owns it). Verify Pune + one other.
+- [ ] **(4) North-east water too dominant.** Owner: streams/minor rivers over-weight the
+  water:land ratio. Dial back minor watercourses in northeast terrain raster; keep
+  Tyne/Wear/coast.
+
 ## Open
 
 ### 🧾 LEDGER RECONCILE (2026-06-17, post #71–#76) — evidence-based residual audit
