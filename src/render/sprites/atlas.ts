@@ -23,6 +23,8 @@ import {
   plattenbauTile,
   semiTile,
   setbackTile,
+  shikumenTile,
+  shwalkupTile,
   solarFarmTile,
   sydbungalowTile,
   sydterraceTile,
@@ -331,6 +333,11 @@ function buildCityStockBufs(): Map<string, HeroBuf> {
       // ornate stucco Altbau mietshaus blocks + GDR Plattenbau panel slabs
       for (let i = 0; i < 4; i++) add(`altbau_${i}`, altbauTile(431 + i, i));
       for (let i = 0; i < 4; i++) add(`plattenbau_${i}`, plattenbauTile(441 + i, i));
+      break;
+    case 'shanghai':
+      // grey-brick shikumen stone-gate lane houses + concrete/glassy walk-ups
+      for (let i = 0; i < 4; i++) add(`shikumen_${i}`, shikumenTile(451 + i, i));
+      for (let i = 0; i < 4; i++) add(`shwalkup_${i}`, shwalkupTile(461 + i, i));
       break;
     default:
       break;

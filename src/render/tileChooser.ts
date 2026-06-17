@@ -288,6 +288,19 @@ function cityStockFor(
       }
       return undefined;
     }
+    case 'shanghai': {
+      // grey-brick shikumen lane houses fill the dense old core; concrete/glassy
+      // walk-ups fill the broad mid-rise fabric. Lujiazui/Pudong CBD keeps the
+      // generic glass supertalls (the Bund-facing skyline).
+      void shops;
+      if (zone === ZONE.urbanCore) {
+        return th % 5 < 3 ? `shikumen_${(estate + (v % 2)) % 4}` : `shwalkup_${(estate + (v % 2)) % 4}`;
+      }
+      if (zone === ZONE.urban || zone === ZONE.suburb) {
+        return th % 7 === 0 ? `shikumen_${(estate + (v % 2)) % 4}` : `shwalkup_${(estate + (v % 2)) % 4}`;
+      }
+      return undefined;
+    }
     default:
       return undefined;
   }

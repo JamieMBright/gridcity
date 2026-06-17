@@ -1477,6 +1477,130 @@ export function plattenbauTile(seed: number, variant: number): Uint8ClampedArray
 }
 
 /**
+ * Bespoke SHANGHAI stock — the SHIKUMEN lilong (石库门) lane house, the
+ * vernacular that fills old Shanghai. A 2–3 storey grey-brick terrace row in
+ * tight lanes; the tell is the carved STONE-GATE doorway (a heavy pale stone
+ * lintel + a small triangular/segmental pediment over a dark double timber
+ * door) repeating along the row, red-brick string-course banding on the grey
+ * brick, a low flat parapet roof, the odd timber shutter. Reads as a dense,
+ * dark-grey, low row punctuated by pale stone gates — unmistakably not London.
+ */
+export function shikumenTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 50261 + variant * 103 + 19);
+  // qing-brick grey, weathered grey-brown, a render-skinned variant
+  const greySet: RGBA[] = [hex('#8e8a82'), hex('#7e7a72'), hex('#9a9690'), hex('#86827a')];
+  const brickBand = hex('#9c5a44'); // red-brick decorative banding
+  const stone = hex('#cabfa6'); // pale gate stone
+  const v0 = 0.14;
+  const v1 = 0.74;
+  const floors = 2 + (variant % 2); // 2–3 storeys
+  const fh = 12;
+  const H = floors * fh + 3;
+  iso.shadow(0, v0, 1, v1, 0.2, 0.22);
+  // three attached lane-houses
+  for (let i = 0; i < 3; i++) {
+    const u0 = i / 3;
+    const u1 = (i + 1) / 3;
+    const grey = greySet[(variant + i) % greySet.length] ?? greySet[0]!;
+    iso.box(u0, v0, u1, v1, 0, H, grey);
+    // red-brick string-course banding between storeys (the shikumen trim)
+    for (let f = 1; f < floors; f++) {
+      const z = f * fh;
+      iso.r.poly([P(u0, v1, z + 1), P(u1, v1, z + 1), P(u1, v1, z - 0.8), P(u0, v1, z - 0.8)], brickBand);
+    }
+    // upper sash/timber windows
+    for (let f = 1; f < floors; f++) {
+      const zb = f * fh + 2;
+      const zt = f * fh + fh - 2;
+      iso.windowsLeft(v1, u0 + 0.05, u1 - 0.05, zb, zt, 2, glass(rng, 0.4), lighten(stone, 0.06));
+    }
+    // the STONE GATE: a pale stone surround + small pediment over a dark door
+    const du = (u0 + u1) / 2;
+    const gw = 0.07;
+    // surround
+    iso.r.poly([P(du - gw, v1, fh - 1), P(du + gw, v1, fh - 1), P(du + gw, v1, 0), P(du - gw, v1, 0)], stone);
+    // dark double-leaf timber door recessed within
+    iso.r.poly([P(du - gw * 0.6, v1, fh - 3), P(du + gw * 0.6, v1, fh - 3), P(du + gw * 0.6, v1, 0), P(du - gw * 0.6, v1, 0)], hex('#3a2e28'));
+    iso.r.line(P(du, v1, fh - 3), P(du, v1, 0), INK_W * 0.5, alpha(INK, 0.7));
+    // segmental/triangular stone pediment cap over the gate
+    iso.r.poly([P(du - gw - 0.012, v1, fh - 1), P(du + gw + 0.012, v1, fh - 1), P(du, v1, fh + 3)], lighten(stone, 0.05));
+    iso.edge(P(du - gw - 0.012, v1, fh - 1), P(du, v1, fh + 3), INK_W * 0.6);
+    iso.edge(P(du, v1, fh + 3), P(du + gw + 0.012, v1, fh - 1), INK_W * 0.6);
+  }
+  iso.windowsRight(1, v0 + 0.08, v1 - 0.08, 5, H - 5, floors >= 3 ? 3 : 2, glass(rng, 0.3), lighten(stone, 0.06));
+  // low flat parapet roof, a couple of clothes-drying poles + a tank
+  iso.box(0, v0, 1, v1, H, H + 3, greySet[0]!, { ink: false, topC: shaded(hex('#6a665e'), 0.05) });
+  iso.r.poly([P(0, v1, H + 4), P(1, v1, H + 4), P(1, v1, H + 3), P(0, v1, H + 3)], lighten(stone, 0.04));
+  for (const pu of [0.3, 0.66]) {
+    iso.r.line(P(pu, 0.4, H + 3), P(pu, 0.5, H + 3), INK_W * 0.5, alpha(INK, 0.6)); // drying pole
+  }
+  roofTank(iso, 0.8, 0.42, H + 3, 0.028, 'tank', rng);
+  return iso.build();
+}
+
+/**
+ * Bespoke SHANGHAI stock — the mid-century concrete WALK-UP graduating to a
+ * newer glassy mid-rise: the workhorse residential block that fills modern
+ * Shanghai between the lilong and the supertalls. A flat-topped 6–10 storey
+ * slab, pale render or tiled concrete, continuous projecting balcony lines
+ * (often enclosed/glazed), tight window grid, a glassier curtain-wall variant
+ * with a jade/teal tint and a small crown for the post-2000 stock.
+ */
+export function shwalkupTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 57163 + variant * 149 + 23);
+  const glassy = variant % 2 === 1; // odd variants are the newer curtain-wall
+  const skinSet: RGBA[] = [hex('#cfcabb'), hex('#bcb4a2'), hex('#c2c4c0'), hex('#b4b0a6')];
+  const skin = skinSet[variant % skinSet.length] ?? skinSet[0]!;
+  const u0 = 0.16;
+  const u1 = 0.84;
+  const v0 = 0.26;
+  const v1 = 0.66;
+  const floors = 6 + (variant % 5); // 6–10 storeys
+  const fh = 9.5;
+  const H = floors * fh + 3;
+  iso.shadow(u0, v0, u1, v1, 0.28, 0.26);
+  iso.box(u0, v0, u1, v1, 0, H, skin);
+  if (glassy) {
+    // a jade/teal-tinted curtain wall: full-height glazed grid + spandrel bands
+    for (let f = 0; f < floors; f++) {
+      const zb = f * fh + 2;
+      const zt = f * fh + fh - 1.5;
+      iso.windowsLeft(v1, u0 + 0.02, u1 - 0.02, zb, zt, 5, alpha(COLORS.glassSky, 0.92), COLORS.steel);
+      iso.windowsRight(u1, v0 + 0.02, v1 - 0.02, zb, zt, 3, alpha(COLORS.glassSunset, 0.85), COLORS.steel);
+      iso.r.line(P(u0, v1, zt + 1), P(u1, v1, zt + 1), INK_W * 0.4, alpha(shaded(skin, 0.1), 0.7));
+    }
+    // a small crown + a slim mast
+    iso.box(u0 + 0.04, v0 + 0.04, u1 - 0.04, v1 - 0.04, H, H + 6, shaded(skin, 0.06), { topC: shaded(hex('#5b6068'), 0.06) });
+    iso.box((u0 + u1) / 2 - 0.01, (v0 + v1) / 2 - 0.01, (u0 + u1) / 2 + 0.01, (v0 + v1) / 2 + 0.01, H + 6, H + 18, COLORS.steelDark, { ink: false });
+  } else {
+    // the older concrete walk-up: continuous projecting balcony lines, some
+    // glazed-in, a tight punched-window grid
+    for (let f = 0; f < floors; f++) {
+      const z = f * fh;
+      const zb = z + 2;
+      const zt = z + fh - 2;
+      iso.windowsLeft(v1, u0 + 0.04, u1 - 0.04, zb, zt, 4, glass(rng, 0.42), COLORS.white);
+      iso.windowsRight(u1, v0 + 0.04, v1 - 0.04, zb, zt, 3, glass(rng, 0.36), COLORS.white);
+      if (f >= 1) {
+        // a continuous balcony slab + rail; some bays glazed-in (lighter infill)
+        iso.r.poly([P(u0, v1 + 0.03, z + 0.6), P(u1, v1 + 0.03, z + 0.6), P(u1, v1, z + 0.6), P(u0, v1, z + 0.6)], lit(skin, 0.06));
+        iso.r.line(P(u0, v1 + 0.03, z + 4.5), P(u1, v1 + 0.03, z + 4.5), INK_W * 0.5, alpha(COLORS.white, 0.8));
+        if (rng.chance(0.5)) {
+          const bu = rng.range(u0 + 0.05, u1 - 0.18);
+          iso.r.poly([P(bu, v1 + 0.03, z + fh - 2), P(bu + 0.14, v1 + 0.03, z + fh - 2), P(bu + 0.14, v1 + 0.03, z + 1), P(bu, v1 + 0.03, z + 1)], alpha(glass(rng, 0.5), 0.7));
+        }
+      }
+    }
+    iso.box(u0, v0, u1, v1, H, H + 3, skin, { ink: false, topC: shaded(hex('#6a665e'), 0.05) });
+    iso.box(u0 + 0.08, v0 + 0.06, u0 + 0.2, v0 + 0.16, H + 3, H + 12, shaded(skin, 0.08)); // stair head
+    roofTank(iso, u1 - 0.12, v0 + 0.12, H + 3, 0.03, 'tank', rng);
+  }
+  return iso.build();
+}
+
+/**
  * Bespoke PARIS building stock: a Haussmann apartment block. Researched from
  * the reference photos (owner, 2026-06-14): uniform ~6-storey cream
  * pierre-de-taille ashlar facade with a strong cornice, regular tall French
