@@ -423,7 +423,9 @@ function pyramidFlood(g: Graphics, h: HeroLight, t: number, k: number): void {
   for (const sx of [-1, 1] as const) {
     const fx = h.cx + sx * h.w * 1.05;
     const fy = h.cy - 1 * RES;
-    // wide soft beam (the light in the air)
+    // wide soft beam (the light in the air) — the Sound-&-Light's signature
+    // fan; lifted a touch so the coloured shafts read against the bright sand
+    // (still warm-dominant, never a harsh searchlight).
     g.poly([
       fx,
       fy,
@@ -431,7 +433,7 @@ function pyramidFlood(g: Graphics, h: HeroLight, t: number, k: number): void {
       apexY + span * 0.06,
       h.cx + h.w * 0.34,
       apexY + span * 0.06,
-    ]).fill({ color: col, alpha: 0.22 * breath * k });
+    ]).fill({ color: col, alpha: 0.28 * breath * k });
     // a brighter inner core of the beam
     g.poly([
       fx,
@@ -440,7 +442,7 @@ function pyramidFlood(g: Graphics, h: HeroLight, t: number, k: number): void {
       apexY + span * 0.18,
       h.cx + h.w * 0.12,
       apexY + span * 0.18,
-    ]).fill({ color: mixHex(col, 0xffffff, 0.35), alpha: 0.16 * breath * k });
+    ]).fill({ color: mixHex(col, 0xffffff, 0.35), alpha: 0.2 * breath * k });
     // a bright ground pool where the lamp sits + the crisp lamp head
     g.ellipse(fx, fy, 5 * RES, 2.2 * RES).fill({ color: col, alpha: 0.4 * breath * k });
     bulb(g, fx, fy - 6 * RES, 2.4 * RES, 0xfff2d6, Math.min(1, 1.05 * k));
@@ -458,7 +460,7 @@ function pyramidFlood(g: Graphics, h: HeroLight, t: number, k: number): void {
     });
   }
   // a crown of light at the apex — the beams converge and bloom
-  halo(g, h.cx, apexY + span * 0.04, h.w * 0.5, mixHex(col, 0xfff2d6, 0.4), 0.32 * breath * k);
+  halo(g, h.cx, apexY + span * 0.04, h.w * 0.5, mixHex(col, 0xfff2d6, 0.4), 0.38 * breath * k);
 }
 
 // --- The Sphinx: dramatically floodlit from the front -------------------------

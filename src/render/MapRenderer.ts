@@ -1607,6 +1607,17 @@ export class MapRenderer {
     return { x: (u + t) / 2, y: (t - u) / 2, zoom: s };
   }
 
+  /** TEST/diagnostic read: the light-show KINDS currently energised (one entry
+   *  per lit hero, so duplicates are meaningful — e.g. three `pyramidFlood` for
+   *  the three Giza pyramids). Reflects the latest recomputeHeroLit, which gates
+   *  each hero on its footprint coverage. Lets the Giza design-gate assert the
+   *  Sound-&-Light floodlights genuinely FIRE on energisation (a far more honest
+   *  signal than servedCustomers, since the monuments carry heritage load but no
+   *  domestic customers). */
+  getLitHeroKinds(): string[] {
+    return this.heroLitNow.map((h) => h.kind);
+  }
+
   /** Restore a saved bookmark: set the zoom, then centre the tile. */
   jumpToCamera(x: number, y: number, zoom: number): void {
     if (this.destroyed || !this.app.renderer) return;

@@ -18,6 +18,12 @@ export interface EcTestApi {
    *  setZoom). Lets a screenshot helper audit where the camera actually
    *  landed after the far-corner clamp. Undefined before init / after teardown. */
   getCamera(): { x: number; y: number; zoom: number } | undefined;
+  /** TEST ONLY: the hero light-show KINDS currently energised (one entry per
+   *  lit hero). Lets the Giza design-gate assert the Sound-&-Light floodlights
+   *  (`pyramidFlood`/`sphinxFlood`) genuinely fire once the plateau is powered —
+   *  the monuments carry heritage load but no domestic customers, so this is a
+   *  truer energisation signal than servedCustomers. */
+  getLitHeroKinds(): string[];
   getState(): ReturnType<typeof useAppStore.getState>;
   /** First `count` open land tiles (spread out), for siting test builds. */
   openLand(count: number): Array<{ x: number; y: number }>;
@@ -55,6 +61,7 @@ export function installTestHook(renderer: MapRenderer): void {
     panTo: (x, y) => renderer.panTo(x, y),
     setZoom: (scale) => renderer.setZoom(scale),
     getCamera: () => renderer.getCamera(),
+    getLitHeroKinds: () => renderer.getLitHeroKinds(),
     getState: () => useAppStore.getState(),
     sendCommand: (cmd) => sendCommand(cmd),
     getRoad: (x, y) =>

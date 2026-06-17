@@ -119,11 +119,32 @@ test('Giza Sound-&-Light electrification', async ({ page }) => {
   };
   await frameGiza();
 
+  // the Giza Sound-&-Light KINDS currently energised (one entry per lit hero).
+  // `pyramidFlood`/`sphinxFlood` are Cairo-exclusive to the four Giza monuments,
+  // so their presence is an honest "the floodlights are FIRING" signal — far
+  // truer than servedCustomers, since the monuments carry heritage load but no
+  // domestic customers of their own.
+  const gizaLit = async (): Promise<number> =>
+    page.evaluate(
+      () =>
+        (window.__ec?.getLitHeroKinds() ?? []).filter(
+          (k) => k === 'pyramidFlood' || k === 'sphinxFlood',
+        ).length,
+    );
+
   // BEFORE: no network ⇒ the plateau is an unserved load ⇒ floodlights DARK.
   // Shoot BOTH the wide plateau and the close framing so each ON shot has an
-  // exactly-matched OFF counterpart for the side-by-side.
+  // exactly-matched OFF counterpart for the side-by-side. Assert the Giza
+  // floodlights are genuinely OFF here (the OFF shot must be honestly dark).
+  const litOff = await gizaLit();
+  console.log('GIZA design-gate: Giza floodlights lit BEFORE network =', litOff);
+  expect(litOff, 'Giza floodlights must be DARK with no network (the OFF shot)').toBe(0);
   await page.screenshot({ path: 'preview/giza-OFF.png' });
-  await frameGiza(0.95, 25, 155);
+  // a close framing that still holds the ENSEMBLE — the Great Pyramid + Khafre +
+  // the Sphinx — so the Sound-&-Light beams fanning above the monuments read in
+  // the ON shot (0.95 was so tight the Great Pyramid filled the frame and hid
+  // the beams + the rest of the necropolis).
+  await frameGiza(0.82, 24, 155);
   await page.screenshot({ path: 'preview/giza-OFF-closeup.png' });
   await frameGiza(); // back to the wide frame for the build phase
 
@@ -196,26 +217,44 @@ test('Giza Sound-&-Light electrification', async ({ page }) => {
   await cmd({ type: 'setSpeed', speed: 1 });
   await page.waitForTimeout(1500);
 
-  // wait for the plateau to actually energise — the floodlight gate keys off
-  // real coverage, so served MUST climb above zero before the ON shot.
+  // wait for the plateau to actually energise. The AUTHORITATIVE proof is the
+  // Sound-&-Light floodlights themselves coming ON — the recomputeHeroLit gate
+  // keys off the monuments' OWN footprint coverage, so a lit Giza == a powered
+  // Giza. (servedCustomers also climbs, because the dist-sub catchments pick up
+  // the desert-edge settlement around the plateau, but the monuments' heritage
+  // load carries no domestic customers, so the lit-hero set is the honest gate.)
   await expect
-    .poll(() => store<number>(page, '(s) => s.snapshot.bill.servedCustomers'), {
-      timeout: 20_000,
-      message: 'plateau never energised (servedCustomers stayed 0) — the network is islanded',
+    .poll(() => gizaLit(), {
+      timeout: 25_000,
+      message:
+        'Giza Sound-&-Light never fired (no pyramidFlood/sphinxFlood lit) — the plateau is islanded/unserved',
     })
     .toBeGreaterThan(0);
   const served = await store<number>(page, '(s) => s.snapshot.bill.servedCustomers');
   const assets = await store<number>(page, '(s) => s.snapshot.assets.length');
-  console.log('GIZA design-gate: assets placed =', assets, ' servedCustomers =', served);
-  expect(served, 'Giza plateau must be genuinely energised for the ON shot').toBeGreaterThan(0);
+  const litOn = await gizaLit();
+  console.log(
+    'GIZA design-gate: assets placed =',
+    assets,
+    ' servedCustomers =',
+    served,
+    ' Giza floodlights lit =',
+    litOn,
+  );
+  // the plateau must be genuinely energised AND the Sound-&-Light show running
+  expect(litOn, 'the Giza Sound-&-Light floodlights must be ON for the ON shot').toBeGreaterThan(0);
+  expect(served, 'the plateau catchment must be genuinely energised for the ON shot').toBeGreaterThan(
+    0,
+  );
 
   // AFTER (desktop): the Sound-&-Light floodlights ON across the plateau
   await frameGiza();
   await page.screenshot({ path: 'preview/giza-ON-desktop.png' });
 
-  // a tighter grab on the Great Pyramid so the floodlight beams + wash read
-  // clearly (still wide enough to see the whole monument, not just a face)
-  await frameGiza(0.95, 25, 155);
+  // a close grab that holds the whole necropolis (Great Pyramid + Khafre +
+  // Sphinx) so the Sound-&-Light beams fanning UP the faces + the warm wash
+  // both read — matched to the OFF-closeup framing for the side-by-side.
+  await frameGiza(0.82, 24, 155);
   await page.screenshot({ path: 'preview/giza-ON-closeup.png' });
 
   // AFTER (phone landscape): re-shoot lit at a phone-landscape viewport

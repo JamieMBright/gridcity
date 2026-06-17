@@ -71,6 +71,16 @@ test('giza diag', async ({ page }) => {
     console.log(`ZOOM ${z}:`, JSON.stringify(probe));
   }
 
+  // counts so each build can be checked for a SILENT failure (the worker
+  // swallows a rejected build, so an un-checked build looks like a success).
+  const countAssets = async (pred: string): Promise<number> =>
+    store<number>(page, `(s)=>s.snapshot.assets.filter(${pred}).length`);
+  const litKinds = async (): Promise<string[]> =>
+    page.evaluate(() => window.__ec?.getLitHeroKinds() ?? []);
+
+  // BEFORE any network: the plateau is unserved → no Giza floodlight.
+  console.log('BEFORE build: litKinds =', JSON.stringify(await litKinds()));
+
   // energise the plateau (same network as the gate spec)
   await cmd({ type: 'build', spec: { kind: 'gen', gen: 'gasPeaker', x: 11, y: 146 } });
   await cmd({ type: 'setSpeed', speed: 16 });
@@ -90,12 +100,15 @@ test('giza diag', async ({ page }) => {
     if (live >= 1) break;
   }
   await cmd({ type: 'setSpeed', speed: 1 });
+  console.log('gen online count =', await countAssets("(a)=>a.kind==='gen'"));
   // grid hub on a CLEAR desert tile (18,148) — (16,148) was a carriageway
   await cmd({ type: 'build', spec: { kind: 'sub', sub: 'grid', x: 18, y: 148 } });
+  console.log('grid subs =', await countAssets("(a)=>a.kind==='sub'&&a.sub==='grid'"));
   await cmd({
     type: 'build',
     spec: { kind: 'line', level: 132, build: 'overhead', ax: 11, ay: 146, bx: 18, by: 148 },
   });
+  console.log('132kV lines =', await countAssets("(a)=>a.kind==='line'&&a.level===132"));
   for (const [x, y] of [
     [20, 150],
     [28, 151],
@@ -107,15 +120,18 @@ test('giza diag', async ({ page }) => {
       spec: { kind: 'line', level: 33, build: 'overhead', ax: 18, ay: 148, bx: x, by: y },
     });
   }
+  console.log('dist subs =', await countAssets("(a)=>a.kind==='sub'&&a.sub==='dist'"));
+  console.log('33kV lines =', await countAssets("(a)=>a.kind==='line'&&a.level===33"));
   await cmd({ type: 'setSpeed', speed: 8 });
   await page.waitForTimeout(6000);
   await cmd({ type: 'setSpeed', speed: 1 });
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(1500);
 
   const served = await store<number>(page, '(s) => s.snapshot.bill.servedCustomers');
   const totalMW = await store<number>(page, '(s) => s.snapshot.bill?.peakMW ?? -1');
   const assets = await store<number>(page, '(s) => s.snapshot.assets.length');
   console.log('AFTER ENERGISE: assets =', assets, ' served =', served, ' peakMW =', totalMW);
+  console.log('AFTER build: litKinds =', JSON.stringify(await litKinds()));
 
   // a wide-ish frame so I can SEE whether the floodlights are on
   await page.evaluate(() => {
