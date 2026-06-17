@@ -102,7 +102,8 @@ const KIT_BLOOM_GAIN = 1.0; // was 0.9
 // dark. Strength ramps with `glow` (0 by day → full deep night) and is CAPPED so
 // the fabric never drops below the cosy floor. Set to 0 to revert completely
 // (then the fabric tint is the plain grade tint, byte-identical to before).
-//   0.0 = OFF (no pocket)   ~0.18 = the gentle shipped value (judged on shots)
+//   0.0 = OFF (no pocket)   0.42 = the shipped value (design-gated across the 12
+//   cities — clearly cosier far-views + lit-area pop, none read horror-dark).
 const DUSK_POCKET = 0.42;
 // the deepest the pocket may pull the fabric toward (a deep dusk-navy with a
 // faint warm breath, NOT black) — clamps the multiply so even at full strength
