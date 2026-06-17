@@ -28,9 +28,16 @@ is now small.** Headline true state:
   #72 polish (town densification grows UP, Thames glint); WP6 city fabric for NYC/HK/Cairo/Paris
   (#73); WP3 Giza energisable load (#74); Wave-D exhaustive button/city e2e sweep (#75).
 - **HERO DOCTRINE confirmed:** 12 city modules, EVERY hero carries a bespoke `light:` spec
-  (lit-count == key-count per file); 10/12 at ≥100 (London 100, Paris 105, NYC 100, Sydney 103,
-  HK 103, Berlin 100, Shanghai 100, Cairo 100, Athens 100, NE 101); Cape Town 88 + Pune 31 at
-  researched ceilings (docs/heroes/<city>: pune only 34 research docs). DONE.
+  (lit-count == key-count per file); 11/12 at ≥100 (London 100, Paris 105, NYC 100, Sydney 103,
+  HK 103, Berlin 100, Shanghai 100, Cairo 100, Athens 100, NE 101, **Cape Town 103**); Pune 31 at
+  its researched ceiling (docs/heroes/pune: only 34 research docs). DONE.
+  - ✅ **Cape Town 88 → 103** (owner 100-MIN doctrine): +15 bespoke draws (no reuse) + own
+    night lights from the unused docs/heroes/capetown research — Old Town House, Gardens Shul,
+    SA Jewish Museum, Mandela Rhodes, Central Methodist, Queen Victoria Mosque, Science Centre,
+    Breakwater Lodge/GSB, Leeuwenhof, Charly's polka-dot Bakery, Zip Zap big-top, Martin Melck
+    House, National Library (3×3), Perseverance Tavern, Palace Theatre. All 103 PLACED with
+    visible raster tiles (de-collided 5 pre-existing overwritten heroes too). Design-gated on
+    isolated + in-context night renders (preview/hero_*.png, preview/ct-r4-*.png).
 - **GENUINE RESIDUAL (truly OPEN/PARTIAL):** WAVE β (W8 Part-2b dormant wiring: `gridCarbonG`
   has ZERO consumers → carbon KPI doesn't use import-carbon; `baseloadFloor`/`hydroDriven` not
   read by dispatch; regulator `model` framing-text absent from report-card UI; per-country
