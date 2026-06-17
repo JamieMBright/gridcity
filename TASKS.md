@@ -12,22 +12,32 @@
 
 ## Open
 
-### 🛟 OWNER ASK (2026-06-16 21:55): crash capture + self-heal error logging
+### 🛟 OWNER ASK (2026-06-16 21:55): crash capture + self-heal error logging — SHIPPED
 Owner: "The website just crashed on me. Need to capture all crashes and get the
-tracebacks so you can self-heal." URGENT — a real crash occurred (no repro detail yet).
-- [ ] **Wave C — crash capture (client):** React ErrorBoundary (catch render
-  crashes → friendly dusk "tripped a fuse" screen with stack + Copy + Reload);
-  global window 'error' + 'unhandledrejection' handlers; forward sim Web Worker
-  errors via the existing src/app/workerBridge.ts (worker.onerror/messageerror).
-  Central `errorLog` module: structured entries (message, stack, componentStack,
-  source, build/SAVE_VERSION, city, ts) → in-memory ring + localStorage persist.
-- [ ] **Wave C — self-heal sink:** POST crashes to Supabase (project electricity)
-  via the existing src/online/supabase.ts client: a `client_errors` table (anon
-  insert-only RLS) so I can QUERY tracebacks remotely and fix them; minimal
-  privacy-safe payload; in-app "copy diagnostics" button.
-- [ ] **Tests + design-gate:** unit tests for errorLog; e2e that forces an error
-  and asserts capture + crash screen; screenshot the crash screen (desktop + phone
-  landscape) and make it on-brand.
+tracebacks so you can self-heal." Then (2026-06-17): "can't launch game. It crashes
+when I load London."
+- [x] **Wave C — crash capture (client):** ErrorBoundary + window error/rejection
+  handlers + sim Worker error forwarding → central `errorLog` (ring + localStorage).
+- [x] **Wave C — self-heal sink:** guarded Supabase `client_errors` insert; migration
+  APPLIED to prod (project mhgpzhtusrddwtgogjbv). Read: `select … from client_errors`.
+- [x] **Tests + design-gate:** 11 unit + 4 e2e; on-brand "tripped a fuse" screen.
+- [x] **SHIPPED to prod:** PR #64 squash-merged to main (00686ef); Vercel prod deploy
+  READY. So the next crash is captured with a full stack + shows a graceful screen.
+
+#### 🔴 LIVE: London-load crash (owner blocked) — awaiting trace
+- Owner save = `northeast` v16 (valid, 1.6KB). Boots into northeast; "new game →
+  London" crashes. Happens on PROD (likely iPhone); NOT reproducible here.
+- RULED OUT: stale save (v16 ok); dev city-switch northeast→london (no crash, worker
+  ready); atlas >4096 overflow (heroes ride off-sheet buffers, packer guarded); stale
+  cached atlas missing-frame (renderer GUARDS every textures.get → skips, no throw);
+  unguarded renderer derefs (none found).
+- BLOCKER: sandbox egress-locked — 403 (host_not_allowed) to prod+preview, Supabase
+  cert errors; can't load the live build or emulate the iOS GPU. → can't reproduce.
+- [ ] **NEXT: read the real trace** from `client_errors` once the owner reloads the
+  new build + retries London, then fix the root cause precisely. Polling the table on
+  the keep-alive heartbeat. (If it stays EMPTY after a hard reload → iOS memory kill,
+  not a JS exception → optimise London's footprint instead.)
+- [x] cityload.spec.ts guard added (4a76e92) — switching into London never crashes (dev).
 
 ### 🧪 OWNER ASK (2026-06-16 21:55): expand Playwright to EVERY button + EVERY map
 Owner: "expand your playwright testing to include every button and every map etc."
