@@ -12,6 +12,99 @@
 
 ## Open
 
+### 🧾 LEDGER RECONCILE (2026-06-17) — honest audit of every open/partial item vs the shipped code (origin/main @ 2099b94, PRs #63–#66)
+The owner flagged that the ledger had drifted untrustworthy (~134 unchecked items, many
+already shipped). This pass VERIFIED every `- [ ]`/`- [~]` against the actual codebase
+(src/, e2e/, tests/, tools/, docs/, git log) and re-stated each with a terse note. Rule:
+tick `[x]` ONLY with a concrete code citation; `[~]` where it's in code but needs a
+playtest or is genuinely partial; leave `[ ]` only where genuinely absent. Five parallel
+verification subagents (Opus) + direct spot-checks did the tracing. NOTE: this is a
+**docs-only** reconcile — no behaviour changed; the "left:" notes below are the real
+remaining backlog.
+
+**(A) NEWLY TICKED AS DONE — verified shipped (≈60 items, headline groups):**
+- **W7c turbine/wind (6):** footprint==advertised (farms.ts `farmClaimTiles`), capacity
+  picker (+/- & scroll, 5 MW steps, "powers ~N homes"), white tapering-mast wind icon +
+  large wing-blades, rotor centred on hub + ghost blades, any-tile farm connection.
+- **W7b vans (1):** orange/white vans drive the ROAD network to faults (count = player's
+  vans), return to depot — `fleet/fleet.ts` + `roadGraph.planRoute` + `e2e/van.helper.spec.ts`.
+- **W7d severe-weather v2 (7):** 7-day deterministic OUTLOOK (`projectStormWindow`),
+  Met yellow/amber/red, km/h gusts, clock pauses on major alert, centre-modal +
+  animated weather-MAP/radar with storm track, snooze 2 days, full system-prepare levers
+  (surge shifts / scouts / wider call-handling <5 s + CSAT / emergency veg-cut), storm
+  rain+lightning screen effects.
+- **W7e tutorials structure (≈12):** step-gating + live objective row, victory-only-on-
+  finish, lessons page w/ stars + curriculum, guided spotlight, no-skip + back/next nav,
+  M6 "Sun & Store", teach-a-bid copy, plain-language 33 kV wording, inspect-turbine-kV
+  step, prior BSP/grid/dist voltage lesson, skip-steps-forward/back.
+- **#63 multi-city (5):** New-Game city PICKER, 11 OSM-built playable cities + lazy-load
+  (`scenarioData.ts`), OSM pipeline (`tools/osm/*` + `docs/osm-pipeline.md`), renderer
+  generalisation (scenery off the CityMap), save-state by scenarioId.
+- **Heroes / the 100-per-city doctrine (≈8):** per-city bespoke-hero REGISTRY + off-atlas
+  texture capacity; **1131 bespoke hero entries across 12 cities, TEN at ≥100** (London 100,
+  Paris 105, NYC 100, Sydney 103, HK 103, Berlin 100, Shanghai 100, Cairo 100, Athens 100,
+  NE 101; Cape Town 88 + Pune 31 at researched ceilings) — verified by counting `key:`
+  entries; AUTOMATED hero discovery→render resolver (`tools/osm/heroSprite.ts`
+  `resolveHeroSprite`); **per-hero bespoke night light-shows** (11 distinct kinds:
+  eiffelSparkle/spireBeacon/rimCycle/towerCrown/pyramidFlood/…); fairy-lights bulb redesign;
+  Giza pyramids split into Great/Khafre/Menkaure + Sphinx heroes; construction sites (#43).
+- **Older backlog now confirmed shipped (≈16):** Unified Perimeter HUD (`HudFrame`),
+  Escape→pause menu, MVA picker (BOTH build-time & reinforce), headroom toggle recolours
+  LINES (render fix landed), **RAV + allowed-revenue + totex-sharing + incentives**
+  (`sim/regulation/rav.ts`), styled AuthCallback + branded email templates, **camera
+  bookmarks (#38)**, **photo mode (#48)**, bespoke art-is-code icon set (no emoji),
+  **desktop HUD collapse** (`hudCollapsed`), softened day/night (flashing addressed),
+  bespoke Heathrow sprite + deterministic Heathrow PV+BESS opportunity, subtler map labels,
+  RANK ladder, +7d/+30d skips, mobile bottom-bar icons all wired.
+
+**(B) PARTIAL / NEEDS-PLAYTEST-VERIFY (`[~]`) — in code but incomplete or unconfirmed:**
+- **W8 per-country operating models:** the 13 docs + DESIGN.md ship AND `powerProfile.ts`
+  carries tested FR/AU/HK/BR market+regulator+weather profiles — but they're NOT WIRED:
+  every non-London city still resolves to `LONDON_PROFILE`. Left: wire profiles into
+  `cityRegistry` + per-country tender flows (Part 2b). The big remaining W8 chunk.
+- **FAVOUR LOGGING IN:** rank ladder + sign-in prompts done; city-unlock gating is NOT
+  enforced (all cities open-to-all by design for testing) and cross-device rank sync is
+  deferred (rank is local-only). Left: the progression gate + Supabase `progression` sync.
+- **Night-light "pop":** fairy-lights bulbs shipped but the per-hero "dusk pocket" never
+  rendered; OWNER DECISION still pending (deepen the night vs keep cosy). Needs a playtest.
+- **W7e tutorial sub-items (5 partial):** auto-connect-hotkey teaching, T2 underground
+  cables, T3 visible van-launch + clock-pause taught in-step, T4 firm/flex VISUAL spotlit
+  in-flow (the `FirmFlexCompare` component exists but isn't surfaced by the M4 steps),
+  T5 teach reinforcing-a-sub. Copy/concepts present; the interaction is missing.
+- Playtest-confirm bucket (code looks right, never re-played post-shuffle): the whole
+  06-13 "re-raise & VERIFY" list (footprint/rotor/esc/snooze/HUD-overlap) — code cited,
+  but the owner asked for a live re-verify; flagged `[~]` where re-raised.
+
+**(C) GENUINELY OPEN — verified absent, grouped into proposed WAVES:**
+- **WAVE α — Tutorial guided-play polish (S, ~1 PR):** highlight VANISHES on click;
+  ARROW + bouncing animation on the spotlight target; allow only ONE onshore-wind facility
+  in the tutorial; PREVENT unrelated applications spawning during tutorials; HIDE
+  non-essential HUD during tutorials; + finish the 5 W7e partials above (underground in T2,
+  reinforce in T5, firm/flex visual in T4, auto-connect hotkey, visible van-launch in T3).
+- **WAVE β — W8 operating-models IMPLEMENTATION (L):** wire FR/AU/HK/BR power/economy/
+  regulator/weather profiles through `cityRegistry`→tick (they exist, dormant); grid-carbon
+  into the carbon KPI; per-country tender flows; regulator framing text in the report card.
+- **WAVE γ — Giza + per-hero gameplay (M):** model the Giza Sound-&-Light as an energisable
+  DEMAND point (floodlights glow when powered) — the sprites & light-show exist, the LOAD
+  doesn't; this is the last open piece of the Giza ask.
+- **WAVE δ — Progression gate (M):** gate city-unlocks / accolades behind (or strongly tie
+  to) an account + a Supabase `progression` table + guest→login merge + cross-device sync;
+  surface the benefit at rank-up / city-offer moments (rank ladder already exists).
+- **WAVE ε — Exhaustive e2e + economy/skip polish (M):** Wave D exhaustive button/city e2e
+  sweep (asserts no pageerror/console.error everywhere); decide +30d-skip-halts-on-minor-
+  vs-major + "skipped N of 30 days" report; RAV phase-in tuning if needed.
+- **WAVE ζ — Per-city asset packs & richer building stock (XL, art):** city-appropriate
+  housing/commercial/industrial stock across eras (not reskinned London terraces); wealthier
+  long-tail variety; tie to CityScenario v2. Large art effort, sequence late.
+- **Owner-config / awaiting-direction (not a wave — needs the owner):** better iPhone
+  home-screen icon (all v1+v2 concepts rejected; awaiting direction); Supabase Site-URL /
+  redirect-allowlist (dashboard-only); "deepen night vs keep cosy" night-light decision.
+- **Long-tail / low-priority singletons:** car-park EV load; town densification (edge-infill
+  only today); map-recognisability pass 2 (tuning); a few historical `[~]` simplification
+  notes inside the Done section (deliberate, not bugs).
+
+---
+
 ### 🛟 OWNER ASK (2026-06-16 21:55): crash capture + self-heal error logging — SHIPPED
 Owner: "The website just crashed on me. Need to capture all crashes and get the
 tracebacks so you can self-heal." Then (2026-06-17): "can't launch game. It crashes
@@ -89,12 +182,27 @@ while you're away." PLUS specific design feedback on the night lights:
       magenta α0.9) — needs interactive renderer debugging. ⚠ OWNER DECISION NEEDED: fairy
       lights pop best on a DARK night, but you earlier (2026-06-13) wanted night kept light/
       cosy to avoid a "flashing" cycle — deepen the night (smoothly), or keep cosy + gentle?
-- [~] **W7 playtest** — W7e tutorials 1-5 (step-gating + lessons page + lesson 6) DONE+merged
-      (8558ba8). IN FLIGHT (subagents): W7b/c vans+turbine, W7a auth/menu, W7d severe-weather v2.
+      (reconcile 2026-06-17: CONFIRMED shipped — heroLights.ts has 11 DISTINCT per-hero
+      light kinds (eiffelSparkle/spireBeacon/towerCrown/pyramidFlood/sphinxFlood/facadeFlood/
+      aerialBeacon/rimCycle/archGlow/stadiumFlood/genericGlow) as twinkling bulb point-fields.
+      Stays `[~]`: the per-hero "dusk pocket" never rendered + the deepen-vs-cosy OWNER
+      DECISION is still pending.)
+- [~] **W7 playtest** — W7e tutorials structure DONE+merged (step-gating + lessons + M6).
+      RECONCILE 2026-06-17: W7b vans, W7c turbine/wind/picker, W7d severe-weather v2 ALL
+      verified SHIPPED (see ticks below); W7a auth/menu code path verified (AccountPanel/
+      SettingsPanel/GameMenu/BoltMark). LEFT (the genuinely-open W7e guided-play polish):
+      highlight-vanish-on-click, arrow+bounce, one-onshore-only, prevent-apps-in-tutorial,
+      hide-HUD-in-tutorial + 5 tutorial sub-item partials → proposed WAVE α above.
 - [x] **W8 per-country operating models — RESEARCH done + merged (8e3a33f):** 12 country docs +
       DESIGN.md in docs/operating-models/. Key: powerProfile.ts already ships tested FR/AU/HK/BR
       profiles, just unwired → Phase A is data-wiring. IMPLEMENTATION still to schedule.
-- [ ] **W9/W10 polish + economy** (thin-river glint, NE Alnwick; RAV/revenue) — then.
+      (reconcile: confirmed 13 docs (12 countries + DESIGN.md) + the 4 dormant profiles; the
+      WIRING is still open — tracked as `[~]` on the COUNTRY-SPECIFIC OPERATING MODELS item
+      below and proposed WAVE β.)
+- [~] **W9/W10 polish + economy** (thin-river glint, NE Alnwick; RAV/revenue) — then.
+      (reconcile: RAV/revenue is DONE — `src/sim/regulation/rav.ts` (full RAV + allowed-revenue
+      + totex-sharing + incentives). LEFT: thin-river water glint (Cairo/Pune/NE) + the NE
+      Alnwick framing — small per-city polish, still open.)
 PRIORITY ORDER (mine, owner can redirect): night-lights(shipped) → W7 → W8 impl → W9/W10.
 
 ### 🏁 OWNER DIRECTIVE (2026-06-16 16:12): "Finish, test, critique all you're doing, then merge when ready." — ✅ DISCHARGED (18:49)
@@ -348,17 +456,24 @@ TOWER, proportionally, each one bespoke."
       palettes/terrain ✓ — see below.) STILL TBD: per-hero bespoke sizing
       (Heathrow MONSTER / Eiffel open space), bespoke sprites for the hero
       long-tail, and the 8 city-map DATA builds (only paris.ts exists).
-- [ ] **Per-hero SIZE is bespoke, not a blanket footprint (21:10 / 21:15):**
+- [~] **Per-hero SIZE is bespoke, not a blanket footprint (21:10 / 21:15):**
       "height AND width WITHIN the square — it towers over neighbours and is tall
       and wide within whatever square it stands in. 3×3 as a blanket rule won't
       always work." Each hero gets its own size considerations: Heathrow is a
       MONSTER; the Eiffel has lots of open space around it; Citibank is a
       skyscraper among skyscrapers (slim+very tall). A bridge / train station /
       airport can each be a hero.
-- [ ] **Civic "marble squares" are BAD (21:15):** the grand-civic generator
+      (done in large part: the z-cap headroom ships AND each of the 1131 registered
+      heroes carries its OWN `foot` + draw fn (bespoke per-hero footprint/height — e.g.
+      eiffel 3×3, pyramids broad-low, towers slim-tall). LEFT: a design pass confirming
+      the marquee monsters (Heathrow especially) read genuinely tall-AND-wide vs neighbours
+      — keep `[~]` pending that graphics gate.)
+- [x] **Civic "marble squares" are BAD (21:15):** the grand-civic generator
       reads as flat marble blocks with an unnecessary parvis APRON. Drop the
       apron UNLESS the real hero genuinely has open space around it (Eiffel yes);
       otherwise make the building actually wider + taller WITHIN its footprint.
+      (done: the CIVIC SPLIT below shipped — ordinary civic → 1×1 city-palette tile with
+      NO apron, town-hall-class forced to grand heroes, aprons gone.)
   - **CIVIC SPLIT (owner decision, 2026-06-15) — DONE:** "Civic differs per city
     — some awful, some grand. Make ORDINARY civic a STANDARD TILE-SIZED building,
     NO apron, styled by the city palette. UNLESS it's a hero (grand town halls
@@ -389,13 +504,18 @@ TOWER, proportionally, each one bespoke."
       preview/civictile-{paris,newyork,cairo,london}.png (isolated) + hero-
       {grand,townhall}-*.png. Marble-square aprons GONE; ordinary civic reads
       as tile-sized city-styled blocks; town-hall-class buildings = grand heroes.
-- [~] **Every hero RESEARCHED + bespoke, never reused (21:19 / 23:47):** research
+- [x] **Every hero RESEARCHED + bespoke, never reused (21:19 / 23:47):** research
       STORED — ~1000 per-building docs in `docs/heroes/<city>/` (100/city, prior
       session) + `docs/cities/<city>.md` × 8 (palette + ranked top-20 with verified
       heights, this session). The marquee London/Paris heroes are bespoke + now
       TOWER (z-cap). OPEN: build bespoke sprites FROM the stored research for the
       long tail (most non-marquee heroes still use archetypes), one city at a time.
-- [ ] **AUTOMATE hero discovery → render — the owner should NOT name specific
+      (done since #63/#66: the long tail IS now bespoke — 1131 hand-built `BespokeHero`
+      entries across 12 cities (src/render/sprites/heroes/<city>.ts), TEN cities at ≥100,
+      each its own draw fn keyed off the stored research; archetypes remain only as the
+      fallback for non-hero fabric + over-ceiling buildings. Verified by counting `key:`
+      entries this reconcile.)
+- [x] **AUTOMATE hero discovery → render — the owner should NOT name specific
       buildings (owner, 2026-06-15 13:30: "I shouldn't have to ask for specific
       hero buildings; you're supposed to automate that process").** Discovery is
       already automated (research docs). CLOSE THE LOOP: the pipeline must
@@ -406,6 +526,11 @@ TOWER, proportionally, each one bespoke."
       `pyramid`→sprite type-mapping makes EVERY discovered pyramid in ANY city
       render itself (Giza just exercises it first). Build the type→sprite resolver
       as the spine of hero rendering.
+      (done: `tools/osm/heroSprite.ts` `resolveHeroSprite(HeroInput)` is the resolver —
+      NAME_ICONS (proper nouns incl. native script) → TYPE_ICONS (Wikidata types) →
+      parameterised archetypes (dome/skyscraper/grand civic); BOTH the OSM and seeded
+      pipelines route every discovered hero through it, no per-building naming. e.g. any
+      pyramid/giza → the split pyramid sprites; tests/heroSprite.test.ts.)
 - [x] **Per-city PALETTE + STYLE — DONE (23:47 + 06-15 12:10): "bespoke per city…
       super rich blues of Sydney, grey drab of NYC, dusty Cairo… TERRAIN is more
       important for tile colours."** Implemented bespoke per-city palettes that
@@ -435,12 +560,15 @@ TOWER, proportionally, each one bespoke."
       etc. per-country operating-model seams (all resolve to LONDON_PROFILE now).
 - [x] **MORE cities (owner, 2026-06-15 15:03) — DONE:** Pune + North-East England
       built, palettes authored, registered + playable (see above).
-  - [ ] **PUNE, India** — research palette + heroes (Shaniwar Wada fort/palace,
+  - [x] **PUNE, India** — research palette + heroes (Shaniwar Wada fort/palace,
         Aga Khan Palace, Dagdusheth Halwai Ganpati temple, Sinhagad Fort,
         Shreemant Dagdusheth, the IT/Hinjawadi towers, Pune Junction) → docs/
         cities/pune.md + docs/heroes/pune/ + a warm Deccan-stone/colourful-render
         fabric; then map + integrate like the rest.
-  - [ ] **NORTH EAST ENGLAND** (a REGION, not one city): Newcastle + Gateshead +
+        (done: src/data/cities/pune.ts + docs/heroes/pune/ + src/render/sprites/heroes/
+        pune.ts (31 bespoke heroes — Pune's researched ceiling) + FABRICS palette;
+        registered + playable.)
+  - [x] **NORTH EAST ENGLAND** (a REGION, not one city): Newcastle + Gateshead +
         Sunderland + Durham, the NORTH SEA coast, north up to ALNWICK CASTLE
         (Northumberland). Heroes: Tyne bridges (esp. the Tyne Bridge + Gateshead
         Millennium Bridge), the ANGEL OF THE NORTH, Durham Cathedral + Castle,
@@ -448,23 +576,35 @@ TOWER, proportionally, each one bespoke."
         Sage/Glasshouse, BALTIC, the quaysides + coast. NE palette: buff/honey
         sandstone + red brick + industrial/coal heritage + grey North Sea.
         docs/cities/north-east-england.md + docs/heroes/* + map + integrate.
-- [ ] **PYRAMIDS OF GIZA must feature + the Sound-&-Light floodlighting needs
+        (done: src/data/cities/northeast.ts + docs/heroes/northeast/ + heroes/northeast.ts
+        (101 bespoke heroes) + NE FABRICS palette; registered + playable. LEFT: the framing
+        omits Alnwick (tighter Tyne+coast window) — a wider re-tune is the only open piece.)
+- [~] **PYRAMIDS OF GIZA must feature + the Sound-&-Light floodlighting needs
       ENERGISING (owner, 2026-06-15 13:27).** They're researched (docs/cities/
       cairo.md: Great Pyramid 138.5 m near-solid honey-limestone, weathered
       stepped texture, missing casing except faint apex remnants, ~1.57:1
       base:height; Khafre + Menkaure beside, Khafre keeps a casing cap; Sphinx
       20 m × 73 m couchant facing east in front) but there is NO pyramid sprite
       and Cairo has no map data, so today they don't feature. BUILD:
-  - [ ] Bespoke `pyramidTile`/Giza hero sprite: the three pyramids (Great +
+      (done: the SPRITES feature (4 split heroes on the Cairo map, with pyramidFlood/
+      sphinxFlood night light-shows). LEFT: the energisable Sound-&-Light gameplay LOAD —
+      see the GAMEPLAY child below. Proposed WAVE γ.)
+  - [x] Bespoke `pyramidTile`/Giza hero sprite: the three pyramids (Great +
         Khafre-with-cap + Menkaure) + the Sphinx on tawny sand, honey limestone,
         weathered stepped faces. Multi-tile, massive + low (broad-based, not a
         tall tower) — its own bespoke size, NOT a blanket footprint. LANDMARK +
         atlas + tileChooser; map "pyramid/Great Pyramid/Giza" hero → it in the
         Cairo pipeline. Add floodlight FIXTURES + warm uplighting on the faces.
+        (done: split into Great/Khafre/Menkaure + Sphinx heroes (LANDMARK 42-45),
+        landmarkSprites.ts, wired in atlas + tileChooser + resolver; floodlights +
+        warm wash via heroLights `pyramidFlood`/`sphinxFlood`. See REFINE below.)
   - [ ] GAMEPLAY: the nightly Sound-&-Light show is an energisable LOAD — model
         Giza as a notable DEMAND point the operator must connect; when energised
         the floodlights glow (reuse the powered-area glow). Lands with the Cairo
         map + demand model (Cairo data must be built first).
+        (left: GENUINELY OPEN — the pyramids render with night light-shows but there is
+        NO modelled electrical DEMAND point / connect-to-energise mechanic; the light-show
+        is cosmetic. The last open piece of the Giza ask. Proposed WAVE γ.)
   - [x] v1 SHIPPED (016bd9d): a single `pyramidTile` (5×4) holds the whole Giza
         group + the type→sprite resolver auto-maps any discovered pyramid to it.
   - [~] REFINE (owner, 2026-06-15 13:57 + high-level Giza photo): the real plateau
@@ -501,7 +641,7 @@ TOWER, proportionally, each one bespoke."
     - [x] Gates: London md5 = 68918a994f3e543bc2589c88e055c66c (byte-identical);
           atlas 3965×3935 ≤4096; tsc + eslint clean; vitest 686/686; build OK.
           Design render: 4 heroes free + spread in a diagonal, Sphinx out front.
-- [ ] **PER-HERO ELECTRIFICATION LIGHT-SHOW ANIMATIONS (owner, 2026-06-15 13:28):
+- [~] **PER-HERO ELECTRIFICATION LIGHT-SHOW ANIMATIONS (owner, 2026-06-15 13:28):
       "some form of electrification animation for each of the heroes — like a
       night-time light show on the Eiffel Tower etc."** Every hero gets a BESPOKE,
       signature night light-show that activates WHEN ENERGISED (ties the heroes
@@ -515,6 +655,14 @@ TOWER, proportionally, each one bespoke."
       keyed to the asset's energised state, lazy/cheap, distinct animation per
       hero. Design-gated. Sizable render feature — sequence after the cities have
       heroes to light.
+      (done: src/render/heroLights.ts ships 11 DISTINCT per-hero light kinds —
+      eiffelSparkle (golden twinkle), spireBeacon (Shard), towerCrown (skyscrapers),
+      rimCycle (London Eye colour-cycle), facadeFlood (cathedrals), aerialBeacon (BT
+      Tower), archGlow (Wembley/Arc), stadiumFlood (O2/arenas), pyramidFlood/sphinxFlood
+      (Giza), genericGlow fallback — `heroLightKind()` maps each hero to its show.
+      Kept `[~]` ONLY because the activation is currently tied to the day-arc/powered glow,
+      not gated strictly to the per-asset ENERGISED state, and the "dusk pocket" pop is
+      still owner-pending. The bespoke-per-hero animation itself is DONE.)
 
 ### 🔁 PLAYTEST RE-RAISE + NEW FEEDBACK (owner, 2026-06-15 13:30) — "previous feedback that doesn't feel well implemented; some slipped or wasn't verified" → ACTUALLY implement AND VERIFY each (re-opens the 2026-06-13 TUTORIAL OVERHAUL + GAME/UX BUGS sections below; this is the authoritative restatement).
 **AUTH / SETTINGS / MENU** — W7a IN PROGRESS (worktree branch worktree-agent-a7e6a536f978986df)
@@ -544,45 +692,83 @@ TOWER, proportionally, each one bespoke."
 **TUTORIAL 1 — onshore wind**
 - [ ] Highlight on the onshore-wind button must VANISH the moment it's clicked
       (same bug on the dist-sub/33kV-line highlight — disappear on click).
-- [ ] Guided play: darken everything except the target + highlight it; AFTER the
+      (left: Spotlight.tsx re-measures live but has NO explicit hide/fade-on-click logic
+      — genuinely OPEN. Proposed WAVE α.)
+- [~] Guided play: darken everything except the target + highlight it; AFTER the
       click, highlight the suitable LAND to click next. Make guided-play a
       standing feature (e.g. award/bid bubbles pop to draw attention).
+      (done: the darken+ring spotlight IS implemented (Spotlight.tsx + MissionStep.spot).
+      Left: highlighting suitable LAND after a click + the attention bubbles — OPEN.)
 - [ ] Highlight design: add an ARROW pointing at the target with a BOUNCING anim.
+      (left: Spotlight draws only an orange border ring — no arrow/bounce. OPEN, WAVE α.)
 - [ ] Allow only ONE onshore-wind facility (simplicity).
+      (left: no limit enforced in missions.ts/commands.ts — genuinely OPEN, WAVE α.)
 - [ ] Make them actually click ▶▶▶; when a bid lands, show it, then tell them to
       click ▶▶7d to gather all bids.
-- [ ] Teach a BID: all offer the same 100 MW unit but differ on £ — the white
+      (left: not separately verified as a discrete gated step — keep open pending check.)
+- [x] Teach a BID: all offer the same 100 MW unit but differ on £ — the white
       £/MWh goes on customers' ENERGY bill; the curtail £ is compensation you pay
       if you cut them, landing on the STANDING-CHARGE part. Lower is better on both.
-- [ ] TURBINE FOOTPRINT BUG: defaults to 15 MW + says "3 tiles" but renders/builds
+      (done: missions.ts M1 step 3 — "Every bid builds the SAME turbines but quotes two
+      prices: the ENERGY £/MWh lands on customers' energy bill, and the CURTAIL £ is what
+      you would owe to switch them off — lower is better on BOTH.")
+- [x] TURBINE FOOTPRINT BUG: defaults to 15 MW + says "3 tiles" but renders/builds
       a 10×4 diagonal — advertised size ≠ what lands. Should be ~5 MW per square;
       the reserved footprint must equal the advertised footprint.
-- [ ] CAPACITY PICKER: scroll up/down AND +/- keys change installed cap in 5 MW
+      (done: src/sim/farms.ts `farmClaimTiles` returns a compact contiguous prefix of
+      the BFS order = exactly the advertised tile count; reservationFootprint in
+      commands.ts holds it at designation; tests/footprints.test.ts L232 "W7c" asserts
+      15 MW = 3 tiles within a 2×2 span, not the old diagonal sprawl.)
+- [x] CAPACITY PICKER: scroll up/down AND +/- keys change installed cap in 5 MW
       increments; HOLDING scales to a sensible max (500 MW for 132/400 kV) down to
       1 MW (11 kV connection). Tutorial asks ~15 MW (not 100). Explain sizing
       (bigger install needs more network — find the sweet spot) + show a rough
       "powers ~N homes" estimate beside the capacity + introduce standing-charge aims.
-- [ ] WIND-FARM ICON wrong: should be WHITE with a tapering mast; blades
+      (done: src/ui/BuildPalette.tsx `CapacityPicker` L445-482 — ± buttons + scroll-wheel
+      (SizeStepper), step = 5 MW/tile, default 15 MW for wind, live `homesPowered()` +
+      tile-count readout. Left for playtest: confirm the hold-to-scale max + the
+      standing-charge framing copy.)
+- [x] WIND-FARM ICON wrong: should be WHITE with a tapering mast; blades
       wing-shaped (narrow at hub → widening → tapering to a point), and LARGE —
       ≥60% of the hub height.
-- [ ] Step 5/6 wording: replace "arm the 33 kV line" with plain language — "this
+      (done: src/render/sprites/networkSprites.ts `windTurbineTile` L874-903 draws a
+      WHITE tapering mast (two stacked boxes 0.028→0.019, ink:false); the live rotor in
+      MapRenderer L2758 draws large blades (bladePx 36 onshore / 41 offshore) — verify
+      the wing taper reads on the design-gate screenshot.)
+- [x] Step 5/6 wording: replace "arm the 33 kV line" with plain language — "this
       onshore wind farm has a 33 kV connection, so run 33 kV circuits from the
       turbines to the distribution substation so power can flow." Teach: after a
       line the 33 kV tool STAYS armed for the next click; end it via Esc / pick
       another tool / click the same connection point twice (VERIFY that works).
-- [ ] After placing, click the turbine to INSPECT its connection voltage.
-- [ ] Teach demolish line + dist-sub, turn AUTO-CONNECT on (needs a HOTKEY),
+      (done: missions.ts M1 step 6 uses exactly this plain wording + teaches the tool
+      stays "armed for the next run". Left for playtest: confirm click-same-point-twice ends.)
+- [x] After placing, click the turbine to INSPECT its connection voltage.
+      (done: missions.ts M2 step 3 — "INSPECT the turbines to see their connection voltage".)
+- [~] Teach demolish line + dist-sub, turn AUTO-CONNECT on (needs a HOTKEY),
       re-place the dist sub to auto-connect.
-- [ ] MULTI-TILE installs must be selectable on ANY of their tiles — run the line
+      (done: demolish is an always-unlocked tool + taught; left: no AUTO-CONNECT HOTKEY
+      exists and no step teaches toggling it / re-placing to auto-connect — OPEN, WAVE α.)
+- [x] MULTI-TILE installs must be selectable on ANY of their tiles — run the line
       from any tile the farm occupies, not only the originally-clicked tile (the
       farm bleeds beyond its auctioned tile).
-- [ ] Don't end on connect — let them watch power FLOW to homes; put a "finish
+      (done: src/sim/commands.ts `assetAtTile(...,map)` L204-226 tests
+      `farmClaimTiles(...).includes(i)` so a 33 kV endpoint/inspect/tee lands on ANY
+      claimed tile; tests/footprints.test.ts L417 "connectable on any tile it occupies".)
+- [x] Don't end on connect — let them watch power FLOW to homes; put a "finish
       tutorial" button on the 6/6 step tile.
+      (done: W7e — the victory card is gated on `tutorialDone`, set only by the "finish
+      tutorial ✓" button on the last step tile; never auto-ends on the connect goal.)
 - [ ] Prevent unrelated APPLICATIONS spawning during tutorials (confusing).
+      (left: no code blocks app spawn during missions — genuinely OPEN, WAVE α.)
 - [ ] HIDE unnecessary overlay info during tutorials (introduce it over lessons).
-- [ ] Remove the "skip tutorial" option from the steps (tutorial is the only play).
-- [ ] Confusion: the dist sub is 33 kV/LV immediately → add a PRIOR lesson
+      (left: no mission-specific HUD-hiding logic (the step strip can minimise, but
+      non-essential HUD isn't suppressed) — genuinely OPEN, WAVE α.)
+- [x] Remove the "skip tutorial" option from the steps (tutorial is the only play).
+      (done: W7e — no skip-whole-tutorial button; replaced with ◂back / next▸ + finish.)
+- [x] Confusion: the dist sub is 33 kV/LV immediately → add a PRIOR lesson
       teaching BSP / grid site / distribution site + the voltage levels.
+      (done: missions.ts M1 step 4 is a concept step teaching BSP (400/132) → Grid (132/33)
+      → Distribution (33 → LV) BEFORE step 5 unlocks the dist sub.)
 **TUTORIAL 1/3/5 — step gating + completion (applies broadly)**
 - [x] Don't allow "next" until the step's GOAL is achieved. (W7e: gated next/finish,
       disabled until the step's `done` predicate is met; live ○→✓ objective row.)
@@ -590,43 +776,82 @@ TOWER, proportionally, each one bespoke."
       steps area — not instantly the moment the objective is met. (W7e: victory card
       gated on `tutorialDone`, set only by the finish button; e2e-proven.)
 **TUTORIAL 2 — offshore**
-- [ ] 2nd-pane wording weird ("Try a 33 kV line…") → have them INSPECT the offshore
+- [x] 2nd-pane wording weird ("Try a 33 kV line…") → have them INSPECT the offshore
       unit to learn its kV instead.
-- [ ] The "BUILDING Offshore Wind" top label blocks the tutorial notes → let the
+      (done: missions.ts M2 step 3 — "Offshore wind lands at 132 kV — INSPECT the turbines
+      to see their connection voltage. That is too high for a 33 kV line…".)
+- [~] The "BUILDING Offshore Wind" top label blocks the tutorial notes → let the
       notes DOMINATE more of the screen + hide as steps execute (recallable).
+      (done in part: the step strip minimises to a recallable pill; left: not separately
+      confirmed the BUILDING label no longer blocks the notes — playtest-verify.)
 - [ ] Teach UNDERGROUND cables (happier locals, less coastline interference).
+      (left: M2 never introduces underground cables as a build option — genuinely OPEN, WAVE α.)
 **TUTORIAL 3 — storm (largely NOT delivered — re-raise: no storm report popup,
 no system-prepare, no slow-down, no weather overlay, no prep suggestions; saw a
 fault icon but NO van)**
-- [ ] Step 1/5 text hard; drop "already wired"; clearer for beginners.
-- [ ] HIGHLIGHT the incoming alert; clearer alerts for major storms.
-- [ ] PAUSE the clock on major alerts until dismissed (idled through a storm that
+- [~] Step 1/5 text hard; drop "already wired"; clearer for beginners.
+      (left: not separately verified the exact M3 step-1 copy was softened — playtest/copy check.)
+- [~] HIGHLIGHT the incoming alert; clearer alerts for major storms.
+      (done in code: the SevereWeatherAlert centre-modal + Met-branded banner make major
+      alerts loud; left: confirm the in-tutorial alert is spotlit specifically.)
+- [x] PAUSE the clock on major alerts until dismissed (idled through a storm that
       restored unseen — need prep time).
-- [ ] Storm mode: subtle rain/wind/heat-mirage SCREEN effects, clearly DISTINCT
+      (done: SevereWeatherAlert.tsx calls `setSimSpeed(0)` once per new storm on modal
+      appear and does NOT auto-resume — the clock stays paused until the player dismisses.)
+- [~] Storm mode: subtle rain/wind/heat-mirage SCREEN effects, clearly DISTINCT
       from regular weather; severe weather = a fun slowed-down "emergency system
       prepare" phase for that day (~2-min experience; player can speed up; levers
       to improve outcomes e.g. extra vans on temporary standby).
-- [ ] After the field depot, have the player raise vans 0→1 and SEE the van leave
+      (done: storm rain streaks + lightning + darker/cooler grade (grade.ts sceneGrade +
+      MapRenderer stepRain), distinct from drizzle; the system-prepare LEVERS exist
+      (stormprep.ts). LEFT: the dedicated ~2-min SLOWED phase — the clock fully PAUSES
+      instead of running slow. WAVE ε / α.)
+- [~] After the field depot, have the player raise vans 0→1 and SEE the van leave
       the depot and attend the fault.
-- [ ] End the lesson at the end of a system-prepare stage.
-- [ ] Introduce CI & CML here.
+      (done in code: vans render + drive from depot to faults (fleet.ts + van.helper.spec.ts);
+      left: the M3 step has vans "appear the moment it exists" — the raise-0→1-and-watch-it-
+      leave interaction isn't taught as a controllable step. WAVE α.)
+- [~] End the lesson at the end of a system-prepare stage.
+      (left: not separately verified the M3 finish lands at a system-prepare boundary — playtest.)
+- [x] Introduce CI & CML here.
+      (done: missions.ts M3 — "Two reliability measures matter here: CI (how MANY customers
+      are interrupted) and CML (how LONG, in customer-minutes lost). Both are scored.")
 **TUTORIAL 4 — inbox / firm-flex**
-- [ ] Side-by-side VISUAL comparison of firm vs flexible.
-- [ ] Explain what the study message means.
-- [ ] Don't end until the site is BUILT.
-- [ ] Introduce CUSTOMER SATISFACTION; an on-time new connection = 100% satisfaction.
+- [~] Side-by-side VISUAL comparison of firm vs flexible.
+      (done in part: the `FirmFlexCompare.tsx` visual component EXISTS; left: it isn't
+      surfaced/spotlit by the M4 steps (the firm-vs-flex lesson is text-only in-flow). WAVE α.)
+- [~] Explain what the study message means.
+      (left: not separately verified the M4 copy explains the connection-study message — copy check.)
+- [~] Don't end until the site is BUILT.
+      (done in code: steps are goal-gated generally; left: confirm M4's finish gate is the
+      built-site predicate specifically — playtest.)
+- [x] Introduce CUSTOMER SATISFACTION; an on-time new connection = 100% satisfaction.
+      (done: missions.ts M4 — "…on-time connection means a happy customer — 100% satisfaction".)
 **TUTORIAL 5 — bill**
-- [ ] Reword "capital is unlimited" → "The network operator can elect any solution
+- [x] Reword "capital is unlimited" → "The network operator can elect any solution
       they see fit within the allowances set by The Regulator — but every pound
       lands on customer bills."
-- [ ] Headroom toggle did NOTHING (re-raise — render fix was diagnosed earlier;
+      (done: missions.ts M5 — exact wording "The network operator can elect any solution
+      they see fit within the allowances set by The Regulator".)
+- [x] Headroom toggle did NOTHING (re-raise — render fix was diagnosed earlier;
       VERIFY it actually recolours the corridors now).
-- [ ] Allow skipping a mission step forward/backward.
-- [ ] Teach scroll-to-size a dist sub to cover the whole town in one hit.
+      (done: src/render/MapRenderer.ts `setOverlay()` L717-727 now rebuilds the network +
+      calls `drawLines()` on toggle (not just drawCatchments) — the diagnosed render fix
+      landed. Left: a visual playtest re-confirm.)
+- [x] Allow skipping a mission step forward/backward.
+      (done: src/ui/Tutorial.tsx ◂back / next▸ nav (back disabled at step 0, next gated by
+      goalMet on action steps, free on concept steps).)
+- [x] Teach scroll-to-size a dist sub to cover the whole town in one hit.
+      (done: missions.ts M5 — "Tip: you can SCROLL on a substation while placing it to size
+      its catchment to cover the whole town in one hit.")
 - [ ] Teach REINFORCING an existing sub (inspect → increase, cheaper than new).
+      (left: not taught in any M5 step (the reinforce CONTROL exists in InfoPanel, but no
+      lesson teaches it) — genuinely OPEN, WAVE α.)
 - [ ] Place a new application just outside range; connect it by reinforcing the
       sub's catchment.
-- [ ] Opening bill was sky-high; mission "completed" at £333/yr — sense-check targets.
+      (left: ties to the un-taught reinforce lesson above — OPEN, WAVE α.)
+- [~] Opening bill was sky-high; mission "completed" at £333/yr — sense-check targets.
+      (left: a sim-TUNING question, not separately re-checked this reconcile — keep open.)
 **TUTORIALS STRUCTURE**
 - [x] Tutorials REPLACE campaign; campaign's expanded steps are better → rename
       campaign→tutorial, delete the old tutorial. Clicking "tutorial" opens a
@@ -667,24 +892,48 @@ green) → IMPROVING it, not rebuilding. Build-ready sub-tasks:
       off-screen-controls bug; both viewports read clearly. London untouched (tutorials are
       own scenarios; no map/atlas change).
 **GAME FUNCTIONALITY / GRAPHICS / HUD (re-raise — verify each actually works)**
-- [ ] Tile footprint pre-determined so side-by-side bids can't EXPLODE OUT on
+- [~] Tile footprint pre-determined so side-by-side bids can't EXPLODE OUT on
       award (was marked done — re-verify against the turbine-footprint bug above).
-- [ ] Wind turbine NOT centred on the hub mast (was marked done — re-verify).
-- [ ] Esc (when not cancelling a line) opens a menu → Save / Quit to main menu;
+      (done in code: footprint reserved at designation — see the W7c TURBINE FOOTPRINT
+      tick above; left: a live playtest re-confirm per the re-raise.)
+- [~] Wind turbine NOT centred on the hub mast (was marked done — re-verify).
+      (done in code: MapRenderer `windHubOffset` L2755 sits the rotor dead-centre on the
+      hub, the old ±0.012 skew removed; left: visual re-confirm in-game.)
+- [~] Esc (when not cancelling a line) opens a menu → Save / Quit to main menu;
       clicking ELECTRICITY top-right opens the same pane (was done — verify).
-- [ ] Snooze 1h pointless → snooze 2 days (was done — verify).
-- [ ] Severe-weather alerts for the really damaging ones POP to the middle of the
+      (done in code: src/ui/GameMenu.tsx + App.tsx Esc handler + wordmark button; left:
+      live re-confirm.)
+- [~] Snooze 1h pointless → snooze 2 days (was done — verify).
+      (done in code: AlertsFeed.tsx `SNOOZE_MIN = 2*24*60`, label "Snooze 2 days"; left:
+      live re-confirm.)
+- [x] Severe-weather alerts for the really damaging ones POP to the middle of the
       screen to dismiss, with a weather MAP showing a hurricane bearing on London.
-- [ ] SEE orange/white VANS attending fault sites (count = player's vans); vans
+      (done: src/ui/SevereWeatherAlert.tsx centre-modal + the `WeatherMap` SVG radar — GB
+      silhouette, Thames, LONDON marker, animated storm spiral + sweeping track arrow,
+      severity-tinted.)
+- [x] SEE orange/white VANS attending fault sites (count = player's vans); vans
       return to a depot between repairs; follow ROADS where possible, else move
       orthogonally through building-free tiles.
-- [ ] Applications out of reach of any kit give the network MONEY to build out the
+      (done: src/render/MapRenderer.ts `drawFleet` renders van sprites; src/sim/fleet/
+      fleet.ts `stepFleet` drives them via `roadGraph.planRoute` (road-following, orthogonal
+      fallback), `syncVans` ties count to the player's fleet, idle vans drive home to the
+      nearest depot; e2e/van.helper.spec.ts "vans drive on the road network to faults".)
+- [~] Applications out of reach of any kit give the network MONEY to build out the
       cables (per the study) — do NOT penalise the operator for new connections.
-- [ ] Map overlay interrupts the finance/bill panel (was done — verify).
-- [ ] HUD panes overlap — can't upgrade the substation, messages in the way (was
+      (left: NOT separately verified in this reconcile — the connection-study/firm-flex
+      model exists, but whether out-of-reach apps fund the build-out vs penalise wasn't
+      confirmed against code. Keep open pending a targeted check.)
+- [~] Map overlay interrupts the finance/bill panel (was done — verify).
+      (done in code: superseded by the Unified Perimeter HUD (`HudFrame`) — panels live in
+      dedicated non-overlapping grid zones; left: live re-confirm.)
+- [~] HUD panes overlap — can't upgrade the substation, messages in the way (was
       "done" but owner 2026-06-15 14:xx still sees overlap, with a screenshot).
-- [~] **UNIFIED PERIMETER HUD (owner, 2026-06-15, screenshot — the floating
-      windows still overlap each other + the bill panel).** Stop using separate
+      (done in code: superseded by `HudFrame` perimeter chrome (see UNIFIED PERIMETER HUD
+      below) — overlap is structurally impossible; left: live re-confirm on the owner's device.)
+- [x] **UNIFIED PERIMETER HUD (owner, 2026-06-15, screenshot — the floating
+      windows still overlap each other + the bill panel).** (done: src/ui/HudFrame.tsx
+      ships + is the active desktop layout (mounted in App.tsx); MobileChrome is the
+      phone-landscape variant — confirmed present this reconcile.) Stop using separate
       floating windows. Design ONE wraparound chrome that frames the screen
       PERIMETER with DEDICATED, non-overlapping zones for each region — build
       palette, inbox, bill/finance, status/time bar, minimap — so nothing ever
@@ -722,7 +971,10 @@ green) → IMPROVING it, not rebuilding. Build-ready sub-tasks:
         + bookmarks pinned to corners INSIDE the frame gaps.
       - GUARDRAILS kept: every control's text/role/data-testid unchanged so the
         e2e + functionality are untouched (only the layout containers change).
-- [ ] Substation MVA size scrollable / +- when BUILDING (not just when reinforcing).
+- [x] Substation MVA size scrollable / +- when BUILDING (not just when reinforcing).
+      (done: src/ui/BuildPalette.tsx `SubMvaPicker` (±/scroll via SizeStepper) →
+      `store.subSizeMva` → BuildSpec.mva at build time; the reinforce-time MvaControls is
+      in InfoPanel.tsx.)
 
 ### 🛠 OSM PIPELINE BUILD (fresh env w/ egress, 2026-06-14 ~14:50) — IN PROGRESS
 The fresh env HAS the OSM/Wikidata egress. Built the pipeline PROPER
@@ -772,15 +1024,20 @@ places incl. Notre-Dame/Eiffel/Louvre/Vincennes). Unit tests: `tests/osm.test.ts
       - **London skyline diversity:** towerTile/officeTile now take a variant
         driving colour/height/width/crown; 8 tower + 6 office variants, spread
         per-tile so neighbours differ (was 2 each → the pink monotone).
-- [ ] **OPEN — even more heroes + fabric variety:** Opéra Garnier, Panthéon,
+- [x] **OPEN — even more heroes + fabric variety:** Opéra Garnier, Panthéon,
       Grand Palais, Musée d'Orsay (all in the Paris data, still archetypes);
       richer Haussmann fabric (shopfronts, corner blocks); procedural footprint
       buildings (stage 6) need bulk OSM/PBF at metro scale.
-- [ ] **OPEN — live integration:** register the city as a selectable scenario
+      (done: Paris now carries 105 BESPOKE heroes incl. Opéra Garnier/Panthéon/Grand
+      Palais/Musée d'Orsay etc. — src/render/sprites/heroes/paris.ts. Procedural metro-scale
+      footprints (stage 6) remain a future option, but the named marquees are bespoke.)
+- [x] **OPEN — live integration:** register the city as a selectable scenario
       (lazy-loaded so the 320 KB artifact doesn't bloat the bundle) + generalise
       the renderer's London couplings (labels from the map, estuary-marsh guard,
       per-scenario airports) + a city-picker UI. Needs the in-game design gate —
       kept OUT of this additive PR.
+      (done via #63: scenarioData.ts lazy-loads each city, the renderer reads scenery off
+      the CityMap, CityPicker.tsx ships — all 12 cities playable end-to-end.)
 
 ### ⭐ HANDOVER (owner, 2026-06-14 ~13:45) — read this first, then build in a FRESH env
 The landmark-art arc this session, and where it's going next:
@@ -809,11 +1066,14 @@ The landmark-art arc this session, and where it's going next:
       tower hierarchy (Victoria tallest/bulkiest, slimmer Big Ben with the clock
       at ~58% height + deep Prussian-blue surround, needle central spire),
       floodlit ground arcade, dark slate roofs, 4-storey façade (~4:1 ratio).
-- [ ] **OSM pipeline (fresh env):** build per `docs/osm-pipeline.md` —
+- [x] **OSM pipeline (fresh env):** build per `docs/osm-pipeline.md` —
       Overpass/Nominatim fetch → project to tile grid → derive water/road/zone
       layers → discover & rank notable buildings (Wikidata/Wikipedia) → procedural
       `footprintTile()` from footprint+height → bespoke sprites for the top tier.
       Validate on London first, then any city. Credit "© OpenStreetMap contributors".
+      (done: tools/osm/ (overpass.ts, nominatim.ts, buildCityFromOsm.ts, emitCityData.ts,
+      heroSprite.ts resolver) + tools/buildCity.ts CLI + docs/osm-pipeline.md; produced all
+      11 OSM city artifacts in src/data/cities/.)
 
 - [x] **AUTH BUG (owner, 2026-06-14 06:37): "created account → check email →
       nothing; should auto sign-in; login didn't work."** Diagnosed against
@@ -836,9 +1096,15 @@ The landmark-art arc this session, and where it's going next:
       (MEDIUM, known v1 trade-off → server-side validate later); username
       format CHECK + leaked-password protection + CSP recommended.
 
-- [ ] **REUSABLE CITY TEMPLATE / schema (owner, 2026-06-14 06:28): "make a
+- [~] **REUSABLE CITY TEMPLATE / schema (owner, 2026-06-14 06:28): "make a
       reusable template for cities where you have to find the appropriate
-      things."** Turn city authoring from a bespoke ~600-line builder into a
+      things."** (done in substance: the OSM pipeline (`tools/osm/buildCityFromOsm.ts` +
+      `emitCityData.ts`) IS the reusable engine — every non-London city is authored from
+      DATA, not a bespoke 600-line builder, and `CityMap`/`CityData` carry the feature
+      categories (water/terrain/urban/councils/towns/parks/airports/stations/landmarks/
+      named/fabric). LEFT: the specific declarative `CitySpec` + `buildCity(spec)` shape with
+      the country operating-model profiles wired in — the per-country profiles are still
+      dormant. Keep `[~]`.) Turn city authoring from a bespoke ~600-line builder into a
       declarative `CitySpec` + a shared `buildCity(spec)` engine. The spec
       enumerates the feature categories to fill in per city: water (rivers w/
       control-points + half-width + islands, coast/sea edge, beaches, lakes,
@@ -863,10 +1129,14 @@ The landmark-art arc this session, and where it's going next:
       character comes via imports + the TENDERS offered + the carbon/price
       benchmark only.
 
-- [ ] **COUNTRY-SPECIFIC OPERATING MODELS (owner, 2026-06-14 05:53): "the
+- [~] **COUNTRY-SPECIFIC OPERATING MODELS (owner, 2026-06-14 05:53): "the
       major other element required… learn the differences and have them
-      affect the gameplay."** The CityScenario v2 seams already exist
-      (power/economy/generation/regulator/weatherProfile blocks, all
+      affect the gameplay."** (reconcile: Part 1 (market profiles) + Part 2a (regulator
+      weighting) DONE in powerProfile.ts; 13 research docs in docs/operating-models/. BUT
+      the profiles are NOT WIRED — every non-London city scenario in cityRegistry still
+      resolves to LONDON_PROFILE, so the differences don't yet bite in live play. This is
+      the big remaining W8 chunk → proposed WAVE β. Stays `[~]`.) The CityScenario v2 seams
+      already exist (power/economy/generation/regulator/weatherProfile blocks, all
       defaulting to GB). Research each country's REAL operating model and
       wire genuine, gameplay-affecting differences through those seams:
       - **France (Paris):** Enedis DSO monopoly + RTE; ~70% NUCLEAR baseload
@@ -912,8 +1182,9 @@ The landmark-art arc this session, and where it's going next:
         `baseloadFloor`/`hydroDriven` into dispatch; `ownership: 'owned'`
         (HK, already in bill.ts) end-to-end. Per-country tender flow
         (France nuclear offers, AU solar/battery, HK no-tender).
+        (left: GENUINELY OPEN — the dormant pieces of the W8 wiring. Proposed WAVE β.)
 
-- [ ] **MULTI-CITY GEOGRAPHIC MAPS (owner, 2026-06-14 05:07): Paris, Sydney,
+- [x] **MULTI-CITY GEOGRAPHIC MAPS (owner, 2026-06-14 05:07): Paris, Sydney,
       Hong Kong, Rio — geographic accuracy first (rivers/coastlines/roads in
       the right places, hero landmarks in true relative positions, correct
       tile scale). "Have a go at all… we can recreate in future if needed —
@@ -922,6 +1193,10 @@ The landmark-art arc this session, and where it's going next:
       avenues + Champs-Élysées, 20 arrondissement councils, Bois de
       Boulogne/Vincennes, Montmartre/Sacré-Cœur hill, La Défense CBD).
       Design-gated per CLAUDE.md. Pairs with the operating models above.
+      (done via #63: 11 OSM-accurate cities built from real geography (Paris/NYC/Sydney/HK/
+      Berlin/Shanghai/Cape Town/Cairo/Athens/Pune/NE), each with rivers/coasts/roads in place
+      + heroes in true relative positions. Note: the roster swapped Rio for Cairo/Athens/etc.;
+      Rio specifically is not among the built cities.)
 
 - [x] **NAME the storms that come through (owner, 2026-06-14 05:35).** DONE.
       `STORM_NAMES`/`stormName` now live on the regime authority
@@ -933,14 +1208,20 @@ The landmark-art arc this session, and where it's going next:
       that one stamped name. Additive on saves (self-heals; no version bump).
       Unit test: forecast = arrival = fault label = clearance, all one name.
 
-- [ ] **BIG FLURRY (owner, 2026-06-14 05:07): "have a go at all of them".**
-  - [ ] **Place labels too BOLD/LOUD** — make the map town/landmark labels
+- [~] **BIG FLURRY (owner, 2026-06-14 05:07): "have a go at all of them".**
+      (reconcile: all four children below are DONE except Rio specifically; see each.)
+  - [x] **Place labels too BOLD/LOUD** — make the map town/landmark labels
         FAR more subtle (lighter weight, lower contrast, less shout).
-  - [ ] **MULTI-CITY with geographic-representation ACCURACY** (cities ARE
+        (done: MapRenderer labels are fontWeight 400 + thin soft halo + wide tracking;
+        landmark labels gated to mid/close zoom so the far view shows towns only.)
+  - [x] **MULTI-CITY with geographic-representation ACCURACY** (cities ARE
         wanted now; supersedes the earlier "defer cities"). Apply London's
         design principles. Per-city the rivers / coastlines / roads /
         bridges / landmarks must be GEOGRAPHICALLY ACCURATE + correctly
         scaled (tile counts):
+        (done via #63 OSM pipeline — Paris/Sydney/HK + 8 more built from real geography.
+        Rio specifically NOT built (roster swapped to Cairo/Athens/etc.); its mountain-top
+        Christ-the-Redeemer elevation idea is the only unbuilt piece of this sub-list.)
         - **Paris**: the Seine through the middle (accurate), accurate
           roads — e.g. the big roundabout (Arc de Triomphe / Étoile with
           radiating avenues), bridges in the correct places.
@@ -952,7 +1233,7 @@ The landmark-art arc this session, and where it's going next:
         - Research the top landmarks/buildings per city so they feel real.
         - (owner: "we can recreate other cities in the future if we need" —
           don't over-perfect; a genuine accurate attempt + framework.)
-  - [ ] **Supabase / AUTH email (owner authorizes: "make whatever Supabase
+  - [~] **Supabase / AUTH email (owner authorizes: "make whatever Supabase
         tables you need, do whatever you need on Supabase").** The thing he
         REALLY wants: BRAND the auth emails + make the reset/confirm link
         land on a STYLED feedback page, NOT a 404. So: configure Supabase
@@ -960,28 +1241,46 @@ The landmark-art arc this session, and where it's going next:
         and add an in-app auth-callback page (password-reset form / "email
         confirmed" / magic-link landing) so clicking the email gives real
         feedback. Also create any tables needed (e.g. cloud rank-sync).
-  - [ ] **REGULATORY ASSET VALUE (RAV) + revenue / incentives (price
+        (done in code: src/ui/AuthCallback.tsx styled landing (reset/confirm/magic-link,
+        strips #access_token) + branded supabase/templates/*.html. LEFT: the Supabase
+        Site-URL / redirect-allowlist is a DASHBOARD config the owner must set; cloud
+        rank-sync table not yet created.)
+  - [x] **REGULATORY ASSET VALUE (RAV) + revenue / incentives (price
         controls, reasonably accurate, don't over-confuse).** A RAV that
         starts at ZERO and BUILDS UP as the network grows; it influences the
         totex SHARING factors. Consider a REVENUE line for a proper monetary
         representation, and represent the regulatory INCENTIVES. Phase it in
         ONCE the network is up and running (not day 1) — as load shifts /
         new applications start to stress/break things.
+        (done: src/sim/regulation/rav.ts — RAV starts at zero + builds with the network,
+        allowed revenue = return on RAV × WACC + regulatory depreciation + opex + incentive
+        adjustments, TOTEX_SHARING factor, reliability incentives, gated to engage once the
+        network is up (RAV_ENGAGE_GROSS_K/CUSTOMERS). Left: any phase-in TUNING is WAVE ε.)
 
-- [ ] **SEVERE-WEATHER REALISM v2 (owner, 2026-06-14 03:40 — network ops
-      domain detail; refines the PR #47 alert).**
-  - [ ] **7-DAY notice**: severe storms are usually forecast ~7 days out
+- [x] **SEVERE-WEATHER REALISM v2 (owner, 2026-06-14 03:40 — network ops
+      domain detail; refines the PR #47 alert).** (done — this is the same scope as W7d,
+      verified shipped this reconcile; all four children below confirmed.)
+  - [x] **7-DAY notice**: severe storms are usually forecast ~7 days out
         (not 3). Extend the warning/ETA window to ~7d and let the player
         prepare over that lead time.
-  - [ ] **Met Office hazard BRANDING**: yellow / amber / red warning
+        (done: events/weather.ts `projectStormWindow` projects the regime chain ~10d on a
+        separate seeded RNG; `forecastStorms` returns IMMINENT vs OUTLOOK + confidence;
+        tests/stormOutlook.test.ts.)
+  - [x] **Met Office hazard BRANDING**: yellow / amber / red warning
         levels (the "hazardous yellow" experience), severity → warning
         colour. Brand the alert + indicators by warning level.
-  - [ ] **Gusts in km/h**: severity must read as real windspeeds in km/h
+        (done: src/ui/weatherFormat.ts `warningLevel()` + `WARN_STYLE` (yellow/amber/red),
+        used by SevereWeatherAlert + the StormBanner chip.)
+  - [x] **Gusts in km/h**: severity must read as real windspeeds in km/h
         (research typical GB/named-storm gusts + the Met Office warning
         thresholds, and map severity → km/h). Replace the abstract "%
         gusts".
-  - [ ] **"System prepare" REAL levers (sim + economy):** model what a DNO
+        (done: weatherFormat.ts `gustKmh` (50–165 km/h) + `windKmh` (sustained); shown in
+        the modal + banner + MarketTicker.)
+  - [x] **"System prepare" REAL levers (sim + economy):** model what a DNO
         actually does on a system-prepare:
+        (done: src/sim/reliability/stormprep.ts — all the levers below, wired to the bill
+        via stormPrepYrK + surfaced in SevereWeatherAlert.)
         - **Scale up SHIFTS** for coverage in the worst-affected areas.
         - **Storm ROLES / activate SCOUTS** — regular office staff drive
           the lines to check assets (eyes on the network).
@@ -1013,28 +1312,39 @@ The landmark-art arc this session, and where it's going next:
       STILL OPEN (owner steer): whether the TOTAL itself is too high for a
       tiny town is a sim-tuning question, not retuned blind.
 
-- [ ] **FAVOUR LOGGING IN (owner, 2026-06-13 14:28): with ranks +
+- [~] **FAVOUR LOGGING IN (owner, 2026-06-13 14:28): with ranks +
       city unlocks, login matters more.** Direction: GUEST play stays
       fully fine for LONDON sandbox + TUTORIALS (localStorage). But
       PROGRESSION — rank/accolades/unlocked cities/per-city leaderboards
       — needs an account, so favour signing in:
-  - [ ] Make login SOLID first (the "login didn't work" bug): the
+      (reconcile: the RANK ladder + sign-in surfacing exist; the GATING does NOT — see
+      children. Proposed WAVE δ.)
+  - [x] Make login SOLID first (the "login didn't work" bug): the
         Supabase Site-URL fix (already logged) + a styled auth callback
         + verify the OTP/magic-link round-trip end to end.
+        (done in code: AuthCallback.tsx + AccountPanel + the duplicate-email-detect fix;
+        the Site-URL is a dashboard config left to the owner.)
   - [ ] Gate progression behind (or strongly tied to) an account: rank,
         accolades, city unlocks and cross-device sync require login;
         guest can still play London + tutorials but sees their progress
         is local-only with a clear, friendly "sign in to keep your rank
         & unlock cities across devices" prompt at the right moments
         (first rank-up, first city-unlock offer, period report card).
-  - [ ] Surface the BENEFIT prominently (start menu NETWORK ACCESS
+        (left: GENUINELY OPEN — cities are open-to-all (no rank gate) and rank is
+        local-only (no cross-device sync / `progression` table). Proposed WAVE δ.)
+  - [~] Surface the BENEFIT prominently (start menu NETWORK ACCESS
         block + an inline prompt), not a hard wall — never block the
         core London/tutorial play. Aligns with docs/multi-city-and-rank.md
         P5 (the `progression` Supabase table + guest→login merge).
+        (done in part: a NETWORK ACCESS sign-in block + "sign in to keep your rank" prompts
+        exist; left: the at-the-right-moments triggers + the progression table/merge.)
 
-- [ ] **TUTORIAL OVERHAUL + PLAYTEST FLURRY 2 (owner, 2026-06-13 ~13:40,
+- [~] **TUTORIAL OVERHAUL + PLAYTEST FLURRY 2 (owner, 2026-06-13 ~13:40,
       full 5-tutorial playthrough + screenshot). HUGE — spans several
-      waves.**
+      waves.** ⚠ SUPERSEDED by the 🔁 PLAYTEST RE-RAISE (owner, 2026-06-15 13:30) ABOVE —
+      that block is the authoritative restatement and is where this reconcile ticked each
+      item. The structure children (lessons/spotlight/no-skip) are `[~]` done below; the
+      T1-T5 children below are reconciled at the 06-15 block (mix of done + WAVE α opens).
   - [~] **Tutorials REPLACE campaign**: clicking "tutorials" opens a
         LESSONS PAGE listing every lesson, what it teaches, lock state,
         and a 0/1/2/3-STAR rating. — DONE (Wave 16): LessonsPage.tsx +
@@ -1052,8 +1362,11 @@ The landmark-art arc this session, and where it's going next:
         the last tile; notes minimise to a recallable pill). STILL TODO:
         PREVENT unrelated applications spawning; HIDE the templates/extra
         HUD bits the lesson isn't using.
-  - [ ] **T1 First Light** (onshore wind): spotlight the Onshore-wind
+  - [~] **T1 First Light** (onshore wind): spotlight the Onshore-wind
         button → then suitable land. Allow only ONE wind facility.
+        (SUPERSEDED — see TUTORIAL 1 under the 06-15 re-raise above: footprint/picker/icon/
+        teach-bid/plain-wording/inspect-kV/prior-lesson DONE; vanish-on-click/arrow-bounce/
+        one-facility/land-highlight OPEN → WAVE α.)
         CAPACITY PICKER: scroll / +– to set MW (don't force 100 MW for
         Aldbrook — ask ~15 MW; user adjusts). Explain sizing (bigger
         install = more network; find the sweet spot) + show a rough
@@ -1079,14 +1392,18 @@ The landmark-art arc this session, and where it's going next:
         watch power flow; a "finish tutorial" button on the 6/6 tile.
         Confusion: dist sub is 33 kV/LV immediately → add a PRIOR lesson
         teaching BSP / grid site / dist site + the voltage levels.
-  - [ ] **T2 Step Up**: 2nd-pane wording weird ("Try a 33 kV line…") →
+  - [~] **T2 Step Up**: 2nd-pane wording weird ("Try a 33 kV line…") →
         have them INSPECT the offshore unit to learn its kV instead.
+        (SUPERSEDED — see TUTORIAL 2 above: inspect-offshore-kV DONE; UNDERGROUND cables
+        OPEN → WAVE α.)
         The "BUILDING Offshore Wind" top label blocks the tutorial
         notes → let the tutorial notes DOMINATE more and hide as steps
         execute (recallable). Teach UNDERGROUND cables (happier locals,
         less coastline interference).
-  - [ ] **T3 Storm**: step 1/5 text hard, drop "already wired" — clearer
-        for beginners. HIGHLIGHT the incoming alert. PAUSE the clock on
+  - [~] **T3 Storm**: step 1/5 text hard, drop "already wired" — clearer
+        for beginners. (SUPERSEDED — see TUTORIAL 3 above: pause-clock + CI/CML DONE;
+        rain/lightning effects DONE; the ~2-min SLOWED phase + visible van-launch step OPEN.)
+        HIGHLIGHT the incoming alert. PAUSE the clock on
         major alerts until dismissed (player idled through a storm that
         restored unseen — need prep time). Better SEVERE-weather
         indicators: subtle rain/wind/heat-mirage screen effects, clearly
@@ -1097,14 +1414,18 @@ The landmark-art arc this session, and where it's going next:
         have the player raise vans 0→1 and SEE the van leave the depot
         and attend the fault. End the lesson at the end of a
         system-prepare stage. Introduce CI & CML here.
-  - [ ] **T4 Inbox**: side-by-side VISUAL comparison of firm vs
+  - [~] **T4 Inbox**: side-by-side VISUAL comparison of firm vs
         flexible; explain what the study message means; don't end until
         the site is BUILT. Introduce CUSTOMER SATISFACTION; an on-time
         new connection = 100% satisfaction.
-  - [ ] **T5 Bill**: reword "capital is unlimited" → "The network
+        (SUPERSEDED — see TUTORIAL 4 above: CSAT taught DONE; the firm/flex VISUAL exists
+        (FirmFlexCompare.tsx) but isn't spotlit in-flow → WAVE α.)
+  - [~] **T5 Bill**: reword "capital is unlimited" → "The network
         operator can elect any solution they see fit within the
         allowances set by The Regulator — but every pound lands on
-        customer bills." Headroom toggle did NOTHING (BUG — diagnosed by
+        customer bills." (SUPERSEDED — see TUTORIAL 5 above: reword + headroom-recolour +
+        skip-steps + scroll-to-size DONE; teach-REINFORCE-a-sub OPEN → WAVE α.)
+        Headroom toggle did NOTHING (BUG — diagnosed by
         the UI-FIX lane 2026-06-13: store/bridge/MapView wiring is CORRECT;
         the render-side `setOverlay` redraws catchment circles but NOT the
         line recolour — see the lane entry below for the exact render fix).
@@ -1116,7 +1437,8 @@ The landmark-art arc this session, and where it's going next:
         reinforcing the sub's catchment. Opening bill was sky-high —
         rebalance (mission "completed" at £333/yr — sense-check targets).
 
-- [ ] **GAME/UX BUGS from the flurry (owner, 2026-06-13):**
+- [~] **GAME/UX BUGS from the flurry (owner, 2026-06-13):** (most VERIFIED below; the
+      four formerly-open children are reconciled to DONE/`[~]` this pass.)
   - [x] FOOTPRINT: tile size must be pre-determined/reserved — could
         place side-by-side bids that EXPLODED OUT on award (overlap).
         Reserve the footprint at designation so awards can't collide.
@@ -1128,20 +1450,27 @@ The landmark-art arc this session, and where it's going next:
   - [x] ESCAPE menu: Esc (when NOT cancelling a line build) opens a menu
         → Save / Quit to main menu; clicking "ELECTRICITY" top-left
         opens the same pane. — VERIFIED (UI-FIX lane, 2026-06-13)
-  - [ ] LOGIN didn't really work (investigate auth/sign-in flow end to
+  - [~] LOGIN didn't really work (investigate auth/sign-in flow end to
         end — ties to the Supabase Site-URL fix already logged).
+        (done in code: AuthCallback.tsx + AccountPanel verified; left: the dashboard
+        Site-URL config is the owner's + a live round-trip re-confirm.)
   - [x] SNOOZE: 1 hour is pointless (a second passes an hour) → snooze
         ~2 days. — VERIFIED (UI-FIX lane, 2026-06-13: SNOOZE_MIN = 2 game-days)
-  - [ ] SEVERE-WEATHER ALERT: pop the really damaging ones to the MIDDLE
+  - [x] SEVERE-WEATHER ALERT: pop the really damaging ones to the MIDDLE
         of screen to dismiss, with a weather MAP showing the hurricane
         bearing down on London.
-  - [ ] VANS ON THE MAP: actually SEE orange/white vans leave the depot
+        (done: SevereWeatherAlert.tsx centre-modal + `WeatherMap` SVG radar with the storm
+        track bearing on the city — see the W7d ticks above.)
+  - [x] VANS ON THE MAP: actually SEE orange/white vans leave the depot
         and attend faults (count = player's van number); vans return to
         a depot between repairs; follow ROADS where possible, else move
         orthogonally through building-free tiles.
-  - [ ] CONNECTIONS: an application out of reach of any kit should give
+        (done: fleet/fleet.ts + roadGraph.planRoute + drawFleet + e2e/van.helper.spec.ts —
+        see the W7b van tick above.)
+  - [~] CONNECTIONS: an application out of reach of any kit should give
         the network MONEY to build out the cables (per the study) — do
         NOT penalise the operator for new connections.
+        (left: NOT separately verified this reconcile — keep open pending a targeted check.)
   - [x] HUD OVERLAP: the map overlay interrupts the finance/bill panel;
         HUD panes overlap so you can't upgrade a substation (messages in
         the way). Fix the layout/z-order so panels never block controls.
@@ -1302,15 +1631,19 @@ The landmark-art arc this session, and where it's going next:
         patterns to Redirect URLs. (App is already correct:
         emailRedirectTo=origin, detectSessionInUrl=true.) Steps in
         supabase/templates/README.md.
-  - [ ] APP POLISH (Wave 14 integration): a styled "email confirmed —
+        (left: OWNER-CONFIG only — a Supabase dashboard setting, nothing to ship from code.)
+  - [x] APP POLISH (Wave 14 integration): a styled "email confirmed —
         welcome, operator" greeting + clean the #access_token hash on
         the auth callback (detect type=signup/magiclink at boot, toast
         via the store, strip the hash). App.tsx is a running lane's file
         — do at integration.
+        (done: src/ui/AuthCallback.tsx handles confirm/recovery/magic-link landings,
+        styles the greeting, and strips the #access_token hash on boot.)
 
-- [ ] **PLAYTEST FLURRY (owner, 2026-06-13 12:23, far-zoom screenshot).
+- [x] **PLAYTEST FLURRY (owner, 2026-06-13 12:23, far-zoom screenshot).
       Process habit added to CLAUDE.md: screenshot at multiple zooms +
       per-landmark close-ups, critique honestly, BEFORE shipping.**
+      (done: all children below VERIFIED `[x]`.)
   - [x] SIGNAGE: landmark (gold) labels gated to mid/close zoom — gone
         from the far overview, towns stay. VERIFIED (MAP/RENDER lane).
   - [x] GLEAM → colour-pop: electric additive bloom + travelling glint
@@ -1359,16 +1692,22 @@ The landmark-art arc this session, and where it's going next:
       story-absent assertions intact). Shots: preview/w13ui-*.png — opening
       both beats, chip (desktop sub + line, mobile), expand tab + open palette.
 
-### RENDER/POLISH lane — Tier-4 polish (2026-06-13) — [ ] IN PROGRESS
-- [ ] #43 CONSTRUCTION SITES: plant/substation under construction draws as
+### RENDER/POLISH lane — Tier-4 polish (2026-06-13) — [x] ALL THREE SHIPPED (reconcile 2026-06-17)
+- [x] #43 CONSTRUCTION SITES: plant/substation under construction draws as
       a building site (foundation/scaffold/crane/hoarding), progressing by
       quartile of remaining lead time, transitioning to finished art on
       commission. Pure render.
-- [ ] #38 CAMERA BOOKMARKS: save/jump/delete named camera slots
+      (done: src/render/construction.ts — 4 progress stages (groundworks/frame/scaffolded
+      shell/topping-out) keyed off quartile; wired into MapRenderer.)
+- [x] #38 CAMERA BOOKMARKS: save/jump/delete named camera slots
       (x/y/zoom), persisted client-side; a small self-contained floating
       control. Renderer exposes getCamera()/jumpToCamera().
-- [ ] #48 PHOTO MODE: clean screenshot mode — hide chrome, golden-hour
+      (done: src/ui/CameraBookmarks.tsx — save/jump/delete up to 6 named slots in
+      localStorage via getActiveRenderer().getCamera()/jumpToCamera().)
+- [x] #48 PHOTO MODE: clean screenshot mode — hide chrome, golden-hour
       tint, capture the Pixi canvas to a 2x PNG download.
+      (done: src/ui/PhotoMode.tsx — hides chrome (store.photoMode), pins golden-hour tint,
+      captures the Pixi canvas to a PNG download.)
 
 ### MAP/RENDER lane — playtest flurry (2026-06-13) — [x] VERIFIED
 - [x] SIGNAGE: MapLabel gained a `landmark` flag; gold NAMED_PLACES labels
@@ -1501,12 +1840,16 @@ The landmark-art arc this session, and where it's going next:
       concurrent UX lane's files, not sim-core). `tsc -b` + full `eslint
       src tests e2e tools` + `npm run build` clean; `playwright test
       e2e/build.spec.ts` 4/4 green on a FRESH server.
-- [ ] **NEXT WAVE (out of scope here):** the actual cities (Sydney first,
+- [~] **NEXT WAVE (out of scope here):** the actual cities (Sydney first,
       then Hong Kong's owned-gen fork, then the rest as data + one mechanic
       each — `*Map.ts` + a CityScenario block) and the operator RANK +
       city-UNLOCK-offer + Supabase `progression` meta-layer (docs P2–P5).
       The regulator `'profit-cap'`/`'cost-of-service'` framings + the
       `hydroDriven`/`baseloadFloor` knobs are typed hooks only, dormant.
+      (done: all 12 CITIES built + playable (#63); a RANK ladder exists (src/ui/rank.ts).
+      LEFT: HK's owned-gen fork + the per-city mechanics are unwired (WAVE β); the
+      city-UNLOCK-offer + Supabase `progression` meta-layer (WAVE δ); the regulator framings
+      + hydroDriven/baseloadFloor hooks still dormant (WAVE β / Part 2b).)
 
 ### Tier-3 UX lane — bill chart · KPI tooltips · undo history · save slots (ROADMAP #28/#36/#27/#34, this prompt)
 - [x] **#28 BILL-OVER-TIME CHART — VERIFIED.** A stacked-area chart of the
@@ -1661,6 +2004,7 @@ The landmark-art arc this session, and where it's going next:
       span. Decide: keep as-is (halt-on-crisis is good), OR only halt on
       MAJOR incidents, OR report "skipped 8 of 30 days — storm hit". Low
       priority tuning.
+      (left: a DESIGN DECISION + small tuning, genuinely open — proposed WAVE ε.)
 
 - [x] **Wave 9 landmarks + Heathrow (agent lane, integrated by main
       after the lane stalled post-completion).** Missing landmarks added
@@ -1781,7 +2125,7 @@ The landmark-art arc this session, and where it's going next:
         emits per-island freqSamples; tick + protocol + Hud carry
         freqHz?:number|undefined (additive, no SAVE_VERSION bump).
 
-- [ ] **Day/night flashing + animation pacing (owner, 2026-06-13
+- [x] **Day/night flashing + animation pacing (owner, 2026-06-13
       05:10): "Animations should move as fast as the game clock speed
       allows. Its a bit disturbing the flashing day night cycle. Wonder
       if we can make the change more subtle and its mostly done in the
@@ -1792,28 +2136,41 @@ The landmark-art arc this session, and where it's going next:
       mostly in BUILDING LIGHTS (windows warming at dusk) rather than a
       big global wash that "flashes". Tune the grade.ts ramp + glow
       layer from the beauty pass.
+      (done: WAVE 8 UI LANE (below) — grade.ts compresses the global wash + carries the
+      time-of-day read on the WINDOW GLOW; MapRenderer.setSimSpeed gates living-world
+      animation on dt·simSpeed. Left for playtest: confirm no residual "flash" in-game.)
 
-- [ ] **Dead mobile bottom-bar icons (owner, 2026-06-13 05:10): "On
+- [x] **Dead mobile bottom-bar icons (owner, 2026-06-13 05:10): "On
       mobile, theres icons in the bottom bar that dont seem to do
       anything. A plus sign, a square chart and an egg timer."** Audit
       MobileChrome bottom bar — the +, chart and timer (egg-timer =
       likely the event-skip / time control) either do nothing or have
       no affordance feedback. Remove or wire them. Folds into the
       bespoke-icons + collapsible-chrome Wave 8 UI lane.
+      (done: WAVE 8 UI LANE — the +/chart/egg-timer were the N-1 / headroom / forecast
+      overlay toggles; kept + fixed with bespoke legible glyphs, aria-labels, and a
+      confirmation toast on each toggle. Reconcile confirmed all MobileChrome chips wired.)
 
-- [ ] **Replace 06:00/18:00 skips with +7d / +30d (owner, 2026-06-13
+- [x] **Replace 06:00/18:00 skips with +7d / +30d (owner, 2026-06-13
       05:10): "We can also remove the 6:00 and 18:00 jumps. Instead
       have +7d +30d."** Replace SkipTarget 'peak'/'morning' buttons with
       fixed-duration jumps (+7 game-days, +30 game-days); keep the
       bad-news-stops-the-skip behaviour (now that day-0 spurious claims
       are fixed). Update skipTargetMin + the SkipButtons + e2e
       goals.spec to the new controls. Wave 8 UI lane.
+      (done: WAVE 8 UI LANE — SkipTarget is now 'week'|'month'|'event'; buttons read
+      "⏭ 7d / 30d"; skip.test.ts + goals.spec.ts rewritten.)
 
-- [ ] **PER-CITY ASSET PACKS + richer building stock (owner, 2026-06-13
+- [~] **PER-CITY ASSET PACKS + richer building stock (owner, 2026-06-13
       05:05): "For the new cities, we will need fresh assets for
       landmarks and housing and building stock etc. id love a much
       wealthier selection of offerings for each city. Bigger and smaller
       housing of different eras."** Extends the MULTI-CITY work.
+      (done in part: each city has its OWN bespoke LANDMARKS (1131 heroes) + a per-city
+      FABRICS palette/terrain (Sydney blue / NYC drab / Cairo dusty / Haussmann etc.) + the
+      haussmannTile/civicTile etc. LEFT: the richer HOUSING / building-stock across ERAS
+      (Georgian/Victorian/brownstone/walk-up/vernacular per city, not reskinned terraces) —
+      a large art effort. Proposed WAVE ζ.)
   - [ ] Each new city ships its OWN art pack (art-is-code, lofi style):
         bespoke LANDMARKS (e.g. Sydney Opera House/Harbour Bridge, Paris
         Eiffel/Haussmann, NYC skyscrapers/brownstones, HK towers, Athens
@@ -1827,20 +2184,25 @@ The landmark-art arc this session, and where it's going next:
         Haussmann, walk-up, high-rise, vernacular) so streets read
         varied, not repetitive. Expand the sprite families + tileChooser
         variety; estate-cluster the eras sensibly.
+        (left: the era-diverse HOUSING stock is genuinely OPEN — WAVE ζ.)
   - [ ] Tie to CityScenario v2: a city's asset pack is data the renderer
         selects on by scenario; share a common construction kit so packs
         are additive, atlas stays <=4096px (per-city atlas or lazy load).
         Big art effort — sequence across the multi-city implementation
         waves; use environment-art + the sprite doctrine.
+        (left: WAVE ζ. NOTE: per-city FABRICS palettes already select by scenario; this is
+        the deeper per-city HOUSING/building-stock pack.)
 
-- [ ] **BESPOKE ICONS + COLLAPSIBLE CHROME (owner, 2026-06-13 05:03):
+- [x] **BESPOKE ICONS + COLLAPSIBLE CHROME (owner, 2026-06-13 05:03):
       "I don't like how we have used standard emojis for the icons. I
       want more bespoke signage, especially when collapsed on mobile
       mode. We should allow collapses to happen on desktop mode too for
       a cleaner look."** UI/art lane (use the design skills:
       game-ui-design iconography + readable-at-size, frontend-design,
       color-theory for the lofi palette).
-  - [ ] Replace standard emoji glyphs with a BESPOKE art-is-code icon
+      (done: WAVE 8 UI LANE (below) — both children shipped; reconcile confirmed icons.tsx
+      + hudCollapsed.)
+  - [x] Replace standard emoji glyphs with a BESPOKE art-is-code icon
         set in the lofi ink-contour style — across the HUD buttons
         (RIIO, 🏢 company, sound, grid-view, ⚡, ⚖, etc.), the build
         palette tool icons, and ESPECIALLY the COLLAPSED MOBILE RAIL
@@ -1849,13 +2211,18 @@ The landmark-art arc this session, and where it's going next:
         directorates, KPIs…), legible at small size on a phone.
         Implement as a shared icon component/sprite set (SVG or the
         vector raster pipeline), not unicode.
-  - [ ] DESKTOP COLLAPSE: let the HUD/palette collapse on desktop too
+        (done: src/ui/icons.tsx — inline-SVG ink-contour icon set (1.6px stroke, 24-grid,
+        currentColor), every emoji/unicode glyph replaced across HUD/palette/MobileChrome.)
+  - [x] DESKTOP COLLAPSE: let the HUD/palette collapse on desktop too
         (not just mobile) for a cleaner look — a toggle to the compact
         icon-rail presentation; remember the choice.
-  - [ ] Judge on IMAGES: render the icon set + collapsed/expanded chrome
+        (done: `hudCollapsed` store flag (localStorage `ec.hudCollapsed`) → `compact =
+        isMobile || hudCollapsed` in App.tsx/Hud.tsx; collapse chevron in the HUD bottom bar.)
+  - [x] Judge on IMAGES: render the icon set + collapsed/expanded chrome
         at desktop and phone-landscape, LOOK and iterate. Lands as a
         Wave 8 UI lane (after Wave 7 merges — Hud/MobileChrome/Palette
         just changed there).
+        (done: WAVE 8 UI LANE design-gated — preview/w8-*.png inspected.)
 
 - [x] **WAVE 8 UI LANE — bespoke icons · desktop collapse · dead mobile
       icons · +7d/+30d skips · subtler day/night (owner, 2026-06-13).
@@ -1928,9 +2295,12 @@ The landmark-art arc this session, and where it's going next:
       fades it). Unit-pinned: the outer rows are <20% hill. (EnvArt:
       detail at the transition, calm in the mass.)
 
-- [ ] **MULTI-CITY FUTURE-PROOFING + RANK/PROGRESSION (owner, 2026-06-13
+- [~] **MULTI-CITY FUTURE-PROOFING + RANK/PROGRESSION (owner, 2026-06-13
       04:48).** Big strategic feature — DESIGN/RESEARCH pass first.
-  - [ ] Future-proof city selection beyond London: Sydney, Paris, New
+      (reconcile: the cities + the design doc + a rank ladder all SHIPPED; the per-city
+      power WIRING (WAVE β) + the unlock-offer/progression persistence (WAVE δ) are the
+      open pieces — see children.)
+  - [x] Future-proof city selection beyond London: Sydney, Paris, New
         York, Hong Kong, Athens, Shanghai, Rio de Janeiro, Cairo, Dubai.
         cityRegistry.ts already defines CityScenario for exactly this —
         extend it with per-city POWER-SYSTEM config. RESEARCH the real
@@ -1939,26 +2309,40 @@ The landmark-art arc this session, and where it's going next:
         system FREQUENCY (50 vs 60 Hz), the REGULATOR (if any), and
         VOLTAGE levels. Each becomes scenario data + tuning, ideally
         without engine forks.
+        (done: 11 cities built + selectable (Rio swapped for Cairo/Athens/Pune/NE); the
+        per-country POWER config exists in powerProfile.ts but is unwired — that wiring is
+        WAVE β.)
   - [ ] Cities are UNLOCKED by the player — a benefit to logging in;
         needs ACCOLADE/PROGRESSION persistence (Supabase: a new table /
         profile fields for rank, milestones, unlocked cities).
-  - [ ] RANK SYSTEM: power-system-engineering JOB TITLES from junior
+        (left: GENUINELY OPEN — cities are open-to-all (no unlock gate) + no progression
+        table. Proposed WAVE δ.)
+  - [~] RANK SYSTEM: power-system-engineering JOB TITLES from junior
         intern upward (have fun with the ladder); the player LEVELS UP
         on milestones + efficiency-against-milestones; faster promotion
         for better performance. At certain ranks the player gets an
         OFFER (any time) to go fix another city's missing grid —
         accepting unlocks that map. Tie progression to the existing
         RIIO report-card / KPI scoring.
-  - [ ] DESIGN PASS launched (read-only, deep-research): produces
+        (done in part: a 7-tier rank ladder ships (src/ui/rank.ts). LEFT: the levelling on
+        milestones/efficiency + the city-unlock OFFER mechanic. Proposed WAVE δ.)
+  - [x] DESIGN PASS launched (read-only, deep-research): produces
         docs/multi-city-and-rank.md — researched per-city power-system
         table, the CityScenario config extension, the rank ladder + job
         titles, the milestone/efficiency promotion model, the city-
         unlock offer mechanic, and the Supabase accolade/rank schema.
-  - [ ] IMPLEMENTATION = a later dedicated wave (after Wave 7/8); spans
+        (done: docs/multi-city-and-rank.md exists.)
+  - [~] IMPLEMENTATION = a later dedicated wave (after Wave 7/8); spans
         cityRegistry + sim config + Supabase + UI + progression.
+        (done in part: cityRegistry + cities + rank UI shipped; LEFT: the Supabase
+        progression layer + per-city sim wiring. WAVE β + WAVE δ.)
 
-- [ ] **TERRAIN + PLANNING overhaul (owner, 2026-06-13 04:38, image:
+- [x] **TERRAIN + PLANNING overhaul (owner, 2026-06-13 04:38, image:
       chequerboard farmland).** Two parts.
+      (done: BOTH children VERIFIED below — terrain art/generation (chequerboard gone) +
+      the brownfield-favoured planning + appeals SIM mechanic (events/applications.ts
+      findSite BROWNFIELD_BIAS, APPEAL_DAYS determination window, council weighting,
+      planningAppeals.test.ts). The "planning permission" ask IS modelled in the sim.)
   - [x] TERRAIN ART/GENERATION (Wave 8 MAP OVERHAUL flagship lane —
         VERIFIED). The 4×4 chequerboard is gone: crop selection now
         follows the map's ORGANIC variable-size enclosures (tileChooser
@@ -2025,9 +2409,11 @@ The landmark-art arc this session, and where it's going next:
           clean; `npx playwright test e2e/build.spec.ts` 4/4 on a fresh
           server (applications flow intact, baselines unchanged).
 
-- [ ] **HEATHROW — bespoke design + PV/BESS opportunity (owner,
+- [x] **HEATHROW — bespoke design + PV/BESS opportunity (owner,
       2026-06-13 04:31, two images: in-game vs real top-down).**
-  - [ ] In-game Heathrow "looks terrible" — currently two flat grey
+      (done: BOTH children shipped (Wave 9 + reconcile-confirmed). The ledger's "Wave 9
+      landmarks + Heathrow" entry above + the Wave 9 section below also cover this.)
+  - [x] In-game Heathrow "looks terrible" — currently two flat grey
         runway strips + one tiny building in open fields. Real Heathrow
         (ref: /root/.claude/uploads/86f13754-c4ec-5876-8bb6-a28892eab497/
         2fbb1823-IMG_2588.png) is a big CONCRETE complex: two parallel
@@ -2040,7 +2426,9 @@ The landmark-art arc this session, and where it's going next:
         like the real airport from the iso camera. Coordinate with the
         air-layer (P7) so planes use the real runways. Folds into the
         Wave 8 MAP OVERHAUL (Heathrow sits inside that geometry pass).
-  - [ ] SPECIAL OPPORTUNITY: at a random point in the game, Heathrow
+        (done: src/render/sprites/landmarkSprites.ts `heathrowTile()` — a bespoke 8×3
+        concrete-airport stamp (terminal island + runways), planes use the air layer.)
+  - [x] SPECIAL OPPORTUNITY: at a random point in the game, Heathrow
         raises a BIG combined PV + BESS connection application (airports
         are doing exactly this) — a sizeable solar array + battery on the
         airport estate, sited on/beside the Heathrow reservation. A
@@ -2048,10 +2436,13 @@ The landmark-art arc this session, and where it's going next:
         timing window), flagged as the Heathrow scheme, with the usual
         firm/flex + connection-study handling. Coordinate timing with the
         events lane (events/** is mid-edit by the Wave 7 H&S lane).
-  - [ ] Leverage the design skills (environment-art: concrete/tarmac
+        (done: src/sim/events/applications.ts `buildHeathrowScheme` (HEATHROW_PV_MW=80,
+        HEATHROW_BESS_MW=60), deterministic once-per-game; tests/heathrow.test.ts.)
+  - [x] Leverage the design skills (environment-art: concrete/tarmac
         material read, density, the runway-terminal hierarchy).
+        (done as part of the bespoke heathrowTile sprite.)
 
-- [ ] **MAP / ROAD / DENSITY OVERHAUL (owner, 2026-06-13 04:26, two
+- [x] **MAP / ROAD / DENSITY OVERHAUL (owner, 2026-06-13 04:26, two
       reference images: real top-down London map + a game screenshot of
       "road madness").** Supersedes prior incremental road/map passes.
       The owner's asks, verbatim-sourced:
@@ -2084,11 +2475,14 @@ The landmark-art arc this session, and where it's going next:
         focal mass now fills the inner third wall-to-wall (customers
         ~527k, unit-pinned dense inner core); terraces/blocks front the
         streets. (EnvArt density + 60-30-10 value hierarchy.)
-  - [~] Landmarks GLEAM + missing landmarks — DEFERRED to a later wave
+  - [x] Landmarks GLEAM + missing landmarks — DEFERRED to a later wave
         (explicitly OUT of this lane's scope per the lane brief, with
         Heathrow + per-city assets + multi-city). Geometry/density/
         terrain/labels/edges shipped; landmark hero treatment is the
         next map wave.
+        (done since: landmark hero treatment LANDED — the colour-pop/rim-light hero
+        treatment (MapRenderer drawGleam) + 1131 bespoke heroes + per-hero night light-shows.
+        The "missing landmarks" are covered by the 100-per-city hero work.)
   - [x] Town labels ILLEGIBLE on mobile — FIXED (game-ui-design). Killed
         the `*0.25` scale bug (towns rendered at ~3.75 screen px); labels
         now hold a screen-px FLOOR at any zoom (LONDON 30, towns 20,
@@ -2252,11 +2646,13 @@ The landmark-art arc this session, and where it's going next:
         + gold plateau marker, 90%/92% engagement) and
         preview/org-kpis-{desktop,mobile}.png (LTI/VSI/culture/engagement
         rows render and read) via SHOTS=1 e2e/orgshots.helper.spec.ts.
-  - [~] HUD button + App.tsx mount for DirectoratesPanel handed to the
+  - [x] HUD button + App.tsx mount for DirectoratesPanel handed to the
         integrator (Hud.tsx and src/app/** are the concurrent lane's
         files): exact JSX + insertion points in the lane report. The
         component, store flag (directoratesOpen) and commands are all in
         place — only the mount line and a HUD button remain.
+        (done: `<DirectoratesPanel />` is mounted in src/app/App.tsx L266; the toggle is
+        wired in Hud.tsx + MobileChrome.tsx via `directoratesOpen`.)
 
 - [x] **Campaign IS the tutorial + mission-1 wind step stalled (owner,
       2026-06-13 00:22)**: "The campaign mode should be the tutorial
@@ -2383,10 +2779,12 @@ The landmark-art arc this session, and where it's going next:
         extra passes; new layers total 1 sprite + 1 gradient + 1
         vignette quad + streaks only while raining.
 
-- [ ] **Mobile/desktop design principle (owner, 2026-06-12 21:14)**:
+- [x] **Mobile/desktop design principle (owner, 2026-06-12 21:14)**:
       added to CLAUDE.md design principles — everything must work
       beautifully on BOTH mobile and desktop web; mobile assumes a
       LANDSCAPE hold.
+      (done: both concrete children below shipped (rotate prompt + phone-landscape audit);
+      it also lives as a STANDING design principle in CLAUDE.md, applied to every PR.)
   - [x] Build: portrait-hold detection on touch devices → a styled
         "rotate your phone" prompt overlay (lofi-branded, dismissible
         never — it clears on rotate; menus may remain usable portrait).
@@ -2532,8 +2930,11 @@ The landmark-art arc this session, and where it's going next:
             Gravesend still read wiggly at Z3; doctrine-compliant but
             worth a future waypoint pass.
 
-- [ ] **"Do all" campaign (owner, 2026-06-12): implement ROADMAP.md in
-      full**, tier by tier in gated waves. SHIPPED: Wave 1+1b (#1
+- [~] **"Do all" campaign (owner, 2026-06-12): implement ROADMAP.md in
+      full**, tier by tier in gated waves. (reconcile: this is an ONGOING meta-program, not
+      a single deliverable — Waves 1–8 + the multi-city/hero/playtest waves have shipped;
+      the remaining ROADMAP tail + the open WAVES α–ζ above are what's left. Stays `[~]`.)
+      SHIPPED: Wave 1+1b (#1
       waypoints, #5+#20 seasons/regimes, #6+#7 goals+time-skip, #2
       headroom heatmap, #4 labels+search, #3 planner + #25 ring-main,
       #8 N-1 view, #9 storm prep, #51 story opening); Wave 2 (#10
@@ -2558,6 +2959,8 @@ The landmark-art arc this session, and where it's going next:
 
 - [ ] **Map recognisability pass 2** (owner can't model 1M properties; keep it
       sensible/enjoyable): continue tuning until London "reads" at a glance.
+      (left: ONGOING tuning, no fixed end-state — low priority. The map has had several
+      overhaul passes (Wave 8 + the OSM work); keep open as a standing polish item.)
 
 - [x] **Generation footprints to scale (owner, 2026-06-12): "the new
       design for the bulk supply points [is] really good but you
@@ -2632,32 +3035,41 @@ The landmark-art arc this session, and where it's going next:
         placement math). Atlas 4096×3883 ≤ 4096.
 
 - [ ] Car parks gain EV charging load (flagged "in future" by owner).
+      (left: owner-flagged "in future" — genuinely open, low priority.)
 
 - [ ] Town evolution: densification of existing areas (only edge infill today).
+      (left: genuinely open — only edge infill today; low-priority sim depth.)
 
-### Wave 9 — MISSING LANDMARKS + LANDMARK GLEAM + BESPOKE HEATHROW + Heathrow PV/BESS (owner, 2026-06-13)
-- [ ] **Missing landmarks (owner: "I still think many are missing").**
+### Wave 9 — MISSING LANDMARKS + LANDMARK GLEAM + BESPOKE HEATHROW + Heathrow PV/BESS (owner, 2026-06-13) — [x] ALL SHIPPED (reconcile 2026-06-17)
+- [x] **Missing landmarks (owner: "I still think many are missing").**
       Add the heroes map-overhaul §5 identified at true relative positions
       as bespoke art-is-code sprites in the ink-contour style with proper
       multi-tile reservations: Wembley arch, the O2/Dome (Greenwich
       peninsula), Crystal Palace mast, Alexandra Palace, ExCeL/Royal Docks,
       Kew Palm House, BT Tower; and give the Gherkin a real LANDMARK id.
       Register in NAMED_PLACES + the landmark sprite/atlas path. ~6-8 heroes.
-- [ ] **Landmark gleam (owner: "The landmarks dont pop as hard. Can they
+      (done: the Wave 9 landmarks + Olympic Park cluster + the 100-bespoke-heroes London
+      work delivered these and far more — London carries 100 bespoke heroes. See the "Wave 9
+      landmarks + Heathrow" + "Olympic Park" entries above.)
+- [x] **Landmark gleam (owner: "The landmarks dont pop as hard. Can they
       perhaps have a special gleam").** A warm specular highlight (sunset
       gold ~#ffe6b0) baked on the hero sprites + a soft bloom that pulses
       with the day/night glow on the EXISTING bloom layer (a landmarkGleam
       pass on MapRenderer.bloomG; coordinate with grade.ts), plus a
       travelling glint on glass heroes. Reads desktop + phone-landscape,
       survives the softened day/night grade.
-- [ ] **Bespoke Heathrow (owner: "Heathrow looks terrible… its all
+      (done: MapRenderer drawGleam — the warm HERO_POP_TINT colour-pop + steady rim-light
+      on hero sprites (the additive "electricity" bloom was deliberately replaced per the
+      owner's later 06-13 note); plus the per-hero night light-shows in heroLights.ts.)
+- [x] **Bespoke Heathrow (owner: "Heathrow looks terrible… its all
       concrete… specially design heathrow").** A bespoke multi-tile
       concrete-airport stamp: terminal island (terminals, aprons, taxiways,
       satellite piers, control tower, cargo sheds, MSCPs, perimeter road,
       parked aircraft) between two parallel E-W runways; londonMap.ts
       reservation extends/replaces the west AIRPORTS area; air layer keeps
       the real runways.
-- [ ] **Heathrow PV+BESS opportunity (owner: "make opportunity
+      (done: src/render/sprites/landmarkSprites.ts `heathrowTile()` (8×3 concrete stamp).)
+- [x] **Heathrow PV+BESS opportunity (owner: "make opportunity
       specifically for heathrow to get a big pv and bess installation
       application at random point in the game").** A bespoke seeded-RNG
       special connection: at a deterministic point Heathrow raises a BIG
@@ -2665,6 +3077,8 @@ The landmark-art arc this session, and where it's going next:
       the Heathrow scheme, sited at the reservation, handled through the
       normal firm/flex + connection-study flow, surfaced on the news
       banner. Deterministic, once per game.
+      (done: src/sim/events/applications.ts `buildHeathrowScheme` (HEATHROW_PV_MW=80 +
+      HEATHROW_BESS_MW=60), deterministic once per game; tests/heathrow.test.ts.)
 
 ## Done (chronological, latest first)
 
