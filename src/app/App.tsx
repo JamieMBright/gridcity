@@ -237,10 +237,13 @@ export function App() {
             {!isMobile && !inMission && <SearchBox />}
             <MobileChrome />
             {/* the compact desktop path keeps the floating ticker + centred
-                clock cluster (Hud) and the corner widgets */}
+                clock cluster (Hud) and the corner widgets. The minimap +
+                camera bookmarks are hidden in a tutorial (owner: hide
+                non-essential HUD; a one-screen lesson map needs neither) —
+                matching the perimeter HUD's hud:minimap gate. */}
             <Hud compact={compact} />
-            {!isMobile && <Minimap />}
-            {!isMobile && <CameraBookmarks />}
+            {!isMobile && !inMission && <Minimap />}
+            {!isMobile && !inMission && <CameraBookmarks />}
           </>
         ) : (
           // DESKTOP: the unified perimeter HUD. One CSS-grid frame reserves a

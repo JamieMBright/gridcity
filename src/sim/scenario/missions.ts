@@ -93,7 +93,11 @@ export interface MissionUiView {
  *  HUD surfaces use `hud:` keys the buttons/chips opt into:
  *    `hud:inbox`, `hud:bill`, `hud:fleet`, `hud:alerts`, `hud:kpi`,
  *    `hud:balance`, `hud:headroom`, `hud:n1`, `hud:forecast`,
- *    `hud:grid`, `hud:goal`. */
+ *    `hud:grid`, `hud:goal`, `hud:market` (the national price/carbon strip)
+ *    and `hud:minimap` (minimap + camera bookmarks). The last two are
+ *    NON-essential ambient chrome, hidden in every tutorial by default and
+ *    introduced only where a lesson surfaces them — keeping early lessons
+ *    uncluttered (owner: hide non-essential HUD, introduce progressively). */
 export type Unlock = string;
 
 export interface MissionStep {
@@ -614,7 +618,10 @@ export const MISSIONS: Mission[] = [
 
   mission('m5-bill', {
     flexTenders: true,
-    baseUnlocks: ['hud:bill', 'hud:inbox'],
+    // the bill lesson is where national market context (price / carbon /
+    // frequency) starts to matter, so introduce the market ticker here —
+    // progressive HUD disclosure (owner). Earlier lessons stay uncluttered.
+    baseUnlocks: ['hud:bill', 'hud:inbox', 'hud:market'],
     steps: [
       {
         text:
