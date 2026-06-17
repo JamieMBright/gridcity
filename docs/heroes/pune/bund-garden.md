@@ -1,17 +1,17 @@
-# Pune Metro
-*metro, transit · 2022*
+# Bund Garden (Mahatma Gandhi Udyan)
+*garden, riverside · 1869*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "Bund Garden (Mahatma Gandhi Udyan) Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+A riverside garden and promenade beside the bund on the Mula-Mutha, laid out in the 19th century by Sir Jamsetjee Jejeebhoy; lawns, boating, a bandstand and tree-lined walks beside the river at the Camp/Yerawada edge.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **Bund Garden (Mahatma Gandhi Udyan)** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
+- **Type / style:** Victorian riverside.
 - **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.

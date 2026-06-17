@@ -1,18 +1,18 @@
-# Pune Metro
-*metro, transit · 2022*
+# Panshet Dam (Tanajisagar)
+*dam, reservoir · 1961*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "Panshet Dam (Tanajisagar) Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+An earthfill dam on the Ambi river in the Western Ghats south-west of Pune, holding the Tanajisagar reservoir; infamous for its 1961 breach that flooded Pune, since rebuilt. A long dam wall holding a sheet of water amid green hills; a scenic reservoir and watersports spot.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **Panshet Dam (Tanajisagar)** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
-- **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
+- **Type / style:** Earthfill dam.
+- **Footprint:** ~3×3 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.
 - **Massing & features:** derive from the description (towers, domes, shikharas,

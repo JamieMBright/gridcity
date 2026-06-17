@@ -1,17 +1,17 @@
-# Pune Metro
-*metro, transit · 2022*
+# Dagdusheth Halwai Ganpati Temple
+*temple · 1893*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "Dagdusheth Halwai Ganpati Temple Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+Pune's most famous and opulent Ganesh temple, in Budhwar Peth, founded by the sweet-maker Dagdusheth Halwai after losing his son to plague. A richly gilded temple with a towering nagara shikhara over a tall pillared mandap, dense gold ornament and flanking spires; the city's most-visited shrine, dressed in lights and flowers.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **Dagdusheth Halwai Ganpati Temple** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
+- **Type / style:** Maratha, ornate.
 - **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.

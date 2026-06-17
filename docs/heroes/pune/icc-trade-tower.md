@@ -1,17 +1,17 @@
-# Pune Metro
-*metro, transit · 2022*
+# ICC Trade Tower
+*office tower, commercial · 2008*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "ICC Trade Tower Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+The International Convention Centre / ICC Trade Towers on Senapati Bapat (SB) Road by Panchshil Realty — the largest composite trade-and-convention centre in South Asia. Slender mirror-glass office towers of unequal height (~480,000 sq ft) over a glazed podium, a dominant corporate landmark of west Pune's skyline.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **ICC Trade Tower** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
+- **Type / style:** Contemporary glass.
 - **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.

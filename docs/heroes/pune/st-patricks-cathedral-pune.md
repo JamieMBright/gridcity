@@ -1,17 +1,17 @@
-# Pune Metro
-*metro, transit · 2022*
+# St Patrick's Cathedral (Pune)
+*cathedral · 1850*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "St Patrick's Cathedral (Pune) Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+The seat of the Roman Catholic Diocese of Poona, a 19th-century stone Gothic-Revival cathedral in the Camp with a tall nave, pointed lancet windows, buttresses and a front tower with a spire and cross; one of the principal churches of the Cantonment.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **St Patrick's Cathedral (Pune)** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
+- **Type / style:** Gothic Revival.
 - **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.

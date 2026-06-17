@@ -1,18 +1,18 @@
-# Pune Metro
-*metro, transit · 2022*
+# Trishund Mayureshwar Ganpati Mandir
+*temple · 1754*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "Trishund Mayureshwar Ganpati Mandir Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+An ornately carved 1754 Ganesh temple in Somwar Peth, celebrated for its intricate stone facade carved with elephants, a rhinoceros, soldiers and floral motifs, blending Maratha, Malwa and Rajasthani styles. A small but exquisitely sculpted shrine with an underground chamber; one of the most architecturally unusual temples in the city.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **Trishund Mayureshwar Ganpati Mandir** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
-- **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
+- **Type / style:** Maratha, Indo-Islamic.
+- **Footprint:** ~1×1 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.
 - **Massing & features:** derive from the description (towers, domes, shikharas,

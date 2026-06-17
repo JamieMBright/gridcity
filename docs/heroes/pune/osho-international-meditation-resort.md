@@ -1,17 +1,17 @@
-# Pune Metro
-*metro, transit · 2022*
+# Osho International Meditation Resort
+*ashram, auditorium · 1974*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "Osho International Meditation Resort Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+The Osho ashram in Koregaon Park, designed by Hafeez Contractor — famous for a giant black-marble-clad pyramid housing the Osho Auditorium (the nine-storey 'Osho Teerth' meditation hall), set in bamboo gardens around a black reflecting pool. A stark, geometric modern landmark unlike anything else in the city.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **Osho International Meditation Resort** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
+- **Type / style:** Modernist (Hafeez Contractor).
 - **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.

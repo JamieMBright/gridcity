@@ -1,18 +1,18 @@
-# Pune Metro
-*metro, transit · 2022*
+# Maharashtra Cricket Association Stadium (Gahunje)
+*stadium, cricket · 2012*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "Maharashtra Cricket Association Stadium (Gahunje) Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+The MCA International Cricket Stadium at Gahunje (Subrata Roy Sahara Stadium) on the Pune-Mumbai expressway, capacity ~37,000. A modern elliptical bowl with a striking cantilevered fabric roof canopy on masts and floodlight pylons; Pune's premier cricket venue.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **Maharashtra Cricket Association Stadium (Gahunje)** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
-- **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
+- **Type / style:** Contemporary stadium.
+- **Footprint:** ~3×3 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.
 - **Massing & features:** derive from the description (towers, domes, shikharas,
