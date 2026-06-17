@@ -6,8 +6,9 @@ import { getLondonMap } from '../data/londonMap';
 import type { MapRenderer } from '../render/MapRenderer';
 import type { Command } from '../sim/commands';
 import { TERRAIN, ZONE } from '../sim/map/types';
+import { armRenderCrash } from '../ui/CrashCanary';
 import { useAppStore } from './store';
-import { sendCommand, startMission } from './workerBridge';
+import { crashWorker, sendCommand, startMission } from './workerBridge';
 
 export interface EcTestApi {
   tileToScreen(x: number, y: number): { x: number; y: number };
@@ -20,6 +21,11 @@ export interface EcTestApi {
   sendCommand(cmd: Command): void;
   /** Launch a tutorial mission (swaps the map + rebuilds on its scenario). */
   startMission(scenarioId: string): void;
+  /** TEST ONLY: force a React render crash (arms the CrashCanary) to verify
+   *  the ErrorBoundary fallback. Dev-build-only, like the whole hook. */
+  crashRender(): void;
+  /** TEST ONLY: force a sim Web Worker crash to verify worker capture. */
+  crashWorker(): void;
   /** Pin the renderer's atmosphere (time-of-day grade / weather) for
    *  screenshots — render-only, the sim never sees it. No args clears. */
   setAtmosphere(
@@ -44,6 +50,8 @@ export function installTestHook(renderer: MapRenderer): void {
     getState: () => useAppStore.getState(),
     sendCommand: (cmd) => sendCommand(cmd),
     startMission: (scenarioId) => startMission(scenarioId),
+    crashRender: () => armRenderCrash(),
+    crashWorker: () => crashWorker(),
     setAtmosphere: (simTimeMin, weather) => renderer.overrideAtmosphere(simTimeMin, weather),
     openLand: (count) => {
       const out: Array<{ x: number; y: number }> = [];

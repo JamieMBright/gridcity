@@ -363,7 +363,11 @@ function step(): void {
     }
   } catch (err) {
     state.speed = 0;
-    post({ type: 'fatal', message: err instanceof Error ? err.message : String(err) });
+    post({
+      type: 'fatal',
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+    });
   }
 }
 
@@ -568,10 +572,50 @@ async function handleMessage(msg: MainToWorker): Promise<void> {
       case 'requestSave':
         post({ type: 'saveData', data: serialize(state) });
         break;
+      case '__crashTest':
+        // DEV/TEST ONLY: prove the crash-capture path end-to-end. Guarded so
+        // it can never fire in a production build. The throw is caught below
+        // and posted as a 'fatal' the bridge captures (source:'worker').
+        if (import.meta.env.DEV) {
+          throw new Error('__crashTest: deliberate sim worker crash');
+        }
+        break;
     }
   } catch (err) {
-    post({ type: 'fatal', message: err instanceof Error ? err.message : String(err) });
+    post({
+      type: 'fatal',
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+    });
   }
 }
+
+// Top-level safety net: an exception that escapes the message handler (e.g.
+// inside the setInterval tick before step()'s own try, or an async reject)
+// would otherwise vanish or only hit worker.onerror without a stack. Catch it
+// here and post a structured report the bridge captures for self-heal.
+self.addEventListener('error', (ev: ErrorEvent) => {
+  const err = ev.error as unknown;
+  post({
+    type: 'error',
+    message: (err instanceof Error && err.message) || ev.message || 'worker error',
+    stack: err instanceof Error ? err.stack : undefined,
+    kind: 'self.onerror',
+  });
+});
+self.addEventListener('unhandledrejection', (ev: PromiseRejectionEvent) => {
+  const reason = ev.reason as unknown;
+  post({
+    type: 'error',
+    message:
+      reason instanceof Error
+        ? reason.message
+        : typeof reason === 'string'
+          ? reason
+          : 'worker unhandled rejection',
+    stack: reason instanceof Error ? reason.stack : undefined,
+    kind: 'unhandledrejection',
+  });
+});
 
 export {};
