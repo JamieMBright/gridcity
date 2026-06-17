@@ -32,6 +32,7 @@ import { sampleRoute } from '../sim/map/routes';
 import { CUSTOMERS_PER_TILE, HERO_BASE, LANDMARK, type CityMap, type Landmark, type MapAirport, type RouteClass, type Zone } from '../sim/map/types';
 import { COV, type BranchView } from '../sim/tick';
 import { getAtlas } from './atlasCache';
+import { captureError } from '../app/errorLog';
 import { AIR_MAX_BAND, emitFlightArcs, emitPlanes } from './airLayer';
 import {
   deckLiftWorldPx,
@@ -2978,6 +2979,28 @@ export class MapRenderer {
     if (o) s.position.set(s.position.x + o.ox, s.position.y + o.oy - o.headroom);
   }
 
+  /** Build an ImageData defensively. A sprite/hero buffer whose length doesn't
+   *  equal 4*w*h — a malformed bespoke-hero draw, or a stale cached atlas whose
+   *  stored dims/pixels drifted — makes the ImageData ctor throw IndexSizeError,
+   *  which crashed the WHOLE renderer on city load (the London / athens crash).
+   *  Coerce w/h to positive ints, size the buffer to exactly 4*w*h (pad
+   *  transparent / truncate), and report the offending sprite so the bad source
+   *  is findable from production telemetry. Never throws. */
+  private safeImageData(pixels: Uint8ClampedArray<ArrayBuffer>, w: number, h: number, label: string): ImageData {
+    const iw = Math.max(1, Math.floor(w));
+    const ih = Math.max(1, Math.floor(h));
+    const need = iw * ih * 4;
+    if (pixels.length === need) return new ImageData(pixels, iw, ih);
+    captureError({
+      message: `atlas buffer mismatch "${label}": len ${pixels.length} != ${need} (w=${w}, h=${h})`,
+      source: 'manual',
+      extra: { label, w, h, length: pixels.length, need },
+    });
+    const fixed = new Uint8ClampedArray(need);
+    fixed.set(pixels.subarray(0, Math.min(pixels.length, need)));
+    return new ImageData(fixed, iw, ih);
+  }
+
   private async buildTextures(): Promise<void> {
     // bake the atlas in this city's building/terrain colourway. applyCityFabric
     // mutates the global sprite palette BEFORE getAtlas bakes; London ('london'
@@ -2990,7 +3013,7 @@ export class MapRenderer {
     canvas.height = atlas.height;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('no 2d context');
-    ctx.putImageData(new ImageData(atlas.pixels, atlas.width, atlas.height), 0, 0);
+    ctx.putImageData(this.safeImageData(atlas.pixels, atlas.width, atlas.height, 'sheet'), 0, 0);
     const base = Texture.from(canvas);
     base.source.scaleMode = 'linear';
     for (const [name, f] of atlas.frames) {
@@ -3011,7 +3034,7 @@ export class MapRenderer {
       hc.height = hb.h;
       const hctx = hc.getContext('2d');
       if (!hctx) continue;
-      hctx.putImageData(new ImageData(hb.pixels, hb.w, hb.h), 0, 0);
+      hctx.putImageData(this.safeImageData(hb.pixels, hb.w, hb.h, name), 0, 0);
       const tex = Texture.from(hc);
       tex.source.scaleMode = 'linear';
       this.textures.set(name, tex);
