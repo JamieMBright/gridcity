@@ -8,8 +8,11 @@ import { isoDims, swAnchorDims } from './iso';
 import { activeFabric } from './buildingSprites';
 import { bespokeHeroesFor, frameIdFor } from './heroes/registry';
 import {
+  altbauTile,
+  bokaapTile,
   brownstoneTile,
   cairoblockTile,
+  capecottageTile,
   cottageTile,
   councilflatTile,
   factoryTile,
@@ -19,15 +22,25 @@ import {
   hktowerTile,
   newbuildTile,
   officeTile,
+  pebbledashsemiTile,
+  plattenbauTile,
+  polykatoikiaTile,
+  puneflatTile,
   semiTile,
   setbackTile,
+  shikumenTile,
+  shwalkupTile,
   solarFarmTile,
+  sydbungalowTile,
+  sydterraceTile,
   terraceTile,
   tonglauTile,
   towerTile,
+  tynesideflatTile,
   vicshopTile,
   victerraceTile,
   villaTile,
+  wadaTile,
   warehouseTile,
 } from './buildingSprites';
 import {
@@ -288,15 +301,16 @@ function tightBuf(name: string, pixels: Uint8ClampedArray<ArrayBuffer>): [string
   return [name, { pixels: tight, w: c.w, h: c.h, ox: c.ox, oy: c.oy, headroom: c.headroom }];
 }
 
-/** Bake the ACTIVE fabric's bespoke DOMESTIC stock (WP6) to OWN off-atlas
- *  buffers, exactly like the heroes — so a city wears era/region-appropriate
- *  housing WITHOUT bloating the ~3968px shared sheet (the tall NYC/HK towers
- *  are big cells; adding 8–12 to the packed sheet pushed it to ~4090/4096).
- *  Off-atlas, they cost only a per-sprite texture (a few per city, tiled across
- *  the map). Empty for fabrics with no bespoke stock (London, Paris, …) ⇒ those
- *  sheets stay byte-identical. PATTERN for the remaining cities: add a `<city>`
- *  archetype in buildingSprites.ts, register its variants under a new `case`
- *  here, and branch on `map.fabric === '<city>'` in tileChooser.cityStockFor. */
+/** Bake the ACTIVE fabric's bespoke DOMESTIC stock (WP6 + WAVE ζ) to OWN
+ *  off-atlas buffers, exactly like the heroes — so a city wears era/region-
+ *  appropriate housing WITHOUT bloating the ~3968px shared sheet (the tall
+ *  NYC/HK towers are big cells; adding 8–12 to the packed sheet pushed it to
+ *  ~4090/4096). Off-atlas, they cost only a per-sprite texture (a handful per
+ *  city, tiled across the map). Empty for London (and Paris, whose Haussmann
+ *  blocks predate this mechanism and stay in-sheet) ⇒ those sheets stay
+ *  byte-identical. PATTERN for any future city: add a `<city>` archetype in
+ *  buildingSprites.ts, register its variants under a new `case` here, and branch
+ *  on `map.fabric === '<city>'` in tileChooser.cityStockFor. */
 function buildCityStockBufs(): Map<string, HeroBuf> {
   const stock = new Map<string, HeroBuf>();
   const add = (name: string, px: Uint8ClampedArray<ArrayBuffer>): void => {
@@ -317,6 +331,40 @@ function buildCityStockBufs(): Map<string, HeroBuf> {
     case 'cairo':
       // red-brick / concrete-frame walk-ups with unfinished rebar tops + clutter
       for (let i = 0; i < 6; i++) add(`cairoblock_${i}`, cairoblockTile(401 + i, i));
+      break;
+    case 'sydney':
+      // Federation iron-lace verandah terraces + brick-and-tile bungalows
+      for (let i = 0; i < 4; i++) add(`sydterrace_${i}`, sydterraceTile(411 + i, i));
+      for (let i = 0; i < 4; i++) add(`sydbungalow_${i}`, sydbungalowTile(421 + i, i));
+      break;
+    case 'berlin':
+      // ornate stucco Altbau mietshaus blocks + GDR Plattenbau panel slabs
+      for (let i = 0; i < 4; i++) add(`altbau_${i}`, altbauTile(431 + i, i));
+      for (let i = 0; i < 4; i++) add(`plattenbau_${i}`, plattenbauTile(441 + i, i));
+      break;
+    case 'shanghai':
+      // grey-brick shikumen stone-gate lane houses + concrete/glassy walk-ups
+      for (let i = 0; i < 4; i++) add(`shikumen_${i}`, shikumenTile(451 + i, i));
+      for (let i = 0; i < 4; i++) add(`shwalkup_${i}`, shwalkupTile(461 + i, i));
+      break;
+    case 'capetown':
+      // candy-coloured Bo-Kaap flat-roof rows + Cape-Victorian / face-brick cottages
+      for (let i = 0; i < 4; i++) add(`bokaap_${i}`, bokaapTile(471 + i, i));
+      for (let i = 0; i < 4; i++) add(`capecottage_${i}`, capecottageTile(481 + i, i));
+      break;
+    case 'athens':
+      // the ubiquitous pale polykatoikia: deep-balconied concrete-frame flats
+      for (let i = 0; i < 6; i++) add(`polykatoikia_${i}`, polykatoikiaTile(491 + i, i));
+      break;
+    case 'pune':
+      // warm-ochre RCC concrete-frame mid-rise flats + heritage Maratha wadas
+      for (let i = 0; i < 5; i++) add(`puneflat_${i}`, puneflatTile(501 + i, i));
+      for (let i = 0; i < 3; i++) add(`wada_${i}`, wadaTile(507 + i, i));
+      break;
+    case 'northeast':
+      // paired-door Tyneside flats + interwar pebbledash semis under slate
+      for (let i = 0; i < 4; i++) add(`tynesideflat_${i}`, tynesideflatTile(511 + i, i));
+      for (let i = 0; i < 4; i++) add(`pebbledashsemi_${i}`, pebbledashsemiTile(521 + i, i));
       break;
     default:
       break;

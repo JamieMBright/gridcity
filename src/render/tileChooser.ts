@@ -199,19 +199,23 @@ export function groundSpriteFor(map: CityMap, x: number, y: number): string {
   }
 }
 
-/** Bespoke per-city DOMESTIC stock (WP6). Maps a city fabric + zone to the
- *  city's own archetype sprites so each place reads as ITSELF, not recoloured
- *  London terraces. Returns undefined for fabrics with no bespoke stock (London
- *  and the un-converted cities) AND for zones a converted city doesn't override
- *  (civic/industrial/rural/etc.), so the caller falls through to the shared
- *  London logic. The sprite KEYS here are only baked into the atlas when that
- *  fabric is active (atlas.ts buildSpriteCells), so this must agree with which
- *  cities register stock there. Variant blends the ESTATE hash (8×8 block
- *  coherence — whole streets share a family) with a per-tile alternation, the
- *  same texture London/Paris use. TODO(WP6): Sydney (Federation brick +
- *  Queenslander), Berlin (Plattenbau slab + Altbau), Shanghai (lilong +
- *  podium towers), Cape Town (Bo-Kaap row + Cape Dutch), Athens (polykatoikia),
- *  Pune (RCC walk-up), North-East (Tyneside flat + colliery terrace). */
+/** Bespoke per-city DOMESTIC stock (WP6 + WAVE ζ). Maps a city fabric + zone to
+ *  the city's own archetype sprites so each place reads as ITSELF, not recoloured
+ *  London terraces. Returns undefined for fabrics with no bespoke stock (London,
+ *  Paris's non-Haussmann zones) AND for zones a converted city doesn't override
+ *  (civic/industrial/rural/CBD glass/etc.), so the caller falls through to the
+ *  shared London logic. The sprite KEYS here are only baked into the atlas when
+ *  that fabric is active (atlas.ts buildCityStockBufs, off the shared sheet), so
+ *  this must agree with which cities register stock there. Variant blends the
+ *  ESTATE hash (8×8 block coherence — whole streets share a family) with a
+ *  per-tile alternation, the same texture London/Paris use. All 11 non-London
+ *  cities now carry bespoke stock: Paris (Haussmann), New York (brownstone +
+ *  setback), Hong Kong (tower + tong-lau), Cairo (concrete-frame walk-up), and
+ *  WAVE ζ — Sydney (iron-lace terrace + brick-and-tile bungalow), Berlin (Altbau
+ *  mietshaus + Plattenbau slab), Shanghai (shikumen lilong + concrete/glass
+ *  walk-up), Cape Town (Bo-Kaap colour row + Cape-Victorian cottage), Athens
+ *  (polykatoikia), Pune (RCC mid-rise flat + Maratha wada), North-East England
+ *  (Tyneside flat + pebbledash semi). */
 function cityStockFor(
   fabric: CityMap['fabric'],
   zone: number | undefined,
@@ -260,6 +264,93 @@ function cityStockFor(
       void shops;
       if (zone === ZONE.urbanCore || zone === ZONE.urban || zone === ZONE.suburb) {
         return `cairoblock_${(estate + (v % 2)) % 6}`;
+      }
+      return undefined;
+    }
+    case 'sydney': {
+      // inner-suburb iron-lace verandah terraces fill the dense core/urban
+      // fabric; the brick-and-tile bungalow dominates the leafy suburbs. The
+      // glassy harbour CBD keeps the generic supertall mix (London default).
+      if (zone === ZONE.urbanCore || zone === ZONE.urban) {
+        return `sydterrace_${(estate + (v % 2)) % 4}`;
+      }
+      if (zone === ZONE.suburb) {
+        return th % 5 === 0 ? `sydterrace_${(estate + (v % 2)) % 4}` : `sydbungalow_${(estate + (v % 2)) % 4}`;
+      }
+      return undefined;
+    }
+    case 'berlin': {
+      // the ornate stucco Altbau perimeter-block fills the dense inner fabric
+      // (Mitte/Kreuzberg); the GDR Plattenbau panel slab fills the outer estates
+      // (Marzahn). Potsdamer-Platz CBD keeps the generic glass supertalls.
+      void shops;
+      if (zone === ZONE.urbanCore || zone === ZONE.urban) {
+        return `altbau_${(estate + (v % 2)) % 4}`;
+      }
+      if (zone === ZONE.suburb) {
+        return th % 3 === 0 ? `altbau_${(estate + (v % 2)) % 4}` : `plattenbau_${(estate + (v % 2)) % 4}`;
+      }
+      return undefined;
+    }
+    case 'shanghai': {
+      // grey-brick shikumen lane houses fill the dense old core; concrete/glassy
+      // walk-ups fill the broad mid-rise fabric. Lujiazui/Pudong CBD keeps the
+      // generic glass supertalls (the Bund-facing skyline).
+      void shops;
+      if (zone === ZONE.urbanCore) {
+        return th % 5 < 3 ? `shikumen_${(estate + (v % 2)) % 4}` : `shwalkup_${(estate + (v % 2)) % 4}`;
+      }
+      if (zone === ZONE.urban || zone === ZONE.suburb) {
+        return th % 7 === 0 ? `shikumen_${(estate + (v % 2)) % 4}` : `shwalkup_${(estate + (v % 2)) % 4}`;
+      }
+      return undefined;
+    }
+    case 'capetown': {
+      // the candy Bo-Kaap colour rows fill the dense City-Bowl core; Cape-
+      // Victorian / face-brick cottages fill the suburbs. The Foreshore CBD keeps
+      // the generic glass towers.
+      void shops;
+      if (zone === ZONE.urbanCore || zone === ZONE.urban) {
+        return `bokaap_${(estate + (v % 2)) % 4}`;
+      }
+      if (zone === ZONE.suburb) {
+        return th % 4 === 0 ? `bokaap_${(estate + (v % 2)) % 4}` : `capecottage_${(estate + (v % 2)) % 4}`;
+      }
+      return undefined;
+    }
+    case 'athens': {
+      // the pale deep-balconied polykatoikia blankets the WHOLE residential
+      // fabric — near-uniform, like the real Attic basin. The Syntagma/Marousi
+      // CBD keeps the generic glass towers.
+      void shops;
+      if (zone === ZONE.urbanCore || zone === ZONE.urban || zone === ZONE.suburb) {
+        return `polykatoikia_${(estate + (v % 2)) % 6}`;
+      }
+      return undefined;
+    }
+    case 'pune': {
+      // warm-ochre RCC mid-rise flats blanket the residential fabric; heritage
+      // Maratha wadas (carved-timber verandah under red Mangalore-tile) seed the
+      // dense old core (Kasba/Shaniwar Peth). Hinjewadi-style IT CBD keeps glass.
+      void shops;
+      if (zone === ZONE.urbanCore) {
+        return th % 6 === 0 ? `wada_${(estate + (v % 2)) % 3}` : `puneflat_${(estate + (v % 2)) % 5}`;
+      }
+      if (zone === ZONE.urban || zone === ZONE.suburb) {
+        return `puneflat_${(estate + (v % 2)) % 5}`;
+      }
+      return undefined;
+    }
+    case 'northeast': {
+      // the paired-door Tyneside flat fills the dense inner terraced fabric
+      // (Heaton/Byker); interwar pebbledash semis fill the suburbs (Gosforth).
+      // The Quayside/CBD keeps the generic glass towers.
+      void shops;
+      if (zone === ZONE.urbanCore || zone === ZONE.urban) {
+        return `tynesideflat_${(estate + (v % 2)) % 4}`;
+      }
+      if (zone === ZONE.suburb) {
+        return th % 4 === 0 ? `tynesideflat_${(estate + (v % 2)) % 4}` : `pebbledashsemi_${(estate + (v % 2)) % 4}`;
       }
       return undefined;
     }

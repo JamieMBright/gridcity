@@ -821,19 +821,22 @@ export function villaTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 }
 
 // ===========================================================================
-// PER-CITY BESPOKE DOMESTIC STOCK (WP6)
+// PER-CITY BESPOKE DOMESTIC STOCK (WP6 + WAVE ζ)
 // ---------------------------------------------------------------------------
 // Cities stop looking like reskinned London terraces. Each function below is a
 // hand-drawn archetype whose SILHOUETTE + ROOFLINE + PALETTE read as that place
 // at a glance — NOT a recoloured London terrace. They are baked CONDITIONALLY
-// (only when their fabric is active — see atlas.ts buildSpriteCells) so London
-// adds zero frames (byte-identical) and the shared ≤4096px sheet never carries
-// 11 cities' stock at once. They are wired per-fabric in tileChooser.ts exactly
-// like the Paris `haussmann_*` blocks. Pattern to follow for the rest:
+// (only when their fabric is active — see atlas.ts buildCityStockBufs) and ride
+// their OWN off-atlas buffers, so London adds zero frames (byte-identical) and
+// the shared sheet never carries 11 cities' stock at once. They are wired
+// per-fabric in tileChooser.ts exactly like the Paris `haussmann_*` blocks.
+// Pattern to follow for any future city:
 //   1. add a `<city>` archetype fn here that reads the active fabric palette;
-//   2. register it under `if (f === '<city>')` in atlas.ts buildSpriteCells;
-//   3. branch on `map.fabric === '<city>'` in tileChooser.structureSpriteFor.
-// A shared rooftop-clutter helper keeps the flat-roof cities consistent.
+//   2. register its variants under a `case '<city>'` in atlas.buildCityStockBufs;
+//   3. branch on `map.fabric === '<city>'` in tileChooser.cityStockFor.
+// A shared rooftop-clutter helper keeps the flat-roof cities consistent. WAVE ζ
+// added Sydney/Berlin/Shanghai/Cape Town/Athens/Pune/North-East to the original
+// WP6 set (New York/Hong Kong/Cairo; Paris's Haussmann stays in-sheet).
 // ===========================================================================
 
 /** A wood-barrel water tank on a steel-leg frame (NYC), or a black plastic /
@@ -1193,6 +1196,847 @@ export function cairoblockTile(seed: number, variant: number): Uint8ClampedArray
   iso.box(0, v0, 1, v1, H, H + 3, frame, { ink: false, topC: shaded(hex('#9a8568'), 0.05) });
   roofTank(iso, 0.7, 0.4, H + 3, 0.03, 'tank', rng);
   roofDishes(iso, 0.05, 0.6, v0, v1, H + 3, rng, 5);
+  return iso.build();
+}
+
+/**
+ * Bespoke SYDNEY stock — the Federation / Victorian inner-suburb TERRACE with
+ * a cast-IRON-LACE VERANDAH over the footpath. A 2-storey honey-sandstone or
+ * polychrome-brick row; the tell is the lacework-frieze verandah on slender
+ * iron posts shading the front, a corrugated-iron skillion verandah roof, then
+ * the main pitched terracotta-tile roof behind a low parapet, party-wall
+ * chimneys. A row reads as a continuous balconied street wall (Paddington/
+ * Glebe).
+ */
+export function sydterraceTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 38693 + variant * 109 + 17);
+  // honey sandstone, cream render, warm face brick, polychrome brown
+  const wallSets: RGBA[][] = [
+    [BUFF_BRICK, RENDER_CREAM, BRICK_ORANGE],
+    [RENDER_CREAM, BUFF_BRICK, BRICK_RED],
+    [BRICK_RED, BUFF_BRICK, RENDER_CREAM],
+    [BUFF_BRICK, BRICK_ORANGE, BUFF_BRICK],
+  ];
+  const walls = wallSets[variant % 4] ?? wallSets[0]!;
+  const tile = TILE_RED; // terracotta tile roof
+  const iron = hex('#2a2a30'); // black cast-iron lace + posts
+  const lace = lighten(COLORS.white, 0.02); // creamy painted lacework
+  const v0 = 0.12;
+  const v1 = 0.7;
+  const H = 30; // two storeys to the eaves
+  iso.shadow(0, v0, 1, v1, 0.22, 0.22);
+  // three attached houses
+  for (let i = 0; i < 3; i++) {
+    const u0 = i / 3;
+    const u1 = (i + 1) / 3;
+    const wall = walls[i] ?? BUFF_BRICK;
+    iso.box(u0, v0, u1, v1, 0, H, wall);
+    // upper + lower sash windows behind the verandah (set back)
+    iso.windowsLeft(v1, u0 + 0.05, u1 - 0.05, 18, 26, 2, glass(rng, 0.4), COLORS.white);
+    iso.windowsLeft(v1, u0 + 0.05, u1 - 0.05, 4, 12, 2, glass(rng, 0.42), COLORS.white);
+  }
+  // gable-end windows on the right wall of the row
+  iso.windowsRight(1, v0 + 0.08, v1 - 0.08, 5, H - 5, 2, glass(rng, 0.3), COLORS.white);
+  // the TWO-STOREY cast-iron VERANDAH across the whole front — Sydney's tell.
+  // a deck slab at first-floor level, slender posts top and bottom, and a
+  // pierced lacework frieze + balustrade.
+  const vf = v1 + 0.16; // verandah eave line out over the footpath
+  const deck = 14; // first-floor verandah deck height
+  // verandah floor slab + first-floor deck soffit
+  iso.r.poly([P(0, v1, deck), P(1, v1, deck), P(1, vf, deck), P(0, vf, deck)], shaded(lace, 0.08));
+  iso.r.poly([P(0, vf, deck), P(1, vf, deck), P(1, vf, deck - 1.4), P(0, vf, deck - 1.4)], lace);
+  // posts: ground + upper storey
+  for (let u = 0.06; u <= 0.95; u += 0.16) {
+    iso.r.line(P(u, vf, 0), P(u, vf, deck - 1.4), INK_W * 0.7, iron);
+    iso.r.line(P(u, vf, deck), P(u, vf, H - 1), INK_W * 0.7, iron);
+  }
+  // upper lacework frieze valance under the verandah roof + balustrade band
+  iso.r.poly([P(0, vf, H - 1), P(1, vf, H - 1), P(1, vf, H - 5), P(0, vf, H - 5)], alpha(lace, 0.9));
+  for (let u = 0.04; u < 0.99; u += 0.022) {
+    iso.r.line(P(u, vf, H - 1), P(u, vf, H - 4.5), INK_W * 0.4, alpha(iron, 0.55)); // pierced frieze ticks
+  }
+  iso.r.poly([P(0, vf, deck + 4.5), P(1, vf, deck + 4.5), P(1, vf, deck), P(0, vf, deck)], alpha(lace, 0.85));
+  for (let u = 0.04; u < 0.99; u += 0.02) {
+    iso.r.line(P(u, vf, deck + 4.5), P(u, vf, deck + 0.6), INK_W * 0.35, alpha(iron, 0.7)); // balusters
+  }
+  iso.r.line(P(0, vf, deck + 4.5), P(1, vf, deck + 4.5), INK_W * 0.7, iron);
+  // corrugated-iron skillion verandah roof + the main terracotta roof behind
+  iso.r.poly([P(0, v1, H + 3), P(1, v1, H + 3), P(1, vf, H - 1), P(0, vf, H - 1)], lit(hex('#8a8f93'), 0.04));
+  iso.edge(P(0, vf, H - 1), P(1, vf, H - 1), INK_W * 0.7);
+  domesticRoof(iso, 0, v0, 1, v1, H + 3, 12, 'u', tile, walls[0] ?? BUFF_BRICK, rng);
+  // party-wall chimneys with terracotta pots
+  for (const cu of [0.16, 0.5, 0.84]) {
+    const vm = (v0 + v1) / 2;
+    iso.box(cu - 0.025, vm - 0.04, cu + 0.025, vm + 0.04, H + 9, H + 19, darken(walls[0] ?? BUFF_BRICK, 0.12));
+    iso.box(cu - 0.01, vm - 0.02, cu + 0.012, vm, H + 19, H + 23, POT_CLAY, { ink: false });
+  }
+  return iso.build();
+}
+
+/**
+ * Bespoke SYDNEY stock — the post-war brick-and-tile suburban BUNGALOW, the
+ * dominant Sydney house. A single-storey detached cottage in face brick under
+ * a broad HIPPED TERRACOTTA-tile roof with wide eaves, a projecting front
+ * gable-room, a small porch, set in a lawn behind a low front fence. The
+ * sprawling hip + warm terracotta is the suburban tell (vs London's narrow
+ * pitched terraces).
+ */
+export function sydbungalowTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 44351 + variant * 67 + 23);
+  const wall = ([BUFF_BRICK, BRICK_ORANGE, RENDER_CREAM, BRICK_RED] as RGBA[])[variant % 4] ?? BUFF_BRICK;
+  const tile = ([TILE_RED, hex('#9c5238'), TILE_RED, hex('#7a7d80')] as RGBA[])[variant % 4] ?? TILE_RED;
+  const u0 = 0.14;
+  const u1 = 0.66;
+  const v0 = 0.18;
+  const v1 = 0.66;
+  const H = 19; // low single storey
+  iso.shadow(u0, v0, u1 + 0.06, v1 + 0.02, 0.18, 0.2);
+  // main body + broad hipped roof with wide eaves
+  iso.box(u0, v0, u1, v1, 0, H, wall);
+  iso.hip(u0 - 0.04, v0 - 0.04, u1 + 0.04, v1 + 0.04, H, 15, tile);
+  // windows on the street face
+  iso.windowsLeft(v1, u0 + 0.05, u1 - 0.16, 7, 14, 2, glass(rng, 0.42), COLORS.white);
+  // projecting front gable-room (the tell) on the right of the facade
+  const g0 = u1 - 0.02;
+  const g1 = u1 + 0.16;
+  iso.box(g0, v0 + 0.06, g1, v1 + 0.04, 0, H + 2, lighten(wall, 0.04));
+  iso.gable(g0 - 0.02, v0 + 0.04, g1 + 0.02, v1 + 0.06, H + 2, 12, 'v', tile, wall);
+  iso.windowsLeft(v1 + 0.04, g0 + 0.02, g1 - 0.02, 6, 14, 1, glass(rng, 0.45), COLORS.white);
+  // little porch + door between body and gable-room
+  iso.r.poly([P(u1 - 0.1, v1, 11), P(u1 - 0.03, v1, 11), P(u1 - 0.03, v1, 0), P(u1 - 0.1, v1, 0)], darken(wall, 0.4));
+  iso.r.poly([P(u1 - 0.12, v1, 13), P(u1 + 0.0, v1, 13), P(u1 - 0.02, v1 + 0.04, 11), P(u1 - 0.1, v1 + 0.04, 11)], lit(tile, 0.06));
+  // a chimney on the near slope
+  iso.box(u0 + 0.1, (v0 + v1) / 2, u0 + 0.15, (v0 + v1) / 2 + 0.05, H + 12, H + 20, darken(wall, 0.12));
+  // low front fence + lawn shrub
+  iso.box(u0 - 0.04, 0.92, g1, 0.96, 0, 4, shaded(COLORS.white, 0.06));
+  if (rng.chance(0.7)) iso.ball(u0 + 0.02, 0.82, 0.06, 13, COLORS.treeGreen);
+  // paved drive to the plot edge
+  iso.quad(g0 + 0.02, v1 + 0.04, g1 + 0.02, 0.96, 0, alpha(COLORS.pavement, 0.9));
+  return iso.build();
+}
+
+/**
+ * Bespoke BERLIN stock — the ALTBAU MIETSHAUS: the pre-1914 perimeter-block
+ * tenement that defines inner Berlin. A 5–6 storey stuccoed apartment block
+ * built hard to the street, ornate render facade with strong horizontal
+ * string-courses + a heavy cornice, tall windows in a strict grid, a few
+ * projecting Erker bay-oriels and small iron balconies, crowned by a steep
+ * grey MANSARD with dormers. Reads as a continuous, dignified street wall —
+ * taller, more ornate, and flat-fronted vs London's bay-fronted brick.
+ */
+export function altbauTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 39041 + variant * 127 + 19);
+  // grey-beige / ochre / pale-green Berlin stucco
+  const stoneSet: RGBA[] = [RENDER_CREAM, hex('#c2b58e'), hex('#b9a578'), hex('#aeb0a6'), hex('#c8bfa8'), hex('#cfc9bb')];
+  const stone = stoneSet[variant % stoneSet.length] ?? stoneSet[0]!;
+  const zinc = SLATE; // grey zinc/slate mansard
+  const band = darken(stone, 0.14); // string-course shadow line
+  const iron = hex('#3a3a40');
+  const frame = lighten(COLORS.white, 0.02);
+  const u0 = 0;
+  const u1 = 1;
+  const v0 = 0.08;
+  const v1 = 0.84;
+  const floors = 5 + (variant % 2); // 5–6 storeys
+  const fh = 8.8;
+  const H = Math.round(10 + floors * fh); // cornice height
+  const shop = variant % 3 === 0;
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.24);
+  iso.box(u0, v0, u1, v1, 0, H, stone);
+  // tall ground-floor (Hochparterre) sill line
+  iso.edge(P(u0, v1, fh + 3), P(u1, v1, fh + 3), INK_W * 0.6, alpha(INK, 0.5));
+  // horizontal string-courses between floors (the Berlin Gliederung)
+  for (let f = 1; f <= floors; f++) {
+    const z = 10 + f * fh;
+    iso.r.line(P(u0, v1, z), P(u1, v1, z), INK_W * 0.6, alpha(band, 0.9));
+    iso.r.line(P(u1, v0, z), P(u1, v1, z), INK_W * 0.6, alpha(band, 0.9));
+  }
+  // regular tall windows on both visible faces
+  for (let f = 0; f < floors; f++) {
+    const zb = 12 + f * fh + 1.2;
+    const zt = 12 + f * fh + fh - 1.2;
+    iso.windowsLeft(v1, u0 + 0.05, u1 - 0.05, zb, zt, 5, glass(rng, 0.42), frame);
+    iso.windowsRight(u1, v0 + 0.05, v1 - 0.05, zb, zt, 4, glass(rng, 0.38), frame);
+  }
+  // a projecting Erker bay-oriel running the upper floors on the left face
+  const e0 = u0 + 0.34;
+  const e1 = u0 + 0.5;
+  iso.box(e0, v1 - 0.001, e1, v1 + 0.045, fh + 3, H - fh, lighten(stone, 0.05));
+  for (let f = 1; f < floors; f++) {
+    const z = 10 + f * fh + 1;
+    iso.windowsLeft(v1 + 0.045, e0 + 0.012, e1 - 0.012, z, z + fh - 2, 2, glass(rng, 0.45), frame);
+  }
+  // small iron balconies on a couple of floors
+  for (const f of [2, floors - 1]) {
+    if (f < 1 || f >= floors) continue;
+    const z = 10 + f * fh;
+    drawBalcony(iso, u0 + 0.06, u0 + 0.26, v1, z, iron, frame);
+    drawBalcony(iso, u1 - 0.28, u1 - 0.06, v1, z, iron, frame);
+  }
+  // ground-floor shop on some blocks (the Berlin Eckkneipe / Späti)
+  if (shop) {
+    iso.windowsLeft(v1, u0 + 0.05, u1 - 0.05, 1.5, fh + 1, 5, COLORS.glassLit, frame);
+    const awn = ([COLORS.orange, hex('#3f8f8a'), hex('#b5485f')] as RGBA[])[(seed + variant) % 3]!;
+    iso.r.poly([P(u0 + 0.04, v1, fh + 2.4), P(u1 - 0.04, v1, fh + 2.4), P(u1 - 0.04, v1, fh + 1), P(u0 + 0.04, v1, fh + 1)], awn);
+  }
+  // heavy crowning cornice
+  iso.box(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, H - 2, H + 2, lighten(stone, 0.06), { topC: top(stone, 0.3) });
+  iso.edge(P(u0, v1 + 0.02, H + 2), P(u1, v1 + 0.02, H + 2), INK_W * 0.8);
+  // the steep grey MANSARD with dormers (a minority of blocks are flat-roofed)
+  const flatTop = variant % 4 === 3;
+  if (flatTop) {
+    iso.box(u0, v0, u1, v1, H + 2, H + 5, stone, { ink: false, topC: shaded(zinc, 0.06) });
+  } else {
+    const mr = 14 + (variant % 3) * 4;
+    const ui = 0.16;
+    const vi = 0.12;
+    const zT = H + mr;
+    iso.r.poly([P(u0, v1, H), P(u1, v1, H), P(u1 - ui, v1 - vi, zT), P(u0 + ui, v1 - vi, zT)], shaded(zinc, 0.16));
+    iso.r.poly([P(u1, v0, H), P(u1, v1, H), P(u1 - ui, v1 - vi, zT), P(u1 - ui, v0 + vi, zT)], lit(zinc, 0.05));
+    iso.r.polyline([P(u0, v1, H), P(u0 + ui, v1 - vi, zT), P(u1 - ui, v1 - vi, zT), P(u1 - ui, v0 + vi, zT), P(u1, v0, H)], INK_W, INK);
+    iso.quad(u0 + ui, v0 + vi, u1 - ui, v1 - vi, zT, lighten(zinc, 0.1));
+    // dormer windows on the near mansard slope
+    for (const du of [0.2, 0.45, 0.7]) {
+      const dz = H + mr * 0.42;
+      iso.box(du, v1 - vi - 0.04, du + 0.07, v1 - vi + 0.02, dz, dz + 5, lighten(stone, 0.08), { ink: false });
+      iso.windowsLeft(v1 - vi + 0.02, du + 0.012, du + 0.058, dz + 1, dz + 4.5, 1, glass(rng, 0.5), frame);
+    }
+  }
+  return iso.build();
+}
+
+/**
+ * Bespoke BERLIN stock — the PLATTENBAU: the GDR-era prefab concrete-panel
+ * slab (WBS 70 / Plattenbau) that fills the outer estates (Marzahn, Lichten-
+ * berg). A long, low-rise-to-mid slab whose entire facade is a relentless GRID
+ * of identical precast PANELS — the visible panel SEAMS are the whole tell —
+ * with uniform windows, thin spandrel bands, recessed loggia-balconies, a flat
+ * roof. Pale grey/sand render over the concrete, an occasional painted accent
+ * panel from a post-reunification refurb.
+ */
+export function plattenbauTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 46399 + variant * 83 + 29);
+  // washed concrete greys + a sand and a refurb-pastel skin
+  const skinSet: RGBA[] = [hex('#c4c2ba'), hex('#b6b4ab'), hex('#cbc3ac'), hex('#aeb4b2'), hex('#c8c8c2'), hex('#bcbab0')];
+  const skin = skinSet[variant % skinSet.length] ?? skinSet[0]!;
+  // a single refurb accent hue used on a band of panels
+  const accent = ([hex('#d98a4a'), hex('#5fa3a0'), hex('#c75d6e'), hex('#6f9a5a')] as RGBA[])[variant % 4]!;
+  const seam = darken(skin, 0.16); // the precast-panel joint line
+  const u0 = 0.07;
+  const u1 = 0.93;
+  const v0 = 0.22;
+  const v1 = 0.74;
+  const floors = 5 + (variant % 3); // 5–7 storeys
+  const fh = 10;
+  const H = floors * fh + 3;
+  const panelsU = 6; // precast panels across the long face
+  const panelsV = 4;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.24);
+  iso.box(u0, v0, u1, v1, 0, H, skin);
+  // the PANEL GRID — horizontal floor-slab seams + vertical panel-joint seams,
+  // on both visible faces. This relentless grid IS the Plattenbau.
+  for (let f = 0; f <= floors; f++) {
+    const z = f * fh;
+    iso.r.line(P(u0, v1, z), P(u1, v1, z), INK_W * 0.5, alpha(seam, 0.85));
+    iso.r.line(P(u1, v0, z), P(u1, v1, z), INK_W * 0.5, alpha(seam, 0.85));
+  }
+  for (let p = 0; p <= panelsU; p++) {
+    const u = u0 + ((u1 - u0) * p) / panelsU;
+    iso.r.line(P(u, v1, 0), P(u, v1, H), INK_W * 0.45, alpha(seam, 0.7));
+  }
+  for (let p = 0; p <= panelsV; p++) {
+    const v = v0 + ((v1 - v0) * p) / panelsV;
+    iso.r.line(P(u1, v, 0), P(u1, v, H), INK_W * 0.45, alpha(seam, 0.7));
+  }
+  // a refurb ACCENT: one vertical stripe of panels repainted (very GDR-refurb)
+  const ap = 1 + (seed % (panelsU - 2));
+  const au0 = u0 + ((u1 - u0) * ap) / panelsU;
+  const au1 = u0 + ((u1 - u0) * (ap + 1)) / panelsU;
+  iso.r.poly([P(au0, v1, H - 1), P(au1, v1, H - 1), P(au1, v1, 1), P(au0, v1, 1)], alpha(accent, 0.8));
+  // uniform windows, one per panel per floor, with recessed loggia-balconies
+  for (let f = 0; f < floors; f++) {
+    const zb = f * fh + 2.5;
+    const zt = f * fh + fh - 2;
+    iso.windowsLeft(v1, u0 + 0.02, u1 - 0.02, zb, zt, panelsU, glass(rng, 0.4), undefined);
+    iso.windowsRight(u1, v0 + 0.02, v1 - 0.02, zb, zt, panelsV, glass(rng, 0.36), undefined);
+    // recessed loggia balcony on a couple of bays each floor (darker reveal)
+    if (f >= 1) {
+      const lu = u0 + ((u1 - u0) * ((f + ap) % panelsU)) / panelsU;
+      iso.r.poly([P(lu + 0.01, v1, zt), P(lu + ((u1 - u0) / panelsU) - 0.01, v1, zt), P(lu + ((u1 - u0) / panelsU) - 0.01, v1, zb), P(lu + 0.01, v1, zb)], shaded(skin, 0.18));
+      iso.r.line(P(lu + 0.01, v1, zb + 3), P(lu + ((u1 - u0) / panelsU) - 0.01, v1, zb + 3), INK_W * 0.5, alpha(COLORS.white, 0.7));
+    }
+  }
+  // flat roof: a thin parapet, a stair/lift overrun, a couple of vent stacks
+  iso.box(u0, v0, u1, v1, H, H + 2.5, skin, { ink: false, topC: shaded(hex('#5b6068'), 0.05) });
+  iso.box(u0 + 0.1, v0 + 0.08, u0 + 0.24, v0 + 0.2, H + 2.5, H + 12, shaded(skin, 0.1)); // lift overrun
+  for (const vu of [0.55, 0.74]) {
+    iso.box(vu, v0 + 0.1, vu + 0.04, v0 + 0.16, H + 2.5, H + 8, COLORS.steelDark, { ink: false });
+  }
+  return iso.build();
+}
+
+/**
+ * Bespoke SHANGHAI stock — the SHIKUMEN lilong (石库门) lane house, the
+ * vernacular that fills old Shanghai. A 2–3 storey grey-brick terrace row in
+ * tight lanes; the tell is the carved STONE-GATE doorway (a heavy pale stone
+ * lintel + a small triangular/segmental pediment over a dark double timber
+ * door) repeating along the row, red-brick string-course banding on the grey
+ * brick, a low flat parapet roof, the odd timber shutter. Reads as a dense,
+ * dark-grey, low row punctuated by pale stone gates — unmistakably not London.
+ */
+export function shikumenTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 50261 + variant * 103 + 19);
+  // qing-brick grey, weathered grey-brown, a render-skinned variant
+  const greySet: RGBA[] = [hex('#8e8a82'), hex('#7e7a72'), hex('#9a9690'), hex('#86827a')];
+  const brickBand = hex('#9c5a44'); // red-brick decorative banding
+  const stone = hex('#cabfa6'); // pale gate stone
+  const v0 = 0.14;
+  const v1 = 0.74;
+  const floors = 2 + (variant % 2); // 2–3 storeys
+  const fh = 12;
+  const H = floors * fh + 3;
+  iso.shadow(0, v0, 1, v1, 0.2, 0.22);
+  // three attached lane-houses
+  for (let i = 0; i < 3; i++) {
+    const u0 = i / 3;
+    const u1 = (i + 1) / 3;
+    const grey = greySet[(variant + i) % greySet.length] ?? greySet[0]!;
+    iso.box(u0, v0, u1, v1, 0, H, grey);
+    // red-brick string-course banding between storeys (the shikumen trim)
+    for (let f = 1; f < floors; f++) {
+      const z = f * fh;
+      iso.r.poly([P(u0, v1, z + 1), P(u1, v1, z + 1), P(u1, v1, z - 0.8), P(u0, v1, z - 0.8)], brickBand);
+    }
+    // upper sash/timber windows
+    for (let f = 1; f < floors; f++) {
+      const zb = f * fh + 2;
+      const zt = f * fh + fh - 2;
+      iso.windowsLeft(v1, u0 + 0.05, u1 - 0.05, zb, zt, 2, glass(rng, 0.4), lighten(stone, 0.06));
+    }
+    // the STONE GATE: a pale stone surround + small pediment over a dark door
+    const du = (u0 + u1) / 2;
+    const gw = 0.07;
+    // surround
+    iso.r.poly([P(du - gw, v1, fh - 1), P(du + gw, v1, fh - 1), P(du + gw, v1, 0), P(du - gw, v1, 0)], stone);
+    // dark double-leaf timber door recessed within
+    iso.r.poly([P(du - gw * 0.6, v1, fh - 3), P(du + gw * 0.6, v1, fh - 3), P(du + gw * 0.6, v1, 0), P(du - gw * 0.6, v1, 0)], hex('#3a2e28'));
+    iso.r.line(P(du, v1, fh - 3), P(du, v1, 0), INK_W * 0.5, alpha(INK, 0.7));
+    // segmental/triangular stone pediment cap over the gate
+    iso.r.poly([P(du - gw - 0.012, v1, fh - 1), P(du + gw + 0.012, v1, fh - 1), P(du, v1, fh + 3)], lighten(stone, 0.05));
+    iso.edge(P(du - gw - 0.012, v1, fh - 1), P(du, v1, fh + 3), INK_W * 0.6);
+    iso.edge(P(du, v1, fh + 3), P(du + gw + 0.012, v1, fh - 1), INK_W * 0.6);
+  }
+  iso.windowsRight(1, v0 + 0.08, v1 - 0.08, 5, H - 5, floors >= 3 ? 3 : 2, glass(rng, 0.3), lighten(stone, 0.06));
+  // low flat parapet roof, a couple of clothes-drying poles + a tank
+  iso.box(0, v0, 1, v1, H, H + 3, greySet[0]!, { ink: false, topC: shaded(hex('#6a665e'), 0.05) });
+  iso.r.poly([P(0, v1, H + 4), P(1, v1, H + 4), P(1, v1, H + 3), P(0, v1, H + 3)], lighten(stone, 0.04));
+  for (const pu of [0.3, 0.66]) {
+    iso.r.line(P(pu, 0.4, H + 3), P(pu, 0.5, H + 3), INK_W * 0.5, alpha(INK, 0.6)); // drying pole
+  }
+  roofTank(iso, 0.8, 0.42, H + 3, 0.028, 'tank', rng);
+  return iso.build();
+}
+
+/**
+ * Bespoke SHANGHAI stock — the mid-century concrete WALK-UP graduating to a
+ * newer glassy mid-rise: the workhorse residential block that fills modern
+ * Shanghai between the lilong and the supertalls. A flat-topped 6–10 storey
+ * slab, pale render or tiled concrete, continuous projecting balcony lines
+ * (often enclosed/glazed), tight window grid, a glassier curtain-wall variant
+ * with a jade/teal tint and a small crown for the post-2000 stock.
+ */
+export function shwalkupTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 57163 + variant * 149 + 23);
+  const glassy = variant % 2 === 1; // odd variants are the newer curtain-wall
+  const skinSet: RGBA[] = [hex('#cfcabb'), hex('#bcb4a2'), hex('#c2c4c0'), hex('#b4b0a6')];
+  const skin = skinSet[variant % skinSet.length] ?? skinSet[0]!;
+  const u0 = 0.16;
+  const u1 = 0.84;
+  const v0 = 0.26;
+  const v1 = 0.66;
+  const floors = 6 + (variant % 5); // 6–10 storeys
+  const fh = 9.5;
+  const H = floors * fh + 3;
+  iso.shadow(u0, v0, u1, v1, 0.28, 0.26);
+  iso.box(u0, v0, u1, v1, 0, H, skin);
+  if (glassy) {
+    // a jade/teal-tinted curtain wall: full-height glazed grid + spandrel bands
+    for (let f = 0; f < floors; f++) {
+      const zb = f * fh + 2;
+      const zt = f * fh + fh - 1.5;
+      iso.windowsLeft(v1, u0 + 0.02, u1 - 0.02, zb, zt, 5, alpha(COLORS.glassSky, 0.92), COLORS.steel);
+      iso.windowsRight(u1, v0 + 0.02, v1 - 0.02, zb, zt, 3, alpha(COLORS.glassSunset, 0.85), COLORS.steel);
+      iso.r.line(P(u0, v1, zt + 1), P(u1, v1, zt + 1), INK_W * 0.4, alpha(shaded(skin, 0.1), 0.7));
+    }
+    // a small crown + a slim mast
+    iso.box(u0 + 0.04, v0 + 0.04, u1 - 0.04, v1 - 0.04, H, H + 6, shaded(skin, 0.06), { topC: shaded(hex('#5b6068'), 0.06) });
+    iso.box((u0 + u1) / 2 - 0.01, (v0 + v1) / 2 - 0.01, (u0 + u1) / 2 + 0.01, (v0 + v1) / 2 + 0.01, H + 6, H + 18, COLORS.steelDark, { ink: false });
+  } else {
+    // the older concrete walk-up: continuous projecting balcony lines, some
+    // glazed-in, a tight punched-window grid
+    for (let f = 0; f < floors; f++) {
+      const z = f * fh;
+      const zb = z + 2;
+      const zt = z + fh - 2;
+      iso.windowsLeft(v1, u0 + 0.04, u1 - 0.04, zb, zt, 4, glass(rng, 0.42), COLORS.white);
+      iso.windowsRight(u1, v0 + 0.04, v1 - 0.04, zb, zt, 3, glass(rng, 0.36), COLORS.white);
+      if (f >= 1) {
+        // a continuous balcony slab + rail; some bays glazed-in (lighter infill)
+        iso.r.poly([P(u0, v1 + 0.03, z + 0.6), P(u1, v1 + 0.03, z + 0.6), P(u1, v1, z + 0.6), P(u0, v1, z + 0.6)], lit(skin, 0.06));
+        iso.r.line(P(u0, v1 + 0.03, z + 4.5), P(u1, v1 + 0.03, z + 4.5), INK_W * 0.5, alpha(COLORS.white, 0.8));
+        if (rng.chance(0.5)) {
+          const bu = rng.range(u0 + 0.05, u1 - 0.18);
+          iso.r.poly([P(bu, v1 + 0.03, z + fh - 2), P(bu + 0.14, v1 + 0.03, z + fh - 2), P(bu + 0.14, v1 + 0.03, z + 1), P(bu, v1 + 0.03, z + 1)], alpha(glass(rng, 0.5), 0.7));
+        }
+      }
+    }
+    iso.box(u0, v0, u1, v1, H, H + 3, skin, { ink: false, topC: shaded(hex('#6a665e'), 0.05) });
+    iso.box(u0 + 0.08, v0 + 0.06, u0 + 0.2, v0 + 0.16, H + 3, H + 12, shaded(skin, 0.08)); // stair head
+    roofTank(iso, u1 - 0.12, v0 + 0.12, H + 3, 0.03, 'tank', rng);
+  }
+  return iso.build();
+}
+
+/**
+ * Bespoke CAPE TOWN stock — the BO-KAAP colour row. A row of single-storey
+ * flat-roofed cottages painted in vivid candy hues (the city's signature),
+ * each with a low parapet, a raised stoep (front step/platform) reached by a
+ * couple of steps, tall multi-pane sash windows with shutters, a panelled
+ * door, and the odd pitched-roof house breaking the line. The riot of
+ * saturated wall colour against the white trim is the unmistakable tell.
+ */
+export function bokaapTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 51407 + variant * 113 + 17);
+  // the candy hues — pull straight from the city's bright wall rotation so the
+  // row reads as the Bo-Kaap palette (turquoise, ochre, pink, green, blue…)
+  const hues: RGBA[] = [
+    wallColor(variant), wallColor(variant + 2), wallColor(variant + 4), wallColor(variant + 1),
+  ];
+  const trim = lighten(COLORS.white, 0.02);
+  const v0 = 0.14;
+  const v1 = 0.72;
+  const H = 22; // single storey, tall for the era
+  iso.shadow(0, v0, 1, v1, 0.2, 0.22);
+  for (let i = 0; i < 3; i++) {
+    const u0 = i / 3;
+    const u1 = (i + 1) / 3;
+    const hue = hues[i % hues.length] ?? hues[0]!;
+    const pitched = (variant + i) % 4 === 3; // a minority break the flat line
+    iso.box(u0, v0, u1, v1, 0, H, hue);
+    // a white plinth band + cornice band (the crisp Cape trim)
+    iso.r.poly([P(u0, v1, 4), P(u1, v1, 4), P(u1, v1, 2.5), P(u0, v1, 2.5)], trim);
+    iso.r.poly([P(u0, v1, H), P(u1, v1, H), P(u1, v1, H - 2.5), P(u0, v1, H - 2.5)], trim);
+    // tall multi-pane sash windows with shutters either side
+    iso.windowsLeft(v1, u0 + 0.06, u1 - 0.16, 7, 16, 1, glass(rng, 0.45), trim);
+    for (const su of [u0 + 0.045, u0 + 0.145]) {
+      iso.r.poly([P(su, v1, 16), P(su + 0.012, v1, 16), P(su + 0.012, v1, 7), P(su, v1, 7)], shaded(hue, 0.16));
+    }
+    // panelled front door + the raised STOEP (platform + 2 steps) before it
+    const du = u1 - 0.085;
+    iso.r.poly([P(du - 0.04, v1, 15), P(du + 0.04, v1, 15), P(du + 0.04, v1, 0), P(du - 0.04, v1, 0)], darken(hue, 0.4));
+    iso.r.poly([P(du - 0.05, v1, 16), P(du + 0.05, v1, 16), P(du + 0.05, v1, 15), P(du - 0.05, v1, 15)], trim);
+    for (let s = 0; s < 2; s++) {
+      const sv = v1 + 0.02 + s * 0.025;
+      const sz = 4 - s * 2;
+      iso.r.poly([P(du - 0.06, sv, sz), P(du + 0.06, sv, sz), P(du + 0.06, sv + 0.025, sz), P(du - 0.06, sv + 0.025, sz)], lighten(trim, 0.02));
+    }
+    if (pitched) {
+      domesticRoof(iso, u0 - 0.005, v0 - 0.005, u1 + 0.005, v1 + 0.005, H, 9, 'u', TILE_RED, hue, rng);
+    } else {
+      // flat parapet roof
+      iso.box(u0, v0, u1, v1, H, H + 2.5, hue, { ink: false, topC: shaded(hex('#6a665e'), 0.06) });
+    }
+  }
+  iso.windowsRight(1, v0 + 0.1, v1 - 0.1, 6, H - 4, 1, glass(rng, 0.3), trim);
+  return iso.build();
+}
+
+/**
+ * Bespoke CAPE TOWN stock — the Cape-Victorian / face-brick suburban house.
+ * Two looks by variant: (a) a white-render VICTORIAN semi-detached villa with
+ * a "broekie-lace" cast-iron verandah and a pitched corrugated-iron roof, the
+ * Woodstock/Observatory tell; (b) a darker FACE-BRICK walk-up cottage. Set in
+ * a small garden behind a low wall, under the bright Cape light.
+ */
+export function capecottageTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 58171 + variant * 131 + 23);
+  const faceBrick = variant % 2 === 1;
+  const wall = faceBrick
+    ? (([BRICK_RED, BRICK_BROWN] as RGBA[])[variant % 2] ?? BRICK_RED)
+    : lighten(COLORS.white, 0.02); // whitewashed render
+  const iron = hex('#2c2c32');
+  const u0 = 0.12;
+  const u1 = 0.7;
+  const v0 = 0.16;
+  const v1 = 0.64;
+  const H = faceBrick ? 26 : 22;
+  iso.shadow(u0, v0, u1 + 0.04, v1 + 0.02, 0.18, 0.2);
+  iso.box(u0, v0, u1, v1, 0, H, wall);
+  // corrugated-iron pitched roof (grey) — wide, low pitch
+  const roofC = hex('#7a7d80');
+  iso.gable(u0 - 0.02, v0 - 0.02, u1 + 0.02, v1 + 0.02, H, 12, 'u', roofC, wall);
+  // window(s) on the street face
+  iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, H - 10, H - 2, 2, glass(rng, 0.42), COLORS.white);
+  // a single-storey verandah across the front on slender iron posts, with a
+  // pierced "broekie-lace" valance (the Cape-Victorian tell)
+  const vf = v1 + 0.14;
+  const vH = 13;
+  iso.r.poly([P(u0, v1, vH), P(u1, v1, vH), P(u1, vf, vH - 1.5), P(u0, vf, vH - 1.5)], lit(roofC, 0.04)); // skillion verandah roof
+  for (let u = u0 + 0.05; u <= u1 - 0.02; u += 0.14) {
+    iso.r.line(P(u, vf, 0), P(u, vf, vH - 1.5), INK_W * 0.7, iron);
+  }
+  // lace valance band
+  iso.r.poly([P(u0, vf, vH - 1.5), P(u1, vf, vH - 1.5), P(u1, vf, vH - 4.5), P(u0, vf, vH - 4.5)], alpha(lighten(COLORS.white, 0.02), 0.9));
+  for (let u = u0 + 0.02; u < u1; u += 0.02) {
+    iso.r.line(P(u, vf, vH - 1.5), P(u, vf, vH - 4), INK_W * 0.4, alpha(iron, 0.55));
+  }
+  // door behind the verandah
+  iso.r.poly([P(u1 - 0.12, v1, 11), P(u1 - 0.05, v1, 11), P(u1 - 0.05, v1, 0), P(u1 - 0.12, v1, 0)], darken(wall, faceBrick ? 0.3 : 0.5));
+  // chimney + a garden shrub behind a low wall
+  iso.box(u0 + 0.08, (v0 + v1) / 2, u0 + 0.12, (v0 + v1) / 2 + 0.04, H + 10, H + 18, faceBrick ? darken(wall, 0.12) : shaded(roofC, 0.1));
+  iso.box(u0 - 0.04, 0.92, u1 + 0.04, 0.96, 0, 4, faceBrick ? shaded(wall, 0.08) : shaded(COLORS.white, 0.06));
+  if (rng.chance(0.7)) iso.ball(u0 + 0.02, 0.82, 0.06, 13, COLORS.treeGreen);
+  return iso.build();
+}
+
+/**
+ * Bespoke ATHENS stock — the POLYKATOIKIA (πολυκατοικία), the concrete-frame
+ * apartment block that IS modern Athens. A near-uniform 5–7 storey block in
+ * pale render, built wall-to-wall; the tell is the relentless rhythm of deep
+ * CANTILEVERED BALCONIES running the full width of every floor, set behind
+ * slim railings, many shaded by bright retractable AWNINGS (tendes), with a
+ * recessed top-floor (retiré) and a rooftop pergola/water heater. A street of
+ * them reads pale, flat-topped and balconied — never London terraces.
+ */
+export function polykatoikiaTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 52529 + variant * 137 + 19);
+  // pale renders: white, cream, pale grey, soft ochre
+  const renderSet: RGBA[] = [hex('#ece6d6'), hex('#e4dcc8'), hex('#d8cdb4'), hex('#dfdacb'), hex('#d0c3a4'), hex('#e8dcc0')];
+  const skin = renderSet[variant % renderSet.length] ?? renderSet[0]!;
+  const rail = hex('#cfc8ba'); // pale balcony balustrade
+  const slab = shaded(skin, 0.06); // the cantilevered balcony soffit
+  const awnHues: RGBA[] = [hex('#c4502f'), hex('#3f7f8a'), hex('#d8b24a'), hex('#5e7a45'), hex('#b5485f')];
+  const u0 = 0.08;
+  const u1 = 0.92;
+  const v0 = 0.12;
+  const v1 = 0.7;
+  const floors = 5 + (variant % 3); // 5–7 storeys
+  const fh = 9.5;
+  const H = floors * fh + 3;
+  iso.shadow(u0, v0, u1, v1, 0.24, 0.24);
+  iso.box(u0, v0, u1, v1, 0, H, skin);
+  // ground floor: a recessed pilotis/parking level or a shopfront band
+  const shop = variant % 3 === 2;
+  if (shop) {
+    iso.windowsLeft(v1, u0 + 0.04, u1 - 0.04, 1.5, fh - 1.5, 4, COLORS.glassLit, COLORS.white);
+  } else {
+    iso.r.poly([P(u0 + 0.04, v1, fh - 1.5), P(u1 - 0.04, v1, fh - 1.5), P(u1 - 0.04, v1, 1), P(u0 + 0.04, v1, 1)], shaded(skin, 0.12));
+  }
+  // every upper floor: a full-width recessed window band + a deep cantilevered
+  // balcony slab projecting in front of it, slim railings, sometimes an awning
+  for (let f = 1; f < floors; f++) {
+    const z = f * fh;
+    const recessed = f === floors - 1; // the top floor steps back (retiré)
+    const bu0 = recessed ? u0 + 0.1 : u0;
+    const bu1 = recessed ? u1 - 0.1 : u1;
+    // window band behind the balcony
+    iso.windowsLeft(v1, bu0 + 0.04, bu1 - 0.04, z + 1.5, z + fh - 2.5, 4, glass(rng, 0.42), COLORS.white);
+    // the cantilevered slab (projects past the facade) + its shaded underside
+    const out = v1 + 0.06;
+    iso.r.poly([P(bu0, v1, z + 0.4), P(bu1, v1, z + 0.4), P(bu1, out, z + 0.4), P(bu0, out, z + 0.4)], lit(slab, 0.04));
+    iso.r.poly([P(bu0, out, z + 0.4), P(bu1, out, z + 0.4), P(bu1, out, z - 1.4), P(bu0, out, z - 1.4)], shaded(slab, 0.1));
+    iso.edge(P(bu0, out, z + 0.4), P(bu1, out, z + 0.4), INK_W * 0.6, alpha(INK, 0.6));
+    // slim railing band
+    iso.r.poly([P(bu0, out, z + 4.5), P(bu1, out, z + 4.5), P(bu1, out, z + 0.6), P(bu0, out, z + 0.6)], alpha(rail, 0.55));
+    iso.r.line(P(bu0, out, z + 4.5), P(bu1, out, z + 4.5), INK_W * 0.55, alpha(shaded(rail, 0.2), 0.9));
+    for (let u = bu0 + 0.03; u < bu1; u += 0.045) {
+      iso.r.line(P(u, out, z + 4.5), P(u, out, z + 0.8), INK_W * 0.3, alpha(shaded(rail, 0.2), 0.6));
+    }
+    // a bright awning over part of the balcony on some floors
+    if (rng.chance(0.5)) {
+      const aw = awnHues[(seed + f) % awnHues.length]!;
+      const au0 = rng.range(bu0 + 0.02, bu0 + 0.2);
+      const au1 = Math.min(bu1 - 0.02, au0 + rng.range(0.22, 0.4));
+      iso.r.poly([P(au0, v1, z + fh - 1.5), P(au1, v1, z + fh - 1.5), P(au1, out + 0.02, z + fh - 4), P(au0, out + 0.02, z + fh - 4)], aw);
+      iso.edge(P(au0, out + 0.02, z + fh - 4), P(au1, out + 0.02, z + fh - 4), INK_W * 0.5);
+    }
+  }
+  // gable-end (party wall) windows on the right face
+  iso.windowsRight(u1, v0 + 0.06, v1 - 0.06, fh + 2, H - fh, 3, glass(rng, 0.32), COLORS.white);
+  // flat roof: parapet + a pergola, a solar water-heater + tank (very Greek)
+  iso.box(u0, v0, u1, v1, H, H + 2.5, skin, { ink: false, topC: shaded(hex('#b4aea4'), 0.05) });
+  // pergola: four posts + a slatted top
+  const pu = u0 + 0.16;
+  const pv = v0 + 0.12;
+  for (const [du, dv] of [[0, 0], [0.18, 0], [0.18, 0.14], [0, 0.14]] as const) {
+    iso.r.line(P(pu + du, pv + dv, H + 2.5), P(pu + du, pv + dv, H + 9), INK_W * 0.5, alpha(INK, 0.6));
+  }
+  for (let u = pu; u <= pu + 0.18; u += 0.03) {
+    iso.r.line(P(u, pv, H + 9), P(u, pv + 0.14, H + 9), INK_W * 0.4, alpha(INK, 0.5));
+  }
+  // solar water heater: a tilted panel + horizontal cylinder (ubiquitous in GR)
+  iso.box(u1 - 0.24, v0 + 0.1, u1 - 0.14, v0 + 0.13, H + 2.5, H + 7, hex('#d8d2c4'), { ink: false });
+  iso.r.poly([P(u1 - 0.26, v0 + 0.16, H + 3), P(u1 - 0.14, v0 + 0.16, H + 3), P(u1 - 0.14, v0 + 0.22, H + 8), P(u1 - 0.26, v0 + 0.22, H + 8)], shaded(COLORS.panel, 0.05));
+  return iso.build();
+}
+
+/**
+ * Bespoke PUNE stock — the RCC concrete-frame mid-rise FLAT, the workhorse of
+ * the IT city. A 5–9 storey reinforced-concrete-frame block in warm
+ * cream/ochre cement render, projecting balconies with painted railings (some
+ * with drying laundry), an external stair/lift core, window AC units, and a
+ * flat RCC roofscape CRAMMED with black water tanks, satellite dishes and a
+ * solar heater. Reads warm-ochre and flat-topped with cluttered roofs — the
+ * dusty Deccan apartment block, not a London terrace.
+ */
+export function puneflatTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 53609 + variant * 139 + 19);
+  // warm cement renders: cream, buff ochre, pale terracotta-wash, grey-buff
+  const skinSet: RGBA[] = [hex('#d9c39a'), hex('#c9a86a'), hex('#e7e0ce'), hex('#d4b378'), hex('#cabb92'), hex('#b29464')];
+  const skin = skinSet[variant % skinSet.length] ?? skinSet[0]!;
+  const railHues: RGBA[] = [hex('#3f6e8a'), hex('#8a5a3a'), hex('#5e7a45'), hex('#b5485f')];
+  const u0 = 0.12;
+  const u1 = 0.84;
+  const v0 = 0.2;
+  const v1 = 0.66;
+  const floors = 5 + (variant % 5); // 5–9 storeys
+  const fh = 9.5;
+  const H = floors * fh + 3;
+  iso.shadow(u0, v0, u1, v1, 0.26, 0.26);
+  iso.box(u0, v0, u1, v1, 0, H, skin);
+  // exposed RCC frame: floor-slab bands + a couple of column lines proud
+  for (let f = 1; f <= floors; f++) {
+    const z = f * fh;
+    iso.r.line(P(u0, v1, z), P(u1, v1, z), INK_W * 0.4, alpha(lit(skin, 0.08), 0.7));
+  }
+  const rail = railHues[variant % railHues.length]!;
+  // ground floor: a recessed parking pilotis (stilts) — near-universal here
+  iso.r.poly([P(u0 + 0.04, v1, fh - 1), P(u1 - 0.04, v1, fh - 1), P(u1 - 0.04, v1, 1), P(u0 + 0.04, v1, 1)], shaded(skin, 0.16));
+  for (let cu = u0 + 0.12; cu < u1; cu += 0.18) {
+    iso.r.line(P(cu, v1, fh - 1), P(cu, v1, 1), INK_W * 0.5, alpha(skin, 0.9)); // stilt columns
+  }
+  // upper floors: window band + a projecting balcony with a painted railing
+  for (let f = 1; f < floors; f++) {
+    const z = f * fh;
+    iso.windowsLeft(v1, u0 + 0.04, u1 - 0.04, z + 2, z + fh - 2.5, 4, glass(rng, 0.4), COLORS.white);
+    iso.windowsRight(u1, v0 + 0.04, v1 - 0.04, z + 2, z + fh - 2.5, 3, glass(rng, 0.34), COLORS.white);
+    // a balcony on the left face (projecting slab + coloured rail)
+    const out = v1 + 0.05;
+    const bu0 = u0 + (f % 2 === 0 ? 0.04 : 0.32);
+    const bu1 = bu0 + 0.3;
+    iso.r.poly([P(bu0, v1, z + 0.4), P(bu1, v1, z + 0.4), P(bu1, out, z + 0.4), P(bu0, out, z + 0.4)], lit(skin, 0.04));
+    iso.r.poly([P(bu0, out, z + 0.4), P(bu1, out, z + 0.4), P(bu1, out, z - 1), P(bu0, out, z - 1)], shaded(skin, 0.12));
+    iso.r.poly([P(bu0, out, z + 4), P(bu1, out, z + 4), P(bu1, out, z + 0.6), P(bu0, out, z + 0.6)], alpha(rail, 0.85));
+    iso.r.line(P(bu0, out, z + 4), P(bu1, out, z + 4), INK_W * 0.55, darken(rail, 0.15));
+    // hanging laundry on some balconies (the lived-in tell)
+    if (rng.chance(0.4)) {
+      for (const lc of [hex('#d8d2c4'), railHues[(seed + f) % 4]!]) {
+        const lu = rng.range(bu0 + 0.04, bu1 - 0.06);
+        iso.r.poly([P(lu, out, z + 3.6), P(lu + 0.03, out, z + 3.6), P(lu + 0.03, out, z + 1.2), P(lu, out, z + 1.2)], alpha(lc, 0.7));
+      }
+    }
+    // a window AC unit poking from the facade now and then
+    if (rng.chance(0.4)) {
+      const au = rng.range(u0 + 0.08, u1 - 0.08);
+      iso.box(au, v1, au + 0.03, v1 + 0.016, z + 2, z + 5, hex('#d7d4cc'), { ink: false });
+    }
+  }
+  // flat RCC roof crammed with black water tanks, dishes + a solar heater
+  iso.box(u0, v0, u1, v1, H, H + 3, skin, { ink: false, topC: shaded(hex('#8a7c6a'), 0.05) });
+  iso.box(u0 + 0.08, v0 + 0.06, u0 + 0.2, v0 + 0.16, H + 3, H + 13, shaded(skin, 0.1)); // lift/stair head
+  roofTank(iso, u1 - 0.16, v0 + 0.14, H + 3, 0.032, 'tank', rng);
+  roofTank(iso, u0 + 0.34, v1 - 0.1, H + 3, 0.028, 'tank', rng);
+  roofDishes(iso, u0 + 0.1, u1 - 0.1, v0, v1, H + 3, rng, 4);
+  iso.box(u1 - 0.32, v0 + 0.1, u1 - 0.24, v0 + 0.13, H + 3, H + 7, hex('#d8d2c4'), { ink: false }); // solar heater
+  return iso.build();
+}
+
+/**
+ * Bespoke PUNE stock — the heritage Maratha WADA: the old fortified courtyard
+ * townhouse of the Peshwa-era city (Shaniwar Peth, Kasba). A 2–3 storey
+ * structure in warm stone/render with thick walls, carved TIMBER columns and
+ * brackets along a deep first-floor VERANDAH / jharokha balcony, small timber-
+ * shuttered windows, crowned by sloping MANGALORE-TILE eaves (warm red) with
+ * deep overhangs. The carved-timber verandah under low red-tile eaves is the
+ * heritage tell, distinct from the flat RCC blocks and the hero monuments.
+ */
+export function wadaTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 60493 + variant * 151 + 23);
+  const wallSet: RGBA[] = [hex('#c9a86a'), hex('#b89464'), hex('#d9c39a'), hex('#a8895a')];
+  const wall = wallSet[variant % wallSet.length] ?? wallSet[0]!;
+  const timber = hex('#6e4a2e'); // carved teak
+  const tile = hex('#a4452e'); // Mangalore terracotta tile
+  const v0 = 0.14;
+  const v1 = 0.72;
+  const floors = 2 + (variant % 2); // 2–3 storeys
+  const fh = 12;
+  const H = floors * fh + 2;
+  iso.shadow(0, v0, 1, v1, 0.2, 0.22);
+  // two attached wada fronts
+  for (let i = 0; i < 2; i++) {
+    const u0 = i * 0.5;
+    const u1 = u0 + 0.5;
+    const w = i === 0 ? wall : lighten(wall, 0.04);
+    iso.box(u0, v0, u1, v1, 0, H, w);
+    // thick plinth band
+    iso.r.poly([P(u0, v1, 4), P(u1, v1, 4), P(u1, v1, 0), P(u0, v1, 0)], shaded(w, 0.14));
+    // small timber-shuttered windows, upper floors
+    for (let f = 1; f < floors; f++) {
+      const z = f * fh;
+      iso.windowsLeft(v1, u0 + 0.06, u1 - 0.06, z + 2, z + fh - 3, 2, glass(rng, 0.36), timber);
+    }
+    // ground floor: a deep carved-timber VERANDAH on columns (the wada tell)
+    const out = v1 + 0.05;
+    iso.r.poly([P(u0 + 0.02, v1, fh - 1), P(u1 - 0.02, v1, fh - 1), P(u1 - 0.02, out, fh - 1), P(u0 + 0.02, out, fh - 1)], shaded(timber, 0.05)); // verandah ceiling
+    for (let cu = u0 + 0.06; cu <= u1 - 0.04; cu += 0.12) {
+      // carved column: a turned timber post with a bracket capital
+      iso.box(cu - 0.012, out - 0.004, cu + 0.012, out + 0.004, 0, fh - 1.5, timber, { ink: false });
+      iso.r.poly([P(cu - 0.03, out, fh - 1.5), P(cu + 0.03, out, fh - 1.5), P(cu + 0.018, out, fh - 1), P(cu - 0.018, out, fh - 1)], darken(timber, 0.1));
+    }
+    // a carved timber railing along the first-floor edge
+    if (floors >= 2) {
+      iso.r.poly([P(u0 + 0.02, out, fh + 4), P(u1 - 0.02, out, fh + 4), P(u1 - 0.02, out, fh - 1), P(u0 + 0.02, out, fh - 1)], alpha(timber, 0.85));
+      for (let u = u0 + 0.04; u < u1; u += 0.025) {
+        iso.r.line(P(u, out, fh + 4), P(u, out, fh - 0.5), INK_W * 0.4, alpha(darken(timber, 0.1), 0.7));
+      }
+    }
+  }
+  iso.windowsRight(1, v0 + 0.08, v1 - 0.08, fh + 2, H - 4, floors >= 3 ? 3 : 2, glass(rng, 0.3), timber);
+  // sloping Mangalore-tile roof with deep eaves (a hipped cap over the row)
+  iso.hip(-0.03, v0 - 0.03, 1.03, v1 + 0.03, H, 13, tile);
+  // a small ridge finial + chajja eave line shadow
+  iso.edge(P(0, v1 + 0.03, H), P(1, v1 + 0.03, H), INK_W * 0.7);
+  return iso.build();
+}
+
+/**
+ * Bespoke NORTH-EAST ENGLAND stock — the TYNESIDE FLAT, the region's signature
+ * terrace. Each "house" is actually TWO self-contained flats (lower + upper),
+ * so the unmistakable tell is the PAIRED front doors — two doors side by side
+ * per dwelling, one for each flat — repeating along a low 2-storey red-brick /
+ * buff-sandstone row under a dark Welsh-SLATE pitched roof with chimney stacks.
+ * A bay window flanks each door-pair. Reads as a Tyneside (Heaton/Byker) street,
+ * distinct from London's single-door-per-house terraces.
+ */
+export function tynesideflatTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 54851 + variant * 109 + 19);
+  // NE brick reds + Grainger buff sandstone, slate roofs
+  const wallSets: RGBA[][] = [
+    [BRICK_RED, BUFF_BRICK, BRICK_ORANGE],
+    [BUFF_BRICK, BRICK_RED, BUFF_BRICK],
+    [BRICK_ORANGE, BRICK_BROWN, BRICK_RED],
+    [BRICK_RED, BRICK_RED, BUFF_BRICK],
+  ];
+  const walls = wallSets[variant % 4] ?? wallSets[0]!;
+  const slate = ([SLATE, SLATE_DARK, SLATE, SLATE_DARK] as RGBA[])[variant % 4] ?? SLATE;
+  const frame = COLORS.white;
+  const v0 = 0.14;
+  const v1 = 0.74;
+  const H = 30; // two storeys
+  const rise = 13;
+  iso.shadow(0, v0, 1, v1, 0.2, 0.22);
+  for (let i = 0; i < 2; i++) {
+    const u0 = i * 0.5;
+    const u1 = u0 + 0.5;
+    const wall = walls[i] ?? BRICK_RED;
+    iso.box(u0, v0, u1, v1, 0, H, wall);
+    // upper-flat windows (this floor is a separate dwelling)
+    iso.windowsLeft(v1, u0 + 0.05, u1 - 0.05, 18, 26, 2, glass(rng, 0.42), frame);
+    // the PAIRED FRONT DOORS — two side by side, one for each flat — set to one
+    // side, with a shared stone lintel/transom above (the Tyneside-flat tell)
+    const d0 = u0 + 0.05;
+    const dw = 0.07;
+    for (let d = 0; d < 2; d++) {
+      const du = d0 + d * (dw + 0.012);
+      const doorC = darken(([hex('#3f6048'), hex('#46518f'), hex('#7a3328'), hex('#5d3a52')] as RGBA[])[(variant + i + d) % 4] ?? INK, 0.05);
+      iso.r.poly([P(du, v1, 13), P(du + dw, v1, 13), P(du + dw, v1, 0), P(du, v1, 0)], doorC);
+      // a small fanlight transom over each door
+      iso.r.poly([P(du, v1, 14.5), P(du + dw, v1, 14.5), P(du + dw, v1, 13), P(du, v1, 13)], COLORS.glassLit);
+    }
+    // shared stone lintel band over the door pair
+    iso.r.poly([P(d0 - 0.008, v1, 15.5), P(d0 + 2 * dw + 0.02, v1, 15.5), P(d0 + 2 * dw + 0.02, v1, 14.5), P(d0 - 0.008, v1, 14.5)], lighten(BUFF_BRICK, 0.08));
+    // a ground-floor BAY window beside the doors (the lower flat's front room)
+    const b0 = u1 - 0.18;
+    const b1 = u1 - 0.04;
+    iso.box(b0, v1 - 0.001, b1, v1 + 0.05, 0, 14, lighten(wall, 0.08));
+    iso.windowsLeft(v1 + 0.05, b0 + 0.012, b1 - 0.012, 4, 12, 2, glass(rng, 0.45), frame);
+    iso.quad(b0 - 0.01, v1 - 0.001, b1 + 0.01, v1 + 0.06, 14, frame);
+    iso.edge(P(b0 - 0.01, v1 + 0.06, 14), P(b1 + 0.01, v1 + 0.06, 14), INK_W * 0.7);
+  }
+  // gable-end windows on the right wall
+  iso.windowsRight(1, v0 + 0.1, v1 - 0.1, 6, H - 6, 2, glass(rng, 0.3), frame);
+  // dark Welsh-slate pitched roof + party-wall chimney stacks with pots
+  domesticRoof(iso, 0, v0, 1, v1, H, rise, 'u', slate, walls[0] ?? BRICK_RED, rng);
+  for (const cu of [0.05, 0.5, 0.95]) {
+    const vm = (v0 + v1) / 2;
+    iso.box(cu - 0.03, vm - 0.05, cu + 0.03, vm + 0.05, H + rise - 2, H + rise + 9, darken(walls[0] ?? BRICK_RED, 0.1));
+    for (const dv of [-0.03, 0.02]) {
+      iso.box(cu - 0.011, vm + dv, cu + 0.011, vm + dv + 0.022, H + rise + 9, H + rise + 13, POT_CLAY, { ink: false });
+    }
+  }
+  return iso.build();
+}
+
+/**
+ * Bespoke NORTH-EAST ENGLAND stock — the interwar PEBBLEDASH SEMI. A pair of
+ * suburban semi-detached houses (Gosforth/Whitley Bay), the lower storey in
+ * face brick and the upper in grey-buff PEBBLEDASH render, a curved or square
+ * two-storey bay, a hipped or gabled red-tile / slate roof, a porch over the
+ * door, gardens and a low wall to the street. The pebbledash-over-brick split
+ * + double bays read as a Northern interwar semi, not a London terrace.
+ */
+export function pebbledashsemiTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 61609 + variant * 131 + 23);
+  const brick = ([BRICK_RED, BRICK_ORANGE, BRICK_BROWN, BRICK_RED] as RGBA[])[variant % 4] ?? BRICK_RED;
+  const dash = PEBBLEDASH; // grey-buff pebbledash upper
+  const roofC = ([TILE_RED, SLATE, hex('#8a4a38'), SLATE_DARK] as RGBA[])[variant % 4] ?? TILE_RED;
+  for (const [u0, u1, mirror] of [
+    [0.04, 0.46, false],
+    [0.54, 0.96, true],
+  ] as const) {
+    const v0 = 0.18;
+    const v1 = 0.62;
+    const H = 27;
+    iso.shadow(u0, v0, u1, v1, 0.16, 0.2);
+    // lower storey brick, upper storey pebbledash
+    iso.box(u0, v0, u1, v1, 0, 13, brick);
+    iso.box(u0, v0, u1, v1, 13, H, dash);
+    iso.r.line(P(u0, v1, 13), P(u1, v1, 13), INK_W * 0.5, alpha(darken(brick, 0.1), 0.7)); // floor band
+    // gabled red-tile/slate roof
+    domesticRoof(iso, u0 - 0.015, v0 - 0.015, u1 + 0.015, v1 + 0.015, H, 13, 'u', roofC, dash, rng);
+    // upper window
+    iso.windowsLeft(v1, u0 + 0.04, u1 - 0.05, 16, 23, 2, glass(rng, 0.42), COLORS.white);
+    // two-storey square bay on the outer side of each semi
+    const bo = mirror ? u1 - 0.16 : u0 + 0.02;
+    const b1 = bo + 0.14;
+    iso.box(bo, v1 - 0.001, b1, v1 + 0.05, 0, 18, lighten(brick, 0.06));
+    iso.box(bo, v1 - 0.001, b1, v1 + 0.05, 13, 18, lighten(dash, 0.04), { ink: false });
+    iso.windowsLeft(v1 + 0.05, bo + 0.012, b1 - 0.012, 4, 11, 2, glass(rng, 0.45), COLORS.white);
+    iso.quad(bo - 0.008, v1 - 0.001, b1 + 0.008, v1 + 0.06, 18, shaded(roofC, 0.05));
+    iso.edge(P(bo - 0.008, v1 + 0.06, 18), P(b1 + 0.008, v1 + 0.06, 18), INK_W * 0.7);
+    // door + little porch canopy on the inner side
+    const du = mirror ? u0 + 0.04 : u1 - 0.1;
+    iso.r.poly([P(du, v1, 11), P(du + 0.06, v1, 11), P(du + 0.06, v1, 0), P(du, v1, 0)], darken(brick, 0.4));
+    iso.r.poly([P(du - 0.015, v1, 13), P(du + 0.075, v1, 13), P(du + 0.06, v1 + 0.03, 11), P(du, v1 + 0.03, 11)], COLORS.white);
+    // chimney + a garden shrub
+    iso.box(mirror ? u1 - 0.08 : u0 + 0.04, (v0 + v1) / 2, mirror ? u1 - 0.04 : u0 + 0.08, (v0 + v1) / 2 + 0.04, H + 11, H + 19, darken(brick, 0.12));
+  }
+  // low front wall + a shrub
+  iso.box(0.02, 0.92, 0.98, 0.96, 0, 4, shaded(brick, 0.1));
+  if (rng.chance(0.6)) iso.ball(0.5, 0.82, 0.06, 13, COLORS.treeGreen);
   return iso.build();
 }
 
