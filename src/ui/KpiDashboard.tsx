@@ -298,8 +298,8 @@ export function KpiDashboard() {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <div style={{ color: theme.orange, fontWeight: 800 }}>
-            RIIO-{r.index} · year {Math.min(PERIOD_YEARS, Math.floor(yearsIn) + 1)} of{' '}
-            {PERIOD_YEARS}
+            {r.regulator.scheme}-{r.index} · year{' '}
+            {Math.min(PERIOD_YEARS, Math.floor(yearsIn) + 1)} of {PERIOD_YEARS}
           </div>
           <button
             onClick={() => setOpen(false)}
@@ -313,6 +313,15 @@ export function KpiDashboard() {
           >
             ✕
           </button>
+        </div>
+        {/* W8 Part-2b: per-country regulator framing — the card speaks the
+            country's regulatory language (Ofgem RIIO / Scheme of Control / CRE
+            prudent-cost). */}
+        <div style={{ color: theme.gold, fontSize: 11, fontWeight: 700, marginTop: 3 }}>
+          {r.regulator.name} · {r.regulator.review}
+        </div>
+        <div style={{ color: theme.slate, fontSize: 10.5, marginTop: 3, lineHeight: 1.4 }}>
+          {r.regulator.blurb}
         </div>
         <div style={{ color: theme.slate, fontSize: 10.5, marginTop: 4 }}>
           tap the <span style={{ color: theme.gold }}>?</span> on any row for why it's that colour
@@ -421,7 +430,9 @@ export function KpiDashboard() {
               fontSize: 12,
             }}
           >
-            <span style={{ color: theme.slate }}>last report · RIIO-{r.lastReport.index}: </span>
+            <span style={{ color: theme.slate }}>
+              last report · {r.regulator.scheme}-{r.lastReport.index}:{' '}
+            </span>
             <span
               style={{
                 color: r.lastReport.composite >= 55 ? theme.ok : theme.danger,

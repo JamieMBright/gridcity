@@ -16,7 +16,8 @@
 // (60 Hz / summer-peak) flows through differently, but no such profile
 // ships in cityRegistry.
 
-import type { KpiKey } from './regulation/riio';
+import type { GenType } from './catalog';
+import type { KpiKey, RegulatorModel } from './regulation/riio';
 
 // ----------------------------------------------------------------------
 // 1. Frequency — market/frequency.ts droop literals.
@@ -136,10 +137,24 @@ export interface GenerationModel {
    *  bill seam leaves the documented hook, but only 'tender' (London's
    *  liberalised default) is wired this wave. */
   ownership: 'tender' | 'owned';
-  /** Hydro-reservoir-driven dispatch (Rio) — future. */
+  /** Hydro-reservoir-driven dispatch (Rio). W8 Part-2b: consumed by
+   *  market/dispatch.ts — swings the must-run baseload's available share with
+   *  a deterministic seasonal reservoir factor (dry season backs the rivers
+   *  down). Only meaningful alongside a baseloadFloor. */
   hydroDriven?: boolean;
-  /** Must-run baseload fraction (Paris nuclear) — future. */
+  /** Must-run baseload fraction (Paris nuclear). W8 Part-2b: consumed by
+   *  market/dispatch.ts — a zero-marginal, near-zero-carbon baseload meets up
+   *  to this share of each island's demand ahead of the merit order, lowering
+   *  price + carbon and curtailing firm renewables in surplus. */
   baseloadFloor?: number;
+  /** Per-technology BID-APPETITE multiplier for the developer/tender market
+   *  (W8 Part-2b). Multiplied into each developer's appetite in
+   *  events/developers.ts so a country's tender FLOW skews to its real mix:
+   *  France's nuclear floor dampens the renewable rush, Australia skews
+   *  solar+battery, Hong Kong (no real tender — the 'owned' fork is deferred)
+   *  is biased right down. Absent / missing key ⇒ ×1 (GB is unbiased and
+   *  byte-identical). */
+  tenderBias?: Partial<Record<GenType, number>>;
 }
 
 /** London / GB: liberalised tender market — today's behaviour. */
@@ -179,15 +194,23 @@ export interface MarketProfile {
    *  Absent for non-hydro systems. */
   droughtUplift?: number;
   /** Grid / import carbon intensity, gCO₂/kWh — what an interconnector
-   *  import and the national benchmark carry (consumed by a later carbon
-   *  wave; shipped as data now so the four profiles are complete). */
+   *  import carries (W8 Part-2b: now consumed by market/dispatch.ts, which
+   *  stamps this on the interconnector unit instead of the flat catalog
+   *  figure, so the import-carbon flows into the dispatch-weighted carbon
+   *  KPI / RIIO carbon score). France's near-zero nuclear import reads ~20 g,
+   *  Australia's coal grid ~445 g, Hong Kong's gas ~590 g; GB's mixed
+   *  interconnector tie ~150 g (the value London's import already carried,
+   *  so wiring it leaves London byte-identical). */
   gridCarbonG: number;
 }
 
 /** London / GB: reproduces the exact prior nationalPriceMWh literals
  *  (45 floor + 95 evening-peak adder, ×(1+0.3·winterness), +60 calm-cold
  *  dunkelflaute) — middayDip 0 and no drought, so the series is
- *  bit-identical to the pre-seam dispatch. */
+ *  bit-identical to the pre-seam dispatch. gridCarbonG is 150 g — the exact
+ *  figure GB's interconnector import already carried in the catalog (French
+ *  nuclear blended with NL/BE gas), so wiring gridCarbonG into dispatch
+ *  (W8 Part-2b) leaves London's import-carbon byte-identical. */
 export const LONDON_MARKET: MarketProfile = {
   baseMWh: 45,
   peakMWh: 95,
@@ -195,7 +218,7 @@ export const LONDON_MARKET: MarketProfile = {
   seasonalUplift: 0.3,
   scarcityRegime: 'calm-cold',
   scarcityKickMWh: 60,
-  gridCarbonG: 230,
+  gridCarbonG: 150,
 };
 
 /** France: a deep nuclear floor — low and flat, with a winter electric-
@@ -258,9 +281,11 @@ export interface RegulatorProfile {
   /** Display name for chrome ("Ofgem"). */
   name: string;
   /** 'riio' liberalised price-control | 'profit-cap' SoC/DEWA |
-   *  'cost-of-service' state grid. Selects report-card framing. Only
-   *  'riio' (London) is wired this wave; the others are a documented hook. */
-  model: 'riio' | 'profit-cap' | 'cost-of-service';
+   *  'cost-of-service' state grid. Selects the report-card FRAMING (W8 Part-2b:
+   *  the per-model framing text now surfaces on the report-card panel via
+   *  riio.ts regulatorFraming). The per-KPI scoring difference is carried
+   *  separately by kpiWeights + resolveWeights. */
+  model: RegulatorModel;
   /** Per-KPI weight overrides; absent ⇒ riio.ts WEIGHTS unchanged. */
   kpiWeights?: Partial<Record<KpiKey, number>>;
 }
@@ -352,13 +377,26 @@ export const FRANCE_ECONOMY: EconomyProfile = {
   supplyFixedYr: 140,
 };
 /** Liberalised tender for renewables/gas/battery — but they bid into a system
- *  floored by must-run nuclear. `baseloadFloor` is shipped as DATA here;
- *  dispatch does not yet consume it, so France's flat/low feel currently comes
- *  from FRANCE_MARKET alone.
- *  TODO(WP2 Phase-D): wire `baseloadFloor` into market/dispatch.ts (a must-run,
- *  ~zero-marginal, ~zero-carbon baseload fraction that curtails firm renewables
- *  in surplus). */
-export const FRANCE_GENERATION: GenerationModel = { ownership: 'tender', baseloadFloor: 0.6 };
+ *  floored by must-run nuclear. W8 Part-2b WIRES `baseloadFloor` into
+ *  market/dispatch.ts (a must-run, ~zero-marginal, ~zero-carbon baseload that
+ *  curtails firm renewables in surplus), so France now reads flat/low + clean
+ *  through dispatch itself, not just FRANCE_MARKET. `tenderBias` skews the
+ *  developer flow to match: renewables still bid (appels d'offres) but against
+ *  the nuclear floor (dampened), and new thermal is suppressed. Nuclear is
+ *  state baseload, not a developer auction, so it is NOT lifted here. */
+export const FRANCE_GENERATION: GenerationModel = {
+  ownership: 'tender',
+  baseloadFloor: 0.6,
+  tenderBias: {
+    solarFarm: 0.7,
+    windOnshore: 0.7,
+    windOffshore: 0.7,
+    battery: 0.8,
+    gasCCGT: 0.5,
+    gasPeaker: 0.5,
+    coal: 0.2,
+  },
+};
 
 // --- Australia (Sydney) — 50 Hz, summer-peaking rooftop-PV duck curve, A$. --
 /** NEM voltages: 500/330/132 kV transmission, 66/11 kV distribution. */
@@ -392,10 +430,22 @@ export const AUSTRALIA_ECONOMY: EconomyProfile = {
   retailUplift: 2.8,
   supplyFixedYr: 200,
 };
-/** Merchant tender market — bids skew solar/battery in reality.
- *  TODO(WP2 Phase-E): skew the developer roster/appetite (gentailers + solar/
- *  battery funds) in events/developers.ts. */
-export const AUSTRALIA_GENERATION: GenerationModel = { ownership: 'tender' };
+/** Merchant tender market — bids skew solar/battery in reality (the NEM's
+ *  rooftop-PV flood + grid-scale storage build, coal exiting). W8 Part-2b
+ *  wires that skew via `tenderBias`: solar + battery rush in, wind follows,
+ *  new gas/coal are damped (coal is retiring). */
+export const AUSTRALIA_GENERATION: GenerationModel = {
+  ownership: 'tender',
+  tenderBias: {
+    solarFarm: 1.6,
+    battery: 1.6,
+    windOnshore: 1.2,
+    windOffshore: 0.8,
+    gasCCGT: 0.6,
+    gasPeaker: 0.7,
+    coal: 0.2,
+  },
+};
 
 // --- Hong Kong — 50 Hz, summer typhoon season, HK$, Scheme-of-Control. ------
 /** HKE/CLP voltages: 400/132 kV transmission, 33/11 kV distribution. */
@@ -441,7 +491,27 @@ export const HONGKONG_ECONOMY: EconomyProfile = {
  *  weather/economy already make it play distinctly) and DEFERS the fork.
  *  TODO(WP2 Phase-C): flip to { ownership: 'owned' }, skip stepTenders, and add
  *  the build-a-power-station command (docs/operating-models/DESIGN.md §3.4). */
-export const HONGKONG_GENERATION: GenerationModel = { ownership: 'tender' };
+export const HONGKONG_GENERATION: GenerationModel = {
+  ownership: 'tender',
+  // No real developer tender exists (the 'owned' fork is deferred — see above),
+  // so bias the appetite right down across the board: bids trickle in only
+  // rarely, approximating "the operator builds plant, developers don't". When
+  // Phase-C lands the 'owned' branch, stepTenders is skipped entirely and this
+  // bias becomes moot.
+  tenderBias: {
+    gasCCGT: 0.15,
+    gasPeaker: 0.15,
+    coal: 0.1,
+    nuclear: 0.1,
+    biomass: 0.1,
+    solarFarm: 0.1,
+    windOnshore: 0.1,
+    windOffshore: 0.1,
+    tidal: 0.1,
+    battery: 0.1,
+    electrolyser: 0.1,
+  },
+};
 
 // --- Brazil (Rio) — 60 Hz, hydro + drought, R$. NO city wires this yet (no ---
 // rio scenario in CITY_SCENARIOS); shipped for COUNTRY_PROFILES completeness so
@@ -477,11 +547,26 @@ export const BRAZIL_ECONOMY: EconomyProfile = {
   supplyFixedYr: 90,
 };
 /** Tender market over a hydro fleet whose reservoir swings with the season.
- *  `hydroDriven` is shipped as DATA; dispatch does not yet consume it (the
- *  drought price effect comes from BRAZIL_MARKET.droughtUplift, already wired).
- *  TODO(WP2 Phase-D): a reservoir state in dispatch + the bandeira flag on the
+ *  W8 Part-2b WIRES `hydroDriven` into market/dispatch.ts: the must-run hydro
+ *  baseload's available share follows a deterministic seasonal reservoir factor
+ *  (dry austral-winter backs the rivers down), on top of the price effect from
+ *  BRAZIL_MARKET.droughtUplift (already wired). `tenderBias` reflects the ANEEL
+ *  auction IPP mix (hydro/wind/solar/biomass led). No `rio` city wires this yet.
+ *  TODO(WP2 Phase-D): a persistent reservoir STATE + the bandeira flag on the
  *  bill HUD. TODO(WP2 Phase-F): non-technical losses (theft). */
-export const BRAZIL_GENERATION: GenerationModel = { ownership: 'tender', hydroDriven: true };
+export const BRAZIL_GENERATION: GenerationModel = {
+  ownership: 'tender',
+  hydroDriven: true,
+  baseloadFloor: 0.5,
+  tenderBias: {
+    solarFarm: 1.2,
+    windOnshore: 1.3,
+    windOffshore: 0.8,
+    biomass: 1.1,
+    gasCCGT: 0.8,
+    coal: 0.4,
+  },
+};
 
 // ----------------------------------------------------------------------
 // 5. The resolved profile carried on SimContext.

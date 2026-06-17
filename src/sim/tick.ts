@@ -95,6 +95,7 @@ import {
   gradeOf,
   newPeriod,
   nextTargets,
+  regulatorFraming,
   resolveWeights,
   PERIOD_MIN,
   PERIOD_YEARS,
@@ -317,6 +318,7 @@ function runPowerFlow(
     weatherProfile: ctx.profile.weather,
     power: ctx.profile.power,
     market: ctx.profile.market,
+    generation: ctx.profile.generation,
   });
   const pf = solveDcPowerFlow(derived.net, dispatch.injections, {
     slackPreference: dispatch.slackPreference,
@@ -638,8 +640,10 @@ export function solveTick(
       state.pitches.push(pitch);
       pushEvent(state, 'warn', `innovation pitch: ${pitch.title}`);
     }
-    // developer market: bids accrue on open tenders, deadlines pass
-    stepTenders(state, rng, dtMin);
+    // developer market: bids accrue on open tenders, deadlines pass. The
+    // active country's tenderBias (W8 Part-2b) skews the bid flow per
+    // technology (GB unbiased ⇒ byte-identical).
+    stepTenders(state, rng, dtMin, ctx.profile.generation);
 
     for (const p of state.pitches) {
       if (p.status === 'open' && state.simTimeMin > p.decideByMin) {
@@ -995,7 +999,8 @@ export function solveTick(
       pushEvent(
         state,
         card.composite >= 55 ? 'info' : 'bad',
-        `RIIO-${card.index} closed: grade ${card.grade} (${card.composite}/100)`,
+        // W8 Part-2b: name the close in the country's regulatory scheme
+        `${regulatorFraming(ctx.profile.regulator.model).scheme}-${card.index} closed: grade ${card.grade} (${card.composite}/100)`,
       );
       const next = newPeriod(p.index + 1, p.startMin + PERIOD_MIN, nextTargets(p.targets, actuals));
       next.ciStart = state.reliability.ciCustomers;

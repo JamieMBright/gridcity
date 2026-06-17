@@ -6,11 +6,18 @@ import { applyCommand } from '../src/sim/commands';
 import type { SubAsset } from '../src/sim/assets';
 import { strikeMWh } from '../src/sim/catalog';
 import {
+  biasedAppetite,
   bumpMood,
   DEVELOPERS,
   START_MOOD,
   stepTenders,
 } from '../src/sim/events/developers';
+import {
+  AUSTRALIA_GENERATION,
+  FRANCE_GENERATION,
+  HONGKONG_GENERATION,
+  LONDON_GENERATION,
+} from '../src/sim/powerProfile';
 import { maybeSpawnApplications } from '../src/sim/events/applications';
 import { NEW_ESTATES } from '../src/data/londonMap';
 import { ZONE } from '../src/sim/map/types';
@@ -221,6 +228,93 @@ describe('generation tenders', () => {
     stepTenders(state, rng, 0);
     expect(tender.status).toBe('lapsed');
     expect(state.events.some((e) => e.msg.includes('lapsed'))).toBe(true);
+  });
+});
+
+// W8 Part-2b (4): per-country tender FLOW — generation.tenderBias skews the
+// bid appetite per technology so a country's tender market plays to its real
+// mix. GB (no bias) stays byte-identical.
+describe('per-country tender bias (W8-2b item 4)', () => {
+  const solarDev = DEVELOPERS.find((d) => (d.appetite.solarFarm ?? 0) > 0);
+  if (!solarDev) throw new Error('expected a solar developer');
+
+  it('biasedAppetite leaves GB (no bias) and an omitted model unchanged', () => {
+    for (const dev of DEVELOPERS) {
+      for (const gen of Object.keys(dev.appetite) as (keyof typeof dev.appetite)[]) {
+        const base = dev.appetite[gen] ?? 0;
+        expect(biasedAppetite(dev, gen, undefined)).toBe(base);
+        expect(biasedAppetite(dev, gen, LONDON_GENERATION)).toBe(base);
+      }
+    }
+  });
+
+  it('Hong Kong biases EVERY technology right down (no real tender market)', () => {
+    for (const dev of DEVELOPERS) {
+      for (const gen of Object.keys(dev.appetite) as (keyof typeof dev.appetite)[]) {
+        const base = dev.appetite[gen] ?? 0;
+        if (base <= 0) continue;
+        expect(biasedAppetite(dev, gen, HONGKONG_GENERATION)).toBeLessThan(base);
+      }
+    }
+  });
+
+  it('Australia lifts solar+battery and damps gas/coal', () => {
+    const conglom = DEVELOPERS.find((d) => d.conglomerate);
+    if (!conglom) throw new Error('no conglomerate');
+    // a solar-keen developer bids MORE solar under the AU skew
+    expect(biasedAppetite(solarDev, 'solarFarm', AUSTRALIA_GENERATION)).toBeGreaterThan(
+      solarDev.appetite.solarFarm ?? 0,
+    );
+    // gas/coal are damped below their base
+    expect(biasedAppetite(conglom, 'gasCCGT', AUSTRALIA_GENERATION)).toBeLessThan(
+      conglom.appetite.gasCCGT ?? 0,
+    );
+    expect(biasedAppetite(conglom, 'coal', AUSTRALIA_GENERATION)).toBeLessThan(
+      conglom.appetite.coal ?? 0,
+    );
+  });
+
+  it('a zero appetite is never resurrected by a bias', () => {
+    // Sunpenny Co-op (id 5) only does solar+battery — it must never bid gas,
+    // whatever the country bias.
+    const coop = DEVELOPERS.find((d) => d.id === 5);
+    if (!coop) throw new Error('no co-op');
+    expect(coop.appetite.gasCCGT ?? 0).toBe(0);
+    for (const gm of [AUSTRALIA_GENERATION, FRANCE_GENERATION, HONGKONG_GENERATION]) {
+      expect(biasedAppetite(coop, 'gasCCGT', gm)).toBe(0);
+    }
+  });
+
+  it('through stepTenders: the HK bias yields FAR fewer bids than GB on the same seed', () => {
+    // a solar tender; run the trickle bid loop over a fixed window from a fixed
+    // seed, GB vs HK. The flow is deterministic and HK (heavily damped) lands
+    // far fewer bids than unbiased GB.
+    function bidCountUnder(generation: typeof LONDON_GENERATION | undefined): number {
+      const map = makeTestMap(30, 30);
+      setZone(map, 5, 5, ZONE.solarSite);
+      const state = newGame();
+      applyCommand(state, map, {
+        type: 'build',
+        spec: { kind: 'gen', gen: 'solarFarm', x: 5, y: 5 },
+      });
+      const t = state.tenders[0];
+      if (!t) throw new Error('no tender');
+      // pin the close far out so the window never lapses the tender
+      t.closesMin = 10_000 * 1440;
+      const rng = new Rng(42);
+      for (let i = 0; i < 40; i++) {
+        state.simTimeMin += 1440;
+        stepTenders(state, rng, 1440, generation);
+      }
+      return t.bids.length;
+    }
+    const gb = bidCountUnder(undefined);
+    const hk = bidCountUnder(HONGKONG_GENERATION);
+    expect(gb).toBeGreaterThan(0);
+    expect(hk).toBeLessThan(gb);
+
+    // determinism: the SAME biased run twice is identical
+    expect(bidCountUnder(HONGKONG_GENERATION)).toBe(hk);
   });
 });
 

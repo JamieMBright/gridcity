@@ -46,6 +46,7 @@ import { forecastCatchments } from './forecast';
 import { planReinforcement, proposeLoop } from './planner';
 import { connectionStudy } from './study';
 import { buildDemandField } from './map/demand';
+import { regulatorFraming } from './regulation/riio';
 import {
   advanceTime,
   billDetailRows,
@@ -303,6 +304,13 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
       targets: { ...state.period.targets },
       current: currentPeriodActuals(state),
       lastReport: state.lastReport,
+      // W8 Part-2b: the active country's regulator framing (name + model +
+      // human framing text) so the report-card panel speaks the right language.
+      regulator: {
+        name: ctx.profile.regulator.name,
+        model: ctx.profile.regulator.model,
+        ...regulatorFraming(ctx.profile.regulator.model),
+      },
       regulatory: out.regulatory,
     },
   };
