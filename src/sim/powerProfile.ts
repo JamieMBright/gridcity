@@ -304,6 +304,186 @@ export const BRAZIL_REGULATOR: RegulatorProfile = {
 };
 
 // ----------------------------------------------------------------------
+// 4b. Per-country power / weather / economy / generation blocks.
+//
+// The MarketProfiles + RegulatorProfiles above were shipped (and tested) a
+// wave earlier but never attached to a city. This block adds the remaining
+// four sub-profiles so each near-term country has a COMPLETE ResolvedProfile,
+// then COUNTRY_PROFILES (§4c) bundles them and cityRegistry's resolveProfile
+// attaches a country to its city. Every figure is the baked research from the
+// sibling docs/operating-models/<country>.md "Suggested profile values" block
+// (no new egress). London is untouched — it keeps LONDON_* and stays the
+// determinism anchor.
+
+// --- France (Paris) — 50 Hz, near-zero-carbon nuclear, € cost-of-service. ---
+/** RTE/Enedis voltages: 400/225/90 kV transmission, 20 kV HTA / 400 V BT. The
+ *  frequency droop matches GB (both 50 Hz, similar synchronous feel). */
+export const FRANCE_POWER: PowerSystemProfile = {
+  nominalHz: 50,
+  freqFloorHz: 47.5,
+  droopHz: 1.5,
+  transmissionKv: [400, 225, 90],
+  distributionKv: [20, 0.4],
+};
+/** France is winter-peaking like GB, but more SHARPLY so — the country heats
+ *  with resistive electric heating (~+2.4 GW/°C, RTE), so the cold half-year
+ *  bites harder. Modelled as a deeper winter sun knock-down; the cold
+ *  'calm-cold' regime stays the scarcity trigger (a cold snap, not a wind
+ *  drought, is the French stress event — carried by FRANCE_MARKET).
+ *  TODO(WP2 Phase-D): a dedicated cold-demand coefficient (thermosensitivity)
+ *  belongs in events/weather demand shaping — for now the season model and the
+ *  market scarcity kicker carry the winter weight. */
+export const FRANCE_WEATHER: WeatherProfile = {
+  peakSeason: 'winter',
+  peakDoy: 15,
+  dayLenMaxH: 16.0,
+  dayLenMinH: 8.5,
+  ampWinterDrop: 0.5,
+  regimes: LONDON_WEATHER.regimes,
+};
+/** € / EUR; cost-of-service TURPE network pot, low-carbon cheap-ish energy. */
+export const FRANCE_ECONOMY: EconomyProfile = {
+  symbol: '€',
+  iso: 'EUR',
+  toGbp: 0.85,
+  domesticNetworkShare: 0.3,
+  domesticEnergyShare: 0.42,
+  retailUplift: 2.6,
+  supplyFixedYr: 140,
+};
+/** Liberalised tender for renewables/gas/battery — but they bid into a system
+ *  floored by must-run nuclear. `baseloadFloor` is shipped as DATA here;
+ *  dispatch does not yet consume it, so France's flat/low feel currently comes
+ *  from FRANCE_MARKET alone.
+ *  TODO(WP2 Phase-D): wire `baseloadFloor` into market/dispatch.ts (a must-run,
+ *  ~zero-marginal, ~zero-carbon baseload fraction that curtails firm renewables
+ *  in surplus). */
+export const FRANCE_GENERATION: GenerationModel = { ownership: 'tender', baseloadFloor: 0.6 };
+
+// --- Australia (Sydney) — 50 Hz, summer-peaking rooftop-PV duck curve, A$. --
+/** NEM voltages: 500/330/132 kV transmission, 66/11 kV distribution. */
+export const AUSTRALIA_POWER: PowerSystemProfile = {
+  nominalHz: 50,
+  freqFloorHz: 47.5,
+  droopHz: 1.5,
+  transmissionKv: [500, 330, 132],
+  distributionKv: [66, 11, 0.4],
+};
+/** Sydney is SUMMER-peaking (air-con + bushfire season, Dec–Feb) — the inverse
+ *  of GB. Southern-hemisphere midsummer ≈ early January, so peakDoy ≈ 1 (the
+ *  hottest part of the year); the long bright summer days deepen the duck curve
+ *  AUSTRALIA_MARKET already carries. The hot-dry 'heatwave' regime is the
+ *  stress event (it triggers AUSTRALIA_MARKET's scarcity kicker). */
+export const AUSTRALIA_WEATHER: WeatherProfile = {
+  peakSeason: 'summer',
+  peakDoy: 1,
+  dayLenMaxH: 14.5,
+  dayLenMinH: 9.8,
+  ampWinterDrop: 0.25,
+  regimes: LONDON_WEATHER.regimes,
+};
+/** A$ / AUD; liberalised, unbundled (network pot + energy pot like GB). */
+export const AUSTRALIA_ECONOMY: EconomyProfile = {
+  symbol: 'A$',
+  iso: 'AUD',
+  toGbp: 0.52,
+  domesticNetworkShare: 0.4,
+  domesticEnergyShare: 0.4,
+  retailUplift: 2.8,
+  supplyFixedYr: 200,
+};
+/** Merchant tender market — bids skew solar/battery in reality.
+ *  TODO(WP2 Phase-E): skew the developer roster/appetite (gentailers + solar/
+ *  battery funds) in events/developers.ts. */
+export const AUSTRALIA_GENERATION: GenerationModel = { ownership: 'tender' };
+
+// --- Hong Kong — 50 Hz, summer typhoon season, HK$, Scheme-of-Control. ------
+/** HKE/CLP voltages: 400/132 kV transmission, 33/11 kV distribution. */
+export const HONGKONG_POWER: PowerSystemProfile = {
+  nominalHz: 50,
+  freqFloorHz: 47.5,
+  droopHz: 1.5,
+  transmissionKv: [400, 132],
+  distributionKv: [33, 11, 0.38],
+};
+/** Subtropical, summer-peaking (humid aircon heat), with the typhoon storm
+ *  season over the warm half-year. Northern hemisphere near the Tropic of
+ *  Cancer — midsummer ≈ late June (peakDoy ≈ 200, a normal NH summer peak);
+ *  a short seasonal day-length swing. */
+export const HONGKONG_WEATHER: WeatherProfile = {
+  peakSeason: 'summer',
+  peakDoy: 200,
+  dayLenMaxH: 13.4,
+  dayLenMinH: 10.6,
+  ampWinterDrop: 0.2,
+  regimes: LONDON_WEATHER.regimes,
+};
+/** HK$ / HKD; a single bundled regulated tariff (vertically integrated). The
+ *  network/energy split is retained at GB-like shares for Phase-A so the bill
+ *  still computes sensibly while `ownership` stays 'tender'; once the `owned`
+ *  fork lands (Phase-C) gen capex moves into the network pot and the split
+ *  collapses to one bundled tariff. */
+export const HONGKONG_ECONOMY: EconomyProfile = {
+  symbol: 'HK$',
+  iso: 'HKD',
+  toGbp: 0.1,
+  domesticNetworkShare: 0.35,
+  domesticEnergyShare: 0.4,
+  retailUplift: 2.4,
+  supplyFixedYr: 120,
+};
+/** ⚠ The big fork: Hong Kong is VERTICALLY INTEGRATED ('owned' — no tender, no
+ *  PPA; the operator builds plant and earns the 8% SoC return on it). The bill
+ *  engine already routes owned capex into the network pot, but the tender
+ *  machinery (events/developers.ts) and a build-generation command path are not
+ *  yet branched, so activating 'owned' now would leave HK with no way to add
+ *  generation. Phase-A therefore ships HK on 'tender' (its market/regulator/
+ *  weather/economy already make it play distinctly) and DEFERS the fork.
+ *  TODO(WP2 Phase-C): flip to { ownership: 'owned' }, skip stepTenders, and add
+ *  the build-a-power-station command (docs/operating-models/DESIGN.md §3.4). */
+export const HONGKONG_GENERATION: GenerationModel = { ownership: 'tender' };
+
+// --- Brazil (Rio) — 60 Hz, hydro + drought, R$. NO city wires this yet (no ---
+// rio scenario in CITY_SCENARIOS); shipped for COUNTRY_PROFILES completeness so
+// the table is whole and a future `rio` city is one tag away.
+/** ONS voltages: 500/345/230 kV transmission, 34.5/13.8 kV distribution. 60 Hz. */
+export const BRAZIL_POWER: PowerSystemProfile = {
+  nominalHz: 60,
+  freqFloorHz: 57,
+  droopHz: 1.8,
+  transmissionKv: [500, 345, 230],
+  distributionKv: [34.5, 13.8, 0.38],
+};
+/** Rio is summer-peaking (SH; the wet summer is also flood/landslide season),
+ *  with a dry austral-winter half-year that drives BRAZIL_MARKET's drought
+ *  uplift. SH midsummer ≈ early January (peakDoy ≈ 1); a small tropical day
+ *  swing. */
+export const BRAZIL_WEATHER: WeatherProfile = {
+  peakSeason: 'summer',
+  peakDoy: 1,
+  dayLenMaxH: 13.5,
+  dayLenMinH: 10.5,
+  ampWinterDrop: 0.2,
+  regimes: LONDON_WEATHER.regimes,
+};
+/** R$ / BRL; liberalised distribution under ANEEL cost-of-service. */
+export const BRAZIL_ECONOMY: EconomyProfile = {
+  symbol: 'R$',
+  iso: 'BRL',
+  toGbp: 0.16,
+  domesticNetworkShare: 0.35,
+  domesticEnergyShare: 0.4,
+  retailUplift: 3.0,
+  supplyFixedYr: 90,
+};
+/** Tender market over a hydro fleet whose reservoir swings with the season.
+ *  `hydroDriven` is shipped as DATA; dispatch does not yet consume it (the
+ *  drought price effect comes from BRAZIL_MARKET.droughtUplift, already wired).
+ *  TODO(WP2 Phase-D): a reservoir state in dispatch + the bandeira flag on the
+ *  bill HUD. TODO(WP2 Phase-F): non-technical losses (theft). */
+export const BRAZIL_GENERATION: GenerationModel = { ownership: 'tender', hydroDriven: true };
+
+// ----------------------------------------------------------------------
 // 5. The resolved profile carried on SimContext.
 
 /** The fully-resolved active profile threaded through the sim. Every sub
@@ -327,3 +507,65 @@ export const LONDON_PROFILE: ResolvedProfile = {
   regulator: LONDON_REGULATOR,
   market: LONDON_MARKET,
 };
+
+// ----------------------------------------------------------------------
+// 4c. COUNTRY_PROFILES — the city → operating-model lookup (WP2).
+//
+// Many cities share a country (London + NE England are both GB), so the six
+// sub-blocks are factored once per COUNTRY and a scenario references its country
+// (cityRegistry.ts: CityScenario.country). resolveProfile takes the country
+// profile as the base and lets a city still override any single block (e.g. a
+// city localising its peakDoy). GB === LONDON_PROFILE, so a GB city (or no
+// country tag at all) is bit-identical to the pre-WP2 engine — the determinism
+// anchor. See docs/operating-models/DESIGN.md §2.
+
+/** ISO-3166-ish country tag for the operating-model table. Only the countries
+ *  with a COMPLETE, committed profile are listed; cities for other countries
+ *  resolve to GB until their profile lands (a deliberate, documented default
+ *  — they are still fully playable, just GB-flavoured). */
+export type CountryId = 'GB' | 'FR' | 'AU' | 'HK' | 'BR';
+
+/** Each country's fully-resolved operating model. GB is LONDON_PROFILE. The
+ *  rest assemble the shipped market+regulator with the §4b power/weather/
+ *  economy/generation blocks. Brazil is included for completeness (no `rio`
+ *  scenario references it yet — see §4b). */
+export const COUNTRY_PROFILES: Record<CountryId, ResolvedProfile> = {
+  GB: LONDON_PROFILE,
+  FR: {
+    power: FRANCE_POWER,
+    weather: FRANCE_WEATHER,
+    economy: FRANCE_ECONOMY,
+    generation: FRANCE_GENERATION,
+    regulator: FRANCE_REGULATOR,
+    market: FRANCE_MARKET,
+  },
+  AU: {
+    power: AUSTRALIA_POWER,
+    weather: AUSTRALIA_WEATHER,
+    economy: AUSTRALIA_ECONOMY,
+    generation: AUSTRALIA_GENERATION,
+    regulator: AUSTRALIA_REGULATOR,
+    market: AUSTRALIA_MARKET,
+  },
+  HK: {
+    power: HONGKONG_POWER,
+    weather: HONGKONG_WEATHER,
+    economy: HONGKONG_ECONOMY,
+    generation: HONGKONG_GENERATION,
+    regulator: HONGKONG_REGULATOR,
+    market: HONGKONG_MARKET,
+  },
+  BR: {
+    power: BRAZIL_POWER,
+    weather: BRAZIL_WEATHER,
+    economy: BRAZIL_ECONOMY,
+    generation: BRAZIL_GENERATION,
+    regulator: BRAZIL_REGULATOR,
+    market: BRAZIL_MARKET,
+  },
+};
+
+/** The resolved operating model for a country tag (defaults to GB). */
+export function countryProfile(country: CountryId | undefined): ResolvedProfile {
+  return country ? COUNTRY_PROFILES[country] : LONDON_PROFILE;
+}
