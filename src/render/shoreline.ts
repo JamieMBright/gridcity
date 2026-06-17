@@ -7,7 +7,8 @@
 // tools/preview.ts through the same polygon sink as the route ribbons.
 
 import { TERRAIN, ZONE, type CityMap } from '../sim/map/types';
-import { riverCenterY } from '../data/londonMap';
+import { RIVER_PTS, riverCenterY, riverHalfWidth } from '../data/londonMap';
+import { sampleRoute } from '../sim/map/routes';
 import { emitRibbon, groundProj } from './routeRibbons';
 
 export const SHORE_PALETTE = {
@@ -19,6 +20,10 @@ export const SHORE_PALETTE = {
   stone: 0x9a93a6,
   ink: 0x1f1834,
   foam: 0xe8e2d2,
+  /** A soft warm sheen the river surface catches at golden hour — a thin
+   *  glint run down the Thames centreline so it reads its true course (and
+   *  the Isle of Dogs loop) even at the far/top zoom. */
+  glint: 0xf3ddc2,
 } as const;
 
 export interface ShoreChain {
@@ -177,8 +182,49 @@ function bankColorAt(map: CityMap, u: number, v: number, nu: number, nv: number)
   return SHORE_PALETTE.sand;
 }
 
-/** Emit the smoothed shoreline bands: land bank, water band, ink waterline
- *  and a faint foam line offset into the water. Static (band-independent). */
+/** A thin warm sheen run down the Thames centreline — the "river glint" the
+ *  golden-hour water catches. Drawn from the river spline (so it follows the
+ *  bends and the Isle of Dogs loop), its width a gentle fraction of the local
+ *  half-width (a hairline up west, a touch broader down the estuary) and its
+ *  alpha low, so it never reads as a stripe up close yet lifts the river's
+ *  course out of flat blue at the far/top zoom. London only (other cities
+ *  carry no RIVER_PTS spine — the call is a no-op for them via map.named). */
+function emitRiverGlint(map: CityMap, sink: ShoreSink): void {
+  // gate to the London fabric: the spine is London's. A non-London map keeps
+  // a flat river (no false glint where there is no Thames).
+  if (map.fabric !== undefined && map.fabric !== 'london') return;
+  const samples = sampleRoute({ kind: 'lane', pts: RIVER_PTS }, 0.5);
+  if (samples.length < 2) return;
+  // build a centreline polyline; clip to the actual water mask so the glint
+  // never paints over reclaimed/strayed columns
+  const pts: Array<{ u: number; v: number }> = [];
+  for (const [sx, sy] of samples) {
+    const x = Math.round(sx);
+    const y = Math.round(sy);
+    if (x < 0 || x >= map.width || y < 0 || y >= map.height) continue;
+    if (map.terrain[y * map.width + x] !== TERRAIN.water) continue;
+    pts.push({ u: sx, v: sy });
+  }
+  if (pts.length < 2) return;
+  const s: number[] = pts.map((_, i) => i);
+  // emit the glint segment-by-segment so its half-width can taper with the
+  // river: a hairline up the narrow western reaches, a little broader where
+  // the estuary fans open. Kept well inside the banks (≈0.3 of half-width).
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    if (!a || !b) continue;
+    const hw = riverHalfWidth(a.u);
+    const half = Math.min(0.55, Math.max(0.12, hw * 0.28));
+    emitRibbon([a, b], [s[i] ?? i, s[i + 1] ?? i + 1], half, 0, groundProj, (q) =>
+      sink(q, SHORE_PALETTE.glint, 0.2),
+    );
+  }
+}
+
+/** Emit the smoothed shoreline bands: land bank, water band, ink waterline,
+ *  a faint foam line offset into the water, and a thin warm river glint down
+ *  the Thames centreline. Static (band-independent). */
 export function emitShoreline(map: CityMap, sink: ShoreSink): void {
   const chains = traceShorelines(map);
   for (const chain of chains) {
@@ -219,4 +265,6 @@ export function emitShoreline(map: CityMap, sink: ShoreSink): void {
     emitRibbon(pts, s, 0.013, 0, groundProj, (q) => sink(q, SHORE_PALETTE.ink, 0.8));
     emitRibbon(pts, s, 0.008, 0.12, groundProj, (q) => sink(q, SHORE_PALETTE.foam, 0.45));
   }
+  // the warm river glint rides on top of the finished water band
+  emitRiverGlint(map, sink);
 }

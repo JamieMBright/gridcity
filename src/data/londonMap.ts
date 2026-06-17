@@ -50,7 +50,7 @@ const CENTRE = { x: 118, y: 80 };
 // the Erith–Purfleet double bend, the narrows under the Dartford
 // crossing, and the long widening estuary past Tilbury and Canvey.
 
-const RIVER_PTS: Array<[number, number]> = [
+export const RIVER_PTS: Array<[number, number]> = [
   [0, 92], // Windsor reach in
   [8, 96], // Datchet
   [14, 92], // Horton
