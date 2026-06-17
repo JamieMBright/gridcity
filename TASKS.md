@@ -12,6 +12,39 @@
 
 ## Open
 
+### 🎓 WP1 — TUTORIAL GUIDED-PLAY POLISH (this session, branch wp1-tutorial-guided-play)
+Owner playtest-feedback items for the tutorial/onboarding (drawn from the re-raise
+ledger below). Scope: tutorial/onboarding UX ONLY — must not regress normal
+(non-tutorial) play. Both desktop + phone-landscape design-gated. Gates:
+tsc/eslint/vitest/build + `bash tools/e2e-shards.sh 'panels|flows|bootpaths'`.
+- [x] **Highlight VANISHES the moment its target is clicked** — useSpotlightRect now
+      watches the measured target for a pointerdown and reports `clicked`; Tutorial
+      drops the spotlight on click (not when the goal latches). (d552883)
+- [x] **ARROW pointing at the highlighted target, gentle BOUNCING animation** —
+      SpotlightOverlay draws a bobbing ▼ arrow (rotated to point from whichever side
+      has room), data-testid="spotlight-arrow". (d552883)
+- [x] **Allow only ONE onshore-wind facility during the relevant lesson** (m1/m5) —
+      commands.ts SINGLE_ONSHORE_MISSIONS guard refuses a 2nd onshore designation
+      (open/awarded tender OR built gen); sandbox unaffected. (6dc93bd)
+- [x] **Prevent unrelated APPLICATIONS/events spawning during tutorials** — tick.ts
+      inMission guard skips maybeSpawnApplications / maybeSpawnPitch / rollFaults in
+      missions; m3 scripted fault + m4 seeded app survive; sandbox flows. (2079747)
+- [x] **Hide non-essential HUD/overlay info during tutorials**, introduced
+      progressively — minimap+bookmarks gated (hud:minimap, hidden in all current
+      lessons); market ticker gated (hud:market, introduced in m5). (cd127d4)
+- [x] **T2 — teach UNDERGROUND cables** — m2 wire step teaches overhead→underground
+      (U hotkey / palette toggle) for happier locals, gated on a 33 kV cable. (4604800)
+- [x] **T5 — teach REINFORCING an existing sub** — m5 step: inspect a dist sub +
+      step the transformer up (cheaper than new), gated on a manual mva. (4604800)
+- [x] **T4 — surface the firm-vs-flex VISUAL comparison IN-FLOW** — m4 offer step
+      teaches + spotlights the side-by-side FirmFlexCompare cards. (4604800)
+- [x] **Teach AUTO-CONNECT via a hotkey** — m6 wire step teaches the A hotkey /
+      auto-connect toggle (placed sub lays its own circuits). (4604800)
+- [x] **T3 — visible van-launch step** — m3 seeds fleetSize=0; new step raises vans
+      0→1 (Fleet panel) then the storm step shows the van leave the depot. (4604800)
+- [ ] GATES all green + tutorial e2e extended; PR to main; screenshots both viewports.
+
+
 ### 🧾 LEDGER RECONCILE (2026-06-17) — honest audit of every open/partial item vs the shipped code (origin/main @ 2099b94, PRs #63–#66)
 The owner flagged that the ledger had drifted untrustworthy (~134 unchecked items, many
 already shipped). This pass VERIFIED every `- [ ]`/`- [~]` against the actual codebase

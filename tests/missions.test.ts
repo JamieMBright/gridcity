@@ -20,9 +20,10 @@ import {
   nextMission,
   type MissionView,
 } from '../src/sim/scenario/missions';
-import { deserialize, newContext, newGame, serialize, type SaveData } from '../src/sim/state';
-import { derive, solveTick, type TickOutputs } from '../src/sim/tick';
+import { deserialize, newContext, newGame, seedScenario, serialize, type SaveData } from '../src/sim/state';
+import { advanceTime, derive, deriveKey, solveTick, type TickOutputs } from '../src/sim/tick';
 import type { GameState, SimContext } from '../src/sim/state';
+import { applyCommand } from '../src/sim/commands';
 import { commissionAll, directBuildGen, mustApply } from './helpers';
 
 function solve(state: GameState, ctx: SimContext): { out: TickOutputs; total: number } {
@@ -304,6 +305,125 @@ describe('mission 4: the seeded application', () => {
     // and the town is already served, so the lesson is the connection
     const v = viewOf(state, ctx);
     expect(v.stats.servedCustomers).toBe(v.stats.totalCustomers);
+  });
+});
+
+describe('tutorial: only ONE onshore-wind farm in the relevant lessons', () => {
+  // two well-separated valid ridge tiles, so the ONLY reason a second
+  // designation can fail is the single-farm guard (not a reservation clash)
+  const A = { x: 2, y: 8 };
+  const B = { x: 11, y: 9 };
+
+  it('m1 refuses a SECOND onshore-wind designation (tender already open)', () => {
+    const state = newGame('m1-first-light');
+    const ctx = newContext('m1-first-light');
+    const first = applyCommand(state, ctx.map, {
+      type: 'build',
+      spec: { kind: 'gen', gen: 'windOnshore', x: A.x, y: A.y },
+    });
+    expect(first.ok).toBe(true);
+    expect(state.tenders.filter((t) => t.gen === 'windOnshore')).toHaveLength(1);
+    const second = applyCommand(state, ctx.map, {
+      type: 'build',
+      spec: { kind: 'gen', gen: 'windOnshore', x: B.x, y: B.y },
+    });
+    expect(second.ok).toBe(false);
+    expect(second.error).toMatch(/one onshore wind/i);
+    // still exactly one tender — the refusal didn't create a second
+    expect(state.tenders.filter((t) => t.gen === 'windOnshore')).toHaveLength(1);
+  });
+
+  it('a BUILT onshore gen also blocks a fresh onshore designation in m5', () => {
+    const state = newGame('m5-bill');
+    const ctx = newContext('m5-bill');
+    directBuildGen(state, ctx.map, 'windOnshore', M5_WIND.x, M5_WIND.y);
+    const r = applyCommand(state, ctx.map, {
+      type: 'build',
+      spec: { kind: 'gen', gen: 'windOnshore', x: A.x, y: A.y },
+    });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/one onshore wind/i);
+  });
+
+  it('the SANDBOX (london) is NOT limited — designate as many as you like', () => {
+    const state = newGame('london');
+    const ctx = newContext('london');
+    // two well-separated valid onshore sites in the london countryside: the
+    // guard is mission-only, so BOTH designations must succeed.
+    const a = applyCommand(state, ctx.map, {
+      type: 'build',
+      spec: { kind: 'gen', gen: 'windOnshore', x: 0, y: 0 },
+    });
+    const b = applyCommand(state, ctx.map, {
+      type: 'build',
+      spec: { kind: 'gen', gen: 'windOnshore', x: 15, y: 0 },
+    });
+    expect(a.ok).toBe(true);
+    expect(b.ok).toBe(true);
+    expect(state.tenders.filter((t) => t.gen === 'windOnshore')).toHaveLength(2);
+  });
+});
+
+describe('tutorials suppress unrelated applications / events', () => {
+  /** Run a scenario for `weeks` game-weeks the worker's way and count any
+   *  UNSOLICITED spawns (applications, pitches, fault jobs) that appeared
+   *  beyond whatever the seed() placed. */
+  function runScenario(
+    id: string,
+    weeks: number,
+  ): { newApps: number; newPitches: number; newJobs: number } {
+    const state = newGame(id);
+    const ctx = newContext(id);
+    seedScenario(state, ctx); // no-op off london, but mirror the worker path
+    missionOf(id)?.seed?.(state, ctx);
+    state.speed = 16;
+    let derived = derive(state, ctx);
+    const apps0 = state.applications.length;
+    const pitches0 = state.pitches.length;
+    const jobs0 = state.jobs.size;
+    const startMin = state.simTimeMin;
+    while (state.simTimeMin - startMin < weeks * 7 * 1440) {
+      advanceTime(state);
+      if (derived.version !== deriveKey(state)) derived = derive(state, ctx);
+      solveTick(state, ctx, derived, true);
+    }
+    return {
+      newApps: state.applications.length - apps0,
+      newPitches: state.pitches.length - pitches0,
+      newJobs: state.jobs.size - jobs0,
+    };
+  }
+
+  it('a tutorial mission gets ZERO unsolicited applications, pitches or random faults', () => {
+    // m1 has overhead lines + open land, so the live game WOULD roll faults
+    // and applications here — the guard must keep the lesson silent.
+    for (const id of ['m1-first-light', 'm5-bill', 'm6-sun-store']) {
+      const r = runScenario(id, 30);
+      expect(r.newApps, `${id} spawned applications`).toBe(0);
+      expect(r.newPitches, `${id} spawned innovation pitches`).toBe(0);
+      expect(r.newJobs, `${id} rolled a random fault`).toBe(0);
+    }
+  }, 30_000);
+
+  it("the SANDBOX (london) still spawns applications — the guard is mission-only", () => {
+    // contrast: the same machinery, off the guard, must still flow in london
+    // (otherwise the guard would have broken normal play).
+    const r = runScenario('london', 30);
+    expect(r.newApps).toBeGreaterThan(0);
+  }, 30_000);
+
+  it("m3's scripted storm fault STILL fires under the random-fault guard", () => {
+    // the guard suppresses the RANDOM roll, but m3's storm injects its fault
+    // directly via the script — that lesson beat must survive.
+    const state = newGame('m3-storm');
+    const ctx = newContext('m3-storm');
+    missionOf('m3-storm')?.seed?.(state, ctx);
+    let v = viewOf(state, ctx);
+    state.simTimeMin = 39 * 60; // just past the scripted fault beat
+    advanceMission(state, v);
+    v = viewOf(state, ctx);
+    expect(state.outages.size).toBe(1);
+    expect(state.jobs.size).toBe(1);
   });
 });
 

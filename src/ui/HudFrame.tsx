@@ -236,20 +236,24 @@ export function HudFrame() {
         {/* the minimap + camera bookmarks dock at the BOTTOM of the left rail
             so they can never sit on the right-rail finance stack (owner
             playtest) and never cover the clock bar. Open or collapsed, they
-            live in this slot. */}
-        <div
-          style={{
-            marginTop: 'auto',
-            pointerEvents: 'auto',
-            flex: 'none',
-            display: 'flex',
-            alignItems: 'flex-end',
-            gap: GAP,
-          }}
-        >
-          <Minimap frame={minimapFrame} />
-          <CameraBookmarks frame={cornerWidgetFrame} />
-        </div>
+            live in this slot. HIDDEN during tutorials (owner: hide
+            non-essential HUD; a one-screen lesson map needs no minimap or
+            saved camera viewpoints) — introduced in sandbox via hud:minimap. */}
+        {showPanel('hud:minimap') && (
+          <div
+            style={{
+              marginTop: 'auto',
+              pointerEvents: 'auto',
+              flex: 'none',
+              display: 'flex',
+              alignItems: 'flex-end',
+              gap: GAP,
+            }}
+          >
+            <Minimap frame={minimapFrame} />
+            <CameraBookmarks frame={cornerWidgetFrame} />
+          </div>
+        )}
       </Rail>
 
       {/* RIGHT — pinned inspector (top slot), inbox (grows), bill (foot).

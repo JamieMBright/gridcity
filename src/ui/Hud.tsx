@@ -882,10 +882,14 @@ export function ClockCluster({
  *  floating centred clock cluster. The desktop layout uses HudTopBar /
  *  HudBottomBar inside the perimeter frame instead. */
 export function Hud({ compact = false }: { compact?: boolean } = {}) {
+  const gate = useUnlockGate();
+  // mirror the perimeter HUD: the ambient market strip stays hidden in a
+  // tutorial until a lesson introduces it (hud:market).
+  const showMarket = !gate.active || gate.has('hud:market');
   return (
     <>
       <NewsTicker />
-      <MarketTicker />
+      {showMarket && <MarketTicker />}
       <StormBanner />
       <ClockCluster compact={compact} />
     </>
@@ -988,6 +992,13 @@ function RegulatorCluster() {
  *  centred overlays (structurally clear of the rails). */
 export function HudTopBar() {
   const inMission = useAppStore((s) => s.scenarioId !== 'london');
+  const gate = useUnlockGate();
+  // the national market telemetry strip (frequency / price / carbon) is
+  // ambient context, not lesson material — hide it in a tutorial until a
+  // lesson explicitly introduces it (hud:market, unlocked in the bill
+  // lesson). Sandbox always shows it. Owner: hide non-essential HUD,
+  // introduce it progressively across lessons.
+  const showMarket = !gate.active || gate.has('hud:market');
   return (
     <>
       <NewsTicker />
@@ -1007,7 +1018,7 @@ export function HudTopBar() {
         <Wordmark />
         {!inMission && <SearchBox embedded />}
         <div style={{ flex: '1 1 auto', display: 'flex', justifyContent: 'center', minWidth: 0 }}>
-          <MarketTicker embedded />
+          {showMarket && <MarketTicker embedded />}
         </div>
         <RegulatorCluster />
       </div>

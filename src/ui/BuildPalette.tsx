@@ -149,6 +149,7 @@ function AutoConnectToggle() {
   const setAutoConnect = useAppStore((s) => s.setAutoConnect);
   return (
     <button
+      data-spot="autoconnect"
       onClick={() => setAutoConnect(!on)}
       title="Placing a substation automatically connects it to the nearest compatible bays (A)"
       style={{
@@ -638,7 +639,9 @@ export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
       )}
       {levels.length > 0 && (
         <Section title="Lines & cables">
-          <div style={{ display: 'flex', gap: 4, margin: '0 9px 6px' }}>
+          {/* data-spot lets the tutorial spotlight this overhead/underground
+              toggle when it teaches undergrounding (T2) */}
+          <div data-spot="line-build" style={{ display: 'flex', gap: 4, margin: '0 9px 6px' }}>
             {(['overhead', 'underground'] as const).map((b) => (
               <button
                 key={b}

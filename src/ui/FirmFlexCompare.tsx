@@ -134,7 +134,9 @@ export function FirmFlexCompare({
       : '';
 
   return (
-    <div style={{ marginTop: 5 }}>
+    // data-spot lets the tutorial spotlight ring this side-by-side compare
+    // IN-FLOW during the firm-vs-flex lesson (owner T4).
+    <div data-spot="firmflex" style={{ marginTop: 5 }}>
       <div
         style={{
           fontSize: 10,

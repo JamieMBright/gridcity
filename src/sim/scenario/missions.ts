@@ -93,7 +93,11 @@ export interface MissionUiView {
  *  HUD surfaces use `hud:` keys the buttons/chips opt into:
  *    `hud:inbox`, `hud:bill`, `hud:fleet`, `hud:alerts`, `hud:kpi`,
  *    `hud:balance`, `hud:headroom`, `hud:n1`, `hud:forecast`,
- *    `hud:grid`, `hud:goal`. */
+ *    `hud:grid`, `hud:goal`, `hud:market` (the national price/carbon strip)
+ *    and `hud:minimap` (minimap + camera bookmarks). The last two are
+ *    NON-essential ambient chrome, hidden in every tutorial by default and
+ *    introduced only where a lesson surfaces them — keeping early lessons
+ *    uncluttered (owner: hide non-essential HUD, introduce progressively). */
 export type Unlock = string;
 
 export interface MissionStep {
@@ -443,16 +447,23 @@ export const MISSIONS: Mission[] = [
       },
       {
         text:
-          'Finish locally: a DISTRIBUTION SUBSTATION among the homes, and a 33 KV LINE from the ' +
-          'grid substation to it. 132 kV travels; 33 kV delivers.',
-        objective: 'Add a dist substation + 33 kV line to the homes',
-        done: (s) => s.stats.servedCustomers > 0,
+          'Finish locally: place a DISTRIBUTION SUBSTATION among the homes. Then before you wire ' +
+          'it, a choice. The 33 kV link runs right past the seafront cottages, and OVERHEAD ' +
+          'pylons there blight the view and rile the locals. In the LINES & CABLES tool, switch ' +
+          'from OVERHEAD to UNDERGROUND (or press U) — a buried CABLE costs more but keeps the ' +
+          'coastline clear and the neighbours happy. Run a 33 kV UNDERGROUND cable to the homes.',
+        objective: 'Wire the homes with a 33 kV UNDERGROUND cable',
+        done: (s) =>
+          s.stats.servedCustomers > 0 &&
+          s.assets.some((a) => a.kind === 'line' && a.level === 33 && a.build === 'underground'),
         unlocks: ['sub:dist', 'line:33'],
         focus: M2_VILLAGE,
-        spot: 'sub:dist',
+        spot: 'line-build',
       },
       {
-        text: 'Light every home via the 132 kV link, then FINISH TUTORIAL to complete Step Up.',
+        text:
+          'Light every home via the 132 kV link and the buried 33 kV cable, then FINISH TUTORIAL ' +
+          'to complete Step Up.',
         objective: 'Light every home from the offshore farm',
         done: (v) =>
           v.stats.totalCustomers > 0 &&
@@ -467,7 +478,13 @@ export const MISSIONS: Mission[] = [
   }),
 
   mission('m3-storm', {
-    seed: (state, ctx) => seedNetwork(state, ctx, 'biomass', M3_PLANT, M3_SUB),
+    seed: (state, ctx) => {
+      seedNetwork(state, ctx, 'biomass', M3_PLANT, M3_SUB);
+      // start with NO vans so the lesson can teach raising the fleet 0→1 and
+      // the player SEES the first van leave the depot (owner T3). The live
+      // game's default is 2.
+      state.fleetSize = 0;
+    },
     script: stormScript,
     baseUnlocks: ['hud:alerts'],
     steps: [
@@ -480,8 +497,8 @@ export const MISSIONS: Mission[] = [
       },
       {
         text:
-          'Faults need crews, and crews need a home. Build a FIELD DEPOT near the line — your ' +
-          'two repair vans appear there the moment it exists.',
+          'Faults need crews, and crews need a home. Build a FIELD DEPOT near the line — it is ' +
+          'where your repair vans live and return between jobs.',
         objective: 'Build a field depot near the line',
         done: (s) => s.assets.some((a) => a.kind === 'depot'),
         unlocks: ['depot'],
@@ -490,7 +507,17 @@ export const MISSIONS: Mission[] = [
       },
       {
         text:
-          'Prevention beats repair. Open the FLEET panel and set a VEGETATION programme ' +
+          'A depot with no vans is just a shed. Open the FLEET panel and raise your fleet from ' +
+          '0 to 1 VAN — watch it appear, parked at the depot, ready to roll. (Each van is a ' +
+          'standing cost on the bill, so a real network sizes the fleet to its fault rate.)',
+        objective: 'Raise the fleet to one van',
+        done: (s) => s.fleet.fleetSize >= 1,
+        unlocks: ['hud:fleet'],
+        spot: 'hud:fleet',
+      },
+      {
+        text:
+          'Prevention beats repair. Still in the FLEET panel, set a VEGETATION programme ' +
           '(reactive at least) — untrimmed woodland is where storm faults breed. Two reliability ' +
           'measures matter here: CI (how MANY customers are interrupted) and CML (how LONG, in ' +
           'customer-minutes lost). Both are scored.',
@@ -502,7 +529,8 @@ export const MISSIONS: Mission[] = [
       {
         text:
           'Storm Aldgate is about to land. Ride it out: when the woodland line comes down, watch ' +
-          'a van race out from the depot and restore it. The ⇥ skip buttons pass the waiting.',
+          'your van LEAVE THE DEPOT, drive the roads to the fault, and restore supply. The ⇥ ' +
+          'skip buttons pass the waiting.',
         objective: 'Survive the storm and restore the downed line',
         done: (s) =>
           s.simTimeMin > M3_FAULT_MIN && s.branches.every((b) => b.outMin === undefined),
@@ -573,13 +601,17 @@ export const MISSIONS: Mission[] = [
       },
       {
         text:
-          'Now answer. FIRM = full access, and you pay constraint compensation whenever you ' +
-          'curtail them. FLEXIBLE = you may curtail freely (cheaper for you, agreed up front). ' +
-          'Either works here; big steady loads usually want firm.',
-        objective: 'Offer the connection (firm or flexible)',
+          'Now answer. The inbox lays the two offers SIDE BY SIDE so the tradeoff reads at a ' +
+          'glance: FIRM gives full must-take access but you PAY constraint compensation whenever ' +
+          'you curtail them (it lands on bills); FLEXIBLE is cheaper and quicker — you may curtail ' +
+          'freely with no compensation, the developer carries that risk. Compare the two cards, ' +
+          'then offer one. Big steady loads usually want firm.',
+        objective: 'Compare firm vs flexible, then offer the connection',
         done: (s) => s.inbox.applications.some((a) => a.status === 'firm' || a.status === 'flex'),
         focus: M4_APPLICANT,
-        spot: 'inbox',
+        // spotlight the side-by-side compare itself (FirmFlexCompare carries
+        // data-spot="firmflex") so the visual tradeoff is taught IN-FLOW (T4)
+        spot: 'firmflex',
       },
       {
         text:
@@ -614,7 +646,10 @@ export const MISSIONS: Mission[] = [
 
   mission('m5-bill', {
     flexTenders: true,
-    baseUnlocks: ['hud:bill', 'hud:inbox'],
+    // the bill lesson is where national market context (price / carbon /
+    // frequency) starts to matter, so introduce the market ticker here —
+    // progressive HUD disclosure (owner). Earlier lessons stay uncluttered.
+    baseUnlocks: ['hud:bill', 'hud:inbox', 'hud:market'],
     steps: [
       {
         text:
@@ -658,9 +693,23 @@ export const MISSIONS: Mission[] = [
       },
       {
         text:
+          'One more tool for the toolbox: REINFORCING. When a substation is running tight, you ' +
+          'rarely need a whole NEW one — you fit a bigger transformer in the one you have, far ' +
+          'cheaper. CLICK your distribution substation to inspect it, then in the panel step its ' +
+          '“reinforce transformer” up one size (scroll on it, or use the + arrow). Watch the ' +
+          'capex line move on the bill — then you can hand it back to AUTO or trim it for the ' +
+          'target below.',
+        objective: 'Inspect a substation and reinforce its transformer',
+        done: (s) => s.assets.some((a) => a.kind === 'sub' && a.sub === 'dist' && !a.idno && a.mva !== undefined),
+        unlocks: ['sub:dist'],
+        focus: M5_TOWN,
+        spot: 'reinforce',
+      },
+      {
+        text:
           `Now hit the target: every home served AND network £/home ≤ £${M5_DUOS_TARGET}. Watch ` +
-          'the bill panel; DEMOLISH anything gold-plated (refunds are instant). When the figure ' +
-          'is under target, press FINISH TUTORIAL.',
+          'the bill panel; DEMOLISH anything gold-plated and right-size (or AUTO) that transformer ' +
+          '— refunds are instant. When the figure is under target, press FINISH TUTORIAL.',
         objective: `Get network £/home to £${M5_DUOS_TARGET} or under`,
         done: (s) => s.missionComplete === true,
         spot: 'bill',
@@ -710,13 +759,18 @@ export const MISSIONS: Mission[] = [
       },
       {
         text:
-          'Wire it together: a DISTRIBUTION SUBSTATION in the village, and 33 kV LINES tying the ' +
-          'solar farm and the battery to it. Both connect at 33 kV, so no grid substation needed.',
-        objective: 'Wire solar + battery to a village substation',
+          'Wire it together — and this time let the network do the work. Turn on AUTO-CONNECT ' +
+          '(the toggle in the build palette, or just press A). With it on, every DISTRIBUTION ' +
+          'SUBSTATION you place automatically runs its own 33 kV circuits to the nearest ' +
+          'compatible kit. Switch it on, then drop a dist substation in the village — the wires ' +
+          'to the solar farm and battery lay themselves. No grid substation needed; both connect ' +
+          'at 33 kV.',
+        objective: 'Auto-connect a substation to wire solar + battery',
         done: (s) => hasLine(s, 33) && s.assets.some((a) => a.kind === 'sub' && a.sub === 'dist'),
         unlocks: ['sub:dist', 'line:33'],
         focus: M6_VILLAGE,
-        spot: 'sub:dist',
+        // spotlight the auto-connect toggle so the hotkey/feature is taught
+        spot: 'autoconnect',
       },
       {
         text:

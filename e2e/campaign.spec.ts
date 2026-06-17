@@ -206,6 +206,31 @@ test.describe('campaign tutorial — real UI path at phone-landscape', () => {
   });
 });
 
+test.describe('campaign tutorial — guided spotlight (desktop)', () => {
+  // desktop: the build rail is always mounted, so the spotlight can ring the
+  // onshore-wind tool. (On phone the palette lives in a drawer, so the
+  // spotlight simply shows nothing until the drawer is opened.)
+  test('bouncing arrow points at the target and VANISHES the moment it is clicked', async ({
+    page,
+  }) => {
+    await startTutorial(page);
+    await expect(page.getByText(/FIRST LIGHT/)).toBeVisible();
+    // advance to the designate-wind step — it spotlights the onshore-wind
+    // build button (spot: 'gen:windOnshore')
+    await clickButton(page, 'continue');
+    await expect(page.getByText(/Designate an onshore-wind site/)).toBeVisible();
+    // the new bouncing arrow affordance is shown at the target
+    await expect(page.getByTestId('spotlight-arrow')).toBeVisible();
+    // arming the highlighted tool must DROP the spotlight + arrow IMMEDIATELY
+    // (owner: the highlight vanishes the moment its target is clicked — it
+    // must not linger until the step's goal latches)
+    await page.getByRole('button', { name: 'Onshore wind' }).dispatchEvent('click');
+    await expect(page.getByTestId('spotlight-arrow')).toHaveCount(0);
+    // and the tender hasn't been placed yet, so this really was vanish-on-CLICK
+    expect(await store<number>(page, '(s) => s.snapshot.inbox.tenders.length')).toBe(0);
+  });
+});
+
 test.describe('start menu lessons page', () => {
   test('lessons page lists missions; m2 locked until m1', async ({ page }) => {
     await waitReady(page);
@@ -310,6 +335,25 @@ for (const variant of [
       await expect(page.getByRole('button', { name: /next/ })).toBeEnabled();
       await page.waitForTimeout(500);
       await page.screenshot({ path: `preview/w7e-step-done-${variant.tag}.png` });
+    });
+
+    // WP1: the guided spotlight (bouncing arrow at the target) + the
+    // de-cluttered tutorial HUD (no minimap / market ticker). Desktop shows
+    // the arrow on the always-mounted build rail; mobile opens the build
+    // drawer first so the onshore-wind tool (and its arrow) are on screen.
+    test('guided spotlight arrow + de-cluttered tutorial HUD', async ({ page }) => {
+      test.setTimeout(120_000);
+      await intoMission1(page);
+      await clickButton(page, 'continue');
+      await expect(page.getByText(/Designate an onshore-wind site/)).toBeVisible();
+      if (variant.tag === 'mobile') {
+        // open the build drawer so the spotlit tool is mounted on screen
+        const build = page.getByRole('button', { name: /build/i });
+        if ((await build.count()) > 0) await build.first().dispatchEvent('click');
+        await page.waitForTimeout(300);
+      }
+      await page.waitForTimeout(500);
+      await page.screenshot({ path: `preview/wp1-spotlight-${variant.tag}.png` });
     });
   });
 }

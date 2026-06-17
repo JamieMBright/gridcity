@@ -84,10 +84,16 @@ function StepStrip({
   }, [goalMet, step, current, setStep, steps.length]);
 
   // guided-play spotlight: ring the step's target control (measured live
-  // so it follows whichever layout is mounted). Pure-visual — clicks pass
-  // through, so the player can still act freely. Once the goal is met the
-  // spotlight drops (the eye should move to the next/finish button).
-  const spotRect = useSpotlightRect(minimized || goalMet ? undefined : current?.spot);
+  // so it follows whichever layout is mounted) with a bouncing arrow.
+  // Pure-visual — clicks pass through, so the player can still act freely.
+  // The spotlight drops the MOMENT the target is CLICKED (owner: don't let
+  // it linger after the action) — and also once the goal latches or the
+  // notes are minimized, whichever comes first; the eye then moves to the
+  // next/finish button.
+  const { rect: spotRect, clicked: spotClicked } = useSpotlightRect(
+    minimized || goalMet ? undefined : current?.spot,
+  );
+  const showSpot = spotRect && !spotClicked;
 
   if (step === undefined || !current) return null;
   const last = step === steps.length - 1;
@@ -131,7 +137,7 @@ function StepStrip({
 
   return (
     <>
-      {spotRect && <SpotlightOverlay hole={spotRect} zIndex={6} />}
+      {showSpot && <SpotlightOverlay hole={spotRect} zIndex={6} />}
       <div
         style={{
           ...panelStyle,
