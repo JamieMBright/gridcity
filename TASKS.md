@@ -32,7 +32,8 @@ Three independent backlog-polish items. Gates: tsc/eslint/vitest/build +
       a one-step-deeper night tint 0xb9b2cc→0xada5c6 (lum 0.465→0.399, well above
       the cosy >0.2 floor). NIGHT before/after at far+mid, desktop+phone produced
       for the owner. Stays cosy, not horror-dark. FLAGGED for owner keep-or-revert.
-- [ ] GATES all green; branch pushed; PR to main; before/after screenshots attached.
+- [x] GATES all green (tsc/eslint/vitest 774/build/cityload 16-16; London determinism
+      held); branch pushed; PR to main; before/after night screenshots in preview/.
 
 ### 🎓 WP1 — TUTORIAL GUIDED-PLAY POLISH (this session, branch wp1-tutorial-guided-play)
 Owner playtest-feedback items for the tutorial/onboarding (drawn from the re-raise
