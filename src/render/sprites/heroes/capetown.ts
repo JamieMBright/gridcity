@@ -1979,11 +1979,16 @@ function oldTownHouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
     const x = bxA + (bxB - bxA) * (k / 12);
     iso.r.line([x, by], [x, by - 2.4 * RES], 0.7 * RES, alpha(WASH, 0.9));
   }
-  // the central ROCOCO entrance bay breaking up through the parapet — a white
-  // pilastered frontispiece capped by a scrolled segmental pediment
-  const cu0 = u0 + 0.26, cu1 = u1 - 0.26;
-  iso.box(cu0, v1 - 0.02, cu1, v1 + 0.05, 0, z + 8, lighten(SAND, 0.06), { rightC: lit(SAND, 0.08) });
-  const [px, pyB] = iso.P((cu0 + cu1) / 2, v1 + 0.05, z + 8);
+  // the central ROCOCO entrance bay breaking up through the parapet — a bright
+  // WHITE pilastered frontispiece capped by a scrolled segmental pediment (the
+  // real Old Town House reads white-plastered against the honey body)
+  const cu0 = u0 + 0.24, cu1 = u1 - 0.24;
+  iso.box(cu0, v1 - 0.02, cu1, v1 + 0.07, 0, z + 8, lighten(WASH, 0.03), { leftC: WASH, rightC: lighten(WASH, 0.06) });
+  // slim white pilasters framing the bay (catch the light)
+  for (const pu of [cu0 + 0.03, cu1 - 0.03] as const) {
+    iso.r.line(iso.P(pu, v1 + 0.07, 4), iso.P(pu, v1 + 0.07, z + 6), 1.2 * RES, lighten(WASH, 0.05));
+  }
+  const [px, pyB] = iso.P((cu0 + cu1) / 2, v1 + 0.07, z + 8);
   const wHalf = 6 * RES;
   // a swan-neck (broken segmental) pediment — two scrolls meeting a central vase
   const ped: Pt[] = [
@@ -1996,8 +2001,9 @@ function oldTownHouseTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   iso.r.poly(ped, lighten(WASH, 0.04));
   iso.r.polyline(ped, INK_W * 0.7, INK, true);
   iso.r.line([px, pyB - 8 * RES], [px, pyB - 12 * RES], 1.2 * RES, WASH); // central vase
-  // a tall arched front door under the bay
-  iso.r.poly([iso.P((cu0 + cu1) / 2 - 0.05, v1, 2), iso.P((cu0 + cu1) / 2 + 0.05, v1, 2), iso.P((cu0 + cu1) / 2 + 0.05, v1, 12), iso.P((cu0 + cu1) / 2, v1, 16), iso.P((cu0 + cu1) / 2 - 0.05, v1, 12)], alpha(hex('#3a2d22'), 0.85));
+  // a tall arched front door on the bright bay face
+  const dc = (cu0 + cu1) / 2;
+  iso.r.poly([iso.P(dc - 0.05, v1 + 0.07, 2), iso.P(dc + 0.05, v1 + 0.07, 2), iso.P(dc + 0.05, v1 + 0.07, 12), iso.P(dc, v1 + 0.07, 17), iso.P(dc - 0.05, v1 + 0.07, 12)], alpha(hex('#3a2d22'), 0.9));
   return iso.build();
 }
 
@@ -2037,10 +2043,10 @@ function gardensShulTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
     iso.box(tu - 0.12, tv - 0.12, tu + 0.12, tv + 0.12, z, z + 20, WASH, { rightC: lit(WASH, 0.05) });
     // a small arched belfry opening
     iso.r.poly([iso.P(tu - 0.05, tv + 0.12, z + 5), iso.P(tu + 0.05, tv + 0.12, z + 5), iso.P(tu + 0.05, tv + 0.12, z + 13), iso.P(tu, tv + 0.12, z + 16), iso.P(tu - 0.05, tv + 0.12, z + 13)], alpha(COLORS.glassDark, 0.7));
-    domeAt(iso, tu, tv, z + 20, 7 * RES, 1.1, COPPER, { bulb: true, ribs: 5 });
-    // a gilt finial
-    const [fx, fyB] = iso.P(tu, tv, z + 20);
-    iso.r.line([fx, fyB - 15 * RES], [fx, fyB - 20 * RES], 1 * RES, GILT_HOT);
+    const dm = domeAt(iso, tu, tv, z + 20, 7 * RES, 1.1, COPPER, { bulb: true, ribs: 5 });
+    // a gilt ball-finial rising straight off the dome tip (no floating gap)
+    iso.r.poly(circlePts(dm.tipX, dm.tipY - 1.5 * RES, 1.6 * RES), GILT_HOT);
+    iso.r.line([dm.tipX, dm.tipY - 2.5 * RES], [dm.tipX, dm.tipY - 7 * RES], 1 * RES, GILT);
   }
   return iso.build();
 }
@@ -2467,11 +2473,30 @@ function nationalLibraryTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
     const x = bxA + (bxB - bxA) * (k / 20);
     iso.r.line([x, by], [x, by - 2.4 * RES], 0.6 * RES, alpha(WASH, 0.85));
   }
-  // the central pedimented portico breaking forward
-  const cu0 = u0 + 0.85, cu1 = u1 - 0.85;
-  colonnade(iso, v1 + 0.03, cu0, cu1, 6, 18, 40, WASH);
-  iso.box(cu0 - 0.04, v1 - 0.02, cu1 + 0.04, v1 + 0.06, 40, 46, WASH);
-  pediment(iso, v1 + 0.06, cu0, cu1, 46, 12, WASH);
+  // a central raised ATTIC / clerestory storey breaks the empty roof — the
+  // library's reading-room lantern crowning the palazzo
+  const au0 = u0 + 0.7, au1 = u1 - 0.7, av0 = v0 + 0.7, av1 = v1 - 0.7;
+  iso.box(au0, av0, au1, av1, z + 4, z + 22, SANDP, { leftC: shaded(SANDP, 0.07), rightC: lit(SANDP, 0.06) });
+  // clerestory glazing round the attic
+  iso.windowsLeft(av1, au0 + 0.1, au1 - 0.1, z + 8, z + 18, 7, alpha(COLORS.glassLit, 0.5), WASH);
+  iso.windowsRight(au1, av0 + 0.1, av1 - 0.1, z + 8, z + 18, 7, alpha(COLORS.glassLit, 0.5), WASH);
+  iso.box(au0 - 0.03, av0 - 0.03, au1 + 0.03, av1 + 0.03, z + 22, z + 26, lighten(SANDP, 0.08), { topC: top(SANDP, 0.24) });
+  // a low pitched roof + a small central flag mast on the attic
+  iso.hip(au0, av0, au1, av1, z + 26, 10, ROOFSL);
+  const [mx, myB] = iso.P((au0 + au1) / 2, (av0 + av1) / 2, z + 36);
+  iso.r.line([mx, myB], [mx, myB - 12 * RES], 0.9 * RES, hex('#6f5a3a'));
+  // the GRAND central pedimented portico projecting forward, raised on a
+  // stepped podium, with full-height columns + a deep pediment (the front read)
+  const cu0 = u0 + 0.78, cu1 = u1 - 0.78;
+  // a stepped podium / entrance stair the portico stands on
+  iso.box(cu0 - 0.06, v1 - 0.02, cu1 + 0.06, v1 + 0.16, 0, 6, shaded(SANDP, 0.06));
+  iso.box(cu0 - 0.02, v1 - 0.02, cu1 + 0.02, v1 + 0.12, 6, 12, lighten(SANDP, 0.04));
+  // the deep portico architrave the columns carry
+  iso.box(cu0 - 0.06, v1 + 0.02, cu1 + 0.06, v1 + 0.14, 48, 54, WASH, { topC: top(WASH, 0.2) });
+  // full-height columns from the podium to the architrave
+  colonnade(iso, v1 + 0.14, cu0, cu1, 12, 48, 6, WASH);
+  // the deep crowning pediment
+  pediment(iso, v1 + 0.14, cu0 - 0.04, cu1 + 0.04, 54, 16, WASH);
   return iso.build();
 }
 
