@@ -1,17 +1,17 @@
-# Pune Metro
-*metro, transit · 2022*
+# Peshwe Energy Park
+*garden, park · 1953*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "Peshwe Energy Park Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+A hillside garden and former zoo at the foot of Parvati, laid out in the mid-20th century with terraced lawns, a toy train and an energy-themed park; a popular family destination on the Sinhagad-road side of the city.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **Peshwe Energy Park** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
+- **Type / style:** Public park.
 - **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.

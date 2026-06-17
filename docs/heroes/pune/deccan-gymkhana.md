@@ -1,17 +1,17 @@
-# Pune Metro
-*metro, transit · 2022*
+# Deccan Gymkhana
+*club, recreation · 1906*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "Deccan Gymkhana Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+A sports club and the planned residential quarter around it on the west bank, laid out in the early 20th century. The clubhouse and the surrounding Deccan Gymkhana blocks combine colonial bungalow and Art-Deco idioms; the area is a leafy heritage neighbourhood of Pune.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **Deccan Gymkhana** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
+- **Type / style:** Colonial / Art Deco.
 - **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.

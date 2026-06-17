@@ -1,17 +1,17 @@
-# Pune Metro
-*metro, transit · 2022*
+# Mundhwa Switchyard
+*power, substation · 1970*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "Mundhwa Switchyard Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+An MSEDCL high-voltage switchyard and substation serving east Pune's industrial and IT load from Mundhwa, an open switchyard of lattice gantries carrying busbars and insulator stacks with transformer banks and a control building.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **Mundhwa Switchyard** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
+- **Type / style:** Industrial.
 - **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.

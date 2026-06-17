@@ -1,18 +1,18 @@
-# Pune Metro
-*metro, transit · 2022*
+# Tambdi Jogeshwari Temple
+*temple · 1545*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "Tambdi Jogeshwari Temple Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+One of the oldest and holiest temples of Pune, dedicated to the goddess Jogeshwari (a form of Durga), the kuladaivat of the city. Rebuilt in stone in the Peshwa period, it carries a saffron shikhara over a compact mandap in Budhwar Peth and is one of the manacha (honoured) Ganpati-procession waypoints.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **Tambdi Jogeshwari Temple** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
-- **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
+- **Type / style:** Maratha.
+- **Footprint:** ~1×1 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.
 - **Massing & features:** derive from the description (towers, domes, shikharas,

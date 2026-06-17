@@ -1,18 +1,18 @@
-# Pune Metro
-*metro, transit · 2022*
+# Vetal Tekdi Math Vrindavan
+*math, shrine · 1850*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "Vetal Tekdi Math Vrindavan Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+A small math (monastic shrine) and saint's vrindavan-samadhi on the slopes near Vetal Tekdi, a white domed memorial chamber on a plinth with a tulsi-vrindavan and saffron pennant; part of the spiritual fabric of the western hills.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **Vetal Tekdi Math Vrindavan** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
-- **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
+- **Type / style:** Maratha math.
+- **Footprint:** ~1×1 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.
 - **Massing & features:** derive from the description (towers, domes, shikharas,

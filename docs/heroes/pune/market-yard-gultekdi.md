@@ -1,17 +1,17 @@
-# Pune Metro
-*metro, transit · 2022*
+# Market Yard (Gultekdi APMC)
+*market, wholesale · 1980*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "Market Yard (Gultekdi APMC) Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+The Agricultural Produce Market Committee wholesale market at Gultekdi — Pune's main fruit, vegetable and grain mandi. Long repetitive market sheds with saw-tooth north-light roofs, arcaded open fronts, an elevated water tank and signage; a vast trading complex south of the river.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **Market Yard (Gultekdi APMC)** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
+- **Type / style:** Industrial sheds.
 - **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.

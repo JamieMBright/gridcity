@@ -1,17 +1,17 @@
-# Pune Metro
-*metro, transit · 2022*
+# Magarpatta Cybercity
+*IT park, SEZ · 2004*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "Magarpatta Cybercity Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+The IT/SEZ business district of Magarpatta City, the pioneering farmer-built integrated 'walk-to-work' township at Hadapsar. Long low-rise curved glass office curves with continuous ribbon glazing wrap a landscaped central court planted with trees; a model of self-contained urban planning.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **Magarpatta Cybercity** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
+- **Type / style:** Contemporary glass.
 - **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.

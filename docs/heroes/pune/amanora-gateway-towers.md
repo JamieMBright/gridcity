@@ -1,17 +1,17 @@
-# Pune Metro
-*metro, transit · 2022*
+# Amanora Gateway Towers
+*residential high-rise · 2014*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "Amanora Gateway Towers Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+The tallest residential cluster in Pune, in the 400-acre Amanora Park Town integrated township at Hadapsar. Three tapering 45-storey apartment towers of pale render and glass balconies stepping in height above a landscaped podium; the city's flagship high-rise skyline.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **Amanora Gateway Towers** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
+- **Type / style:** Contemporary high-rise.
 - **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.

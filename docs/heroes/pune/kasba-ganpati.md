@@ -1,18 +1,18 @@
-# Pune Metro
-*metro, transit · 2022*
+# Kasba Ganpati
+*temple · 1630*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "Kasba Ganpati Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+The gramadaivat (presiding deity) of Pune and the city's most revered Ganesh shrine, established by Jijabai, mother of Shivaji, around 1630 in Kasba Peth — the oldest quarter of the city. A modest stone temple with a small saffron shikhara; it leads the city's Ganpati immersion procession each year as the manacha pahila (first-honour) idol.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **Kasba Ganpati** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
-- **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
+- **Type / style:** Maratha.
+- **Footprint:** ~1×1 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.
 - **Massing & features:** derive from the description (towers, domes, shikharas,

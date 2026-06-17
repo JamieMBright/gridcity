@@ -1,17 +1,17 @@
-# Pune Metro
-*metro, transit · 2022*
+# David Sassoon Library (Ohel David precinct)
+*library · 1867*
 
 Reference: real Pune landmark (research compiled for the bespoke-hero sprite).
-Wikidata/Wikipedia: search "Pune Metro Pune".
+Wikidata/Wikipedia: search "David Sassoon Library (Ohel David precinct) Pune".
 
 ## Description
-The Pune Metro rapid-transit system (opened 2022), with elevated stations on V-piers carrying glazed station boxes under wavy cantilever canopies, and a curving viaduct deck; a modern transport landmark threading the city along the Aqua and Purple lines.
+A 19th-century reading-house and library associated with the Sassoon philanthropic legacy in the Camp, a dignified stone building with tall round-arched windows, a pedimented entrance and a cupola lantern; part of the Sassoon institutions of Pune.
 
 ## Recreation spec (instruction for the bespoke sprite)
-Recreate **Pune Metro** as a CUSTOM iso sprite in the game's ink-contour dusk
+Recreate **David Sassoon Library (Ohel David precinct)** as a CUSTOM iso sprite in the game's ink-contour dusk
 style — do not reuse another hero. Work from the description above and real
 photographs of the building.
-- **Type / style:** Contemporary transit.
+- **Type / style:** Colonial Gothic.
 - **Footprint:** ~2×2 tiles. Draw it WIDE within that footprint.
 - **Height:** it must TOWER over the ordinary fabric; exaggerate vertically so
   it reads as a hero at the far zoom.
