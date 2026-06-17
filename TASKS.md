@@ -12,6 +12,32 @@
 
 ## Open
 
+### 🎓 WP1 — TUTORIAL GUIDED-PLAY POLISH (this session, branch wp1-tutorial-guided-play)
+Owner playtest-feedback items for the tutorial/onboarding (drawn from the re-raise
+ledger below). Scope: tutorial/onboarding UX ONLY — must not regress normal
+(non-tutorial) play. Both desktop + phone-landscape design-gated. Gates:
+tsc/eslint/vitest/build + `bash tools/e2e-shards.sh 'panels|flows|bootpaths'`.
+- [ ] **Highlight VANISHES the moment its target is clicked** — currently the
+      spotlight lingers until the step's `done` goal latches; drop it as soon as the
+      highlighted control is actually clicked/armed (track a "spot clicked" signal).
+- [ ] **ARROW pointing at the highlighted target, gentle BOUNCING animation** —
+      clearer affordance than a glow ring alone. Added to SpotlightOverlay.
+- [ ] **Allow only ONE onshore-wind facility during the relevant lesson** (m1/m5) —
+      block a 2nd onshore-wind tender/designation while in those missions.
+- [ ] **Prevent unrelated APPLICATIONS/events spawning during tutorials** — guard
+      the random spawners on mission scenarios; keep scripted seeds/beats (m3 storm
+      fault, m4 seeded application) working.
+- [ ] **Hide non-essential HUD/overlay info during tutorials**, introducing UI
+      progressively across lessons (extend the unlock-gating to more HUD surfaces).
+- [ ] **T2 — teach UNDERGROUND cables** (happier locals, less coastline interference).
+- [ ] **T5 — teach REINFORCING an existing sub** (inspect → increase, cheaper than new).
+- [ ] **T4 — surface the firm-vs-flex VISUAL comparison IN-FLOW** (FirmFlexCompare
+      exists but isn't shown during the lesson).
+- [ ] **Teach AUTO-CONNECT via a hotkey.**
+- [ ] **T3 — visible van-launch step** — raise vans 0→1 and SEE a van leave the depot.
+- [ ] GATES all green + tutorial e2e extended; PR to main; screenshots both viewports.
+
+
 ### 🧾 LEDGER RECONCILE (2026-06-17) — honest audit of every open/partial item vs the shipped code (origin/main @ 2099b94, PRs #63–#66)
 The owner flagged that the ledger had drifted untrustworthy (~134 unchecked items, many
 already shipped). This pass VERIFIED every `- [ ]`/`- [~]` against the actual codebase

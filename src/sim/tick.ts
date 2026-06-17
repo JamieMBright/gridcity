@@ -411,6 +411,16 @@ export function solveTick(
 ): TickOutputs {
   const dtMin = accumulate && state.speed > 0 ? MINUTES_PER_TICK * state.speed : 0;
   const rng = new Rng(state.rngState);
+  // Tutorial missions stay focused: a beginner mid-lesson must not be
+  // ambushed by UNRELATED connection applications, innovation pitches or
+  // random storm faults that have nothing to do with the thing they're
+  // learning (owner playtest feedback — "prevent unrelated applications/
+  // events spawning during tutorials, they confuse learners"). Scripted
+  // mission content is unaffected: m3's storm fault is injected directly by
+  // its script (tripSeededLine, not rollFaults) and m4's data-centre is
+  // pushed by its seed(), so suppressing the RANDOM spawners below leaves
+  // the deterministic lesson beats intact. Sandbox ('london') is untouched.
+  const inMission = state.scenarioId !== 'london';
 
   if (dtMin > 0) {
     stepWeather(state.weather, rng, dtMin, state.simTimeMin, ctx.profile.weather);
@@ -441,19 +451,24 @@ export function solveTick(
     );
 
     // new faults open repair jobs and de-energize their branch; aged
-    // kit faults more (simTimeMin + heat feed the ageing hazard curve)
-    const faults = rollFaults(
-      state.assets.values(),
-      state.assets,
-      new Set(state.outages.keys()),
-      state.lineVeg,
-      state.weather.wind,
-      rng,
-      dtMin,
-      state.simTimeMin,
-      state.heat,
-      state.weather.activeStormName,
-    );
+    // kit faults more (simTimeMin + heat feed the ageing hazard curve).
+    // In a tutorial mission we suppress the RANDOM roll entirely — the
+    // only fault a lesson should ever see is the one its script injects
+    // (m3's storm), so an unrelated tree-fall never blindsides a learner.
+    const faults = inMission
+      ? []
+      : rollFaults(
+          state.assets.values(),
+          state.assets,
+          new Set(state.outages.keys()),
+          state.lineVeg,
+          state.weather.wind,
+          rng,
+          dtMin,
+          state.simTimeMin,
+          state.heat,
+          state.weather.activeStormName,
+        );
     for (const f of faults) {
       state.outages.set(f.branchId, AWAITING_CREW);
       state.outageCause.set(f.branchId, f.label);
@@ -542,16 +557,22 @@ export function solveTick(
     // weights its planning determinations harder
     const satOf = (councilId: number): number =>
       state.councils.get(councilId)?.satisfaction ?? 50;
-    const apps = maybeSpawnApplications(
-      ctx.map,
-      rng,
-      dtMin * cadence,
-      state.simTimeMin,
-      connectedCustomers,
-      state.nextAppId,
-      taken,
-      satOf,
-    );
+    // No unsolicited connection applications during a tutorial: the only
+    // application a lesson shows is the one its seed() places (m4's Eastbox
+    // Compute), so a learner is never distracted by a random data-centre or
+    // solar farm landing mid-lesson.
+    const apps = inMission
+      ? []
+      : maybeSpawnApplications(
+          ctx.map,
+          rng,
+          dtMin * cadence,
+          state.simTimeMin,
+          connectedCustomers,
+          state.nextAppId,
+          taken,
+          satOf,
+        );
     for (const app of apps) {
       state.nextAppId++;
       state.applications.push(app);
@@ -600,14 +621,18 @@ export function solveTick(
     // the region keeps muttering between real events
     maybeAmbientNews(state, rng, dtMin);
 
-    const pitch = maybeSpawnPitch(
-      rng,
-      dtMin * cadence,
-      state.simTimeMin,
-      state.tech,
-      state.pitches,
-      state.nextAppId,
-    );
+    // Innovation pitches are sandbox colour too — a beginner learning to
+    // wire a village should never field a tech-funding proposal.
+    const pitch = inMission
+      ? undefined
+      : maybeSpawnPitch(
+          rng,
+          dtMin * cadence,
+          state.simTimeMin,
+          state.tech,
+          state.pitches,
+          state.nextAppId,
+        );
     if (pitch) {
       state.nextAppId++;
       state.pitches.push(pitch);
