@@ -689,8 +689,14 @@ export class MapRenderer {
     for (const pl of map.named ?? []) {
       // gold codes "transport/place" distinct from town names (also smaller,
       // so it's not colour-alone). Landmark-class names are gated to mid/close
-      // zoom so they stay OFF the far overview (only towns label there).
-      add(pl.x, pl.y, pl.name, 13, 0xffd277, 10, false, pl.landmark ?? false);
+      // zoom so they stay OFF the far overview and fade IN as you zoom toward
+      // the building (the hero-name-zoom fix). A place that resolved to a
+      // BESPOKE hero (heroKey set by buildHeroTable) is hero-class EVEN when the
+      // OSM classifier didn't flag it landmark:true — otherwise ~40 hero names
+      // per city (the un-flagged ones) would wrongly behave like place names and
+      // show on the far overview / vanish up close (owner playtest, 2026-06-17).
+      const isHero = (pl.landmark ?? false) || pl.heroKey !== undefined;
+      add(pl.x, pl.y, pl.name, 13, 0xffd277, 10, false, isHero);
     }
   }
 
