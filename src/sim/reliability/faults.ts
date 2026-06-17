@@ -40,6 +40,11 @@ export interface FaultEvent {
   y: number;
   repairMin: number;
   label: string;
+  /** A genuinely MAJOR fault — a storm-felled overhead line or a grid
+   *  transformer failure (bulk-supply loss) — as opposed to a routine
+   *  fair-weather line fault. Halts a +30d skip (which otherwise skips
+   *  routine faults); see protocol.skipHaltEvent. */
+  major: boolean;
 }
 
 /** Roll for new faults this tick. `lineVeg` is per-line overgrowth 0..1.
@@ -96,6 +101,9 @@ export function rollFaults(
               ? `tree contact on the ${a.level} kV line`
               : `${a.level} kV line fault`
           : `${a.level} kV cable fault`,
+        // storm-felled lines are part of a major incident; a fair-weather
+        // line/cable fault is routine
+        major: overhead && storm > 1,
       });
     } else if (a.kind === 'sub' && SUBS[a.sub].levels.length >= 2) {
       // the top transformer pair carries the bulk transfer: it faults.
@@ -115,6 +123,8 @@ export function rollFaults(
         y: a.y,
         repairMin: REPAIR_TIME.transformer ?? 480,
         label: `transformer failure at the ${SUBS[a.sub].name.split(' (')[0]?.toLowerCase()}`,
+        // losing a grid transformer is a bulk-supply incident: always major
+        major: true,
       });
     }
   }

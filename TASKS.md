@@ -12,6 +12,30 @@
 
 ## Open
 
+### 💷 WP5 — ECONOMY & TIME-SKIP POLISH (this session, branch wp5-economy-timeskip)
+Three focused, independent backlog items. Deterministic sim (seeded RNG); London/
+missions determinism anchors must not regress; serialized-state changes justify a
+SAVE_VERSION bump or are avoided. Gates: tsc/eslint/vitest/build +
+`bash tools/e2e-shards.sh goals`.
+- [x] **+30d skip halts on a MAJOR incident** — GameEvent gains an optional `major`
+      flag (additive; no SAVE_VERSION bump — events serialize by spread); protocol's new
+      `skipHaltEvent`/`haltsSkip` make +30d stop ONLY on a major bad event (severe storm
+      landfall, grid-transformer failure, storm-felled line, flooded substation) while
+      +7d still stops on any bad news and event-skip on warn+. Major flags set in
+      faults.ts (storm-felled line / tx failure) + incidents.ts (storm banner / flooded
+      sub). worker.runSkip posts a transient `skipHalted` message (state untouched → run
+      stays byte-identical to live play); bridge toasts "Skip stopped: <reason>".
+      Tests: predicate rules + seeded integration (major halts +30d, routine fault does
+      not, same fault halts +7d). (skip.test.ts)
+- [ ] **RAV phase-in tuning** — review rav.ts vs docs/riio-ed3-coverage.md (SSMD:
+      45-yr life, SUM-OF-DIGITS profile → a near-term "depreciation holiday" that ramps
+      revenue sensibly, not a cliff). Tune the depreciation phase-in to the documented
+      intent; don't invent figures.
+- [ ] **Car-park EV load** — car-park tiles (LANDMARK.carpark) draw a modest, growing
+      EV-charging demand in the demand field (scaled by the surrounding council's EV
+      adoption so it grows over time). Scope to the demand model; deterministic.
+- [ ] GATES all green; commit incrementally; push branch; PR to main.
+
 ### 🎓 WP1 — TUTORIAL GUIDED-PLAY POLISH (this session, branch wp1-tutorial-guided-play)
 Owner playtest-feedback items for the tutorial/onboarding (drawn from the re-raise
 ledger below). Scope: tutorial/onboarding UX ONLY — must not regress normal

@@ -36,6 +36,13 @@ export interface GameEvent {
   msg: string;
   x?: number | undefined;
   y?: number | undefined;
+  /** A genuinely MAJOR incident — a severe storm, a major fault (grid
+   *  transformer / storm-felled line), a flooded substation. Used to halt a
+   *  +30d skip (which otherwise sails past routine `bad` noise like a single
+   *  tree-contact fault) while still letting it skip that routine noise.
+   *  Optional + additive: absent ⇒ not major, so old saves hydrate clean and
+   *  no SAVE_VERSION bump is needed (events serialize by object spread). */
+  major?: boolean | undefined;
 }
 
 export interface GameState {
@@ -316,8 +323,12 @@ export function pushEvent(
   msg: string,
   x?: number,
   y?: number,
+  /** Mark a genuinely MAJOR incident (severe storm / major fault / flooded
+   *  substation) so a +30d skip halts on it; routine `bad` events leave this
+   *  unset and +30d skips past them. Only meaningful on `bad` events. */
+  major?: boolean,
 ): void {
-  s.events.push({ seq: ++s.eventSeq, tMin: s.simTimeMin, sev, msg, x, y });
+  s.events.push({ seq: ++s.eventSeq, tMin: s.simTimeMin, sev, msg, x, y, major });
   if (s.events.length > 40) s.events.splice(0, s.events.length - 40);
 }
 
