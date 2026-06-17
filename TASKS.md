@@ -17,24 +17,31 @@ Owner playtest-feedback items for the tutorial/onboarding (drawn from the re-rai
 ledger below). Scope: tutorial/onboarding UX ONLY — must not regress normal
 (non-tutorial) play. Both desktop + phone-landscape design-gated. Gates:
 tsc/eslint/vitest/build + `bash tools/e2e-shards.sh 'panels|flows|bootpaths'`.
-- [ ] **Highlight VANISHES the moment its target is clicked** — currently the
-      spotlight lingers until the step's `done` goal latches; drop it as soon as the
-      highlighted control is actually clicked/armed (track a "spot clicked" signal).
-- [ ] **ARROW pointing at the highlighted target, gentle BOUNCING animation** —
-      clearer affordance than a glow ring alone. Added to SpotlightOverlay.
-- [ ] **Allow only ONE onshore-wind facility during the relevant lesson** (m1/m5) —
-      block a 2nd onshore-wind tender/designation while in those missions.
-- [ ] **Prevent unrelated APPLICATIONS/events spawning during tutorials** — guard
-      the random spawners on mission scenarios; keep scripted seeds/beats (m3 storm
-      fault, m4 seeded application) working.
-- [ ] **Hide non-essential HUD/overlay info during tutorials**, introducing UI
-      progressively across lessons (extend the unlock-gating to more HUD surfaces).
-- [ ] **T2 — teach UNDERGROUND cables** (happier locals, less coastline interference).
-- [ ] **T5 — teach REINFORCING an existing sub** (inspect → increase, cheaper than new).
-- [ ] **T4 — surface the firm-vs-flex VISUAL comparison IN-FLOW** (FirmFlexCompare
-      exists but isn't shown during the lesson).
-- [ ] **Teach AUTO-CONNECT via a hotkey.**
-- [ ] **T3 — visible van-launch step** — raise vans 0→1 and SEE a van leave the depot.
+- [x] **Highlight VANISHES the moment its target is clicked** — useSpotlightRect now
+      watches the measured target for a pointerdown and reports `clicked`; Tutorial
+      drops the spotlight on click (not when the goal latches). (d552883)
+- [x] **ARROW pointing at the highlighted target, gentle BOUNCING animation** —
+      SpotlightOverlay draws a bobbing ▼ arrow (rotated to point from whichever side
+      has room), data-testid="spotlight-arrow". (d552883)
+- [x] **Allow only ONE onshore-wind facility during the relevant lesson** (m1/m5) —
+      commands.ts SINGLE_ONSHORE_MISSIONS guard refuses a 2nd onshore designation
+      (open/awarded tender OR built gen); sandbox unaffected. (6dc93bd)
+- [x] **Prevent unrelated APPLICATIONS/events spawning during tutorials** — tick.ts
+      inMission guard skips maybeSpawnApplications / maybeSpawnPitch / rollFaults in
+      missions; m3 scripted fault + m4 seeded app survive; sandbox flows. (2079747)
+- [x] **Hide non-essential HUD/overlay info during tutorials**, introduced
+      progressively — minimap+bookmarks gated (hud:minimap, hidden in all current
+      lessons); market ticker gated (hud:market, introduced in m5). (cd127d4)
+- [x] **T2 — teach UNDERGROUND cables** — m2 wire step teaches overhead→underground
+      (U hotkey / palette toggle) for happier locals, gated on a 33 kV cable. (4604800)
+- [x] **T5 — teach REINFORCING an existing sub** — m5 step: inspect a dist sub +
+      step the transformer up (cheaper than new), gated on a manual mva. (4604800)
+- [x] **T4 — surface the firm-vs-flex VISUAL comparison IN-FLOW** — m4 offer step
+      teaches + spotlights the side-by-side FirmFlexCompare cards. (4604800)
+- [x] **Teach AUTO-CONNECT via a hotkey** — m6 wire step teaches the A hotkey /
+      auto-connect toggle (placed sub lays its own circuits). (4604800)
+- [x] **T3 — visible van-launch step** — m3 seeds fleetSize=0; new step raises vans
+      0→1 (Fleet panel) then the storm step shows the van leave the depot. (4604800)
 - [ ] GATES all green + tutorial e2e extended; PR to main; screenshots both viewports.
 
 
