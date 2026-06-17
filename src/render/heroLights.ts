@@ -405,46 +405,91 @@ function towerCrown(g: Graphics, h: HeroLight, t: number, k: number): void {
 function pyramidFlood(g: Graphics, h: HeroLight, t: number, k: number): void {
   const span = h.cy - h.topY;
   const apexY = h.topY;
-  // colour breathes honey↔soft-amber (kept warm; only a whisper of rose)
-  const cyc = 0.5 + 0.5 * Math.sin(t * 0.35 + h.phase);
-  const col = mixHex(0xffcaa0, 0xffb27a, cyc);
+  // THE GIZA SOUND-&-LIGHT SHOW — the headline night event, so it must READ:
+  // saturated coloured floodlight beams fanning up the faces, the colour
+  // sweeping warm→rose→teal→gold on a slow cycle, bright ground pools at the
+  // base, crisp lamp heads, and a glow crowning the apex. Kept inside the
+  // dusk palette (warm-dominant) but emphatic — this is the flagship.
+  const cyc = t * 0.5 + h.phase; // slow colour sweep
+  // sweep across four show colours (warm-biased, one cool accent)
+  const PAL = [0xffd9a0, 0xff9d6a, 0xff7fae, 0x7fd8ff] as const;
+  const seg = (Math.sin(cyc) * 0.5 + 0.5) * (PAL.length - 1);
+  const i0 = Math.floor(seg);
+  const col = mixHex(PAL[i0] ?? PAL[0], PAL[(i0 + 1) % PAL.length] ?? PAL[0], seg - i0);
+  // gentle overall breath so the whole show pulses a touch
+  const breath = 0.85 + 0.15 * Math.sin(t * 1.3 + h.phase);
+
+  // two broad coloured beams fanning from the base corners up across the faces
   for (const sx of [-1, 1] as const) {
-    const fx = h.cx + sx * h.w * 0.92;
-    const fy = h.cy - 2 * RES;
+    const fx = h.cx + sx * h.w * 1.05;
+    const fy = h.cy - 1 * RES;
+    // wide soft beam (the light in the air) — the Sound-&-Light's signature
+    // fan; lifted a touch so the coloured shafts read against the bright sand
+    // (still warm-dominant, never a harsh searchlight).
     g.poly([
       fx,
       fy,
-      h.cx - h.w * 0.18,
-      apexY + span * 0.12,
-      h.cx + h.w * 0.18,
-      apexY + span * 0.12,
-    ]).fill({ color: col, alpha: 0.06 * k });
-    // the lamp head itself — a crisp warm bulb
-    bulb(g, fx, fy - 6 * RES, 1.8 * RES, 0xfff0d0, 0.75 * k);
+      h.cx - h.w * 0.34,
+      apexY + span * 0.06,
+      h.cx + h.w * 0.34,
+      apexY + span * 0.06,
+    ]).fill({ color: col, alpha: 0.28 * breath * k });
+    // a brighter inner core of the beam
+    g.poly([
+      fx,
+      fy,
+      h.cx - h.w * 0.12,
+      apexY + span * 0.18,
+      h.cx + h.w * 0.12,
+      apexY + span * 0.18,
+    ]).fill({ color: mixHex(col, 0xffffff, 0.35), alpha: 0.2 * breath * k });
+    // a bright ground pool where the lamp sits + the crisp lamp head
+    g.ellipse(fx, fy, 5 * RES, 2.2 * RES).fill({ color: col, alpha: 0.4 * breath * k });
+    bulb(g, fx, fy - 6 * RES, 2.4 * RES, 0xfff2d6, Math.min(1, 1.05 * k));
   }
-  // a warm wash banding up the lower courses (brightest at the base)
-  for (let i = 0; i < 4; i++) {
-    const f = i / 4;
-    const y = h.cy - 4 * RES - f * span * 0.7;
-    const half = h.w * (1 - f * 0.6);
-    g.ellipse(h.cx, y, half, span * 0.06).fill({ color: col, alpha: 0.08 * (1 - f) * k });
+
+  // a strong warm wash climbing the lower courses (brightest at the base),
+  // tinted by the live show colour so the whole face glows
+  for (let i = 0; i < 6; i++) {
+    const f = i / 6;
+    const y = h.cy - 3 * RES - f * span * 0.82;
+    const half = h.w * (1 - f * 0.55);
+    g.ellipse(h.cx, y, half, span * 0.075).fill({
+      color: mixHex(0xffe2b4, col, 0.55),
+      alpha: 0.2 * (1 - f * 0.8) * breath * k,
+    });
   }
+  // a crown of light at the apex — the beams converge and bloom
+  halo(g, h.cx, apexY + span * 0.04, h.w * 0.5, mixHex(col, 0xfff2d6, 0.4), 0.38 * breath * k);
 }
 
-// --- The Sphinx: floodlit from the front --------------------------------------
+// --- The Sphinx: dramatically floodlit from the front -------------------------
 function sphinxFlood(g: Graphics, h: HeroLight, k: number): void {
-  const fx = h.cx + h.w * 0.7;
+  const span = h.cy - h.topY;
+  const fx = h.cx + h.w * 0.85;
   const fy = h.cy - 1 * RES;
-  bulb(g, fx, fy - 4 * RES, 1.8 * RES, 0xfff0d0, 0.75 * k);
+  // a bright warm floodlight raking across the face + headdress
   g.poly([
     fx,
     fy,
-    h.cx - h.w * 0.7,
-    h.cy - (h.cy - h.topY) * 0.9,
-    h.cx - h.w * 0.2,
-    h.cy - (h.cy - h.topY) * 0.4,
-  ]).fill({ color: FAMBER, alpha: 0.08 * k });
-  halo(g, h.cx, h.cy - (h.cy - h.topY) * 0.5, h.w * 0.45, FAMBER, 0.1 * k);
+    h.cx - h.w * 0.8,
+    h.cy - span * 0.95,
+    h.cx - h.w * 0.1,
+    h.cy - span * 0.35,
+  ]).fill({ color: 0xffcf96, alpha: 0.26 * k });
+  // a brighter inner cone
+  g.poly([
+    fx,
+    fy,
+    h.cx - h.w * 0.45,
+    h.cy - span * 0.8,
+    h.cx - h.w * 0.05,
+    h.cy - span * 0.45,
+  ]).fill({ color: 0xfff0d0, alpha: 0.18 * k });
+  // ground pool + crisp lamp head at the floodlight, glow on the lit face
+  g.ellipse(fx, fy, 4 * RES, 1.8 * RES).fill({ color: 0xffcf96, alpha: 0.4 * k });
+  bulb(g, fx, fy - 4 * RES, 2.2 * RES, 0xfff2d6, Math.min(1, 1.0 * k));
+  halo(g, h.cx - h.w * 0.1, h.cy - span * 0.55, h.w * 0.6, FAMBER, 0.28 * k);
 }
 
 // --- Cathedrals / domes / parliament: outlined crown + lit lantern ------------

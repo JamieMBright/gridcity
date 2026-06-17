@@ -5,7 +5,7 @@
 
 import { ADMD_KW } from '../catalog';
 import { EV_KW, HP_KW, PV_EXPORT_KW, type CouncilAdoption } from '../customers/adoption';
-import { LANDMARK, NO_COUNCIL, ZONE, type CityMap, type Zone } from './types';
+import { HERO_BASE, LANDMARK, NO_COUNCIL, ZONE, type CityMap, type Zone } from './types';
 
 /** Extra process load (MW per tile) beyond domestic customers. */
 const PROCESS_MW: Partial<Record<Zone, number>> = {
@@ -52,7 +52,11 @@ export function tileDemand(
   const zone = (map.zone[i] ?? ZONE.none) as Zone;
   const d: TileDemand = {
     domMW: (customers * ADMD_KW) / 1000,
-    procMW: PROCESS_MW[zone] ?? 0,
+    // process load + any heritage/civic point-load on this tile (the Giza
+    // Sound-&-Light show…). Heritage MW is a fixed lighting/visitor load,
+    // independent of council DER uptake, so it rides the process term rather
+    // than scaling with EV/HP/PV adoption.
+    procMW: (PROCESS_MW[zone] ?? 0) + (map.heritageMW?.get(i) ?? 0),
     evMW: 0,
     hpMW: 0,
     pvMW: 0,
@@ -80,11 +84,14 @@ export function tileDemand(
   return d;
 }
 
-/** Base peak demand of a tile (no DER), MW. */
+/** Base peak demand of a tile (no DER), MW. Includes any heritage/civic
+ *  point-load (Giza Sound-&-Light…) layered onto the tile. */
 export function tileDemandMW(map: CityMap, i: number): number {
   const customers = map.customers[i] ?? 0;
   const zone = (map.zone[i] ?? ZONE.none) as Zone;
-  return (customers * ADMD_KW) / 1000 + (PROCESS_MW[zone] ?? 0);
+  return (
+    (customers * ADMD_KW) / 1000 + (PROCESS_MW[zone] ?? 0) + (map.heritageMW?.get(i) ?? 0)
+  );
 }
 
 export interface DemandField {
@@ -138,4 +145,86 @@ export function buildDemandField(map: CityMap): DemandField {
     }
   }
   return { byTile, totalMW };
+}
+
+// --- heritage / civic point-loads -------------------------------------------
+//
+// A handful of landmarks are notable ELECTRICAL loads in their own right — most
+// famously the Pyramids of Giza, whose nightly Sound-&-Light show, plateau
+// floodlighting and visitor complex draw real power. We model them as a fixed
+// per-hero load distributed across the hero's footprint tiles, so:
+//   • the player must build network OUT to Giza and energise it (the tiles read
+//     `unserved` until a sub serves them), and
+//   • the Sound-&-Light floodlights (`pyramidFlood`/`sphinxFlood`) gate on the
+//     hero's OWN energisation — dark until powered — rather than only borrowing
+//     a lit neighbour via the zero-demand fallback in MapRenderer.recomputeHeroLit.
+//
+// Sizing is real-then-simplified: the historic Sound-&-Light rigs are hundreds
+// of kW each; with the wider visitor/AC/pumping plateau load each monument makes
+// a chunky load. The named Giza necropolis stamps five heroes — Khufu, Khafre,
+// the Sphinx and two Menkaure-class subsidiary monuments (queens' pyramid +
+// mastaba tomb) — so the plateau totals a single-substation-scale node (~15 MW).
+// Keyed by the per-city bespoke-hero KEY (so it is scenario data, not hard-coded
+// tile coords) and spread over each hero's footprint.
+
+/** Peak heritage load (MW) per bespoke-hero key, by fabric. The key set must
+ *  match the hero `key`s registered in render/sprites/heroes/<fabric>.ts. */
+const HERITAGE_MW: Partial<Record<NonNullable<CityMap['fabric']>, Record<string, number>>> = {
+  cairo: {
+    // The Giza plateau Sound-&-Light show + monument floodlighting + visitor load.
+    'great-pyramid': 4.5, // Khufu — the headline show
+    'pyramid-khafre': 3.5,
+    'pyramid-menkaure': 2.0,
+    'great-sphinx': 3.0, // the Sphinx has its own iconic nightly show
+  },
+};
+
+/**
+ * Build the map's sparse heritage point-load field from its bespoke-hero table.
+ * Deterministic from the scenarioId (it reads only `fabric` + the already-built
+ * `heroTable`/`landmark` raster), recomputed at every load by buildCityFromData,
+ * and NEVER serialized — so it carries no SAVE_VERSION implication.
+ *
+ * For each hero whose key has a HERITAGE_MW entry, the hero's total load is
+ * spread EVENLY over the tiles it occupies in the landmark raster (the same
+ * footprint tiles whose coverage gates its floodlight in the renderer), so a
+ * partially-served monument still draws proportional load.
+ */
+export function buildHeritageLoads(map: CityMap): void {
+  const fabric = map.fabric ?? 'london';
+  const table = HERITAGE_MW[fabric];
+  const heroTable = map.heroTable;
+  const landmark = map.landmark;
+  if (!table || !heroTable || !landmark) return;
+
+  // hero slot index → tiles it occupies (landmark raster value === HERO_BASE + idx)
+  const tilesOfSlot = new Map<number, number[]>();
+  const n = map.width * map.height;
+  for (let i = 0; i < n; i++) {
+    const v = landmark[i] ?? 0;
+    if (v < HERO_BASE) continue;
+    const idx = v - HERO_BASE;
+    let tiles = tilesOfSlot.get(idx);
+    if (!tiles) {
+      tiles = [];
+      tilesOfSlot.set(idx, tiles);
+    }
+    tiles.push(i);
+  }
+
+  // Recompute from scratch each call (idempotent — like buildHeroTable), so a
+  // re-run never double-counts onto an existing field.
+  const heritage = new Map<number, number>();
+  for (let idx = 0; idx < heroTable.length; idx++) {
+    const slot = heroTable[idx];
+    if (!slot) continue;
+    const mw = table[slot.key];
+    if (mw === undefined || mw <= 0) continue;
+    const tiles = tilesOfSlot.get(idx);
+    if (!tiles || tiles.length === 0) continue; // hero off-map / not stamped
+    const per = mw / tiles.length;
+    for (const i of tiles) heritage.set(i, (heritage.get(i) ?? 0) + per);
+  }
+
+  map.heritageMW = heritage.size > 0 ? heritage : undefined;
 }

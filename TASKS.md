@@ -12,6 +12,45 @@
 
 ## Open
 
+### 🔺 WP3 — Giza Sound-&-Light as an ENERGISABLE DEMAND POINT (Cairo) — DONE (2026-06-17)
+Owner ask (WAVE γ): "Pyramids of Giza must feature + the Sound-&-Light floodlighting needs
+[to be energised]." The Giza sprites (pyramids + Sphinx) and the `pyramidFlood`/`sphinxFlood`
+light-shows already exist as ART + light specs; the missing piece was the gameplay LOAD —
+connecting power to Giza did nothing, and the floodlights gated only off the 8-neighbour
+fallback (zero own-demand). SHIPPED: a heritage point-load on the Giza footprints (so the
+monuments are a real, connectable demand the operator must reach) + the design-gate proof.
+- [x] Deterministic, non-serialized sparse `heritageMW` field on CityMap, derived at build
+  time (`buildCityFromData` → `buildHeritageLoads`) from the Giza heroes' footprints — Cairo
+  only (HERITAGE_MW keyed by bespoke-hero key; London/others get none). demand.ts.
+- [x] Bonus MW flows through `tileDemandMW`/`tileDemand` (a process-load term) → it lands in
+  `buildDemandField`, `assignServiceAreas`, `demandTiles` and coverage — no hack. (Giza tiles
+  total ~15 MW, a single-substation-scale node.)
+- [x] Result verified: Giza tiles read `unserved` until the player builds network out + energises
+  them; the Sound-&-Light floodlights then activate on REAL energisation (dark when unpowered).
+- [x] Unit test: Cairo demand includes the Giza load; energising a sub built out to the plateau
+  lights the tiles (COV.on on all 37 footprint tiles) + servedCustomers jumps. tests/cairoGizaDemand.test.ts.
+- [x] DESIGN GATE: real in-game screenshots Giza UNPOWERED vs POWERED, wide + close zoom, desktop
+  + phone-landscape, saved under preview/giza-{OFF,OFF-closeup,ON-desktop,ON-closeup,ON-phone}.png.
+  OFF genuinely dark; ON a warm cosy floodlight wash + Sound-&-Light beams up the faces.
+- [x] **FIXED servedCustomers=0 (root cause)** — TWO issues. (1) The prior helper used the WRONG
+  proof: servedCustomers counts DOMESTIC customers (tick.ts), but the Giza monuments carry
+  heritage load with ZERO domestic customers, so a perfectly-lit plateau could still log
+  served=0. (2) The hub coord (16,148) was a desert CARRIAGEWAY → the grid-hub build silently
+  failed → dist subs islanded from the peaker. Hub moved to a clear tile (18,148); the network
+  now connects and the desert-edge catchment serves 7713 customers AND all 6 Giza floodlights
+  fire. Added a honest regression signal: `MapRenderer.getLitHeroKinds()` (via testHook), and the
+  design-gate now asserts the `pyramidFlood`/`sphinxFlood` shows are OFF before the build and ON
+  after (plus served>0). Gizalight e2e: lit BEFORE=0, AFTER=6, served=7713.
+- [x] DESIGN GATE: NIGHT OFF-vs-ON pair at matched close framing (0.82 zoom, ensemble centred); ON
+  run logs servedCustomers=7713 + 6 Giza floodlights lit; floodlights obviously ON in ON shot,
+  OFF in OFF shot; saved to preview/giza-*.png.
+- [x] Gates green (vitest/tsc/eslint/build + gizalight design-gate e2e + cityload regression).
+  NOTE: `e2e-shards.sh` excludes `*.helper.spec.ts`, so the Giza gate runs directly
+  (`SHOTS=1 npx playwright test e2e/gizalight.helper.spec.ts`); `e2e-shards.sh cityload` covers
+  the Cairo-load regression. London determinism untouched (heritage load is Cairo-scoped; the
+  only shared change is a read-only renderer accessor never hit on London's path).
+
+### ✨ POLISH — densification + Thames glint + night-deepening (#72, merged to main)
 Three independent backlog-polish items. Gates: tsc/eslint/vitest/build +
 `bash tools/e2e-shards.sh cityload`; London determinism must hold. Design-gate
 #2/#3 at far/mid (desktop + phone), screenshots in preview/.
@@ -147,7 +186,6 @@ tsc/eslint/vitest/build + `bash tools/e2e-shards.sh 'panels|flows|bootpaths'`.
       0→1 (Fleet panel) then the storm step shows the van leave the depot. (4604800)
 - [ ] GATES all green + tutorial e2e extended; PR to main; screenshots both viewports.
 
-
 ### 🧾 LEDGER RECONCILE (2026-06-17) — honest audit of every open/partial item vs the shipped code (origin/main @ 2099b94, PRs #63–#66)
 The owner flagged that the ledger had drifted untrustworthy (~134 unchecked items, many
 already shipped). This pass VERIFIED every `- [ ]`/`- [~]` against the actual codebase
@@ -220,9 +258,10 @@ remaining backlog.
 - **WAVE β — W8 operating-models IMPLEMENTATION (L):** wire FR/AU/HK/BR power/economy/
   regulator/weather profiles through `cityRegistry`→tick (they exist, dormant); grid-carbon
   into the carbon KPI; per-country tender flows; regulator framing text in the report card.
-- **WAVE γ — Giza + per-hero gameplay (M):** model the Giza Sound-&-Light as an energisable
-  DEMAND point (floodlights glow when powered) — the sprites & light-show exist, the LOAD
-  doesn't; this is the last open piece of the Giza ask.
+- **WAVE γ — Giza + per-hero gameplay (M): SHIPPED (2026-06-17, WP3).** Modelled the Giza
+  Sound-&-Light as an energisable DEMAND point — a ~15 MW heritage load on the Giza footprints,
+  unserved until the operator builds out to the plateau, the floodlights firing on real
+  energisation. See WP3 at the top of Open. (Per-hero gameplay beyond Giza remains future work.)
 - **WAVE δ — Progression gate (M):** gate city-unlocks / accolades behind (or strongly tie
   to) an account + a Supabase `progression` table + guest→login merge + cross-device sync;
   surface the benefit at rank-up / city-offer moments (rank ladder already exists).
@@ -715,16 +754,17 @@ TOWER, proportionally, each one bespoke."
         (done: src/data/cities/northeast.ts + docs/heroes/northeast/ + heroes/northeast.ts
         (101 bespoke heroes) + NE FABRICS palette; registered + playable. LEFT: the framing
         omits Alnwick (tighter Tyne+coast window) — a wider re-tune is the only open piece.)
-- [~] **PYRAMIDS OF GIZA must feature + the Sound-&-Light floodlighting needs
+- [x] **PYRAMIDS OF GIZA must feature + the Sound-&-Light floodlighting needs
       ENERGISING (owner, 2026-06-15 13:27).** They're researched (docs/cities/
       cairo.md: Great Pyramid 138.5 m near-solid honey-limestone, weathered
       stepped texture, missing casing except faint apex remnants, ~1.57:1
       base:height; Khafre + Menkaure beside, Khafre keeps a casing cap; Sphinx
       20 m × 73 m couchant facing east in front) but there is NO pyramid sprite
       and Cairo has no map data, so today they don't feature. BUILD:
-      (done: the SPRITES feature (4 split heroes on the Cairo map, with pyramidFlood/
-      sphinxFlood night light-shows). LEFT: the energisable Sound-&-Light gameplay LOAD —
-      see the GAMEPLAY child below. Proposed WAVE γ.)
+      (DONE: the SPRITES feature (4 split heroes on the Cairo map, with pyramidFlood/
+      sphinxFlood night light-shows) AND the energisable Sound-&-Light gameplay LOAD
+      (WP3 above): a ~15 MW heritage load on the Giza footprints, unserved until the
+      operator builds out to the plateau, the floodlights firing on real energisation.)
   - [x] Bespoke `pyramidTile`/Giza hero sprite: the three pyramids (Great +
         Khafre-with-cap + Menkaure) + the Sphinx on tawny sand, honey limestone,
         weathered stepped faces. Multi-tile, massive + low (broad-based, not a
@@ -734,13 +774,18 @@ TOWER, proportionally, each one bespoke."
         (done: split into Great/Khafre/Menkaure + Sphinx heroes (LANDMARK 42-45),
         landmarkSprites.ts, wired in atlas + tileChooser + resolver; floodlights +
         warm wash via heroLights `pyramidFlood`/`sphinxFlood`. See REFINE below.)
-  - [ ] GAMEPLAY: the nightly Sound-&-Light show is an energisable LOAD — model
+  - [x] GAMEPLAY: the nightly Sound-&-Light show is an energisable LOAD — model
         Giza as a notable DEMAND point the operator must connect; when energised
         the floodlights glow (reuse the powered-area glow). Lands with the Cairo
         map + demand model (Cairo data must be built first).
-        (left: GENUINELY OPEN — the pyramids render with night light-shows but there is
-        NO modelled electrical DEMAND point / connect-to-energise mechanic; the light-show
-        is cosmetic. The last open piece of the Giza ask. Proposed WAVE γ.)
+        (DONE — WP3, 2026-06-17: `heritageMW` sparse field on CityMap (demand.ts
+        `buildHeritageLoads`, called from buildCityFromData), ~15 MW spread over the
+        4 Giza heroes' footprints, flowing through tileDemandMW → buildDemandField →
+        assignServiceAreas → coverage. The footprint tiles read `unserved` until a sub
+        reaches them, then COV.on, which gates the pyramidFlood/sphinxFlood floodlight ON
+        in recomputeHeroLit. Deterministic from scenarioId, never serialized (no
+        SAVE_VERSION bump). Proven by tests/cairoGizaDemand.test.ts + the gizalight
+        design-gate (OFF=0 floodlights, ON=6, served 7713). No longer cosmetic.)
   - [x] v1 SHIPPED (016bd9d): a single `pyramidTile` (5×4) holds the whole Giza
         group + the type→sprite resolver auto-maps any discovered pyramid to it.
   - [~] REFINE (owner, 2026-06-15 13:57 + high-level Giza photo): the real plateau
