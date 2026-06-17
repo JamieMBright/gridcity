@@ -1842,7 +1842,10 @@ export const CITY_HEROES: BespokeHero[] = [
     city: 'cairo',
     key: 'grand-egyptian-museum',
     match: /grand egyptian|المتحف المصري الكبير/iu,
-    foot: [3, 3],
+    // foot MUST match the draw's Iso size: museumBlock is a 2x2 block, so a
+    // [3,3] foot made makeCell mis-stride the buffer (w 768 vs the real 512 →
+    // fractional height → ImageData IndexSizeError that crashed cairo on load).
+    foot: [2, 2],
     seed: 5402,
     draw: (seed) => museumBlock(seed, 1),
     light: { kind: 'facadeFlood', topZ: 60, halfW: 1.4 },
