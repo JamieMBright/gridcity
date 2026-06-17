@@ -91,6 +91,24 @@ const CLICK_SLOP_PX = 6;
 const WINDOW_GLOW_GAIN = 0.95; // was 0.85
 const KIT_BLOOM_GAIN = 1.0; // was 0.9
 
+// THE HELD "DUSK-POCKET" (owner deferred idea, 2026-06-17): a subtle LOCAL
+// darken so the bulbs pop harder at night by CONTRAST — without making the world
+// dark/harsh (the owner has repeatedly rejected a dark night). The trick that
+// honours "keep it cosy": the energized windows + kit bloom + hero light-shows
+// all live in the ADDITIVE `glowWorld`, which is NOT a grade target — only the
+// world FABRIC (`gradeTargets`) is tinted. So deepening JUST the fabric tint at
+// deep night leaves every bulb at full brightness while the UNLIT gaps between
+// them sink a touch — exactly "lit areas pop by contrast", nothing lit goes
+// dark. Strength ramps with `glow` (0 by day → full deep night) and is CAPPED so
+// the fabric never drops below the cosy floor. Set to 0 to revert completely
+// (then the fabric tint is the plain grade tint, byte-identical to before).
+//   0.0 = OFF (no pocket)   ~0.18 = the gentle shipped value (judged on shots)
+const DUSK_POCKET = 0.42;
+// the deepest the pocket may pull the fabric toward (a deep dusk-navy with a
+// faint warm breath, NOT black) — clamps the multiply so even at full strength
+// the world stays a cosy dusk, never a horror night.
+const DUSK_POCKET_FLOOR = 0x3c3a52;
+
 export const LEVEL_COLOR: Record<VoltageLevel, number> = {
   400: 0x5ea3ff,
   132: 0x7bc47f,
@@ -936,6 +954,20 @@ export class MapRenderer {
     return [this.city, this.smogG, this.assetLayer, this.fleetLayer];
   }
 
+  /** THE DUSK-POCKET (see DUSK_POCKET): deepen the FABRIC tint toward a cool
+   *  deep-dusk floor as the night glow ramps up, so unlit fabric sinks and the
+   *  additive bulbs pop by contrast. Render-only; never touches the sim grade.
+   *  At glow 0 (day) or DUSK_POCKET 0 this returns the plain tint unchanged. */
+  private duskPocketTint(tint: number, glow: number): number {
+    if (DUSK_POCKET <= 0 || glow <= 0.001) return tint;
+    // ease in only over the DEEP end of the glow ramp (dusk→deep night), so the
+    // gentle daytime/golden-hour/dusk grade is never touched — only true night
+    // deepens (honours the owner's anti-"flashing-day-night" calm: the day arc
+    // stays subtle, the pocket only bites once the windows fully own the scene).
+    const t = Math.max(0, Math.min(1, (glow - 0.6) / 0.4));
+    return mixRgb(tint, DUSK_POCKET_FLOOR, DUSK_POCKET * t * t);
+  }
+
   // --- atmosphere (#41 day/night grade · #42 rain & storms · #44 seasons) ----
 
   /** Gate the living-world animation rate on the sim clock speed (0/1/4/
@@ -1008,7 +1040,12 @@ export class MapRenderer {
     this.grade = g;
     const w = this.app.screen.width;
     const h = this.app.screen.height;
-    const key = `${g.skyTop},${g.skyBottom},${g.tint},${Math.round(g.wet * 40)},${w},${h}`;
+    // THE DUSK-POCKET: the fabric layers get a tint deepened by the pocket at
+    // night; the SKY, vignette and `this.grade` (and the additive glow layers)
+    // are untouched — so only the unlit fabric sinks and the bulbs pop. By day
+    // (glow 0) the pocket is inert ⇒ fabricTint === g.tint.
+    const fabricTint = this.duskPocketTint(g.tint, g.glow);
+    const key = `${g.skyTop},${g.skyBottom},${fabricTint},${Math.round(g.wet * 40)},${w},${h}`;
     if (key !== this.gradeKey) {
       this.gradeKey = key;
       this.skyG.clear();
@@ -1021,7 +1058,7 @@ export class MapRenderer {
       // the grade itself: tint the world fabric (no-op while grid view
       // holds the engineering palette)
       if (!this.gridViewOn) {
-        for (const layer of this.gradeTargets()) layer.tint = g.tint;
+        for (const layer of this.gradeTargets()) layer.tint = fabricTint;
         this.gradeTinted = true;
       }
       // wet sheen: rain-damp air catches the sky and lifts the shadows
@@ -1669,6 +1706,26 @@ export class MapRenderer {
       const n = Math.max(1, tiles.length);
       return { x: sx / n, y: sy / n, kind: light.kind };
     });
+  }
+
+  /** TEST/diagnostic read: the live EASED grade glow (0 by day → ~1 deep night).
+   *  Lets a night screenshot helper poll until the eased atmosphere has actually
+   *  arrived at night, instead of guessing fixed timeouts (the photo-mode grade
+   *  pin races the night pin otherwise). */
+  getGradeGlow(): number {
+    return this.grade?.glow ?? 0;
+  }
+
+  /** TEST/diagnostic: the live eased grade as plain numbers (glow + the hex
+   *  tint + skyTop) so a helper can log what the renderer is ACTUALLY showing
+   *  when a night shot looks wrong. */
+  getGradeDebug(): { glow: number; tint: number; skyTop: number; override: boolean } {
+    return {
+      glow: this.grade?.glow ?? 0,
+      tint: this.grade?.tint ?? 0xffffff,
+      skyTop: this.grade?.skyTop ?? 0xffffff,
+      override: this.atmoOverride,
+    };
   }
 
   /** Restore a saved bookmark: set the zoom, then centre the tile. */

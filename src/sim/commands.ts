@@ -56,10 +56,11 @@ export type Command =
   /** DEV/TEST ONLY: seed a repair job at a tile so the fleet dispatches a van
    *  (deterministic van-on-road screenshots — the UI never sends this). */
   | { type: '__testFault'; x: number; y: number; repairMin?: number; label?: string }
-  /** DEV/TEST ONLY: force every demand tile + hero footprint to read as POWERED
-   *  in the coverage array (the night-electrification design-gate's "energise
-   *  the whole city" cheat — the UI never sends this). `on` defaults to true. */
-  | { type: '__testServeAll'; on?: boolean }
+  /** DEV/TEST ONLY: force tiles to read as POWERED in the coverage array (the
+   *  night-electrification design-gate's "energise the city" cheat — the UI
+   *  never sends this). `mode`: 'all' = whole city; a number = only powered hero
+   *  districts within that radius; false = off. Defaults to 'all'. */
+  | { type: '__testServeAll'; mode?: 'all' | number | false }
   | { type: 'setVegPolicy'; policy: VegPolicy }
   | { type: 'respondApplication'; appId: number; response: 'firm' | 'flex' | 'decline' }
   /** Award a generation tender to one of its bidders. */
@@ -1208,11 +1209,11 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
     }
 
     case '__testServeAll': {
-      // DEV/TEST: flip the transient force-serve flag read by buildCoverage so
-      // the next snapshot reads the whole city as energised. Render-only in
-      // effect (coverage drives the lights/glow + the served count); never
-      // serialized, so it has no save implication.
-      state.forceServeAll = cmd.on ?? true;
+      // DEV/TEST: set the transient force-serve flag read by buildCoverage so
+      // the next snapshot reads the city as energised. Render-only in effect
+      // (coverage drives the lights/glow + the served count); never serialized,
+      // so it has no save implication.
+      state.forceServeAll = cmd.mode ?? 'all';
       return { ok: true };
     }
 

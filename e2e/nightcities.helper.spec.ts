@@ -20,10 +20,13 @@ test.skip(!process.env.SHOTS, 'night-showcase helper — run with SHOTS=1');
 
 const NIGHT = 22 * 60; // 22:00 — deep night, window glow + hero lights strongest
 const CLEAR = { cloud: 0.12, wind: 0.22, regime: 'mild' };
-const CITIES = [
+const ALL_CITIES = [
   'london', 'paris', 'newyork', 'sydney', 'hongkong', 'berlin',
   'shanghai', 'capetown', 'cairo', 'athens', 'pune', 'northeast',
-] as const;
+];
+// NIGHTCITIES=london,paris narrows the run (fast iteration); default = all 12.
+const CITIES = (process.env.NIGHTCITIES?.split(',').map((s) => s.trim()).filter(Boolean) ??
+  ALL_CITIES) as readonly string[];
 // the two we also grab on a phone held landscape (Euro + non-Euro fabric)
 const PHONE_CITIES = new Set(['london', 'hongkong']);
 
@@ -33,15 +36,30 @@ interface Anchor {
   kind: string;
 }
 
-/** Hide chrome (photo mode) then RE-PIN deep night — photo mode pins its own
- *  golden-hour grade, so night must win after it. */
-async function cleanNight(page: Page): Promise<void> {
+/** Hide chrome ONCE for the whole run (photo mode), and let its one-shot
+ *  golden-hour grade pin land + settle. We deliberately do NOT toggle photo
+ *  mode again after this — its grade-pin effect only fires on the photoMode
+ *  flag change, so leaving it on means it never re-pins golden and our per-shot
+ *  night override (cleanNight) always wins. */
+async function enterPhotoMode(page: Page): Promise<void> {
   await page.evaluate(() => window.__ec?.getState().setPhotoMode(true));
-  await page.waitForTimeout(60);
+  await page.waitForTimeout(500); // let the golden-hour effect run + settle
+}
+
+/** Pin deep night for the shot and WAIT until the eased grade has genuinely
+ *  arrived at night (the tint/sky/glow ease over frames). Photo mode is already
+ *  on and never re-pins, so this override holds. Polls the live grade glow so we
+ *  don't guess a fixed settle time. */
+async function cleanNight(page: Page): Promise<void> {
   await page.evaluate(
-    ([min, w]) => window.__ec?.setAtmosphere(min as number, w as object),
+    ([min, w]) =>
+      window.__ec?.setAtmosphere(min as number, w as { cloud: number; wind: number; regime?: string }),
     [NIGHT, CLEAR],
   );
+  await expect
+    .poll(async () => page.evaluate(() => window.__ec?.getGradeGlow() ?? 0), { timeout: 8000 })
+    .toBeGreaterThan(0.95);
+  await page.waitForTimeout(350); // let the eased tint/sky fully land
 }
 
 /** The densest hero cluster's centroid (a simple grid-bucket vote), so we frame
@@ -74,6 +92,7 @@ test('12-city powered-at-night showcase', async ({ page }) => {
   test.setTimeout(900_000);
   await boot(page);
   await page.setViewportSize({ width: 1100, height: 700 });
+  await enterPhotoMode(page); // hide chrome once; its golden pin is then inert
 
   for (const city of CITIES) {
     // --- switch to the city (renderer rebuilds; the test hook re-binds) ---
@@ -92,11 +111,17 @@ test('12-city powered-at-night showcase', async ({ page }) => {
     await page.evaluate(() => window.__ec?.getState().setMenuOpen(false));
     await page.waitForTimeout(400);
 
-    // --- ENERGISE the whole map (render-only cheat) + let coverage settle ---
-    await page.evaluate(() => window.__ec?.serveAll(true));
-    // nudge a tick or two so the renderer ingests the powered coverage
-    await page.evaluate(() => window.__ec?.sendCommand({ type: 'setSpeed', speed: 1 }));
-    await page.waitForTimeout(900);
+    // --- ENERGISE the powered HERO DISTRICTS (render-only cheat): heroes +
+    // demand within a small radius glow in lit pockets against a cosy DARK
+    // countryside (a fully-lit 100% city blows out to a flat bright wash — the
+    // cosy night needs lit-vs-unlit contrast). ---
+    const MODE: 'all' | number =
+      process.env.NIGHTMODE === 'all' ? 'all' : Number(process.env.NIGHTMODE ?? 5);
+    await page.evaluate((m) => window.__ec?.serveAll(m), MODE);
+    // tick a couple of times so the service derives + the renderer ingests the
+    // powered coverage (a fresh city switch hasn't derived demand tiles yet).
+    await page.evaluate(() => window.__ec?.sendCommand({ type: 'setSpeed', speed: 4 }));
+    await page.waitForTimeout(1400);
     await page.evaluate(() => window.__ec?.sendCommand({ type: 'setSpeed', speed: 0 }));
     await page.waitForTimeout(300);
 
@@ -105,11 +130,15 @@ test('12-city powered-at-night showcase', async ({ page }) => {
     const centre = cityCentre(anchors);
     const litKinds = (await page.evaluate(() => window.__ec?.getLitHeroKinds() ?? [])) as string[];
     const served = await store<number>(page, '(s) => s.snapshot.stats.servedCustomers');
+    const onTiles = await store<number>(
+      page,
+      '(s) => { let n=0; const c=s.snapshot.coverage; for(let i=0;i<c.length;i++) if(c[i]===2) n++; return n; }',
+    );
     const hist: Record<string, number> = {};
     for (const k of litKinds) hist[k] = (hist[k] ?? 0) + 1;
     console.log(
       `[night ${city}] heroes=${anchors.length} lit=${litKinds.length} served=${served} ` +
-        `district=${district.x},${district.y} kinds=${JSON.stringify(hist)}`,
+        `onTiles=${onTiles} district=${district.x},${district.y} kinds=${JSON.stringify(hist)}`,
     );
 
     // --- desktop shots: HERO close, MID, FAR ---
@@ -119,6 +148,15 @@ test('12-city powered-at-night showcase', async ({ page }) => {
       window.__ec?.panTo(d.x, d.y);
     }, district);
     await page.waitForTimeout(900);
+    const dbg = await page.evaluate(() => ({
+      grade: window.__ec?.getGradeDebug(),
+      photo: window.__ec?.getState().photoMode,
+    }));
+    console.log(
+      `[night ${city}] grade glow=${dbg.grade?.glow.toFixed(2)} ` +
+        `tint=0x${(dbg.grade?.tint ?? 0).toString(16)} sky=0x${(dbg.grade?.skyTop ?? 0).toString(16)} ` +
+        `override=${dbg.grade?.override} photoMode=${dbg.photo}`,
+    );
     await page.screenshot({ path: `preview/night/${city}-hero-close.png` });
 
     await cleanNight(page);
