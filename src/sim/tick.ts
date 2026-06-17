@@ -103,7 +103,7 @@ import {
 import { Rng } from './rng';
 import { assetAtTile, footprintTiles } from './commands';
 import { assignServiceAreas, computeSubLoads, type ServiceAreas } from './service';
-import { CUSTOMERS_PER_TILE, NO_COUNCIL, RC, TERRAIN, ZONE } from './map/types';
+import { CUSTOMERS_PER_TILE, NO_COUNCIL, RC, TERRAIN, ZONE, type Zone } from './map/types';
 import { buildDemandField } from './map/demand';
 import { pushEvent, type BillDetailState, type GameState, type SimContext } from './state';
 import { ANNUITY_FACTOR, GENS } from './catalog';
@@ -962,7 +962,7 @@ export function solveTick(
       Math.floor((state.simTimeMin - dtMin) / MONTH_MIN)
     ) {
       dingCurtailedDevelopers(state, bill.genYrK);
-      growTown(state, ctx, derived, rng);
+      growTown(state, ctx, derived, rng, coverage, everServed);
     }
 
     // regulatory period bookkeeping + report card at period end
@@ -1222,11 +1222,54 @@ function stepCouncils(
   };
 }
 
-/** Monthly town growth: open or rural tiles next to streets that are
- *  actually served fill in with new semis. Mutations land on the worker's
- *  map copy, are recorded append-only in state.growth (replayed on load)
- *  and mirrored to the main thread via the snapshot. */
-function growTown(state: GameState, ctx: SimContext, derived: Derived, rng: Rng): void {
+/** Demand "pressure" 0..1 driving how fast towns build out and densify.
+ *  A saturating function of the customers the network has EVER served at
+ *  once (everServed) — so a small starter grid sees gentle infill and a
+ *  mature, demand-heavy network sees real intensification, but the rate is
+ *  always bounded. Deterministic: everServed is persisted, so the pressure
+ *  rebuilds exactly from a save. HALF is the served base at which pressure
+ *  reaches 0.5 (~a mid-size town fully lit). */
+const GROWTH_PRESSURE_HALF = 60_000;
+export function growthPressure(everServed: number): number {
+  const e = Math.max(0, everServed);
+  return e / (e + GROWTH_PRESSURE_HALF);
+}
+
+/** The densification ladder: a served, built-up tile of zone `from`
+ *  intensifies into `to` as demand rises (semis → terraces → towers).
+ *  Posh villas, new-build estates, industry and glasshouses are NOT on the
+ *  ladder — they keep their character (and estates are already maxed). The
+ *  rural fringe takes a first step to suburb when it is served. */
+const DENSIFY_LADDER: Partial<Record<number, number>> = {
+  [ZONE.rural]: ZONE.suburb,
+  [ZONE.suburb]: ZONE.urban,
+  [ZONE.urban]: ZONE.urbanCore,
+};
+
+const DENSIFY_LABEL: Partial<Record<number, string>> = {
+  [ZONE.suburb]: 'cottages give way to semis as the area fills out',
+  [ZONE.urban]: 'semis make way for terraces and shops — the district densifies',
+  [ZONE.urbanCore]: 'low terraces rise into tower blocks as demand climbs',
+};
+
+/** Monthly town growth, in two motions, both tied to served demand:
+ *  (1) SPRAWL — open or rural tiles next to served streets fill in with new
+ *      semis (the original infill), at a rate that lifts as the network
+ *      matures; (2) DENSIFICATION — existing SERVED built-up tiles intensify
+ *      up the ladder (suburb → urban → urbanCore) as demand rises, so the
+ *      satellite towns grow UP, not just out, across a playthrough.
+ *  Every mutation lands on the worker's map copy, is recorded append-only in
+ *  state.growth (a GrowthRecord carries the new zone + customers, replayed on
+ *  load by applyGrowth — additive, so no SAVE_VERSION bump) and is mirrored
+ *  to the main thread via the snapshot. Deterministic on the seeded rng. */
+function growTown(
+  state: GameState,
+  ctx: SimContext,
+  derived: Derived,
+  rng: Rng,
+  coverage: Uint8Array,
+  everServed: number,
+): void {
   const { map } = ctx;
   // farms keep their fields: capacity-scaled plant claims its tiles by
   // derivation (footprintTiles), so infill must not build between the
@@ -1235,7 +1278,12 @@ function growTown(state: GameState, ctx: SimContext, derived: Derived, rng: Rng)
   for (const a of state.assets.values()) {
     for (const i of footprintTiles(map, a)) claimed.add(i);
   }
-  const candidates = new Set<number>();
+
+  const pressure = growthPressure(everServed); // 0..1, rises with served demand
+  let grown = 0;
+
+  // (1) SPRAWL — greenfield infill on open/rural land beside served tiles.
+  const sprawl = new Set<number>();
   for (const tile of derived.service.subOfTile.keys()) {
     const x = tile % map.width;
     const y = Math.floor(tile / map.width);
@@ -1255,29 +1303,76 @@ function growTown(state: GameState, ctx: SimContext, derived: Derived, rng: Rng)
       if ((map.road[i] ?? 0) >= RC.arterial) continue;
       if ((map.landmark?.[i] ?? 0) !== 0) continue;
       if (claimed.has(i)) continue;
-      candidates.add(i);
+      sprawl.add(i);
     }
   }
-  if (candidates.size === 0) return;
-  const pool = [...candidates].sort((a, b) => a - b);
-  const events = Math.min(pool.length, 1 + rng.int(3)); // up to 3 a month
-  let grown = 0;
-  for (let k = 0; k < events; k++) {
-    const i = pool.splice(rng.int(pool.length), 1)[0];
-    if (i === undefined) break;
-    const customers = CUSTOMERS_PER_TILE[ZONE.suburb];
-    map.zone[i] = ZONE.suburb;
-    map.customers[i] = customers;
-    state.growth.push({ i, zone: ZONE.suburb, customers });
-    grown++;
-    pushEvent(
-      state,
-      'info',
-      `new homes: ${customers} semis go up beside the wires`,
-      i % map.width,
-      Math.floor(i / map.width),
-    );
+  if (sprawl.size > 0) {
+    const pool = [...sprawl].sort((a, b) => a - b);
+    // 1..3 early, lifting toward ~1..5 a month as the network matures
+    const sprawlEvents = Math.min(pool.length, 1 + rng.int(3 + Math.round(pressure * 2)));
+    for (let k = 0; k < sprawlEvents; k++) {
+      const i = pool.splice(rng.int(pool.length), 1)[0];
+      if (i === undefined) break;
+      const customers = CUSTOMERS_PER_TILE[ZONE.suburb];
+      map.zone[i] = ZONE.suburb;
+      map.customers[i] = customers;
+      state.growth.push({ i, zone: ZONE.suburb, customers });
+      grown++;
+      pushEvent(
+        state,
+        'info',
+        `new homes: ${customers} semis go up beside the wires`,
+        i % map.width,
+        Math.floor(i / map.width),
+      );
+    }
   }
+
+  // (2) DENSIFICATION — served, built-up tiles climb the ladder as demand
+  //     rises. Only tiles actually ON supply intensify (you don't get tower
+  //     blocks on a dark field); the rate scales with pressure, so early
+  //     play sees little and a mature, demand-heavy network sees real
+  //     vertical growth. A tile already mutated this session is still a fair
+  //     candidate to climb the next rung (growth records are append-only and
+  //     applyGrowth keeps only the latest zone per tile on replay).
+  const densify: number[] = [];
+  for (const [tile, subId] of derived.service.subOfTile) {
+    const cov = coverage[tile] ?? COV.empty;
+    if (cov !== COV.on && cov !== COV.brownout) continue; // served only
+    if (subId === undefined) continue;
+    const z = map.zone[tile] ?? ZONE.none;
+    if (DENSIFY_LADDER[z] === undefined) continue; // not on the ladder
+    if ((map.landmark?.[tile] ?? 0) !== 0) continue; // protect landmark fabric
+    if (claimed.has(tile)) continue; // don't intensify a farm/asset footprint
+    densify.push(tile);
+  }
+  if (densify.length > 0) {
+    densify.sort((a, b) => a - b); // deterministic candidate order
+    // ~0 early, lifting to a few rungs a month as demand bites; never a
+    // wholesale rezone (gentle, bounded — towns mature, they don't teleport).
+    const densEvents = Math.min(densify.length, Math.round(pressure * 4 + rng.next() * pressure));
+    for (let k = 0; k < densEvents; k++) {
+      const idx = rng.int(densify.length);
+      const i = densify.splice(idx, 1)[0];
+      if (i === undefined) break;
+      const from = map.zone[i] ?? ZONE.none;
+      const to = DENSIFY_LADDER[from];
+      if (to === undefined) continue;
+      const customers = CUSTOMERS_PER_TILE[to as Zone];
+      map.zone[i] = to;
+      map.customers[i] = customers;
+      state.growth.push({ i, zone: to, customers });
+      grown++;
+      pushEvent(
+        state,
+        'info',
+        DENSIFY_LABEL[to] ?? 'the district densifies as demand rises',
+        i % map.width,
+        Math.floor(i / map.width),
+      );
+    }
+  }
+
   if (grown > 0) {
     ctx.demand = buildDemandField(map);
     state.sitesVersion++; // service areas re-derive over the new fabric
