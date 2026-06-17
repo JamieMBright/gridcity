@@ -182,17 +182,25 @@ function bankColorAt(map: CityMap, u: number, v: number, nu: number, nv: number)
   return SHORE_PALETTE.sand;
 }
 
+/** The glint's tasteful constants, shared by both the London spline path and
+ *  the water-mask path so every city's river catches the SAME warm sheen at
+ *  the SAME low alpha — subtle, never a bright stripe. */
+const GLINT_ALPHA = 0.2;
+/** Tile-space half-width clamp: a 0.12 hairline up the narrow reaches, never
+ *  past 0.55 where the water fans wide (≈0.28 of the local half-width). */
+const GLINT_MIN_HALF = 0.12;
+const GLINT_MAX_HALF = 0.55;
+const GLINT_HALF_OF_WIDTH = 0.28;
+
 /** A thin warm sheen run down the Thames centreline — the "river glint" the
  *  golden-hour water catches. Drawn from the river spline (so it follows the
  *  bends and the Isle of Dogs loop), its width a gentle fraction of the local
  *  half-width (a hairline up west, a touch broader down the estuary) and its
  *  alpha low, so it never reads as a stripe up close yet lifts the river's
- *  course out of flat blue at the far/top zoom. London only (other cities
- *  carry no RIVER_PTS spine — the call is a no-op for them via map.named). */
-function emitRiverGlint(map: CityMap, sink: ShoreSink): void {
-  // gate to the London fabric: the spine is London's. A non-London map keeps
-  // a flat river (no false glint where there is no Thames).
-  if (map.fabric !== undefined && map.fabric !== 'london') return;
+ *  course out of flat blue at the far/top zoom. London only — it owns the
+ *  RIVER_PTS spine; the other cities derive the same glint from the water mask
+ *  (emitRiverGlintFromMask), since they ship no river spline. */
+function emitLondonRiverGlint(map: CityMap, sink: ShoreSink): void {
   const samples = sampleRoute({ kind: 'lane', pts: RIVER_PTS }, 0.5);
   if (samples.length < 2) return;
   // build a centreline polyline; clip to the actual water mask so the glint
@@ -215,16 +223,131 @@ function emitRiverGlint(map: CityMap, sink: ShoreSink): void {
     const b = pts[i + 1];
     if (!a || !b) continue;
     const hw = riverHalfWidth(a.u);
-    const half = Math.min(0.55, Math.max(0.12, hw * 0.28));
+    const half = Math.min(GLINT_MAX_HALF, Math.max(GLINT_MIN_HALF, hw * GLINT_HALF_OF_WIDTH));
     emitRibbon([a, b], [s[i] ?? i, s[i + 1] ?? i + 1], half, 0, groundProj, (q) =>
-      sink(q, SHORE_PALETTE.glint, 0.2),
+      sink(q, SHORE_PALETTE.glint, GLINT_ALPHA),
     );
+  }
+}
+
+/** Interior distance-to-shore (tiles), via a two-pass chamfer transform over
+ *  the water mask: land tiles read 0, a water tile reads its approximate
+ *  Euclidean distance to the nearest dry tile. Deterministic; O(W·H). This is
+ *  what lets a city WITHOUT a river spline find its watercourse: the spine of
+ *  a river is the ridge of this field, and its value is the local half-width
+ *  — exactly the two things the glint needs. */
+function distanceToShore(map: CityMap): Float32Array {
+  const W = map.width;
+  const H = map.height;
+  const INF = 1e6;
+  const d = new Float32Array(W * H);
+  for (let i = 0; i < W * H; i++) d[i] = map.terrain[i] === TERRAIN.water ? INF : 0;
+  const a = 1;
+  const b = Math.SQRT2;
+  // forward pass (top-left → bottom-right)
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (d[i] === 0) continue;
+      let m = d[i] ?? INF;
+      if (x > 0) m = Math.min(m, (d[i - 1] ?? INF) + a);
+      if (y > 0) m = Math.min(m, (d[i - W] ?? INF) + a);
+      if (x > 0 && y > 0) m = Math.min(m, (d[i - W - 1] ?? INF) + b);
+      if (x < W - 1 && y > 0) m = Math.min(m, (d[i - W + 1] ?? INF) + b);
+      d[i] = m;
+    }
+  }
+  // backward pass (bottom-right → top-left)
+  for (let y = H - 1; y >= 0; y--) {
+    for (let x = W - 1; x >= 0; x--) {
+      const i = y * W + x;
+      if (d[i] === 0) continue;
+      let m = d[i] ?? INF;
+      if (x < W - 1) m = Math.min(m, (d[i + 1] ?? INF) + a);
+      if (y < H - 1) m = Math.min(m, (d[i + W] ?? INF) + a);
+      if (x < W - 1 && y < H - 1) m = Math.min(m, (d[i + W + 1] ?? INF) + b);
+      if (x > 0 && y < H - 1) m = Math.min(m, (d[i + W - 1] ?? INF) + b);
+      d[i] = m;
+    }
+  }
+  return d;
+}
+
+/** The water-mask river glint, for every NON-London city (Cairo's Nile, Pune's
+ *  Mula-Mutha, the Tyne/Wear in the North-East, the Seine, the Spree…). With no
+ *  river spline to trace, the centreline IS the medial axis of the water — the
+ *  ridge of the distance-to-shore field — so the glint follows each river's
+ *  true course and every bend/confluence for free.
+ *
+ *  Two things keep it tasteful and "river", not "lit-up sea":
+ *   - a tile glints only where it is a LOCAL MAXIMUM of distance-to-shore (the
+ *     spine), so the sheen is a thin centreline, never a surface wash; and
+ *   - open sea/bays are SUPPRESSED by a distance cap (RIVER_REACH): a broad
+ *     body's spine sits far from any shore, so it never lights — only narrow,
+ *     river-like water within a few tiles of a bank catches the glint.
+ *  Each spine tile gets a small warm ground-plane diamond whose half-width
+ *  follows the SAME clamp as London (hairline → 0.55), at the SAME low alpha;
+ *  neighbouring diamonds overlap into a continuous thread down the course. */
+function emitRiverGlintFromMask(map: CityMap, sink: ShoreSink): void {
+  const W = map.width;
+  const H = map.height;
+  const d = distanceToShore(map);
+  // Open water beyond this many tiles from a shore is sea/bay, not a river —
+  // its spine carries no glint. A river/estuary edge stays within it.
+  const RIVER_REACH = 6;
+  const NEIGH: ReadonlyArray<readonly [number, number]> = [
+    [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1],
+  ];
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (map.terrain[i] !== TERRAIN.water) continue;
+      const dv = d[i] ?? 0;
+      // need to be ON the water (≥ ~1 from shore) and not out in open sea
+      if (dv < 0.9 || dv > RIVER_REACH) continue;
+      // medial-axis test: a strict local maximum of distance (ties broken by a
+      // stable index rule so the spine is deterministic and one-tile-thin)
+      let isRidge = true;
+      for (const [dx, dy] of NEIGH) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
+        const ni = ny * W + nx;
+        const nv = map.terrain[ni] === TERRAIN.water ? (d[ni] ?? 0) : 0;
+        if (nv > dv || (nv === dv && ni < i)) {
+          isRidge = false;
+          break;
+        }
+      }
+      if (!isRidge) continue;
+      // a warm diamond on the spine tile, sized like London's glint width
+      const half = Math.min(GLINT_MAX_HALF, Math.max(GLINT_MIN_HALF, dv * GLINT_HALF_OF_WIDTH));
+      const cu = x + 0.5;
+      const cv = y + 0.5;
+      const quad: number[] = [];
+      for (const [ou, ov] of [[half, 0], [0, half], [-half, 0], [0, -half]] as const) {
+        const [px, py] = groundProj(cu + ou, cv + ov);
+        quad.push(px, py);
+      }
+      sink(quad, SHORE_PALETTE.glint, GLINT_ALPHA);
+    }
+  }
+}
+
+/** Dispatch the warm river glint for this map: London traces its RIVER_PTS
+ *  spine; every other city derives the same sheen from its water mask. */
+function emitRiverGlint(map: CityMap, sink: ShoreSink): void {
+  if (map.fabric === undefined || map.fabric === 'london') {
+    emitLondonRiverGlint(map, sink);
+  } else {
+    emitRiverGlintFromMask(map, sink);
   }
 }
 
 /** Emit the smoothed shoreline bands: land bank, water band, ink waterline,
  *  a faint foam line offset into the water, and a thin warm river glint down
- *  the Thames centreline. Static (band-independent). */
+ *  the river's centreline (the Thames spline for London; the water-mask medial
+ *  axis for every other city). Static (band-independent). */
 export function emitShoreline(map: CityMap, sink: ShoreSink): void {
   const chains = traceShorelines(map);
   for (const chain of chains) {
