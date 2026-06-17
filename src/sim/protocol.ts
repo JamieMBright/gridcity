@@ -61,8 +61,9 @@ export const SKIP_EVENT_MAX_MIN = 7 * 1440;
 
 /** The game-minute a skip aims for: now + 7 game-days ('week') / 30
  *  game-days ('month'), or now + 7 game-days for an event-skip (which
- *  expects to stop early the moment something happens). All three keep the
- *  bad-news-stops-the-skip safety. */
+ *  expects to stop early the moment something happens). All three keep a
+ *  bad-news-stops-the-skip safety (the threshold differs by target — see
+ *  skipHaltEvent). */
 export function skipTargetMin(nowMin: number, to: SkipTarget): number {
   if (to === 'event') return nowMin + SKIP_EVENT_MAX_MIN;
   return nowMin + (to === 'week' ? 7 : 30) * 1440;
@@ -80,17 +81,57 @@ export function skipTickSpeed(nowMin: number, targetMin: number): Exclude<SimSpe
   return 1;
 }
 
+/** A skip-halting event carries at least these fields (a GameEvent subset,
+ *  so protocol stays free of a state.ts import). `major` flags a genuinely
+ *  serious incident — a severe storm, a major fault (grid transformer /
+ *  storm-felled line), a flooded substation. */
+export interface SkipEvent {
+  seq: number;
+  sev: 'info' | 'warn' | 'bad';
+  major?: boolean | undefined;
+  msg?: string | undefined;
+}
+
+/** Does an event fired this tick HALT a skip of this kind? The threshold
+ *  differs by target, so each skip stops on what's appropriate to it:
+ *   • 'week'  — any BAD news (a single fault is reason enough to look).
+ *   • 'month' — only a MAJOR incident (a severe storm / major fault /
+ *     flooded substation). +30d is a long jump; it deliberately skips
+ *     ROUTINE bad noise (one tree-contact fault, a failed innovation
+ *     pitch) and only breaks for a genuine crisis — so the player can't
+ *     sail blindly past one, but still skips a quiet month in one press.
+ *   • 'event' — anything WARN or worse (that arrival IS the destination). */
+function haltsSkip(e: SkipEvent, to: SkipTarget): boolean {
+  if (to === 'month') return e.sev === 'bad' && e.major === true;
+  if (to === 'event') return e.sev !== 'info';
+  return e.sev === 'bad';
+}
+
+/** The first event (in seq order) fired after `seqBefore` that should halt a
+ *  skip of this kind, or undefined if none does. The worker surfaces this
+ *  event's message so the player learns WHY the skip stopped early. */
+export function skipHaltEvent<E extends SkipEvent>(
+  events: ReadonlyArray<E>,
+  seqBefore: number,
+  to: SkipTarget,
+): E | undefined {
+  let best: E | undefined;
+  for (const e of events) {
+    if (e.seq > seqBefore && haltsSkip(e, to) && (best === undefined || e.seq < best.seq)) {
+      best = e;
+    }
+  }
+  return best;
+}
+
 /** Should a skip stop after a tick that pushed events past `seqBefore`?
- *  'bad' news always interrupts; an event-skip also stops on 'warn'
- *  (that arrival IS the destination). */
+ *  Boolean wrapper over skipHaltEvent (the single source of truth). */
 export function skipAborts(
-  events: ReadonlyArray<{ seq: number; sev: 'info' | 'warn' | 'bad' }>,
+  events: ReadonlyArray<SkipEvent>,
   seqBefore: number,
   to: SkipTarget,
 ): boolean {
-  return events.some(
-    (e) => e.seq > seqBefore && (e.sev === 'bad' || (to === 'event' && e.sev !== 'info')),
-  );
+  return skipHaltEvent(events, seqBefore, to) !== undefined;
 }
 
 export interface SimSnapshot {
@@ -308,6 +349,12 @@ export type WorkerToMain =
   | { type: 'forecast'; rows: CatchmentForecast[] }
   | { type: 'plan'; plan: ReinforcementPlan }
   | { type: 'billDetail'; line: BillDetailLine; rows: BillDetailRow[] }
+  /** A time-skip stopped EARLY on news appropriate to its length (a +7d on
+   *  any bad news, a +30d on a genuinely major incident). `reason` is the
+   *  halting event's message, surfaced so the player learns why the skip cut
+   *  short. Transient (no game-state change): the snapshot that follows
+   *  already carries the event itself in its log. */
+  | { type: 'skipHalted'; to: SkipTarget; reason?: string | undefined }
   /** An uncaught sim exception (the worker paused itself). `stack` carries
    *  the traceback for crash-capture / self-heal. */
   | { type: 'fatal'; message: string; stack?: string | undefined }
