@@ -1463,7 +1463,7 @@ function buildCoverage(
           heroTiles.push(i);
         }
       }
-      // a deterministic, stable ~40% of demand tiles within `radius` of a hero
+      // a deterministic, stable ~16% of demand tiles within `radius` of a hero
       // also light — sparse so dense districts keep dark gaps between lit windows
       const r2 = radius * radius;
       for (const tile of service.demandTiles) {
