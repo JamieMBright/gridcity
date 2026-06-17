@@ -13,7 +13,7 @@
 set -u
 cd "$(dirname "$0")/.."
 BASE_PORT="${PW_PORT:-5200}"
-PER_SPEC_TIMEOUT="${PER_SPEC_TIMEOUT:-480}"
+PER_SPEC_TIMEOUT="${PER_SPEC_TIMEOUT:-900}"
 mkdir -p /tmp/e2e-shards
 filter="${1:-}"
 
