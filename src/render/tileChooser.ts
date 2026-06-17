@@ -199,6 +199,75 @@ export function groundSpriteFor(map: CityMap, x: number, y: number): string {
   }
 }
 
+/** Bespoke per-city DOMESTIC stock (WP6). Maps a city fabric + zone to the
+ *  city's own archetype sprites so each place reads as ITSELF, not recoloured
+ *  London terraces. Returns undefined for fabrics with no bespoke stock (London
+ *  and the un-converted cities) AND for zones a converted city doesn't override
+ *  (civic/industrial/rural/etc.), so the caller falls through to the shared
+ *  London logic. The sprite KEYS here are only baked into the atlas when that
+ *  fabric is active (atlas.ts buildSpriteCells), so this must agree with which
+ *  cities register stock there. Variant blends the ESTATE hash (8×8 block
+ *  coherence — whole streets share a family) with a per-tile alternation, the
+ *  same texture London/Paris use. TODO(WP6): Sydney (Federation brick +
+ *  Queenslander), Berlin (Plattenbau slab + Altbau), Shanghai (lilong +
+ *  podium towers), Cape Town (Bo-Kaap row + Cape Dutch), Athens (polykatoikia),
+ *  Pune (RCC walk-up), North-East (Tyneside flat + colliery terrace). */
+function cityStockFor(
+  fabric: CityMap['fabric'],
+  zone: number | undefined,
+  shops: boolean,
+  estate: number,
+  th: number,
+  v: number,
+): string | undefined {
+  switch (fabric) {
+    case 'paris':
+      // the pale, grid-like Haussmann street wall across the urban fabric
+      if (zone === ZONE.urbanCore || zone === ZONE.urban) return `haussmann_${th % 12}`;
+      return undefined;
+    case 'newyork': {
+      // setback "wedding-cake" masonry towers form the dense canyon walls of the
+      // core + CBD; brownstone rows (stoops, cornices) fill the boroughs.
+      if (zone === ZONE.cbd) {
+        const k = th % 6;
+        if (k < 3) return `sky_${estate % 3}`; // generic glass supertalls stay
+        return `setback_${estate % 4}`;
+      }
+      if (zone === ZONE.urbanCore) {
+        return th % 5 < 3 ? `setback_${estate % 4}` : `brownstone_${(estate + (v % 2)) % 4}`;
+      }
+      if (zone === ZONE.urban || zone === ZONE.suburb) {
+        return `brownstone_${(estate + (v % 2)) % 4}`;
+      }
+      return undefined;
+    }
+    case 'hongkong': {
+      // the wall-of-towers: flat-topped residential slabs on podiums dominate the
+      // core + CBD; older tong-lau walk-ups fill the denser urban/suburb fabric.
+      if (zone === ZONE.cbd) {
+        const k = th % 6;
+        if (k < 2) return `sky_${estate % 3}`; // harbour glass supertalls stay
+        return `hktower_${estate % 4}`;
+      }
+      if (zone === ZONE.urbanCore) return `hktower_${estate % 4}`;
+      if (zone === ZONE.urban) return `tonglau_${(estate + (v % 2)) % 4}`;
+      if (zone === ZONE.suburb) return th % 3 === 0 ? `hktower_${estate % 4}` : `tonglau_${(estate + (v % 2)) % 4}`;
+      return undefined;
+    }
+    case 'cairo': {
+      // the uniform brown-ochre sprawl: red-brick / concrete-frame walk-ups
+      // across the whole residential fabric, jagged mismatched heights.
+      void shops;
+      if (zone === ZONE.urbanCore || zone === ZONE.urban || zone === ZONE.suburb) {
+        return `cairoblock_${(estate + (v % 2)) % 6}`;
+      }
+      return undefined;
+    }
+    default:
+      return undefined;
+  }
+}
+
 /** What stands on the tile (transparent floor), or undefined for open
  *  ground. Streets/arterials/rails through the tile centre clear it —
  *  the carriageway ribbon runs where the structure would stand. */
@@ -320,12 +389,13 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
   const shops = ((map.flags?.[i] ?? 0) & FLAG_SHOPS) !== 0;
   const th = tileHash(x, y);
 
-  // bespoke per-city building stock: Paris wears Haussmann blocks across its
-  // urban fabric (the pale, grid-like street walls) — many variants spread
-  // per-tile so the uniform wall still reads as distinct buildings.
-  if (map.fabric === 'paris' && (zone === ZONE.urbanCore || zone === ZONE.urban)) {
-    return `haussmann_${th % 12}`;
-  }
+  // bespoke per-city building stock (WP6): a city wears its OWN archetypes
+  // across its residential/core fabric so it never reads as recoloured London
+  // terraces. Returns a sprite for the cities that have bespoke stock, else
+  // undefined to fall through to the London default below. London/Paris and the
+  // un-converted cities are unaffected (Paris keeps its Haussmann path here).
+  const bespoke = cityStockFor(map.fabric, zone, shops, estate, th, v);
+  if (bespoke !== undefined) return bespoke;
 
   switch (zone) {
     case ZONE.cbd: {
