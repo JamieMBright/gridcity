@@ -3351,7 +3351,14 @@ export class MapRenderer {
       }
       if (!wasPinching && this.dragTravel <= CLICK_SLOP_PX) {
         const tile = this.tileFromClient(map, e.clientX, e.clientY);
-        if (tile) this.onTileClick?.(tile);
+        if (tile) {
+          this.onTileClick?.(tile);
+          // touch has no hover, so a clean TAP must also surface the tile/hero
+          // info card (owner: "inspect doesn't work on tap, only tap+slide" —
+          // the slide fired onHover via pointermove; a pure tap didn't). The
+          // pointerleave handler below won't wipe it for a touch lift.
+          if (e.pointerType !== 'mouse') this.onHover?.(tile);
+        }
       }
     });
     canvas.addEventListener('pointercancel', (e) => {
@@ -3387,7 +3394,12 @@ export class MapRenderer {
       }
       this.onHover?.(this.tileFromClient(map, e.clientX, e.clientY));
     });
-    canvas.addEventListener('pointerleave', () => this.onHover?.(undefined));
+    // Only a real mouse-out clears the hover card. A touch lift fires
+    // pointerleave too — but it must NOT wipe the tile/hero card a tap just
+    // opened (touch inspection is sticky until the next tap/pan).
+    canvas.addEventListener('pointerleave', (e) => {
+      if (e.pointerType === 'mouse') this.onHover?.(undefined);
+    });
 
     canvas.addEventListener(
       'wheel',
