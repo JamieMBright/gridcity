@@ -2205,11 +2205,14 @@ export function nedetachedTile(seed: number, variant: number): Uint8ClampedArray
   iso.r.poly([P(du - 0.018, v1, 14), P(du + 0.078, v1, 14), P(du + 0.06, v1 + 0.035, 12), P(du, v1 + 0.035, 12)], frame);
   // chimney
   iso.box(u0 + 0.04, vm - 0.03, u0 + 0.09, vm + 0.03, H + rise - 4, H + rise + 8, darken(brick, 0.12));
-  // a side garage with a roller door + paved drive
+  // a side garage with a roller door, a little pitched tile roof + paved drive
   const g0 = u1 + 0.015;
   const g1 = u1 + 0.18;
-  iso.box(g0, v0 + 0.12, g1, v1, 0, 13, lighten(brick, 0.03), { topC: top(roof, 0.08) });
+  const gv0 = v0 + 0.12;
+  iso.box(g0, gv0, g1, v1, 0, 13, lighten(brick, 0.03));
+  iso.gable(g0 - 0.008, gv0 - 0.008, g1 + 0.008, v1 + 0.008, 13, 5, 'u', roof, lighten(brick, 0.03));
   iso.r.poly([P(g0 + 0.025, v1, 10), P(g1 - 0.025, v1, 10), P(g1 - 0.025, v1, 0), P(g0 + 0.025, v1, 0)], lighten(COLORS.white, 0.02));
+  for (let z = 2; z < 10; z += 2.2) iso.r.line(P(g0 + 0.03, v1, z), P(g1 - 0.03, v1, z), INK_W * 0.4, alpha(INK, 0.3));
   iso.quad(g0 + 0.01, v1 + 0.005, g1 + 0.01, 0.96, 0, alpha(COLORS.pavement, 0.9));
   // clipped lawn + a sapling
   if (rng.chance(0.7)) iso.ball(0.16, 0.84, 0.06, 14, COLORS.treeLime);
