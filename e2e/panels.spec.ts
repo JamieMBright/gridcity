@@ -252,6 +252,8 @@ test.describe('in-game HUD panels', () => {
     const watch = await bootWatched(page);
     await pauseSim(page);
     await expect(page.getByText('INBOX')).toBeVisible();
+    // the levy steppers live in the bill breakdown (collapsed by default)
+    await page.getByRole('button', { name: 'show bill breakdown' }).first().dispatchEvent('click');
     await page.getByRole('button', { name: 'levy up' }).dispatchEvent('click');
     await page.getByRole('button', { name: 'levy down' }).dispatchEvent('click');
     // collapse + re-expand the inbox header
@@ -264,6 +266,8 @@ test.describe('in-game HUD panels', () => {
     const watch = await bootWatched(page);
     await pauseSim(page);
     await expect(page.getByText(/AVG ANNUAL BILL/)).toBeVisible();
+    // breakdown is collapsed by default — open it before exercising rows
+    await page.getByRole('button', { name: 'show bill breakdown' }).first().dispatchEvent('click');
     const trend = page.getByRole('button', { name: /bill trend/i }).first();
     if ((await trend.count()) > 0) {
       await trend.dispatchEvent('click');

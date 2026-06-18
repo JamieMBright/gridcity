@@ -9,14 +9,17 @@ import { ALLOWANCE_Y1_K, inRebuildYear } from '../sim/scenario/story';
 import { assetCapexK } from '../sim/regulation/bill';
 import { BoltMark } from './BoltMark';
 import { SearchBox } from './SearchBox';
-import { fmtMoneyK, panelStyle, theme } from './theme';
+import { fmtMoneyK, panelStyle, pillStyle, theme } from './theme';
 import { useUnlockGate } from './unlocks';
-import { formatEta, gustKmh, WARN_STYLE, warningLevel, windKmh } from './weatherFormat';
+import { formatEta, gustKmh, WARN_STYLE, warningLevel } from './weatherFormat';
 import {
   IconBolt,
   IconBuilding,
+  IconCarbon,
   IconCollapse,
+  IconDemand,
   IconExpand,
+  IconFrequency,
   IconHeadroom,
   IconHelp,
   IconHourglass,
@@ -30,8 +33,12 @@ import {
   IconSkipEvent,
   IconSoundOff,
   IconSoundOn,
+  IconStability,
+  IconSupply,
+  IconBill,
   IconUndo,
   IconWind,
+  type IconComponent,
 } from './icons';
 
 function formatGameClock(simTimeMin: number): string {
@@ -51,13 +58,6 @@ const SPEEDS: Array<{ speed: SimSpeed; label: string }> = [
   { speed: 4, label: '▶▶' },
   { speed: 16, label: '▶▶▶' },
 ];
-
-function weatherIcon(w: { sun: number; wind: number; cloud: number }, simTimeMin: number): string {
-  const h = (simTimeMin / 60) % 24;
-  const night = h < 5.5 || h > 20.5;
-  const sky = night ? '🌙' : w.cloud > 0.65 ? '☁️' : w.cloud > 0.35 ? '⛅' : '☀️';
-  return w.wind > 0.7 ? `${sky}💨` : sky;
-}
 
 /** The rolling news banner: real grid events + the region's mutterings,
  *  sliding across the very top of the screen. New headlines do NOT
@@ -232,13 +232,64 @@ function AllowanceChip() {
   );
 }
 
-function MarketTicker({ embedded = false }: { embedded?: boolean } = {}) {
+/** One cell of the top stat bar: a small ink-contour glyph, a tiny caps
+ *  label and the live value, stacked tight. Dividers between cells are drawn
+ *  by the StatBar container. */
+function Stat({
+  Icon,
+  label,
+  value,
+  unit,
+  color = theme.offWhite,
+  title,
+}: {
+  Icon: IconComponent;
+  label: string;
+  value: string;
+  unit?: string;
+  color?: string;
+  title?: string;
+}) {
+  return (
+    <div
+      title={title}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 7,
+        padding: '0 2px',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <Icon size={16} color={color} style={{ opacity: 0.95 }} />
+      <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.05 }}>
+        <span style={{ fontSize: 8.5, letterSpacing: '0.13em', color: theme.slate }}>{label}</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color }}>
+          {value}
+          {unit && (
+            <span style={{ fontSize: 9, fontWeight: 500, color: theme.slate }}> {unit}</span>
+          )}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** Top-centre STAT BAR (owner concept): a rounded pill of six live stats —
+ *  DEMAND · SUPPLY · PRICE · CARBON · FREQUENCY · STABILITY — each an
+ *  icon+label+value with thin dividers between. Sourced from the existing
+ *  sim snapshot the old top strip showed. `embedded` drops the floating
+ *  placement so it can sit inside the perimeter HUD's top bar; otherwise it
+ *  floats centred (mobile/compact). The bar wraps to a tidy two-row grid on
+ *  a narrow phone-landscape so all six always read. */
+function StatBar({ embedded = false }: { embedded?: boolean } = {}) {
   const snapshot = useAppStore((s) => s.snapshot);
   if (!snapshot) return null;
   const st = snapshot.stats;
-  // no electrified island ⇒ no frequency to report (day-0 blank grid)
   const freqNA = st.freqHz === undefined;
   const freqOff = st.freqHz !== undefined && Math.abs(st.freqHz - 50) > 0.3;
+  const health = st.networkHealthPct;
+  const healthColor = health >= 90 ? theme.ok : health >= 70 ? theme.warn : theme.danger;
   const place: React.CSSProperties = embedded
     ? { position: 'relative' }
     : {
@@ -246,49 +297,102 @@ function MarketTicker({ embedded = false }: { embedded?: boolean } = {}) {
         top: 'calc(28px + var(--sai-t))',
         left: '50%',
         transform: 'translateX(-50%)',
+        maxWidth: 'calc(100vw - 16px - var(--sai-l) - var(--sai-r))',
       };
+  const cells: React.ReactNode[] = [
+    <Stat
+      key="demand"
+      Icon={IconDemand}
+      label="DEMAND"
+      value={st.totalDemandMW.toFixed(0)}
+      unit="MW"
+      color={theme.orangeSoft}
+      title="total customer demand across the licence area"
+    />,
+    <Stat
+      key="supply"
+      Icon={IconSupply}
+      label="SUPPLY"
+      value={st.servedMW.toFixed(0)}
+      unit="MW"
+      color={st.servedMW + 0.5 < st.totalDemandMW ? theme.warn : theme.ok}
+      title="demand actually served right now"
+    />,
+    <Stat
+      key="price"
+      Icon={IconBill}
+      label="PRICE"
+      value={`£${st.priceMWh.toFixed(0)}`}
+      unit="/MWh"
+      color={theme.gold}
+      title="marginal wholesale price of the most expensive running unit"
+    />,
+    <Stat
+      key="carbon"
+      Icon={IconCarbon}
+      label="CARBON"
+      value={st.carbonG.toFixed(0)}
+      unit="g/kWh"
+      color={st.carbonG > 200 ? theme.sunset : theme.ok}
+      title="rolling carbon intensity of generation"
+    />,
+    <Stat
+      key="freq"
+      Icon={IconFrequency}
+      label="FREQUENCY"
+      value={freqNA ? '—' : (st.freqHz as number).toFixed(2)}
+      unit="Hz"
+      color={freqNA ? theme.slate : freqOff ? theme.danger : theme.ok}
+      title={freqNA ? 'no electrified island yet — nothing on the bars to set a frequency' : 'system frequency, load-weighted over electrified islands'}
+    />,
+    <Stat
+      key="stab"
+      Icon={IconStability}
+      label="STABILITY"
+      value={health.toFixed(0)}
+      unit="%"
+      color={healthColor}
+      title="overall network health / stability — asset condition across your lines + substations"
+    />,
+  ];
   return (
     <div
+      data-tour="market"
       style={{
-        ...panelStyle,
+        ...pillStyle,
         ...place,
         display: 'flex',
-        gap: 14,
-        padding: '6px 14px',
-        fontSize: 12,
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        alignItems: 'center',
+        rowGap: 4,
+        columnGap: 0,
+        padding: '5px 8px',
         pointerEvents: 'none',
-        whiteSpace: 'nowrap',
       }}
     >
-      <span
-        title={freqNA ? 'no electrified island — nothing on the bars to set a frequency' : 'system frequency (load-weighted over electrified islands)'}
-        style={{ color: freqNA ? theme.slate : freqOff ? theme.danger : theme.ok }}
-      >
-        {freqNA ? '— Hz' : `${st.freqHz?.toFixed(2)} Hz`}
-      </span>
-      <span style={{ color: theme.gold }}>£{st.priceMWh.toFixed(0)}/MWh</span>
-      <span style={{ color: st.carbonG > 200 ? theme.sunset : theme.ok }}>
-        {st.carbonG.toFixed(0)} g/kWh
-      </span>
-      {(() => {
-        // live wind in real km/h (owner: km/h, not abstract %); tinted by the
-        // Met warning level when it's blowing hard enough to matter.
-        const sustained = windKmh(snapshot.weather.wind);
-        const lvl = warningLevel(gustKmh(snapshot.weather.wind));
-        const stormy = snapshot.weather.wind >= 0.7;
-        return (
-          <span
-            title="current sustained windspeed (km/h)"
-            style={{ color: stormy ? WARN_STYLE[lvl].color : theme.slate, display: 'inline-flex', alignItems: 'center', gap: 4 }}
-          >
-            {weatherIcon(snapshot.weather, snapshot.simTimeMin)} {sustained}
-            <span style={{ fontSize: 10 }}>km/h</span>
-          </span>
-        );
-      })()}
+      {cells.map((cell, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center' }}>
+          {i > 0 && (
+            <span
+              style={{
+                width: 1,
+                height: 22,
+                margin: '0 9px',
+                background: 'rgba(141, 151, 180, 0.22)',
+              }}
+            />
+          )}
+          {cell}
+        </div>
+      ))}
     </div>
   );
 }
+
+// the old name is still referenced where the centre strip is placed; alias
+// it to the new six-stat bar so both call sites pick up the redesign.
+const MarketTicker = StatBar;
 
 /** Time-skip buttons beside the speed controls: fast-forward a fixed
  *  +7 / +30 game-days, or (desktop) to the next notable event. Bad news
@@ -827,10 +931,30 @@ export function ClockCluster({
         fontSize: compact ? 11 : undefined,
       }}
     >
-      <span style={{ minWidth: compact ? 0 : 110, color: theme.gold }}>
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          minWidth: compact ? 0 : 116,
+          color: theme.gold,
+          fontWeight: 600,
+        }}
+      >
+        <IconBolt size={13} color={theme.orange} style={{ opacity: 0.85 }} />
         {snapshot ? formatGameClock(snapshot.simTimeMin) : '—'}
       </span>
-      <span style={{ display: 'flex', gap: 2 }}>
+      {/* speed controls as one cohesive segmented pill (orange play) */}
+      <span
+        style={{
+          display: 'flex',
+          gap: 2,
+          padding: 2,
+          borderRadius: 999,
+          background: 'rgba(8, 11, 26, 0.4)',
+          border: '1px solid rgba(141, 151, 180, 0.14)',
+        }}
+      >
         {SPEEDS.map(({ speed, label }) => {
           const active = snapshot?.speed === speed;
           return (
@@ -838,8 +962,8 @@ export function ClockCluster({
               key={speed}
               onClick={() => setSimSpeed(speed)}
               style={{
-                padding: '3px 9px',
-                borderRadius: 5,
+                padding: '3px 10px',
+                borderRadius: 999,
                 border: 'none',
                 background: active ? theme.orange : 'transparent',
                 color: active ? theme.navy : theme.slate,
@@ -1027,22 +1151,30 @@ export function HudTopBar() {
 }
 
 /** BOTTOM bar of the perimeter HUD (desktop): the keyboard-hints strip, the
- *  clock + transport + toggles cluster, and the goal chip — all in one row
- *  that reserves its own band so nothing floats over the map. */
+ *  clock + transport + toggles cluster, and the goal chip. A 3-column grid
+ *  with equal flexible side columns keeps the clock cluster SCREEN-CENTRED
+ *  (owner, 2026-06-18: "the bottom — day 6 and arrow keys / time controls —
+ *  should be screen-centred"), not pushed off by the status strip's width.
+ *  The bar reserves its own band so nothing floats over the map. */
 export function HudBottomBar() {
   return (
     <div
       style={{
         width: '100%',
-        display: 'flex',
+        display: 'grid',
+        // 1fr | auto | 1fr → the centre cell sits dead-centre of the screen
+        // regardless of how wide the side cells get; sides can shrink to 0.
+        gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)',
         alignItems: 'flex-end',
-        gap: 10,
+        columnGap: 10,
         pointerEvents: 'none',
       }}
     >
       <StatusHint />
-      <ClockCluster embedded />
-      <div style={{ pointerEvents: 'auto' }}>
+      <div style={{ justifySelf: 'center', minWidth: 0 }}>
+        <ClockCluster embedded />
+      </div>
+      <div style={{ justifySelf: 'end', alignSelf: 'flex-end', pointerEvents: 'auto' }}>
         <GoalChip />
       </div>
     </div>

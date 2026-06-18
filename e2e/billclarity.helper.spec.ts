@@ -24,6 +24,10 @@ test('bill panel — DUoS prominence', async ({ page }) => {
     spec: { kind: 'line', level: 33, build: 'overhead', ax: gen.x, ay: gen.y, bx: sub.x, by: sub.y },
   });
   await page.waitForTimeout(800);
+  // expand the breakdown so the DUoS line + itemisation show in the grab
+  const billOpen = page.getByRole('button', { name: 'show bill breakdown' });
+  if ((await billOpen.count()) > 0) await billOpen.first().dispatchEvent('click');
+  await page.waitForTimeout(300);
   const box = await page.evaluate(() => {
     const el = document.querySelector('[data-tour="bill"]');
     if (!el) return null;

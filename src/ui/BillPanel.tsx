@@ -8,7 +8,7 @@ import {
   type BillBand,
   type BillSample,
 } from '../sim/billHistory';
-import { fmtMoneyK, panelStyle, theme } from './theme';
+import { fmtMoneyK, insetStyle, panelStyle, theme } from './theme';
 
 /** One colour per stacked bill band (bottom → top), on the dusk ramp. */
 const BAND_COLOR: Record<BillBand, string> = {
@@ -130,6 +130,12 @@ export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   const setSelected = useAppStore((s) => s.setSelected);
   const [open, setOpen] = useState<BillDetailLine | undefined>(undefined);
   const [trendOpen, setTrendOpen] = useState(false);
+  // collapsible breakdown (owner, 2026-06-18: "no real need for the whole
+  // bill breakdown to be on show all the time — it can slide in and out on
+  // click"). The headline (£/home/yr + the DUoS charge) is ALWAYS shown; the
+  // line-by-line breakdown + KPIs slide open on a tap and default closed so
+  // the panel stops dominating the rail.
+  const [expanded, setExpanded] = useState(false);
   // mark the bill as seen the moment this panel is mounted/visible — the
   // mission-5 "open the bill" step gates on it (works on both desktop,
   // where the panel docks in the rail, and mobile, where it's a sheet).
@@ -188,9 +194,30 @@ export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
         ...frame,
       }}
     >
-      <div style={{ color: theme.slate, fontSize: 10, letterSpacing: '0.12em' }}>
-        AVG ANNUAL BILL · ALL {b.totalCustomers.toLocaleString()} HOMES
-      </div>
+      {/* clickable header: toggles the breakdown drawer (always-visible
+          headline + a chevron handle). aria-expanded drives the e2e + a11y. */}
+      <button
+        aria-label={expanded ? 'hide bill breakdown' : 'show bill breakdown'}
+        aria-expanded={expanded}
+        onClick={() => setExpanded((v) => !v)}
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          width: '100%',
+          padding: 0,
+          border: 'none',
+          background: 'transparent',
+          color: theme.slate,
+          fontFamily: theme.font,
+          fontSize: 10,
+          letterSpacing: '0.12em',
+          cursor: 'pointer',
+        }}
+      >
+        <span>AVG ANNUAL BILL · ALL {b.totalCustomers.toLocaleString()} HOMES</span>
+        <span style={{ color: theme.orangeSoft, fontSize: 11 }}>{expanded ? '▾' : '▸'}</span>
+      </button>
       <div style={{ fontSize: 26, fontWeight: 800, color: theme.gold }}>
         £{b.perCustomerYr.toFixed(0)}
         <span style={{ fontSize: 12, fontWeight: 400, color: theme.slate }}> /home/yr</span>
@@ -219,10 +246,26 @@ export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
         </span>
         <span style={{ fontSize: 9, color: theme.slate }}>/home/yr</span>
       </div>
-      <div style={{ fontSize: 9.5, color: theme.slate, marginTop: 2, lineHeight: 1.35 }}>
+      {/* compact network-health bar (concept: a segmented red→green health
+          strip) — a tiny at-a-glance read of network stability, always shown */}
+      <NetworkHealthBar pct={st.networkHealthPct} />
+      <div style={{ fontSize: 9.5, color: theme.slate, marginTop: 4, lineHeight: 1.35 }}>
         the rest is wholesale energy — you don't set that. This DUoS line is
         the bit you control and the report card grades.
       </div>
+      {!expanded && (
+        <div style={{ fontSize: 9.5, color: theme.slate, marginTop: 5, opacity: 0.75 }}>
+          tap the header for the full breakdown ▸
+        </div>
+      )}
+      {/* the breakdown drawer — slides open on click, closed by default */}
+      <div
+        className="ec-anim"
+        style={{
+          display: expanded ? 'block' : 'none',
+          animation: expanded ? 'ec-slide-in 0.24s ease both' : undefined,
+        }}
+      >
       <button
         aria-label={trendOpen ? 'hide bill trend' : 'show bill trend'}
         onClick={() => setTrendOpen((v) => !v)}
@@ -315,6 +358,40 @@ export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
           value={`${st.curtailedFirmMWh.toFixed(0)} / ${st.curtailedFlexMWh.toFixed(0)} MWh`}
         />
         <Row label="satisfaction" value={`${st.satisfactionAvg.toFixed(0)} / 100`} />
+      </div>
+      </div>
+    </div>
+  );
+}
+
+/** A compact segmented health bar (concept: red→green stability strip). Six
+ *  pips fill left→right with the network-health %, the filled run tinted by
+ *  the band (red→amber→green). A small caps label + the value sit above. */
+function NetworkHealthBar({ pct }: { pct: number }) {
+  const segs = 10;
+  const lit = Math.round((Math.max(0, Math.min(100, pct)) / 100) * segs);
+  const band = pct >= 90 ? theme.ok : pct >= 70 ? theme.warn : theme.danger;
+  const grade = pct >= 90 ? 'Excellent' : pct >= 80 ? 'Good' : pct >= 70 ? 'Fair' : pct >= 50 ? 'Poor' : 'Critical';
+  return (
+    <div style={{ ...insetStyle, marginTop: 6, padding: '5px 8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <span style={{ fontSize: 9, letterSpacing: '0.1em', color: theme.slate }}>NETWORK HEALTH</span>
+        <span style={{ fontSize: 10, fontWeight: 700, color: band }}>
+          {grade} · {pct.toFixed(0)}%
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 2, marginTop: 4 }}>
+        {Array.from({ length: segs }, (_, i) => (
+          <span
+            key={i}
+            style={{
+              flex: 1,
+              height: 5,
+              borderRadius: 2,
+              background: i < lit ? band : 'rgba(141, 151, 180, 0.18)',
+            }}
+          />
+        ))}
       </div>
     </div>
   );

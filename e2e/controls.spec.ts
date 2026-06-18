@@ -16,12 +16,23 @@ test.describe('time & view controls', () => {
     }
   });
 
-  test('space toggles pause', async ({ page }) => {
+  test('P toggles pause (was Space; Space now hides the HUD)', async ({ page }) => {
     await boot(page);
-    await page.keyboard.press(' ');
+    await page.keyboard.press('p');
     await expect.poll(() => store<number>(page, '(s) => s.snapshot.speed')).toBe(0);
-    await page.keyboard.press(' ');
+    await page.keyboard.press('p');
     await expect.poll(() => store<number>(page, '(s) => s.snapshot.speed')).toBe(1);
+  });
+
+  test('Space toggles the whole HUD hidden/shown', async ({ page }) => {
+    await boot(page);
+    await expect.poll(() => store<boolean>(page, '(s) => s.hudHidden')).toBe(false);
+    await page.keyboard.press(' ');
+    await expect.poll(() => store<boolean>(page, '(s) => s.hudHidden')).toBe(true);
+    // the reveal affordance is present while hidden, and brings the HUD back
+    await expect(page.getByRole('button', { name: 'show HUD' })).toBeVisible();
+    await page.keyboard.press(' ');
+    await expect.poll(() => store<boolean>(page, '(s) => s.hudHidden')).toBe(false);
   });
 
   test('grid view toggles by button and by key', async ({ page }) => {

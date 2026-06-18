@@ -396,6 +396,60 @@ export function IconScales(p: IconProps) {
   );
 }
 
+// --- top stat-bar glyphs (DEMAND/SUPPLY/PRICE/CARBON/FREQUENCY/STABILITY) ----
+
+/** Demand — power drawn DOWN into the city (an arrow into a baseline). */
+export function IconDemand(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M12 3v12" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M4 20h16" />
+    </Svg>
+  );
+}
+
+/** Supply — power pushed UP onto the grid (an arrow off a baseline). */
+export function IconSupply(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M12 21V9" />
+      <path d="M7 14l5-5 5 5" />
+      <path d="M4 4h16" />
+    </Svg>
+  );
+}
+
+/** Carbon — an emissions cloud. */
+export function IconCarbon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M7 18h9a3.5 3.5 0 0 0 .4-6.98 5 5 0 0 0-9.66-1.2A3.9 3.9 0 0 0 7 18z" />
+      <path d="M9 21l-1 1.5M13 21l-1 1.5M17 21l-1 1.5" />
+    </Svg>
+  );
+}
+
+/** Frequency — a sine wave (50 Hz heartbeat of the grid). */
+export function IconFrequency(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M3 12c2 0 2-6 4.5-6S10 18 12 18s2-12 4.5-12S19 12 21 12" />
+    </Svg>
+  );
+}
+
+/** Stability — a gauge needle (system health/stability %). */
+export function IconStability(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M4 18a8 8 0 1 1 16 0" />
+      <path d="M12 18l4.5-5" />
+      <circle cx="12" cy="18" r="1.3" fill="currentColor" stroke="none" />
+    </Svg>
+  );
+}
+
 /** Headroom — stacked-bars heatmap (spare capacity). */
 export function IconHeadroom(p: IconProps) {
   return (

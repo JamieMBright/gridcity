@@ -31,21 +31,51 @@ export const theme = {
   font: "'Iosevka', 'JetBrains Mono', ui-monospace, 'Cascadia Code', Menlo, monospace",
 } as const;
 
+// --- the cohesive rounded-card HUD system (HUD redesign, 2026-06-18) --------
+// One designed language for every panel: a soft 15px corner, a faint slate
+// hairline, a soft drop-shadow and a slightly more translucent dusk glass so
+// the map reads THROUGH the chrome instead of being walled off by it. Bumping
+// these tokens propagates the cohesion to every panel that builds on
+// panelStyle — the HUD stops reading as a "collection of boxes".
+
+/** Shared corner radius for the rounded-card system. */
+export const PANEL_RADIUS = 15;
+/** Shared pill radius (stat bar, button clusters) — fully rounded ends. */
+export const PILL_RADIUS = 999;
+
 /** Standard floating panel chrome: dusk glass — a navy→purple gradient
  *  with a frosted blur and a warm hairline, so the HUD reads as part of
- *  the golden-hour world instead of flat slabs over it. */
+ *  the golden-hour world instead of flat slabs over it. Softer + lighter
+ *  than the old slab so the map breathes underneath (owner: "less
+ *  dominating", "stop reading as boxes"). */
 export const panelStyle: React.CSSProperties = {
   background:
-    'linear-gradient(168deg, rgba(18, 24, 52, 0.88) 0%, rgba(16, 22, 48, 0.92) 55%, rgba(34, 25, 58, 0.9) 100%)',
-  backdropFilter: 'blur(9px)',
-  WebkitBackdropFilter: 'blur(9px)',
-  border: '1px solid rgba(245, 196, 105, 0.14)',
-  borderRadius: 10,
-  boxShadow: '0 10px 28px rgba(6, 8, 18, 0.5), inset 0 1px 0 rgba(242, 239, 232, 0.06)',
+    'linear-gradient(165deg, rgba(20, 26, 56, 0.80) 0%, rgba(15, 20, 44, 0.84) 58%, rgba(34, 25, 58, 0.82) 100%)',
+  backdropFilter: 'blur(13px) saturate(1.05)',
+  WebkitBackdropFilter: 'blur(13px) saturate(1.05)',
+  border: '1px solid rgba(141, 151, 180, 0.18)',
+  borderRadius: PANEL_RADIUS,
+  boxShadow:
+    '0 14px 34px rgba(5, 7, 16, 0.42), 0 2px 8px rgba(5, 7, 16, 0.28), inset 0 1px 0 rgba(242, 239, 232, 0.05)',
   color: theme.offWhite,
   fontFamily: theme.font,
   fontSize: 13,
   letterSpacing: 0.2,
+};
+
+/** A fully-rounded pill container (top stat bar, top-right cluster, the
+ *  centred transport bar). Same dusk glass, pill ends. */
+export const pillStyle: React.CSSProperties = {
+  ...panelStyle,
+  borderRadius: PILL_RADIUS,
+};
+
+/** A faint inset surface used INSIDE a card for sub-sections (a bill row
+ *  group, a chart well, a collapsible body) — reads as recessed glass. */
+export const insetStyle: React.CSSProperties = {
+  background: 'rgba(8, 11, 26, 0.42)',
+  border: '1px solid rgba(141, 151, 180, 0.10)',
+  borderRadius: 11,
 };
 
 /** Panel section heading: small caps rhythm shared across the HUD. */
@@ -56,6 +86,17 @@ export const headingStyle: React.CSSProperties = {
   letterSpacing: 1.6,
   textTransform: 'uppercase',
 };
+
+/** Keyframes for the cohesive HUD: a soft slide-in (collapsible panels +
+ *  the inbox attention pulse) and a gentle attention glow. Mounted once
+ *  near the HUD root so every panel speaks one motion language. Respects
+ *  prefers-reduced-motion. */
+export const HUD_KEYFRAMES = `
+@keyframes ec-slide-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ec-attn { 0% { box-shadow: 0 0 0 0 rgba(255,138,30,0); } 25% { box-shadow: 0 0 0 3px rgba(255,138,30,0.5); } 100% { box-shadow: 0 0 0 0 rgba(255,138,30,0); } }
+@keyframes ec-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ec-anim { animation-duration: 0.001ms !important; } }
+`;
 
 // --- colour-blind-aware status colours (#32) ---------------------------------
 // theme.ok/warn/danger stay the golden-hour defaults; components that want

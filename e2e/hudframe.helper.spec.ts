@@ -84,7 +84,9 @@ test('desktop 1280x800 — full overlap stress case', async ({ page }) => {
     clip: { x: 0, y: 0, width: 320, height: 800 },
   });
 
-  // also a tall-content variant: open the bill trend chart too
+  // also a tall-content variant: expand the bill breakdown + trend chart
+  const billOpen = page.getByRole('button', { name: 'show bill breakdown' });
+  if ((await billOpen.count()) > 0) await billOpen.first().dispatchEvent('click');
   const trend = page.getByRole('button', { name: 'show bill trend' });
   if ((await trend.count()) > 0) await trend.dispatchEvent('click');
   await page.waitForTimeout(300);
