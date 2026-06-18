@@ -35,17 +35,13 @@ const render = async (size, mask) => {
       ctx.arcTo(0, size, 0, 0, r); ctx.arcTo(0, 0, size, 0, r); ctx.closePath();
       ctx.clip();
     }
-    // PADDED-CENTRAL (owner: "pad it a bit so it sits more centrally in the
-    // square"): fill the icon with the globe's deep-navy backdrop, then draw
-    // the globe centred at PAD scale so it breathes off the edges. The globe
-    // then lands inside the maskable safe-zone (inner ~80%), so the same
-    // render serves purpose "any" AND "maskable".
-    ctx.fillStyle = '#0a0e22';
-    ctx.fillRect(0, 0, size, size);
-    const PAD = 0.86;
-    const d = size * PAD;
-    const off = (size - d) / 2;
-    ctx.drawImage(img, off, off, d, d);
+    // FULL-BLEED: the globe source fills the icon edge-to-edge. The image
+    // already carries its own deep-navy margin around the globe, so it reads
+    // centrally WITHOUT an added pad — and an added flat pad can't match the
+    // source's varied navy edge, leaving a faint light seam (the "white
+    // outline" the owner flagged). Full-bleed has no seam. The OS/launcher
+    // applies its own rounded mask.
+    ctx.drawImage(img, 0, 0, size, size);
     return c.toDataURL('image/png');
   }, { b64: srcB64, mime, size, mask });
 };
