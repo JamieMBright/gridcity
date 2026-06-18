@@ -3,9 +3,7 @@ import { EventLog } from '../ui/AlertsFeed';
 import { AssetGuide } from '../ui/AssetGuide';
 import { AuthCallback } from '../ui/AuthCallback';
 import { BalancePanel } from '../ui/BalancePanel';
-import { BoltMark } from '../ui/BoltMark';
 import { BuildLabelChip } from '../ui/BuildLabelChip';
-import { CameraBookmarks } from '../ui/CameraBookmarks';
 import { GameMenu } from '../ui/GameMenu';
 import { HotkeyHelp } from '../ui/HotkeyHelp';
 import { Hud } from '../ui/Hud';
@@ -16,14 +14,12 @@ import { HudTour } from '../ui/HudTour';
 import { DirectoratesPanel } from '../ui/DirectoratesPanel';
 import { KpiDashboard } from '../ui/KpiDashboard';
 import { MapView } from '../ui/MapView';
-import { Minimap } from '../ui/Minimap';
 import { MobileChrome } from '../ui/MobileChrome';
 import { NetZeroPanel } from '../ui/NetZeroPanel';
 import { PhotoMode } from '../ui/PhotoMode';
 import { RankUpCard } from '../ui/RankPanel';
 import { RotatePrompt } from '../ui/RotatePrompt';
 import { SavesPanel } from '../ui/SavesPanel';
-import { SearchBox } from '../ui/SearchBox';
 import { SevereWeatherAlert } from '../ui/SevereWeatherAlert';
 import { StartMenu } from '../ui/StartMenu';
 import { StoryIntro } from '../ui/StoryIntro';
@@ -40,38 +36,6 @@ import { HOTKEYS } from './hotkeys';
 import { useAppStore } from './store';
 import { useIsMobile } from './useIsMobile';
 import { initWorker, sendCommand, setSimSpeed } from './workerBridge';
-
-function Wordmark() {
-  const setGameMenuOpen = useAppStore((s) => s.setGameMenuOpen);
-  return (
-    <button
-      aria-label="game menu"
-      title="Game menu — save or quit to the main menu"
-      onClick={() => setGameMenuOpen(true)}
-      style={{
-        ...panelStyle,
-        position: 'absolute',
-        top: 28,
-        left: 12,
-        padding: '8px 14px',
-        fontSize: 18,
-        fontWeight: 800,
-        letterSpacing: '0.05em',
-        cursor: 'pointer',
-        textAlign: 'left',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-      }}
-    >
-      <BoltMark size={24} />
-      <span>
-        <span style={{ color: theme.orange }}>ELECTRI</span>
-        <span style={{ color: theme.slate }}>CITY</span>
-      </span>
-    </button>
-  );
-}
 
 function Toast() {
   const toast = useAppStore((s) => s.toast);
@@ -292,8 +256,6 @@ export function App() {
   // HUD already yields a clean map; anything already open stays usable.
   const hudHidden = useAppStore((s) => s.hudHidden);
   const chrome = !menuOpen && !photoMode && !hudHidden;
-  // campaign missions hide the London-specific chrome (place search)
-  const inMission = useAppStore((s) => s.scenarioId !== 'london');
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
@@ -305,29 +267,23 @@ export function App() {
           (render/grade.ts, #41): they follow the sim clock and weather,
           so the old static CSS washes came out. */}
       {chrome &&
-        (compact ? (
+        (isMobile ? (
           <>
-            {/* desktop collapse reuses the proven compact icon-rail +
-                drawers; the wordmark/search stay on desktop for orientation */}
-            {!isMobile && <Wordmark />}
-            {!isMobile && !inMission && <SearchBox />}
+            {/* PHONE: the compact icon-rail + drawers. (Desktop collapse no
+                longer borrows this path — the perimeter HudFrame renders its
+                OWN slim icon rails when hudCollapsed, so the collapsed desktop
+                HUD stays a cohesive perimeter frame with hotkey labels.) */}
             <MobileChrome />
-            {/* the compact desktop path keeps the floating ticker + centred
-                clock cluster (Hud) and the corner widgets. The minimap +
-                camera bookmarks are hidden in a tutorial (owner: hide
-                non-essential HUD; a one-screen lesson map needs neither) —
-                matching the perimeter HUD's hud:minimap gate. */}
             <Hud compact={compact} />
-            {!isMobile && !inMission && <Minimap />}
-            {!isMobile && !inMission && <CameraBookmarks />}
           </>
         ) : (
           // DESKTOP: the unified perimeter HUD. One CSS-grid frame reserves a
-          // left rail (build palette + fleet + minimap), a right rail (pinned
-          // inspector + inbox + alerts + bill, each scroll-contained), a top
+          // left rail (build palette / collapsed build-tool icon rail), a right
+          // rail (inspector + inbox + bill / collapsed overlay icon rail), a top
           // bar (wordmark + search + ticker + regulator) and a bottom bar
           // (status + clock/speed/toggles + goal). Nothing overlaps another
           // panel or the map — every panel is a flex child of its own track.
+          // HudFrame itself swaps to slim rails when the HUD is collapsed.
           <HudFrame />
         ))}
       {chrome && <BuildLabelChip />}
