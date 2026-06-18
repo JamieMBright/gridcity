@@ -911,7 +911,7 @@ export function ClockCluster({
       }
     : {
         position: 'absolute',
-        bottom: compact ? 'calc(6px + var(--sai-b))' : 'calc(12px + var(--sai-b))',
+        bottom: compact ? 'calc(2px + var(--sai-b))' : 'calc(12px + var(--sai-b))',
         left: '50%',
         transform: 'translateX(-50%)',
         maxWidth: 'calc(100vw - 8px - var(--sai-l) - var(--sai-r))',
@@ -922,15 +922,20 @@ export function ClockCluster({
       style={{
         ...panelStyle,
         ...floating,
+        // border-box so the safe-area maxWidth INCLUDES the padding/border —
+        // the 1-row scroll then stays inside the notch instead of spilling.
+        boxSizing: 'border-box',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
-        // mobile (compact) wraps to a second row instead of overflowing under
-        // the notch — its content is wider than the safe-area maxWidth, and
-        // nowrap made the end controls slide past the rounded corners. Desktop
-        // perimeter (embedded) already wraps; only the desktop FLOATING case
-        // (rare) stays nowrap.
-        flexWrap: embedded || compact ? 'wrap' : 'nowrap',
+        justifyContent: compact ? 'flex-start' : 'center',
+        // mobile (compact): a SINGLE scrollable row hugging the bottom edge,
+        // not a tall wrapped block eating the middle of the play space (owner,
+        // 2026-06-18). The box stays within the safe-area maxWidth and its
+        // content scrolls INSIDE it, so nothing slides under the notch. Desktop
+        // perimeter (embedded) wraps as before.
+        flexWrap: embedded ? 'wrap' : 'nowrap',
+        overflowX: compact ? 'auto' : undefined,
+        scrollbarWidth: compact ? 'none' : undefined,
         gap: compact ? 4 : 8,
         padding: compact ? '4px 8px' : '6px 12px',
         whiteSpace: 'nowrap',
