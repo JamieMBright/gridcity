@@ -4502,3 +4502,52 @@ Concept-art-driven HUD overhaul, in three PRs:
   (the owner's core ask), matched to the concept art. Desktop-collapse now routes through the
   perimeter HudFrame (isMobile, not compact) so it stays a cohesive frame. Design-gated:
   preview/collapsed-{desktop,leftrail,rightrail,leftrail-armed}.png.
+
+---
+
+## 🚀 GO-LIVE / LAUNCH READINESS (owner, 2026-06-18 — parked until launch)
+Pre-launch infra/config. NONE of these block development; all are wanted before a
+public launch with real players. Owner parked the auth-email branding here when it
+turned out to need custom SMTP. Grouped by area.
+
+### Domain
+- [ ] **Buy + connect a custom domain** (Vercel → Project → Settings → Domains →
+      add; set the DNS records Vercel shows). Replaces `electricity-eta.vercel.app`.
+- [ ] **Re-point Supabase auth at the new domain** once live: Auth → URL
+      Configuration → Site URL = `https://<domain>`, add `https://<domain>/**` to
+      Redirect URLs (keep the existing `*.vercel.app` + localhost entries).
+
+### Email / auth — custom SMTP (also UNBLOCKS the branded templates)
+- [ ] **Set up custom SMTP.** The Supabase built-in sender is test-only (a few
+      emails/hour → real signups would fail) AND forces the default templates, so
+      it must be replaced before launch. Recommended: **Resend** (resend.com, free
+      100/day) — verify the launch domain (SPF/DKIM DNS records) → make an API key
+      → Supabase Auth → Settings → SMTP: host `smtp.resend.com`, port 465, user
+      `resend`, pass = API key, sender `noreply@<domain>`.
+- [ ] **Apply the branded email templates** (unblocked once SMTP is on): Auth →
+      Email Templates → paste `supabase/templates/{confirm-signup,magic-link,
+      reset-password}.html` into Confirm signup / Magic Link / Reset Password.
+      (Paste-ready; steps in supabase/templates/README.md.)
+
+### Database / backend scale (Supabase)
+- [ ] **Upgrade Supabase Free → Pro (~$25/mo) before launch.** Free AUTO-PAUSES the
+      project after ~1 week idle (DB offline) and has low connection/storage/egress
+      caps; Pro removes auto-pause, adds daily backups + PITR, lifts the limits.
+- [ ] **RLS security audit:** confirm Row-Level Security on every public table
+      (profiles, saves, leaderboard) — players read/write only their own rows + the
+      shared board. Run Supabase Advisors (security + performance), clear findings.
+- [ ] **Connection pooling:** ensure serverless uses the pooled (PgBouncer) string,
+      not a direct connection, so DB connections aren't exhausted under load.
+- [ ] **Leaderboard abuse guard:** server-side rate-limit / validate score writes
+      so the public board can't be spammed or forged.
+
+### Hosting / frontend (Vercel)
+- [ ] **Vercel plan check:** Hobby is non-commercial — move to Pro if monetised /
+      for higher limits + analytics.
+- [ ] **Production env vars:** set `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` in
+      Vercel (currently hardcoded fallbacks in src/online/supabase.ts — works, but
+      env vars let you swap projects without a code change).
+
+### Legal / trust (accounts collect emails)
+- [ ] **Privacy policy + terms** (short) linked from the start menu — you store
+      emails, usernames, saves and a public leaderboard.
