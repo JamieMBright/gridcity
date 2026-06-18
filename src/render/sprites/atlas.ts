@@ -10,16 +10,21 @@ import { bespokeHeroesFor, frameIdFor } from './heroes/registry';
 import {
   altbauTile,
   bokaapTile,
+  brickterraceTile,
   brownstoneTile,
   cairoblockTile,
   capecottageTile,
   cottageTile,
+  cottageflatsTile,
   councilflatTile,
   factoryTile,
   georgianTile,
   greenhouseTile,
   haussmannTile,
   hktowerTile,
+  necornershopTile,
+  nedetachedTile,
+  nemodernblockTile,
   newbuildTile,
   officeTile,
   pebbledashsemiTile,
@@ -362,9 +367,18 @@ function buildCityStockBufs(): Map<string, HeroBuf> {
       for (let i = 0; i < 3; i++) add(`wada_${i}`, wadaTile(507 + i, i));
       break;
     case 'northeast':
-      // paired-door Tyneside flats + interwar pebbledash semis under slate
+      // a VARIED Tyneside/Wearside street: paired-door Tyneside flats + interwar
+      // pebbledash semis, PLUS plain single-family brick terraces (varied roof
+      // colours/ridges/eras), 3-storey cottage-flats walk-ups (the odd taller
+      // block), the postwar detached/large semi (suburb variety), a corner-shop
+      // parade, and a modest modern low-rise infill — all brick + slate.
       for (let i = 0; i < 4; i++) add(`tynesideflat_${i}`, tynesideflatTile(511 + i, i));
       for (let i = 0; i < 4; i++) add(`pebbledashsemi_${i}`, pebbledashsemiTile(521 + i, i));
+      for (let i = 0; i < 4; i++) add(`brickterrace_${i}`, brickterraceTile(531 + i, i));
+      for (let i = 0; i < 4; i++) add(`cottageflats_${i}`, cottageflatsTile(541 + i, i));
+      for (let i = 0; i < 4; i++) add(`nedetached_${i}`, nedetachedTile(551 + i, i));
+      for (let i = 0; i < 4; i++) add(`necornershop_${i}`, necornershopTile(561 + i, i));
+      for (let i = 0; i < 4; i++) add(`nemodernblock_${i}`, nemodernblockTile(571 + i, i));
       break;
     default:
       break;
