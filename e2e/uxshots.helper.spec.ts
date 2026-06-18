@@ -39,6 +39,8 @@ test('bill chart, KPI tooltips, undo history, save slots', async ({ page }) => {
       await page.getByRole('button', { name: 'bill' }).first().dispatchEvent('click');
       await page.waitForTimeout(300);
     }
+    const billOpen = page.getByRole('button', { name: 'show bill breakdown' });
+    if ((await billOpen.count()) > 0) await billOpen.first().dispatchEvent('click');
     const trend = page.getByRole('button', { name: 'show bill trend' });
     if ((await trend.count()) > 0) await trend.first().dispatchEvent('click');
     await page.waitForTimeout(400);

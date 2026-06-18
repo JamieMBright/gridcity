@@ -50,6 +50,9 @@ test.describe('inbox & innovation levy', () => {
 
   test('satisfaction and curtailment KPIs are on the bill panel', async ({ page }) => {
     await boot(page);
+    // the bill breakdown is collapsed by default (owner: less dominating) —
+    // expand it to reveal the KPI rows
+    await page.getByRole('button', { name: 'show bill breakdown' }).first().dispatchEvent('click');
     await expect(page.getByText('satisfaction', { exact: true })).toBeVisible();
     await expect(page.getByText('curtailed firm/flex')).toBeVisible();
   });

@@ -82,6 +82,9 @@ test.describe('building on the map', () => {
     expect(genYrK).toBeLessThan(1000); // idle plant is the developer's problem
     const capexYrK = await store<number>(page, '(s) => s.snapshot.bill.capexYrK');
     expect(capexYrK).toBeGreaterThan(0);
+    // the breakdown rows live in the collapsible drawer (default closed) —
+    // open it to assert the DUoS itemise row is reachable
+    await page.getByRole('button', { name: 'show bill breakdown' }).first().dispatchEvent('click');
     await expect(page.getByRole('button', { name: 'itemise network (DUoS)' })).toBeVisible();
   });
 
