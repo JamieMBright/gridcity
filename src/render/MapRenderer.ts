@@ -117,6 +117,32 @@ const DUSK_POCKET = 0;
 // the world stays a cosy dusk, never a horror night.
 const DUSK_POCKET_FLOOR = 0x3c3a52;
 
+// NIGHT BODY-DARKEN (owner, 2026-06-18: "Are all those white rectangles hero
+// buildings?"). Killing the glare (above) was right, but with the dusk-pocket
+// off the unlit building BODIES sit at the plain cosy night tint — they read as
+// pale daytime boxes ("white rectangles") instead of dark masses studded with
+// warm windows. The fix targets ONLY the building/structure layer: an EXTRA
+// multiply applied to `structureLayer` (a child of the `city` fabric, so it
+// stacks ON TOP of the cosy fabric tint), ramped with `glow`. Because the lit
+// windows / streetlamps / shopfronts / kit bloom all live in the ADDITIVE
+// `glowWorld` (NOT under structureLayer), darkening the bodies leaves every
+// warm point at full brightness — the night reads as DARK silhouettes with
+// bright small windows popping, which is the whole ask. The GROUND/countryside
+// keeps the plain cosy fabric tint (only the built masses sink). Capped by
+// STRUCT_NIGHT_FLOOR so even at full glow the bodies stay a deep cosy dusk-
+// charcoal, never crushed to black (heroes still read by shape + lit windows).
+// Set to 0 to revert (then the structure layer carries no night multiply,
+// byte-identical to before). Ramps only over the DEEP end of glow (dusk→night)
+// so the gentle day/golden-hour arc is untouched (anti-"flashing" doctrine).
+//   0.0 = OFF   ~0.55 = the shipped strength (design-gated: dark bodies, no glare).
+const STRUCT_NIGHT_DARKEN = 0.55;
+// the deepest the body multiply may pull a building toward at full glow — a deep
+// dusk-charcoal with a faint cool-warm breath (NOT black): silhouettes you can
+// still read, lit by their own windows. Multiplies against the fabric tint, so
+// the on-screen body is darker still (fabricTint × this), but the floor keeps it
+// off pure black so it never reads as a hole punched in the map.
+const STRUCT_NIGHT_FLOOR = 0x4b4760;
+
 export const LEVEL_COLOR: Record<VoltageLevel, number> = {
   400: 0x5ea3ff,
   132: 0x7bc47f,
@@ -859,6 +885,7 @@ export class MapRenderer {
     // the network colours stay true
     if (on && this.gradeTinted) {
       for (const layer of this.gradeTargets()) layer.tint = 0xffffff;
+      this.structureLayer.tint = 0xffffff; // drop the night body-darken too
       this.gradeTinted = false;
     }
     if (!on) this.gradeKey = ''; // re-apply the grade next frame
@@ -976,6 +1003,23 @@ export class MapRenderer {
     return mixRgb(tint, DUSK_POCKET_FLOOR, DUSK_POCKET * t * t);
   }
 
+  /** NIGHT BODY-DARKEN (see STRUCT_NIGHT_DARKEN): the EXTRA multiply for the
+   *  structure layer so unlit building BODIES go dark at night (vs the plain
+   *  cosy fabric tint that left them as pale "white rectangles"). Stacks on top
+   *  of the fabric tint (structureLayer is a child of the `city` fabric), so the
+   *  ground keeps the cosy wash while only the built masses sink. The additive
+   *  windows/streetlamps/shopfronts (glowWorld) are unaffected, so they pop as
+   *  bright points against the now-dark bodies. White at day / STRUCT_NIGHT_DARKEN
+   *  0 ⇒ a no-op (byte-identical). Eases in over the DEEP end of glow only. */
+  private structNightTint(glow: number): number {
+    if (STRUCT_NIGHT_DARKEN <= 0 || glow <= 0.001) return 0xffffff;
+    // start the body-darken a touch earlier than the (retired) dusk-pocket — by
+    // mid-dusk the bodies should already be reading as silhouettes behind the
+    // first lit windows — but still keep the day/golden-hour arc fully untouched.
+    const t = Math.max(0, Math.min(1, (glow - 0.45) / 0.55));
+    return mixRgb(0xffffff, STRUCT_NIGHT_FLOOR, STRUCT_NIGHT_DARKEN * t * t);
+  }
+
   // --- atmosphere (#41 day/night grade · #42 rain & storms · #44 seasons) ----
 
   /** Gate the living-world animation rate on the sim clock speed (0/1/4/
@@ -1053,7 +1097,13 @@ export class MapRenderer {
     // are untouched — so only the unlit fabric sinks and the bulbs pop. By day
     // (glow 0) the pocket is inert ⇒ fabricTint === g.tint.
     const fabricTint = this.duskPocketTint(g.tint, g.glow);
-    const key = `${g.skyTop},${g.skyBottom},${fabricTint},${Math.round(g.wet * 40)},${w},${h}`;
+    // NIGHT BODY-DARKEN: an extra multiply for the structure layer only, so unlit
+    // building bodies go dark at night while the ground keeps the cosy fabric tint
+    // (structureLayer is a child of `city`, so this stacks under fabricTint). The
+    // lit windows/lamps/shopfronts (glowWorld) are unaffected ⇒ they pop as the
+    // bright points against dark masses. White at day ⇒ byte-identical.
+    const structTint = this.structNightTint(g.glow);
+    const key = `${g.skyTop},${g.skyBottom},${fabricTint},${structTint},${Math.round(g.wet * 40)},${w},${h}`;
     if (key !== this.gradeKey) {
       this.gradeKey = key;
       this.skyG.clear();
@@ -1067,6 +1117,9 @@ export class MapRenderer {
       // holds the engineering palette)
       if (!this.gridViewOn) {
         for (const layer of this.gradeTargets()) layer.tint = fabricTint;
+        // building bodies take the EXTRA night darken on top of the fabric tint
+        // (structureLayer ⊂ city, so its tint multiplies under fabricTint)
+        this.structureLayer.tint = structTint;
         this.gradeTinted = true;
       }
       // wet sheen: rain-damp air catches the sky and lifts the shadows
