@@ -10,7 +10,6 @@ import { startMusic } from '../audio/audio';
 import { localStorageStore } from '../persistence/localStorageStore';
 import { listSlots } from '../persistence/slotStore';
 import { AccountPanel } from './AccountPanel';
-import { BoltMark } from './BoltMark';
 import { CityPicker } from './CityPicker';
 import { LessonsPage } from './LessonsPage';
 import { RankBadge } from './RankPanel';
@@ -142,13 +141,10 @@ export function StartMenu() {
           fontFamily: theme.font,
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <BoltMark size={64} radius={16} />
-        </div>
         <img
           src="/logotype.png"
           alt="ElectriCity"
-          style={{ display: 'block', width: 380, maxWidth: '100%', margin: '6px auto 0' }}
+          style={{ display: 'block', width: 380, maxWidth: '100%', margin: '0 auto' }}
         />
         <div style={{ color: theme.slate, marginTop: 8, fontSize: 12.5 }}>
           power a stylized London — keep the lights on, the bills down, the carbon low
