@@ -1195,12 +1195,16 @@ export class MapRenderer {
       if (y < H - 1 && onAt(i + W)) return true;
       return false;
     };
-    // 1) LIT WINDOWS — energized customer tiles glow warm gold.
+    // 1) LIT WINDOWS — energized customer tiles glow warm gold. RE-TUNE (owner,
+    // 2026-06-18): the per-tile alpha was near-opaque for dense zones (88+cust,
+    // clamped 220), so a packed core melted into one bright warm SHEET — the
+    // "solar glare". Drop it to a translucent warm level (denser still reads
+    // brighter, but the gaps stay dark and the windows read as windows).
     for (let i = 0; i < coverage.length; i++) {
       if (coverage[i] !== COV.on) continue;
       const cust = map.customers[i] ?? 0;
       if (cust <= 0) continue;
-      put(i, 255, 193, 110, Math.min(220, 88 + cust));
+      put(i, 255, 193, 110, Math.min(150, 44 + cust * 0.45));
     }
     // 2) STREET LIGHTS + 3) SHOP WINDOWS — walk the road/flags rasters.
     const road = map.road;
