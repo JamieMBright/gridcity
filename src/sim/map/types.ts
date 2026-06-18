@@ -76,6 +76,9 @@ export const HERO_BASE = 100;
 export interface HeroSlot {
   key: string;
   foot: readonly [number, number];
+  /** The placed name (from map.named) — surfaced when the player inspects the
+   *  landmark. Derived at load with the rest of the table; never serialized. */
+  name: string;
 }
 
 /** A town/village label. `r` is the urban-core radius (drives label size +

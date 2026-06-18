@@ -249,7 +249,7 @@ export function buildHeroTable(map: CityMap): void {
       }
     }
     if (stamped === 0) continue; // nothing placed (London marquee on its enum) → no slot
-    table.push({ key, foot });
+    table.push({ key, foot, name: place.name });
     place.heroKey = key;
   }
   if (table.length > 0) map.heroTable = table;
