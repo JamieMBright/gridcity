@@ -1,10 +1,10 @@
-// Build the square app-icon set from the full-bleed source render in
-// brand/. The source is already a proper app icon: a transformer + arc +
-// skyline emblem on flat navy, edge to edge, no wordmark and no rounded
-// corners — the OS/launcher applies its own mask, so we ship FULL-BLEED and
-// never bake corners or crop the content. We only downscale to the target
-// sizes. Also emits a mask-simulated preview so the corners can be judged
-// the way a phone actually renders them.
+// Build the square app-icon set from the source in brand/. The source is the
+// grid-node GLOBE emblem (glowing orange power-network over a deep-navy world
+// globe). The owner asked to "pad it a bit so it sits more centrally in the
+// square", so we draw it PADDED-CENTRAL on the globe's deep-navy backdrop
+// (PAD below) — which also seats the globe inside the maskable safe-zone, so
+// one render serves purpose "any" AND "maskable". Emits a mask-simulated
+// preview so the corners can be judged the way a phone actually renders them.
 // Uses the installed Chromium for canvas resampling (no sharp/imagemagick).
 import { chromium } from 'playwright';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -35,8 +35,17 @@ const render = async (size, mask) => {
       ctx.arcTo(0, size, 0, 0, r); ctx.arcTo(0, 0, size, 0, r); ctx.closePath();
       ctx.clip();
     }
-    // FULL-BLEED: the source square fills the icon square, edge to edge
-    ctx.drawImage(img, 0, 0, size, size);
+    // PADDED-CENTRAL (owner: "pad it a bit so it sits more centrally in the
+    // square"): fill the icon with the globe's deep-navy backdrop, then draw
+    // the globe centred at PAD scale so it breathes off the edges. The globe
+    // then lands inside the maskable safe-zone (inner ~80%), so the same
+    // render serves purpose "any" AND "maskable".
+    ctx.fillStyle = '#0a0e22';
+    ctx.fillRect(0, 0, size, size);
+    const PAD = 0.86;
+    const d = size * PAD;
+    const off = (size - d) / 2;
+    ctx.drawImage(img, off, off, d, d);
     return c.toDataURL('image/png');
   }, { b64: srcB64, mime, size, mask });
 };
