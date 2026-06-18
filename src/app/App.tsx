@@ -33,6 +33,9 @@ import { UndoHistory } from '../ui/UndoHistory';
 import { CrashCanary } from '../ui/CrashCanary';
 import { HUD_KEYFRAMES, panelStyle, theme } from '../ui/theme';
 import { playSfx } from '../audio/audio';
+import { SUBS } from '../sim/catalog';
+import { subMva } from '../sim/assets';
+import { isFarmGen } from '../sim/farms';
 import { HOTKEYS } from './hotkeys';
 import { useAppStore } from './store';
 import { useIsMobile } from './useIsMobile';
@@ -43,7 +46,7 @@ function Wordmark() {
   return (
     <button
       aria-label="game menu"
-      title="Game menu — save or quit to the main menu (Esc)"
+      title="Game menu — save or quit to the main menu"
       onClick={() => setGameMenuOpen(true)}
       style={{
         ...panelStyle,
@@ -92,6 +95,35 @@ function Toast() {
   );
 }
 
+/** Panel-scoped capacity step (owner, 2026-06-18): − / + on a PINNED
+ *  inspector changes the selected asset's size. A substation steps its
+ *  transformer through the catalog MVA ladder (and switches off auto-
+ *  reinforcement, like the inspector ± buttons); a wind/solar/etc. FARM
+ *  steps its awarded MW by one tile's worth (the worker re-derives the
+ *  claimed footprint and caps it at the free land fit). Anything else (a
+ *  line, a fixed plant, an iDNO sub) silently ignores the key. */
+function stepSelectedCapacity(dir: -1 | 1): void {
+  const s = useAppStore.getState();
+  const id = s.selectedAsset;
+  if (id === undefined) return; // a pinned LINE has no capacity to step
+  const asset = s.snapshot?.assets.find((a) => a.id === id);
+  if (!asset) return;
+  if (asset.kind === 'sub') {
+    if (asset.idno) return; // the iDNO owns that transformer, not the player
+    const steps = SUBS[asset.sub].mvaSteps;
+    if (!steps || steps.length === 0) return; // fixed-transformer sub
+    const mva = subMva(asset);
+    const ix = steps.indexOf(mva);
+    const nextIx = Math.max(0, Math.min(steps.length - 1, (ix < 0 ? 0 : ix) + dir));
+    const next = steps[nextIx];
+    if (next !== undefined && next !== mva) sendCommand({ type: 'setSubMva', assetId: id, mva: next });
+    return;
+  }
+  if (asset.kind === 'gen' && isFarmGen(asset.gen)) {
+    sendCommand({ type: 'resizeFarm', assetId: id, dir });
+  }
+}
+
 function useKeyboard(): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -110,24 +142,12 @@ function useKeyboard(): void {
       if (e.altKey) return;
       if (typing) return;
       if (e.key === 'Escape') {
-        // an open modal closes first (game menu, help) before any tool work
-        if (s.gameMenuOpen) {
-          s.setGameMenuOpen(false);
-        } else if (s.selectedAsset !== undefined || s.selectedLine !== undefined) {
-          s.setSelected({});
-        } else if (s.tool.t === 'line' && (s.tool.waypoints?.length ?? 0) > 0) {
-          // unwind the bent route one waypoint at a time
-          s.setTool({ ...s.tool, waypoints: s.tool.waypoints?.slice(0, -1) });
-        } else if (s.tool.t === 'line' && s.tool.fromAssetId !== undefined) {
-          s.setTool({ ...s.tool, fromAssetId: undefined });
-        } else if (s.tool.t !== 'inspect') {
-          // a non-inspect tool is armed: disarm it (existing behaviour)
-          s.setTool({ t: 'inspect' });
-        } else if (!s.menuOpen) {
-          // nothing to cancel and not already at the start menu: open the
-          // in-game pause MENU (Save / Quit to main menu)
-          s.setGameMenuOpen(true);
-        }
+        // ESC is the UNIVERSAL close: shut the single topmost open thing in a
+        // documented priority order (store.closeTopmost). A bare ESC with
+        // nothing open does NOTHING — it no longer pops the pause menu open
+        // (owner, 2026-06-18: ESC should only ever CLOSE). The pause menu is
+        // reached from the wordmark button.
+        s.closeTopmost();
         return;
       }
       // the hotkey cheat-sheet (#29): ? toggles it from anywhere in-game.
@@ -140,24 +160,53 @@ function useKeyboard(): void {
       if (s.helpOpen) return; // the overlay swallows other keys while open
       if (s.menuOpen) return;
       if (s.gameMenuOpen) return; // the pause menu swallows build hotkeys
+
+      // PANEL-SCOPED HOTKEYS (owner, 2026-06-18): while an inspector card is
+      // PINNED (sticky), the panel "owns" the keyboard — − / + step that
+      // asset's capacity (transformer MVA for a sub, farm MW for a wind/solar
+      // farm) and the build-tool letters are SUPPRESSED so typing can't arm a
+      // tool. ESC (handled above) unpins and hands the keyboard back. Numbers
+      // (gen palette) and letters all defer to the pinned panel; only the
+      // panel-scoped keys + the always-on toggles (clock/help) act.
+      const pinned = s.selectedAsset !== undefined || s.selectedLine !== undefined;
+      if (pinned && (e.key === '-' || e.key === '_' || e.key === '+' || e.key === '=')) {
+        e.preventDefault();
+        stepSelectedCapacity(e.key === '+' || e.key === '=' ? 1 : -1);
+        return;
+      }
+
+      // overlay / panel toggles (camera, view, the cheat-sheet) stay live even
+      // with a card pinned — they don't arm build tools.
       const key = e.key.toLowerCase();
       if (key === 'g') {
         s.setGridView(!s.gridView);
-      } else if (key === 'b') {
-        s.setBalanceOpen(!s.balanceOpen);
+        return;
       } else if (key === 'h') {
         s.setHeadroom(!s.headroom);
+        return;
       } else if (key === 'n') {
         s.setN1(!s.n1);
+        return;
       } else if (key === 'f') {
         s.setForecastOn(!s.forecastOn);
+        return;
       } else if (key === 'k') {
         s.setKpiOpen(!s.kpiOpen);
-      } else if (key === 'c') {
+        return;
+      } else if (key === 'l') {
+        // grid baLance panel (moved off 'b' — 'b' is the demolish/bulldoze
+        // build tool; see hotkeys.ts)
+        s.setBalanceOpen(!s.balanceOpen);
+        return;
+      } else if (key === 'o') {
+        // the network business / cOmpany (directorates) — moved off 'c', which
+        // arms the 33 kV cable build tool (owner: C must arm 33 kV cable)
         s.setDirectoratesOpen(!s.directoratesOpen);
+        return;
       } else if (key === 'a') {
         // toggle auto-connect-on-placement (the build-palette setting)
         s.setAutoConnect(!s.autoConnect);
+        return;
       } else if (key === 'u') {
         // flip overhead/underground on the armed line tool
         if (s.tool.t === 'line') {
@@ -168,6 +217,7 @@ function useKeyboard(): void {
             waypoints: undefined,
           });
         }
+        return;
       } else if (e.key === ' ') {
         // Spacebar toggles the WHOLE HUD hidden/shown (owner, 2026-06-18:
         // "a toggle key that opens and closes the whole HUD — maybe
@@ -177,28 +227,35 @@ function useKeyboard(): void {
         // own clean-frame path, so leave it untouched.
         e.preventDefault();
         if (!s.photoMode) s.setHudHidden(!s.hudHidden);
+        return;
       } else if (key === 'p') {
         // pause/resume the sim (moved here from Spacebar for the HUD toggle)
         setSimSpeed(s.snapshot?.speed === 0 ? 1 : 0);
+        return;
+      }
+
+      // BUILD-TOOL letters/numbers: suppressed while a panel is pinned (the
+      // panel owns the keyboard until ESC). This is what lets the player type
+      // − / + on a sub without accidentally arming a tool.
+      if (pinned) return;
+
+      const hot = HOTKEYS.find((h) => h.key === key);
+      if (!hot) return;
+      // re-pressing the active tool's key disarms it
+      const t = hot.tool;
+      const active =
+        s.tool.t === t.t &&
+        (t.t !== 'gen' || (s.tool.t === 'gen' && s.tool.gen === t.gen)) &&
+        (t.t !== 'sub' || (s.tool.t === 'sub' && s.tool.sub === t.sub)) &&
+        (t.t !== 'line' || (s.tool.t === 'line' && s.tool.level === t.level));
+      if (active) {
+        s.setTool({ t: 'inspect' });
+      } else if (t.t === 'line') {
+        // keep the player's overhead/underground choice when switching kV
+        const build = s.tool.t === 'line' ? s.tool.build : t.build;
+        s.setTool({ t: 'line', level: t.level, build });
       } else {
-        const hot = HOTKEYS.find((h) => h.key === key);
-        if (!hot) return;
-        // re-pressing the active tool's key disarms it
-        const t = hot.tool;
-        const active =
-          s.tool.t === t.t &&
-          (t.t !== 'gen' || (s.tool.t === 'gen' && s.tool.gen === t.gen)) &&
-          (t.t !== 'sub' || (s.tool.t === 'sub' && s.tool.sub === t.sub)) &&
-          (t.t !== 'line' || (s.tool.t === 'line' && s.tool.level === t.level));
-        if (active) {
-          s.setTool({ t: 'inspect' });
-        } else if (t.t === 'line') {
-          // keep the player's overhead/underground choice when switching kV
-          const build = s.tool.t === 'line' ? s.tool.build : t.build;
-          s.setTool({ t: 'line', level: t.level, build });
-        } else {
-          s.setTool(t);
-        }
+        s.setTool(t);
       }
     };
     window.addEventListener('keydown', onKey);

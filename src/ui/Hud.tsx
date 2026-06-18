@@ -556,7 +556,7 @@ function BalanceButton() {
       data-tour="balance"
       aria-label="grid balance"
       onClick={() => setOpen(!open)}
-      title="Grid balance: demand vs supply, whole map + per council (B)"
+      title="Grid balance: demand vs supply, whole map + per council (L)"
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -736,7 +736,7 @@ function CompanyButton() {
   return (
     <button
       onClick={() => setOpen(!open)}
-      title="The network business: directorates, pay & H&S (C)"
+      title="The network business: directorates, pay & H&S (O)"
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -1026,7 +1026,7 @@ function Wordmark() {
   return (
     <button
       aria-label="game menu"
-      title="Game menu — save or quit to the main menu (Esc)"
+      title="Game menu — save or quit to the main menu"
       onClick={() => setGameMenuOpen(true)}
       style={{
         ...panelStyle,

@@ -416,7 +416,7 @@ export const linePeaks = new Map<number, number>();
  *  subs simply re-register). */
 let seenSubIds = new Set<number>();
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   workerStatus: 'connecting',
   workerError: undefined,
   snapshot: undefined,
@@ -593,7 +593,7 @@ export const useAppStore = create<AppState>((set) => ({
   setUndoListOpen: (undoListOpen) => set({ undoListOpen }),
   setSavesOpen: (savesOpen) => set({ savesOpen }),
   closeTopmost: () => {
-    const s = useAppStore.getState();
+    const s = get();
     // PRIORITY ORDER (highest first). The first matching rung closes and we
     // stop — one ESC press = close one thing. Modals/panels precede map
     // state because they sit visually on top. Order is mirrored in the
