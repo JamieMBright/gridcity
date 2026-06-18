@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { linePeaks, useAppStore } from '../app/store';
 import { getLondonMap, NAMED_PLACES } from '../data/londonMap';
+import { heroFact } from '../data/heroFacts';
 import { sendCommand } from '../app/workerBridge';
 import { GENS, LINES, SUB_UG_MUL, subCapexK, subRadius, SUBS, type SubType } from '../sim/catalog';
 import { assetLevels, subMva, type BatteryPolicy, type PlacedAsset } from '../sim/assets';
@@ -19,7 +20,7 @@ import { availAt } from '../sim/balance';
 import { nationalPriceMWh } from '../sim/market/dispatch';
 import { CAPBANK_BOOST_PU } from '../sim/grid/voltage';
 import { priceLine } from '../sim/cost';
-import { NO_COUNCIL, TERRAIN, ZONE, type Terrain, type Zone } from '../sim/map/types';
+import { HERO_BASE, NO_COUNCIL, TERRAIN, ZONE, type Terrain, type Zone } from '../sim/map/types';
 import { COV } from '../sim/tick';
 import { fmtMoneyK, panelStyle, theme } from './theme';
 
@@ -238,6 +239,17 @@ export function InfoPanel({
 
   const asset = snapshot ? assetAtTile(snapshot.assets, hovered.x, hovered.y) : undefined;
 
+  // a bespoke landmark/hero on this tile: its placed name + (where we have
+  // research) a line of stats and a bit of history (owner, 2026-06-18).
+  const lmRaw = map.landmark?.[i] ?? 0;
+  const heroSlot = lmRaw >= HERO_BASE ? map.heroTable?.[lmRaw - HERO_BASE] : undefined;
+  const placedName =
+    heroSlot?.name ?? map.named?.find((p) => p.x === hovered.x && p.y === hovered.y)?.name;
+  const fact = heroSlot ? heroFact(map.fabric ?? 'london', heroSlot.key) : undefined;
+  const factMeta = fact
+    ? [fact.type, fact.year, fact.architect ?? fact.style].filter(Boolean).join(' · ')
+    : '';
+
   return (
     <div
       style={{
@@ -253,13 +265,33 @@ export function InfoPanel({
       }}
     >
       <div style={{ color: theme.orange, fontWeight: 700 }}>
-        {NAMED_PLACES.find((p) => p.x === hovered.x && p.y === hovered.y)?.name ??
+        {placedName ??
+          NAMED_PLACES.find((p) => p.x === hovered.x && p.y === hovered.y)?.name ??
           ROAD_NAMES[roadClass] ??
           ZONE_NAMES[zone]}
       </div>
       <div style={{ color: theme.slate, fontSize: 11 }}>
         {TERRAIN_NAMES[terrain]} · tile {hovered.x},{hovered.y}
       </div>
+      {/* bespoke landmark: stats + a bit of history (where researched) */}
+      {(factMeta || fact?.blurb) && (
+        <div style={{ marginTop: 6 }}>
+          {factMeta && <div style={{ color: theme.gold, fontSize: 11 }}>{factMeta}</div>}
+          {fact?.blurb && (
+            <div
+              style={{
+                color: theme.slate,
+                fontSize: 11,
+                fontStyle: 'italic',
+                marginTop: 3,
+                lineHeight: 1.45,
+              }}
+            >
+              {fact.blurb}
+            </div>
+          )}
+        </div>
+      )}
       {council && (
         <div style={{ marginTop: 6 }}>
           <div>{council.name}</div>
