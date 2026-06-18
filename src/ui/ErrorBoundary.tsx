@@ -177,7 +177,7 @@ const overlayStyle: React.CSSProperties = {
   // the same golden-hour dusk wash the map sits in, so the fault screen
   // reads as part of the world rather than a stark browser error.
   background:
-    'radial-gradient(120% 120% at 50% 0%, #2a2046 0%, #161034 45%, #0a0e22 100%)',
+    'radial-gradient(120% 120% at 50% 0%, #241a48 0%, #121536 45%, #04091e 100%)',
   fontFamily: theme.font,
   color: theme.offWhite,
   overflow: 'auto',

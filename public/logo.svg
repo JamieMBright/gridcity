@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#101630"/>
+  <rect width="64" height="64" rx="12" fill="#081333"/>
   <!-- lattice pylon, line-drawn -->
   <g stroke="#aab3c4" stroke-width="2.4" stroke-linecap="round" fill="none">
     <path d="M21 58 L29 15"/>

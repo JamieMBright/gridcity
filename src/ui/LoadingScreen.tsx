@@ -129,7 +129,7 @@ export function LoadingScreen(): React.ReactElement | null {
         // cosy dusk: a deep navy→night radial with a warm horizon glow, the
         // same golden-hour world as the map chrome
         background:
-          'radial-gradient(120% 90% at 50% 18%, #1b2148 0%, #131a3c 42%, #0a0e22 100%)',
+          'radial-gradient(125% 100% at 50% 42%, #0b1431 0%, #05091f 58%, #03071a 100%)',
         opacity: fading ? 0 : 1,
         transition: 'opacity 0.42s ease',
         pointerEvents: ready ? 'none' : 'auto',
@@ -160,7 +160,16 @@ export function LoadingScreen(): React.ReactElement | null {
           width: 'min(560px, 78vw)',
           maxHeight: '34vh',
           objectFit: 'contain',
-          filter: 'drop-shadow(0 8px 26px rgba(5,7,16,0.6))',
+          // The logotype is a baked rectangular dusk scene; feather its edges
+          // so it melts into the page instead of reading as a "box" (owner,
+          // 2026-06-18: "you can still see the box because the blues don't
+          // match"). Drop the hard rectangular drop-shadow that framed it.
+          WebkitMaskImage:
+            'linear-gradient(to right, transparent, #000 7%, #000 93%, transparent), linear-gradient(to bottom, transparent, #000 10%, #000 90%, transparent)',
+          maskImage:
+            'linear-gradient(to right, transparent, #000 7%, #000 93%, transparent), linear-gradient(to bottom, transparent, #000 10%, #000 90%, transparent)',
+          WebkitMaskComposite: 'source-in',
+          maskComposite: 'intersect',
           animation: 'ec-fade-in 0.6s ease both',
         }}
       />

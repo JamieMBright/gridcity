@@ -171,6 +171,14 @@ export function StartMenu() {
           maxWidth: '100%',
           maxHeight: short ? 58 : undefined,
           margin: short ? '0 auto 2px' : '0 auto',
+          // feather the baked rectangular edges so the logo melts into the card
+          // instead of reading as a "box" (owner, 2026-06-18)
+          WebkitMaskImage:
+            'linear-gradient(to right, transparent, #000 7%, #000 93%, transparent), linear-gradient(to bottom, transparent, #000 10%, #000 90%, transparent)',
+          maskImage:
+            'linear-gradient(to right, transparent, #000 7%, #000 93%, transparent), linear-gradient(to bottom, transparent, #000 10%, #000 90%, transparent)',
+          WebkitMaskComposite: 'source-in',
+          maskComposite: 'intersect',
         }}
       />
       {!short && (
@@ -267,7 +275,7 @@ export function StartMenu() {
           borderRadius: short ? 16 : 22,
           padding: short ? '12px 18px' : '28px 28px 16px',
           textAlign: 'center',
-          background: 'rgba(13, 17, 36, 0.88)',
+          background: 'rgba(8, 16, 44, 0.9)',
           backdropFilter: 'blur(14px)',
           WebkitBackdropFilter: 'blur(14px)',
           border: '1px solid rgba(125, 135, 180, 0.28)',
