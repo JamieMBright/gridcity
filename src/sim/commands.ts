@@ -72,6 +72,13 @@ export type Command =
   /** Refit a substation transformer (manual sizing switches auto off),
    *  or hand sizing back to auto-reinforcement. */
   | { type: 'setSubMva'; assetId: number; mva?: number; auto?: boolean }
+  /** Resize a placed FARM-type generator (onshore/offshore wind, solar) by
+   *  ±one tile's worth of MW (panel − / + hotkeys; the inspector reuses it).
+   *  `dir` steps the awarded MW up/down one FARM_MW_PER_TILE increment; the
+   *  claimed footprint is re-derived (and capped at the free land fit so it
+   *  never overruns a neighbour). Fixed plant (gas/nuclear/battery/…) has no
+   *  resizable footprint and is rejected. */
+  | { type: 'resizeFarm'; assetId: number; dir: -1 | 1 }
   /** Set a battery's dispatch policy (ROADMAP #12): peak shave (the
    *  default), national-price arbitrage, or emergency reserve. */
   | { type: 'setBatteryPolicy'; assetId: number; policy: BatteryPolicy }
@@ -1042,6 +1049,36 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
         asset.mvaAuto = false;
       }
       if (cmd.auto !== undefined) asset.mvaAuto = cmd.auto;
+      state.assetsVersion++;
+      return { ok: true };
+    }
+
+    case 'resizeFarm': {
+      const asset = state.assets.get(cmd.assetId);
+      if (!asset || asset.kind !== 'gen') return { ok: false, error: 'no such generator' };
+      if (!isFarmGen(asset.gen)) {
+        return { ok: false, error: 'that plant has a fixed footprint — it cannot be resized' };
+      }
+      if (!map) return { ok: false, error: 'no map' };
+      const per = FARM_MW_PER_TILE[asset.gen] ?? 5;
+      const current = asset.mw ?? GENS[asset.gen].capacityMW;
+      // the free land fit around the anchor, excluding ground other assets/
+      // tenders (NOT this farm's own claim) already hold — the cap on growth
+      const taken = new Set<number>(reservedTiles(state.tenders));
+      for (const a of state.assets.values()) {
+        if (a.id === asset.id) continue;
+        for (const i of footprintTiles(map, a)) taken.add(i);
+      }
+      const fit = farmFitMW(map, asset.gen, asset.x, asset.y, taken);
+      const next = Math.max(per, Math.min(fit, Math.round((current + cmd.dir * per) / per) * per));
+      if (next === current) {
+        return {
+          ok: false,
+          error: cmd.dir > 0 ? 'no free land to grow into here' : 'already at the smallest size',
+        };
+      }
+      asset.mw = next;
+      asset.claim = farmClaimTiles(map, asset.gen, asset.x, asset.y, next, taken);
       state.assetsVersion++;
       return { ok: true };
     }
