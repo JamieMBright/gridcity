@@ -342,15 +342,36 @@ function cityStockFor(
       return undefined;
     }
     case 'northeast': {
-      // the paired-door Tyneside flat fills the dense inner terraced fabric
-      // (Heaton/Byker); interwar pebbledash semis fill the suburbs (Gosforth).
-      // The Quayside/CBD keeps the generic glass towers.
-      void shops;
+      // a VARIED Tyneside/Wearside fabric, not endless identical terraces. Whole
+      // BLOCKS share a family (estate hash) so a street stays coherent, but
+      // neighbouring blocks differ by type/era/height, with the odd accent —
+      // a 3-storey cottage-flats walk-up, a corner shop, a modern infill block.
+      // The variant blends the estate hash with a per-tile alternation (v) so a
+      // family still reads as several distinct buildings along its run.
+      const vt = (estate + (v % 2)) % 4;
       if (zone === ZONE.urbanCore || zone === ZONE.urban) {
-        return `tynesideflat_${(estate + (v % 2)) % 4}`;
+        // an accent tile (corner of the block): a local corner shop where the
+        // tile is flagged for retail, otherwise the odd taller cottage-flats
+        // walk-up — both punctuate the terraced street, ~1 in 7 tiles.
+        if (th % 7 === 0) return shops ? `necornershop_${vt}` : `cottageflats_${vt}`;
+        if (shops && th % 11 === 3) return `necornershop_${vt}`;
+        // the block family: alternate Tyneside flats with plain brick terraces
+        // (and, denser cores only, the occasional modern infill block).
+        const fam = estate % 5;
+        if (fam === 4) return `cottageflats_${vt}`;
+        if (fam === 3) return zone === ZONE.urbanCore ? `nemodernblock_${vt}` : `brickterrace_${vt}`;
+        if (fam % 2 === 1) return `brickterrace_${vt}`;
+        return `tynesideflat_${vt}`;
       }
       if (zone === ZONE.suburb) {
-        return th % 4 === 0 ? `tynesideflat_${(estate + (v % 2)) % 4}` : `pebbledashsemi_${(estate + (v % 2)) % 4}`;
+        // leafy suburb: pebbledash semis dominate, mixed with plain brick
+        // terraces, the odd detached/large house and an occasional small block.
+        if (th % 9 === 0) return `cottageflats_${vt}`;
+        const fam = estate % 6;
+        if (fam === 5) return `nedetached_${vt}`;
+        if (fam === 4) return th % 2 === 0 ? `nedetached_${vt}` : `brickterrace_${vt}`;
+        if (fam % 3 === 1) return `brickterrace_${vt}`;
+        return `pebbledashsemi_${vt}`;
       }
       return undefined;
     }
