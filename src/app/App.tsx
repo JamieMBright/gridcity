@@ -10,6 +10,8 @@ import { GameMenu } from '../ui/GameMenu';
 import { HotkeyHelp } from '../ui/HotkeyHelp';
 import { Hud } from '../ui/Hud';
 import { HudFrame } from '../ui/HudFrame';
+import { HudRevealTab } from '../ui/HudRevealTab';
+import { LoadingScreen } from '../ui/LoadingScreen';
 import { HudTour } from '../ui/HudTour';
 import { DirectoratesPanel } from '../ui/DirectoratesPanel';
 import { KpiDashboard } from '../ui/KpiDashboard';
@@ -29,7 +31,7 @@ import { TemplatePaste } from '../ui/TemplatePaste';
 import { Tutorial } from '../ui/Tutorial';
 import { UndoHistory } from '../ui/UndoHistory';
 import { CrashCanary } from '../ui/CrashCanary';
-import { panelStyle, theme } from '../ui/theme';
+import { HUD_KEYFRAMES, panelStyle, theme } from '../ui/theme';
 import { playSfx } from '../audio/audio';
 import { HOTKEYS } from './hotkeys';
 import { useAppStore } from './store';
@@ -167,7 +169,16 @@ function useKeyboard(): void {
           });
         }
       } else if (e.key === ' ') {
+        // Spacebar toggles the WHOLE HUD hidden/shown (owner, 2026-06-18:
+        // "a toggle key that opens and closes the whole HUD — maybe
+        // spacebar"). The keyboard pause moved to P (a sensible, common
+        // pause key) since spacebar was previously pause — the play/pause
+        // buttons in the bottom bar still pause too. Photo mode owns its
+        // own clean-frame path, so leave it untouched.
         e.preventDefault();
+        if (!s.photoMode) s.setHudHidden(!s.hudHidden);
+      } else if (key === 'p') {
+        // pause/resume the sim (moved here from Spacebar for the HUD toggle)
         setSimSpeed(s.snapshot?.speed === 0 ? 1 : 0);
       } else {
         const hot = HOTKEYS.find((h) => h.key === key);
@@ -218,12 +229,20 @@ export function App() {
   // photo mode (#48, RENDER/POLISH lane): hide ALL chrome for a clean frame.
   // chrome = the normal in-world HUD condition with photo mode subtracted.
   const photoMode = useAppStore((s) => s.photoMode);
-  const chrome = !menuOpen && !photoMode;
+  // hudHidden (owner, 2026-06-18): Spacebar hides the whole HUD for a clean
+  // map view. The reveal tab (HudRevealTab) stays so the player can bring it
+  // back. Modals (KPI/net-zero/menus) are opened FROM the HUD, so hiding the
+  // HUD already yields a clean map; anything already open stays usable.
+  const hudHidden = useAppStore((s) => s.hudHidden);
+  const chrome = !menuOpen && !photoMode && !hudHidden;
   // campaign missions hide the London-specific chrome (place search)
   const inMission = useAppStore((s) => s.scenarioId !== 'london');
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
+      {/* one shared motion language for the whole HUD (slide-in, attention
+          pulse) — mounted once at the root */}
+      <style>{HUD_KEYFRAMES}</style>
       <MapView />
       {/* the golden-hour grade + vignette are drawn BY the renderer now
           (render/grade.ts, #41): they follow the sim clock and weather,
@@ -278,6 +297,13 @@ export function App() {
           — renders over everything, including the start menu */}
       <AuthCallback />
       {chrome && <TemplatePaste />}
+      {/* the always-visible affordance to bring the HUD back after Spacebar
+          hid it (owner). Only in-game (not at the start menu / photo mode). */}
+      {!menuOpen && !photoMode && hudHidden && <HudRevealTab />}
+      {/* the cosy boot loading screen — title image + progress + a rotating
+          electricity-flavoured status line. Dismisses itself when the sim is
+          ready. Sits over everything during boot. */}
+      <LoadingScreen />
       {/* test-only render-crash trigger (dev hook); renders nothing until armed */}
       <CrashCanary />
     </div>

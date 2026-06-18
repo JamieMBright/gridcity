@@ -205,6 +205,13 @@ interface AppState {
    *  ignores this flag. */
   hudCollapsed: boolean;
   setHudCollapsed: (collapsed: boolean) => void;
+  /** Hide the WHOLE HUD for a clean map view (owner, 2026-06-18: a toggle
+   *  key — Spacebar — that opens and closes the entire HUD). Distinct from
+   *  hudCollapsed (the compact icon-rail) and photoMode (a screenshot
+   *  capture mode): this is the player's own clean-look toggle, restored
+   *  by a tiny always-visible affordance. Persisted to localStorage. */
+  hudHidden: boolean;
+  setHudHidden: (hidden: boolean) => void;
   /** Colour-blind mode (#32): swaps the status/voltage/heatmap palettes
    *  for a deuteranopia/protanopia/tritanopia-safe set. Persisted. */
   cbMode: CbMode;
@@ -273,6 +280,22 @@ function saveCollapsed(on: boolean): void {
     localStorage.setItem(COLLAPSE_KEY, on ? '1' : '0');
   } catch {
     /* private mode / SSR — collapse just won't persist */
+  }
+}
+
+const HIDDEN_KEY = 'ec.hudHidden';
+function loadHidden(): boolean {
+  try {
+    return localStorage.getItem(HIDDEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+function saveHidden(on: boolean): void {
+  try {
+    localStorage.setItem(HIDDEN_KEY, on ? '1' : '0');
+  } catch {
+    /* private mode / SSR — won't persist */
   }
 }
 
@@ -566,6 +589,11 @@ export const useAppStore = create<AppState>((set) => ({
   setHudCollapsed: (hudCollapsed) => {
     saveCollapsed(hudCollapsed);
     set({ hudCollapsed });
+  },
+  hudHidden: loadHidden(),
+  setHudHidden: (hudHidden) => {
+    saveHidden(hudHidden);
+    set({ hudHidden });
   },
   cbMode: loadCbMode(),
   setCbMode: (cbMode) => {
