@@ -407,7 +407,16 @@ export function MobileChrome() {
       {sheet === undefined && tool.t === 'inspect' && (
         <InfoPanel
           hidePinned
-          frame={{ top: 44, right: 52, width: 'min(230px, calc(100vw - 112px))', fontSize: 12 }}
+          frame={{
+            // BELOW the top stat bar (it ends ~90px) with its own z so the card
+            // is never hidden behind the bar (owner, 2026-06-18); sit clear of
+            // the right chip column and stay narrow so it doesn't eat the middle
+            top: 'calc(96px + var(--sai-t))',
+            right: 'calc(48px + var(--sai-r))',
+            width: 'min(200px, calc(100vw - 150px))',
+            fontSize: 12,
+            zIndex: 9,
+          }}
         />
       )}
       {sheet === undefined && <MobileInspector />}
