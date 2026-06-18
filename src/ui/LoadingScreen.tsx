@@ -15,8 +15,9 @@ import { useAppStore } from '../app/store';
 import { theme } from './theme';
 
 // A big pool of electricity-flavoured status lines — one is picked at random
-// on mount and they rotate every ~1.4s while the grid boots. Cosy, on-brand,
-// a little playful (the classic "reticulating splines" gag included).
+// on mount and they rotate every ~1s while the grid boots (owner, 2026-06-18:
+// "a new message every second"). Cosy, on-brand, a little playful (the classic
+// "reticulating splines" gag included).
 const STATUS_LINES: string[] = [
   'Charging electrons…',
   'Plugging in the batteries…',
@@ -69,24 +70,29 @@ export function LoadingScreen(): React.ReactElement | null {
   const [fading, setFading] = useState(false);
   const startRef = useRef<number>(Date.now());
 
-  // Rotate the status line on a relaxed cadence while booting.
+  // Rotate the status line once a second while booting (owner ask).
   useEffect(() => {
     if (ready) return;
-    const id = setInterval(() => setLine(pick()), 1400);
+    const id = setInterval(() => setLine(pick()), 1000);
     return () => clearInterval(id);
   }, [ready]);
 
-  // Creep the bar towards 90% on an ease-out while we wait, then snap to 100%
-  // when ready. This reads as real progress without a true byte-count (the
-  // boot is worker spin-up + scenario seed, not a download).
+  // Drive the bar off ELAPSED TIME on an asymptotic ease toward 96% — always
+  // inching forward, so it never parks at a hard cap the way the old 90% clamp
+  // did (which read as "stuck at half, then a jump to 100"). It settles to 100%
+  // when ready. No true byte-count exists (boot is worker spin-up + scenario
+  // seed, not a download), so a smooth, always-moving creep + the travelling
+  // sheen on the fill sell "working" honestly without faking a number.
   useEffect(() => {
     if (ready) {
       setProgress(100);
       return;
     }
     const id = setInterval(() => {
-      setProgress((p) => (p >= 90 ? p : p + Math.max(0.5, (90 - p) * 0.06)));
-    }, 90);
+      const t = (Date.now() - startRef.current) / 1000;
+      const target = 96 * (1 - Math.exp(-t / 6));
+      setProgress((p) => (target > p ? target : p));
+    }, 80);
     return () => clearInterval(id);
   }, [ready]);
 
@@ -133,6 +139,7 @@ export function LoadingScreen(): React.ReactElement | null {
         paddingBottom: 'var(--sai-b)',
       }}
     >
+      <style>{`@keyframes ec-bar-sheen { 0% { transform: translateX(-120%); } 100% { transform: translateX(360%); } }`}</style>
       {/* a soft warm halo behind the wordmark — the "powering up" glow */}
       <div
         style={{
@@ -174,14 +181,32 @@ export function LoadingScreen(): React.ReactElement | null {
       >
         <div
           style={{
+            position: 'relative',
             width: `${progress}%`,
             height: '100%',
             borderRadius: 999,
             background: `linear-gradient(90deg, ${theme.orange}, ${theme.gold})`,
             boxShadow: '0 0 12px rgba(255,138,30,0.6)',
             transition: 'width 0.3s ease',
+            overflow: 'hidden',
           }}
-        />
+        >
+          {/* a highlight that travels along the fill so the bar always reads as
+              actively working, even while the % is only inching up */}
+          {!ready && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                width: '45%',
+                background:
+                  'linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent)',
+                animation: 'ec-bar-sheen 1.05s linear infinite',
+              }}
+            />
+          )}
+        </div>
       </div>
 
       {/* the rotating, electricity-flavoured status line */}
