@@ -42,4 +42,26 @@ test.describe('time & view controls', () => {
     await page.keyboard.press('g');
     await expect.poll(() => store<boolean>(page, '(s) => s.gridView')).toBe(false);
   });
+
+  test('C arms the 33 kV cable tool (not directorates); O = company, L = balance', async ({
+    page,
+  }) => {
+    await boot(page);
+    // owner bug: C used to open the directorates staff panel — it must arm the
+    // 33 kV line/cable build tool now.
+    await page.keyboard.press('c');
+    await expect.poll(() => store<string>(page, '(s) => s.tool.t')).toBe('line');
+    await expect.poll(() => store<number>(page, '(s) => s.tool.level')).toBe(33);
+    await expect.poll(() => store<boolean>(page, '(s) => s.directoratesOpen')).toBe(false);
+    // back to inspect so the next presses aren't swallowed by a pinned tool
+    await page.keyboard.press('Escape');
+    // the network business moved to O
+    await page.keyboard.press('o');
+    await expect.poll(() => store<boolean>(page, '(s) => s.directoratesOpen')).toBe(true);
+    await page.keyboard.press('Escape'); // universal close shuts the panel
+    await expect.poll(() => store<boolean>(page, '(s) => s.directoratesOpen')).toBe(false);
+    // grid balance moved off B (now demolish) to L
+    await page.keyboard.press('l');
+    await expect.poll(() => store<boolean>(page, '(s) => s.balanceOpen')).toBe(true);
+  });
 });
