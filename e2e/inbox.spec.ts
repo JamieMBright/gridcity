@@ -4,6 +4,9 @@ import { boot, openLand, pause, store } from './helpers';
 test.describe('inbox & innovation levy', () => {
   test('levy steppers adjust the innovation levy on the bill', async ({ page }) => {
     await boot(page);
+    // the levy steppers live in the bill breakdown, collapsed by default —
+    // open it first so the controls are in the accessibility tree
+    await page.getByRole('button', { name: 'show bill breakdown' }).first().dispatchEvent('click');
     const start = await store<number>(page, '(s) => s.snapshot.inbox.levyPct');
     await page.getByRole('button', { name: 'levy up' }).dispatchEvent('click');
     await expect
