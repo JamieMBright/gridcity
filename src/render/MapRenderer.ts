@@ -94,7 +94,7 @@ const CLICK_SLOP_PX = 6;
 // glow comes back to a restrained, realistic level (crisp small warm windows, not
 // a blown-out wash). Both are at/below the pre-#72 values now.
 const WINDOW_GLOW_GAIN = 0.8; // was 0.95 / 0.85 — restrained warm windows
-const KIT_BLOOM_GAIN = 0.45; // was 1.0 / 0.9 — kill the glare halos
+const KIT_BLOOM_GAIN = 0.35; // was 1.0 / 0.9 — kill the glare halos
 
 // THE HELD "DUSK-POCKET" (owner deferred idea, 2026-06-17): a subtle LOCAL
 // darken so the bulbs pop harder at night by CONTRAST — without making the world
@@ -1245,14 +1245,18 @@ export class MapRenderer {
   }
 
   /** Gentle bloom halos on substations + turbine hubs (additive, scaled
-   *  by the dusk glow — by day they vanish). */
+   *  by the dusk glow — by day they vanish). RE-TUNE (owner, 2026-06-18): these
+   *  wide warm halos were a big part of the "solar glare" — in a served core the
+   *  many overlapping sub halos pooled into a bright warm wash. Tightened: a
+   *  smaller outer ring (1.4× not 1.8×) and lower per-ring alphas, so each asset
+   *  gets a small soft glow that no longer melts its neighbours into a sheet. */
   private drawBloom(assets: PlacedAsset[]): void {
     this.bloomG.clear();
     const halo = (x: number, y: number, r: number): void => {
       for (const [mul, a] of [
-        [1.8, 0.045],
-        [1.1, 0.08],
-        [0.55, 0.13],
+        [1.4, 0.03],
+        [0.9, 0.055],
+        [0.48, 0.09],
       ] as const) {
         this.bloomG.ellipse(x, y, r * mul, r * mul * 0.55).fill({ color: 0xffc878, alpha: a });
       }
