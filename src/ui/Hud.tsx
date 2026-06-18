@@ -924,7 +924,13 @@ export function ClockCluster({
         ...floating,
         display: 'flex',
         alignItems: 'center',
-        flexWrap: embedded ? 'wrap' : 'nowrap',
+        justifyContent: 'center',
+        // mobile (compact) wraps to a second row instead of overflowing under
+        // the notch — its content is wider than the safe-area maxWidth, and
+        // nowrap made the end controls slide past the rounded corners. Desktop
+        // perimeter (embedded) already wraps; only the desktop FLOATING case
+        // (rare) stays nowrap.
+        flexWrap: embedded || compact ? 'wrap' : 'nowrap',
         gap: compact ? 4 : 8,
         padding: compact ? '4px 8px' : '6px 12px',
         whiteSpace: 'nowrap',

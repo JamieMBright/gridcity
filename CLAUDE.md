@@ -69,6 +69,11 @@ model it the way GB actually works, then simplify for fun.
   mustn't clutter the far view). A graphics PR is not ready until those
   images are taken AND look genuinely good. Judged on images, harshly,
   by you — both in the agent lane AND again at main-thread integration.
+  Work the **checklist in `docs/DESIGN_GATE.md`** every time: the OBJECTIVE
+  layout gate `e2e/hudfit.helper.spec.ts` (extracts every HUD box and fails on
+  clip / safe-area / overlap at desktop + phone-landscape + narrow-phone), THEN
+  the holistic-styling list judged on the grabs. Mobile (landscape) is checked,
+  not assumed.
 - **Feedback arrives in flurries** mid-task. Convert every prompt into
   TASKS.md checkboxes IMMEDIATELY (before working), then audit edits
   against it. Later prompts supersede earlier ones on conflict.
