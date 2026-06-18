@@ -24,6 +24,9 @@ pinned inspector · busy). A visual PR is not done until every box is ticked.
    (wrap, don't overflow).
 5. **Map framing** — the playable map fills the viewport in the default framing;
    no flat off-map void wedge.
+6. **Menus / modals fit — NO SCROLL on phone-landscape** — the front-door menu,
+   the start-of-game message, and any full-screen modal fit inside a short
+   landscape viewport without scrolling (`scrollHeight ≤ clientHeight`).
 
 ## B. Holistic styling — VISUAL JUDGEMENT (judge on the grabs)
 6. **One palette** — cohesive dusk/golden-hour; no off-palette colours.
