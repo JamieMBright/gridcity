@@ -290,10 +290,6 @@ interface MapLabel {
   targetPx: number;
   priority: number;
   village: boolean;
-  /** Landmark-class label (Heathrow/Wembley/the O2…): gated to mid/close
-   *  zoom only so it never clutters the far whole-region overview, where
-   *  only TOWN names belong (owner playtest, 2026-06-13). */
-  landmark: boolean;
   cx: number;
   cy: number;
 }
@@ -693,7 +689,6 @@ export class MapRenderer {
       color: number,
       priority: number,
       village: boolean,
-      landmark = false,
     ): void => {
       const t = new Text({
         text,
@@ -714,7 +709,7 @@ export class MapRenderer {
       const c = this.tileCentre(x, y);
       t.position.set(c.x, c.y - 20 * RES);
       this.labelLayer.addChild(t);
-      this.labels.push({ t, targetPx, priority, village, landmark, cx: c.x, cy: c.y });
+      this.labels.push({ t, targetPx, priority, village, cx: c.x, cy: c.y });
     };
     // UI screen-px floors (legible on a phone held landscape): primary city 30,
     // towns 20, villages 14, named places 13. Priority drives the collision
@@ -738,18 +733,12 @@ export class MapRenderer {
         !isTown,
       );
     }
-    for (const pl of map.named ?? []) {
-      // gold codes "transport/place" distinct from town names (also smaller,
-      // so it's not colour-alone). Landmark-class names are gated to mid/close
-      // zoom so they stay OFF the far overview and fade IN as you zoom toward
-      // the building (the hero-name-zoom fix). A place that resolved to a
-      // BESPOKE hero (heroKey set by buildHeroTable) is hero-class EVEN when the
-      // OSM classifier didn't flag it landmark:true — otherwise ~40 hero names
-      // per city (the un-flagged ones) would wrongly behave like place names and
-      // show on the far overview / vanish up close (owner playtest, 2026-06-17).
-      const isHero = (pl.landmark ?? false) || pl.heroKey !== undefined;
-      add(pl.x, pl.y, pl.name, 13, 0xffd277, 10, false, isHero);
-    }
+    // The per-landmark gold NAME labels (map.named) are deliberately NOT drawn
+    // (owner, 2026-06-18: "remove all titles of heroes — unnecessary"). The
+    // heroes/landmarks themselves still render + light from the landmark raster;
+    // only their floating titles are gone. Region/town labels (map.towns) and
+    // the primary city label remain — they are the map's legend. GLOBAL across
+    // every city (London included).
   }
 
   /** The big far-out city name (LONDON / PARIS …) and where to anchor it.
@@ -2353,30 +2342,20 @@ export class MapRenderer {
     this.heroClock += mdt;
     this.drawHeroLightsFrame();
     {
-      // Two-population label LOD, each held at a CONSTANT on-screen px floor.
-      // The layer rides the world scale `sc`, so a child scaled to k renders at
+      // Place-name label LOD, each held at a CONSTANT on-screen px floor. The
+      // layer rides the world scale `sc`, so a child scaled to k renders at
       // 64·k·sc px on screen; k = (targetPx/64)/sc keeps the floor honest.
       //
-      // PLACE names (the primary city, towns, villages, non-landmark `named`
-      // pins) belong to the far WHOLE-REGION overview — they fade OUT as you
-      // zoom in, so the close-up city isn't littered with text.
-      //
-      // HERO / LANDMARK names (Heathrow/Wembley/the O2/the bespoke heroes) are
-      // the OPPOSITE: they stay OFF the far overview (only towns label there)
-      // and fade IN as you zoom toward the buildings — so you read each hero's
-      // name exactly when it's big enough to see. Inverting this was the
-      // owner's playtest fix (2026-06-17: "hero names render zoomed OUT but not
-      // zoomed IN — backwards"). Previously a single layer-wide far-view fade
-      // capped EVERYTHING, so landmark names only flickered in a thin mid band
-      // and vanished the moment you zoomed in close.
+      // PLACE names (the primary city, towns, villages) belong to the far
+      // WHOLE-REGION overview — they fade OUT as you zoom in, so the close-up
+      // city isn't littered with text. The per-landmark gold NAME labels were
+      // removed entirely (owner, 2026-06-18: "remove all titles of heroes"), so
+      // there is now a single fade-out population — no landmark fade-in band.
       const sc = this.world.scale.x;
       const DIM = 0.74; // place names whisper (owner: labels were too loud)
       // place names: full out past sc≥0.3, full in by sc≤0.22
       const placeFade = Math.max(0, Math.min(1, (0.3 - sc) / 0.08));
-      // hero/landmark names: 0 at sc≤0.20, full by sc≥0.28, then HELD (no upper
-      // cap) so they persist all the way in to the close zoom.
-      const landmarkAlpha = Math.max(0, Math.min(1, (sc - 0.2) / 0.08));
-      this.labelLayer.visible = placeFade > 0.02 || landmarkAlpha > 0.02;
+      this.labelLayer.visible = placeFade > 0.02;
       if (this.labelLayer.visible) {
         // per-label alpha now carries the fade (the two populations diverge), so
         // the container itself stays at full opacity.
@@ -2391,11 +2370,8 @@ export class MapRenderer {
         for (const l of this.labels) {
           const k = (l.targetPx / 64) * inv;
           l.t.scale.set(k);
-          // heroes/landmarks: fade IN on zoom-in (held close). Places: fade OUT
-          // on zoom-in; villages drop a band earlier than towns.
-          const base = l.landmark
-            ? landmarkAlpha * DIM
-            : (l.village ? villageAlpha : 1) * placeFade * DIM;
+          // places fade OUT on zoom-in; villages drop a band earlier than towns.
+          const base = (l.village ? villageAlpha : 1) * placeFade * DIM;
           l.t.alpha = base;
           if (base <= 0.02) {
             l.t.visible = false;
