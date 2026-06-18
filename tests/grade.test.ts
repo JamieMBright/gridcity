@@ -142,7 +142,7 @@ describe('colour helpers', () => {
   });
 
   it('UI theme text tokens clear WCAG on the panel navy', () => {
-    const NAVY = 0x101630;
+    const NAVY = 0x081333; // brand deep navy (favicon backdrop / logo dusk)
     expect(contrastRatio(0xf2efe8, NAVY)).toBeGreaterThan(7); // body text: AAA
     expect(contrastRatio(0xf5c469, NAVY)).toBeGreaterThan(4.5); // gold accents
     expect(contrastRatio(0x8d97b4, NAVY)).toBeGreaterThan(4.5); // muted text

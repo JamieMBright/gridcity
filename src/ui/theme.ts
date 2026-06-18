@@ -9,9 +9,12 @@
 // never from dropping below 4.5:1 (tests/grade.test.ts pins these).
 
 export const theme = {
-  // Brand
-  navy: '#101630', // deep navy — primary chrome, panels
-  navyLight: '#1d2547', // raised panels, hover
+  // Brand — the deep blue is colour-matched to the brand assets (the favicon
+  // grid-node globe sits on #041133; the title logo's dusk sky reads #040923 /
+  // #0e0d27). The app used a lighter, greyer navy (#101630); these align the
+  // chrome to the logo + favicon (owner, 2026-06-18).
+  navy: '#081333', // deep brand navy — primary chrome, panels (favicon backdrop)
+  navyLight: '#16224c', // raised panels, hover
   orange: '#ff8a1e', // accents, CTAs, alerts, the vans
   orangeSoft: '#ffb066', // secondary accent, glows
   slate: '#8d97b4', // secondary UI, muted text (AA on navy)
@@ -21,7 +24,7 @@ export const theme = {
   dusk: '#3a2b50', // sunset purple
   sunset: '#e0697a', // dusty pink
   gold: '#f5c469', // golden-hour light
-  night: '#0a0e22', // deep cosy night
+  night: '#04091e', // deep cosy night (brand logo sky/water)
 
   // Semantics
   ok: '#7bc47f',
@@ -50,7 +53,7 @@ export const PILL_RADIUS = 999;
  *  dominating", "stop reading as boxes"). */
 export const panelStyle: React.CSSProperties = {
   background:
-    'linear-gradient(165deg, rgba(20, 26, 56, 0.80) 0%, rgba(15, 20, 44, 0.84) 58%, rgba(34, 25, 58, 0.82) 100%)',
+    'linear-gradient(165deg, rgba(11, 20, 52, 0.80) 0%, rgba(8, 15, 46, 0.84) 58%, rgba(30, 24, 56, 0.82) 100%)',
   backdropFilter: 'blur(13px) saturate(1.05)',
   WebkitBackdropFilter: 'blur(13px) saturate(1.05)',
   border: '1px solid rgba(141, 151, 180, 0.18)',
@@ -73,7 +76,7 @@ export const pillStyle: React.CSSProperties = {
 /** A faint inset surface used INSIDE a card for sub-sections (a bill row
  *  group, a chart well, a collapsible body) — reads as recessed glass. */
 export const insetStyle: React.CSSProperties = {
-  background: 'rgba(8, 11, 26, 0.42)',
+  background: 'rgba(6, 11, 30, 0.42)',
   border: '1px solid rgba(141, 151, 180, 0.10)',
   borderRadius: 11,
 };

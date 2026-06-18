@@ -267,7 +267,7 @@ export function StartMenu() {
           borderRadius: short ? 16 : 22,
           padding: short ? '12px 18px' : '28px 28px 16px',
           textAlign: 'center',
-          background: 'rgba(13, 17, 36, 0.88)',
+          background: 'rgba(8, 16, 44, 0.9)',
           backdropFilter: 'blur(14px)',
           WebkitBackdropFilter: 'blur(14px)',
           border: '1px solid rgba(125, 135, 180, 0.28)',

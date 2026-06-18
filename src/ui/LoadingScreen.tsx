@@ -129,7 +129,7 @@ export function LoadingScreen(): React.ReactElement | null {
         // cosy dusk: a deep navy→night radial with a warm horizon glow, the
         // same golden-hour world as the map chrome
         background:
-          'radial-gradient(120% 90% at 50% 18%, #1b2148 0%, #131a3c 42%, #0a0e22 100%)',
+          'radial-gradient(120% 90% at 50% 18%, #141e46 0%, #0a1330 42%, #04091e 100%)',
         opacity: fading ? 0 : 1,
         transition: 'opacity 0.42s ease',
         pointerEvents: ready ? 'none' : 'auto',
