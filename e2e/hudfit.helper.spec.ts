@@ -97,6 +97,33 @@ const VIEWS: Array<{ name: string; w: number; h: number; sai: number; mobile: bo
   { name: 'phone-narrow-667', w: 667, h: 375, sai: 47, mobile: true },
 ];
 
+// Front door (start menu) + start-of-game message must FIT phone-landscape with
+// NO SCROLL (owner, 2026-06-18). The menu shows on boot; measure its overlay.
+test.describe('front door fits phone-landscape', () => {
+  test.use({ viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true });
+  test('start menu does not scroll @ 667x375', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.goto('/');
+    await ready(page);
+    await page.evaluate(() => {
+      const r = document.documentElement.style;
+      r.setProperty('--sai-l', '47px'); r.setProperty('--sai-r', '47px');
+      r.setProperty('--sai-b', '20px'); r.setProperty('--sai-t', '0px');
+    });
+    await page.waitForTimeout(900);
+    const overflow = await page.evaluate(() => {
+      const o = [...document.querySelectorAll('div')].find((d) => {
+        const cs = getComputedStyle(d);
+        return (cs.overflowY === 'hidden' || cs.overflowY === 'auto') && !!d.querySelector('img[alt="ElectriCity"]');
+      }) as HTMLElement | undefined;
+      return o ? o.scrollHeight - o.clientHeight : -1;
+    });
+    console.log('front-door overflow:', overflow);
+    if (process.env.SHOTS) await page.screenshot({ path: 'preview/hudfit-frontdoor.png' });
+    expect(overflow, 'start menu must fit phone-landscape with no scroll').toBeLessThanOrEqual(1);
+  });
+});
+
 for (const v of VIEWS) {
   test.describe(`HUD fit — ${v.name}`, () => {
     test.use({ viewport: { width: v.w, height: v.h }, hasTouch: v.mobile, isMobile: v.mobile });

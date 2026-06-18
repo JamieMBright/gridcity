@@ -1,8 +1,13 @@
 // The front door: continue a saved campaign, start fresh, or take the
 // tutorial — styled as the glassy night-screen with the glowing CONTINUE.
 // First click is also our user gesture for starting the audio.
+//
+// Phone-landscape (short + wide) must fit with NO SCROLL (owner, 2026-06-18):
+// the card switches to a compact 2-column layout — actions on the left,
+// network access on the right — with a small logo + tight controls, so the
+// whole front door sits inside a ~360px-tall landscape viewport.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAppStore } from '../app/store';
 import { newGameCommand } from '../app/workerBridge';
 import { currentUser } from '../online/auth';
@@ -17,12 +22,12 @@ import { SettingsPanel } from './SettingsPanel';
 import { STORY_KEY } from './StoryIntro';
 import { theme } from './theme';
 
-const bigBtn = (primary: boolean): React.CSSProperties => ({
+const bigBtn = (primary: boolean, compact = false): React.CSSProperties => ({
   display: 'block',
-  width: 320,
-  margin: '12px auto 0',
-  padding: '12px 0',
-  borderRadius: 12,
+  width: compact ? '100%' : 320,
+  margin: compact ? '7px 0 0' : '12px auto 0',
+  padding: compact ? '8px 0' : '12px 0',
+  borderRadius: compact ? 9 : 12,
   border: primary ? 'none' : '1px solid rgba(125, 135, 180, 0.35)',
   background: primary
     ? 'linear-gradient(180deg, #ffa238 0%, #ff8a1e 55%, #ef7714 100%)'
@@ -32,7 +37,7 @@ const bigBtn = (primary: boolean): React.CSSProperties => ({
     : 'none',
   color: primary ? '#241c38' : theme.offWhite,
   fontFamily: theme.font,
-  fontSize: 15,
+  fontSize: compact ? 13 : 15,
   fontWeight: primary ? 800 : 600,
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
@@ -51,6 +56,25 @@ const footBtn: React.CSSProperties = {
   padding: '4px 6px',
 };
 
+/** True on a short, wide viewport (phone held landscape): the front door must
+ *  then fit with no scroll, so it goes 2-column + compact. */
+function useShortLandscape(): boolean {
+  const [v, setV] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth > window.innerHeight && window.innerHeight < 480,
+  );
+  useEffect(() => {
+    const on = (): void =>
+      setV(window.innerWidth > window.innerHeight && window.innerHeight < 480);
+    window.addEventListener('resize', on);
+    window.addEventListener('orientationchange', on);
+    return () => {
+      window.removeEventListener('resize', on);
+      window.removeEventListener('orientationchange', on);
+    };
+  }, []);
+  return v;
+}
+
 export function StartMenu() {
   const menuOpen = useAppStore((s) => s.menuOpen);
   const ready = useAppStore((s) => s.workerStatus === 'ready' && s.snapshot !== undefined);
@@ -62,6 +86,13 @@ export function StartMenu() {
   const [foot, setFoot] = useState<'leaderboard' | 'credits' | undefined>(undefined);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [pickingCity, setPickingCity] = useState(false);
+  const short = useShortLandscape();
+  // Guarantee NO SCROLL on a short landscape: after the 2-column compaction,
+  // measure the card's natural height and scale it down to fit the viewport if
+  // it would still overflow (the sign-in form is the tall bit). The scale is
+  // gentle in the common case (~0.85) so text stays readable.
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState(1);
   // guest vs signed-in: drives the gentle "sign in to keep your rank" nudge
   // under the rank badge (signed-in players don't see it). undefined while
   // the session check is in flight, so nothing flashes.
@@ -75,6 +106,21 @@ export function StartMenu() {
       live = false;
     };
   }, [menuOpen]);
+  // measure + scale-to-fit (short landscape only); re-runs each render so it
+  // tracks content + viewport changes. Transform doesn't change scrollHeight,
+  // so this settles in one extra render (no loop).
+  useLayoutEffect(() => {
+    if (!short) {
+      if (fit !== 1) setFit(1);
+      return;
+    }
+    const el = cardRef.current;
+    if (!el) return;
+    const natural = el.scrollHeight;
+    const avail = window.innerHeight - 10;
+    const next = natural > avail ? Math.max(0.55, (avail * 0.985) / natural) : 1;
+    if (Math.abs(next - fit) > 0.005) setFit(next);
+  });
   if (!menuOpen) return null;
   const hasSave = localStorageStore.load() !== undefined;
   const slotCount = listSlots().length;
@@ -113,6 +159,90 @@ export function StartMenu() {
     setTourActive(true);
   };
 
+  // LEFT column (compact-landscape) / TOP (tall): brand + the action buttons.
+  const actions = (
+    <div style={{ flex: short ? '1 1 0' : undefined, minWidth: 0 }}>
+      <img
+        src="/logotype.png"
+        alt="ElectriCity"
+        style={{
+          display: 'block',
+          width: short ? 'auto' : 380,
+          maxWidth: '100%',
+          maxHeight: short ? 58 : undefined,
+          margin: short ? '0 auto 2px' : '0 auto',
+        }}
+      />
+      {!short && (
+        <div style={{ color: theme.slate, marginTop: 8, fontSize: 12.5 }}>
+          power a stylized London — keep the lights on, the bills down, the carbon low
+        </div>
+      )}
+      {!ready && <div style={{ color: theme.gold, marginTop: 18 }}>starting the grid…</div>}
+      {ready && (
+        <>
+          {hasSave && (
+            <button style={bigBtn(true, short)} onClick={() => begin(false)}>
+              continue
+            </button>
+          )}
+          <button style={bigBtn(!hasSave, short)} onClick={() => setPickingCity(true)}>
+            <span style={{ color: hasSave ? theme.orange : undefined }}>⚡ </span>new game
+          </button>
+          <button style={bigBtn(false, short)} onClick={() => setLessonsOpen(true)}>
+            <span style={{ color: theme.orange }}>📖 </span>tutorials
+          </button>
+          <button style={bigBtn(false, short)} onClick={() => setTour(true)}>
+            <span style={{ color: theme.orange }}>🧭 </span>tour the controls
+          </button>
+          <button style={bigBtn(false, short)} onClick={() => setSavesOpen(true)}>
+            <span style={{ color: theme.orange }}>💾 </span>save slots
+            {slotCount > 0 && (
+              <span style={{ color: theme.slate, fontWeight: 400 }}> · {slotCount}</span>
+            )}
+          </button>
+        </>
+      )}
+    </div>
+  );
+
+  // RIGHT column (compact-landscape) / BOTTOM (tall): network access.
+  const access = (
+    <div style={{ flex: short ? '1 1 0' : undefined, minWidth: 0 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          margin: short ? '0 0 4px' : '22px 0 4px',
+        }}
+      >
+        <div style={{ flex: 1, height: 1, background: 'rgba(125,135,180,0.25)' }} />
+        <span style={{ color: theme.orange, fontSize: 10, letterSpacing: '0.22em' }}>
+          NETWORK ACCESS
+        </span>
+        <div style={{ flex: 1, height: 1, background: 'rgba(125,135,180,0.25)' }} />
+      </div>
+      {!short && (
+        <div style={{ color: theme.slate, fontSize: 11.5 }}>
+          you are the network operator — generation, wires, vans and all
+        </div>
+      )}
+      <RankBadge />
+      {signedIn === false && (
+        <div style={{ color: theme.orangeSoft, fontSize: 11, marginTop: 6, lineHeight: 1.4 }}>
+          playing as a guest — sign in below to keep your rank &amp; unlock cities across devices
+        </div>
+      )}
+      <AccountPanel showBoard={foot === 'leaderboard'} />
+      {foot === 'credits' && (
+        <div style={{ marginTop: 10, fontSize: 11, color: theme.slate }}>
+          built with care by Jamie + Claude · all art is code · no city was harmed
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div
       style={{
@@ -123,14 +253,19 @@ export function StartMenu() {
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 10,
-        overflowY: 'auto',
+        overflowY: short ? 'hidden' : 'auto',
+        padding: short ? '6px' : 0,
       }}
     >
       <div
+        ref={cardRef}
         style={{
-          width: 'min(440px, 94vw)',
-          borderRadius: 22,
-          padding: '28px 28px 16px',
+          transform: fit < 1 ? `scale(${fit})` : undefined,
+          transformOrigin: 'center center',
+          width: short ? 'min(880px, 97vw)' : 'min(440px, 94vw)',
+          maxHeight: 'calc(100dvh - 12px)',
+          borderRadius: short ? 16 : 22,
+          padding: short ? '12px 18px' : '28px 28px 16px',
           textAlign: 'center',
           background: 'rgba(13, 17, 36, 0.88)',
           backdropFilter: 'blur(14px)',
@@ -139,72 +274,29 @@ export function StartMenu() {
           boxShadow: '0 24px 90px rgba(0, 0, 0, 0.6)',
           color: theme.offWhite,
           fontFamily: theme.font,
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <img
-          src="/logotype.png"
-          alt="ElectriCity"
-          style={{ display: 'block', width: 380, maxWidth: '100%', margin: '0 auto' }}
-        />
-        <div style={{ color: theme.slate, marginTop: 8, fontSize: 12.5 }}>
-          power a stylized London — keep the lights on, the bills down, the carbon low
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: short ? 'row' : 'column',
+            gap: short ? 24 : 0,
+            alignItems: short ? 'flex-start' : 'stretch',
+            textAlign: short ? 'left' : 'center',
+          }}
+        >
+          {actions}
+          {access}
         </div>
-        {!ready && <div style={{ color: theme.gold, marginTop: 18 }}>starting the grid…</div>}
-        {ready && (
-          <>
-            {hasSave && (
-              <button style={bigBtn(true)} onClick={() => begin(false)}>
-                continue
-              </button>
-            )}
-            <button style={bigBtn(!hasSave)} onClick={() => setPickingCity(true)}>
-              <span style={{ color: hasSave ? theme.orange : undefined }}>⚡ </span>new game
-            </button>
-            <button style={bigBtn(false)} onClick={() => setLessonsOpen(true)}>
-              <span style={{ color: theme.orange }}>📖 </span>tutorials
-            </button>
-            <button style={bigBtn(false)} onClick={() => setTour(true)}>
-              <span style={{ color: theme.orange }}>🧭 </span>tour the controls
-            </button>
-            <button style={bigBtn(false)} onClick={() => setSavesOpen(true)}>
-              <span style={{ color: theme.orange }}>💾 </span>save slots
-              {slotCount > 0 && (
-                <span style={{ color: theme.slate, fontWeight: 400 }}> · {slotCount}</span>
-              )}
-            </button>
-          </>
-        )}
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '22px 0 4px' }}>
-          <div style={{ flex: 1, height: 1, background: 'rgba(125,135,180,0.25)' }} />
-          <span style={{ color: theme.orange, fontSize: 10, letterSpacing: '0.22em' }}>
-            NETWORK ACCESS
-          </span>
-          <div style={{ flex: 1, height: 1, background: 'rgba(125,135,180,0.25)' }} />
-        </div>
-        <div style={{ color: theme.slate, fontSize: 11.5 }}>
-          you are the network operator — generation, wires, vans and all
-        </div>
-        <RankBadge />
-        {signedIn === false && (
-          <div style={{ color: theme.orangeSoft, fontSize: 11, marginTop: 6, lineHeight: 1.4 }}>
-            playing as a guest — sign in below to keep your rank &amp; unlock cities across devices
-          </div>
-        )}
-        <AccountPanel showBoard={foot === 'leaderboard'} />
-
-        {foot === 'credits' && (
-          <div style={{ marginTop: 10, fontSize: 11, color: theme.slate }}>
-            built with care by Jamie + Claude · all art is code · no city was harmed
-          </div>
-        )}
 
         <div
           style={{
             display: 'flex',
             justifyContent: 'space-between',
-            marginTop: 16,
-            paddingTop: 12,
+            marginTop: short ? 8 : 16,
+            paddingTop: short ? 8 : 12,
             borderTop: '1px solid rgba(125,135,180,0.18)',
           }}
         >
