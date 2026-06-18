@@ -4481,3 +4481,24 @@ UX:
 - [x] SimCity-quality polished game; London electricity network operator;
       tutorial; full test suites; Vercel deploy; Supabase accounts/saves/
       leaderboard; CI
+
+---
+
+### 🎛️ HUD FLURRY (owner, 2026-06-18) — shipped
+Concept-art-driven HUD overhaul, in three PRs:
+- [x] **HUD redesign (#92):** cohesive rounded pills/cards (not boxes), top 6-stat bar
+  (DEMAND·SUPPLY·PRICE·CARBON·FREQUENCY·STABILITY), collapsible bill card + inbox slide-in,
+  spacebar hides/shows the whole HUD, screen-centred bottom control bar, cosy loading screen
+  (title + progress bar + randomised "charging electrons…" labels). Design-gated desktop+phone.
+- [x] **Interaction model (#93):** ESC universal close (store.closeTopmost, priority-ordered,
+  unit-tested); hotkey collisions fixed so build-tool letters always reach their tool — grid
+  balance B→L, the network business C→O (C now arms the 33 kV cable); sticky inspector on
+  click (pins the card); panel-scoped −/+ step the pinned asset's capacity (sub MVA / farm MW
+  via new resizeFarm command), suppressing build letters until ESC. Cheat-sheet + hints +
+  e2e realigned. Full e2e gated.
+- [x] **Collapsed icon-rail + HOTKEY LABELS (this wave):** when the desktop HUD is collapsed,
+  the wide palette + overlay buttons give way to two slim vertical rounded pills — LEFT build
+  tools, RIGHT overlays — each icon showing its hotkey beside it in off-white small font
+  (the owner's core ask), matched to the concept art. Desktop-collapse now routes through the
+  perimeter HudFrame (isMobile, not compact) so it stays a cohesive frame. Design-gated:
+  preview/collapsed-{desktop,leftrail,rightrail,leftrail-armed}.png.

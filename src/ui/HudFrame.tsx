@@ -30,6 +30,7 @@ import { AlertsFeed } from './AlertsFeed';
 import { BillPanel } from './BillPanel';
 import { BuildPalette } from './BuildPalette';
 import { CameraBookmarks } from './CameraBookmarks';
+import { CollapsedBuildRail, CollapsedOverlayRail } from './CollapsedRail';
 import { FleetPanel } from './FleetPanel';
 import { HudBottomBar, HudTopBar } from './Hud';
 import { InboxPanel } from './InboxPanel';
@@ -46,6 +47,10 @@ const LEFT_W_WIDE = 234;
 const RIGHT_W_WIDE = 300;
 const LEFT_W_TIGHT = 198;
 const RIGHT_W_TIGHT = 250;
+// COLLAPSED: both rails become slim icon-only pills. The track only needs
+// to fit the 52px CollapsedRail pill (glyph + off-white hotkey + padding);
+// the rest of the width is handed back to the map (owner: cleaner look).
+const RAIL_W_COLLAPSED = 56;
 const GAP = 10;
 
 /** Viewport width, live — drives the rail-width step-down on narrow desktop
@@ -178,8 +183,11 @@ export function HudFrame() {
   const showPanel = (key: string): boolean => !gate.active || gate.has(key);
   const vw = useViewportWidth();
   const wide = vw >= 1200;
-  const leftW = wide ? LEFT_W_WIDE : LEFT_W_TIGHT;
-  const rightW = wide ? RIGHT_W_WIDE : RIGHT_W_TIGHT;
+  // collapsed: slim icon rails on BOTH edges; expanded: the labelled rails
+  // that step down on a tighter desktop window.
+  const collapsed = useAppStore((s) => s.hudCollapsed);
+  const leftW = collapsed ? RAIL_W_COLLAPSED : wide ? LEFT_W_WIDE : LEFT_W_TIGHT;
+  const rightW = collapsed ? RAIL_W_COLLAPSED : wide ? RIGHT_W_WIDE : RIGHT_W_TIGHT;
 
   // is a card pinned in the inspector? It takes the TOP slot of the right
   // rail so its controls are always reachable (owner: "can't upgrade the
@@ -222,73 +230,88 @@ export function HudFrame() {
         <HudTopBar />
       </Bar>
 
-      {/* LEFT — build palette (fills the rail, scrolls), the field fleet
-          beneath it, and the locator widgets pinned to the foot. */}
+      {/* LEFT — COLLAPSED: a single slim build-tool icon pill (icons + their
+          off-white hotkeys). EXPANDED: the labelled build palette (fills the
+          rail, scrolls), the field fleet beneath it, and the locator widgets
+          pinned to the foot. */}
       <Rail side="left">
-        <RailItem mode="flex">
-          <BuildPalette frame={railPanel} />
-        </RailItem>
-        {showPanel('hud:fleet') && (
-          <RailItem>
-            <FleetPanel frame={railPanel} />
-          </RailItem>
-        )}
-        {/* the minimap + camera bookmarks dock at the BOTTOM of the left rail
-            so they can never sit on the right-rail finance stack (owner
-            playtest) and never cover the clock bar. Open or collapsed, they
-            live in this slot. HIDDEN during tutorials (owner: hide
-            non-essential HUD; a one-screen lesson map needs no minimap or
-            saved camera viewpoints) — introduced in sandbox via hud:minimap. */}
-        {showPanel('hud:minimap') && (
-          <div
-            style={{
-              marginTop: 'auto',
-              pointerEvents: 'auto',
-              flex: 'none',
-              display: 'flex',
-              alignItems: 'flex-end',
-              gap: GAP,
-            }}
-          >
-            <Minimap frame={minimapFrame} />
-            <CameraBookmarks frame={cornerWidgetFrame} />
-          </div>
+        {collapsed ? (
+          <CollapsedBuildRail />
+        ) : (
+          <>
+            <RailItem mode="flex">
+              <BuildPalette frame={railPanel} />
+            </RailItem>
+            {showPanel('hud:fleet') && (
+              <RailItem>
+                <FleetPanel frame={railPanel} />
+              </RailItem>
+            )}
+            {/* the minimap + camera bookmarks dock at the BOTTOM of the left rail
+                so they can never sit on the right-rail finance stack (owner
+                playtest) and never cover the clock bar. Open or collapsed, they
+                live in this slot. HIDDEN during tutorials (owner: hide
+                non-essential HUD; a one-screen lesson map needs no minimap or
+                saved camera viewpoints) — introduced in sandbox via hud:minimap. */}
+            {showPanel('hud:minimap') && (
+              <div
+                style={{
+                  marginTop: 'auto',
+                  pointerEvents: 'auto',
+                  flex: 'none',
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  gap: GAP,
+                }}
+              >
+                <Minimap frame={minimapFrame} />
+                <CameraBookmarks frame={cornerWidgetFrame} />
+              </div>
+            )}
+          </>
         )}
       </Rail>
 
-      {/* RIGHT — pinned inspector (top slot), inbox (grows), bill (foot).
-          Each is scroll-contained, so the tall open-application card or a
-          long bill detail scrolls WITHIN its sub-zone instead of pushing
-          onto a neighbour. */}
+      {/* RIGHT — COLLAPSED: a single slim overlay-toggle icon pill (grid view,
+          headroom, N-1, forecast, balance, RIIO — each with its keyboard
+          letter in off-white). EXPANDED: the pinned inspector (top slot),
+          inbox (grows), bill (foot) — each scroll-contained so a tall card or
+          long bill detail scrolls WITHIN its sub-zone, never onto a neighbour. */}
       <Rail side="right">
-        {/* the pinned inspector wins the top of the rail when present — its
-            controls stay reachable (owner: "can't upgrade the substation,
-            messages in the way"); it shares the flexible space with the
-            inbox and scrolls inside itself. */}
-        {pinned && (
-          <RailItem mode="flex">
-            <InfoPanel frame={{ ...railPanel, width: '100%' }} />
-          </RailItem>
-        )}
-        {showPanel('hud:inbox') && (
-          <RailItem mode="flex">
-            <InboxPanel frame={{ ...railPanel, height: '100%', maxHeight: '100%' }} />
-          </RailItem>
-        )}
-        {/* compact reference panels at the foot — natural height, scroll
-            inside themselves, never push onto a neighbour. The bill always
-            shows; the alerts feed yields its slot to a pinned inspector
-            (the live events still stream across the top ticker), so the rail
-            never stacks more than three panels — each keeps real room. */}
-        {showPanel('hud:bill') && (
-          <RailItem>
-            <BillPanel frame={{ ...railPanel, maxHeight: 360 }} />
-          </RailItem>
-        )}
-        {!pinned && showPanel('hud:alerts') && (
-          <RailItem>
-            <AlertsFeed frame={{ ...railPanel, maxHeight: 150 }} />
-          </RailItem>
+        {collapsed ? (
+          <CollapsedOverlayRail />
+        ) : (
+          <>
+            {/* the pinned inspector wins the top of the rail when present — its
+                controls stay reachable (owner: "can't upgrade the substation,
+                messages in the way"); it shares the flexible space with the
+                inbox and scrolls inside itself. */}
+            {pinned && (
+              <RailItem mode="flex">
+                <InfoPanel frame={{ ...railPanel, width: '100%' }} />
+              </RailItem>
+            )}
+            {showPanel('hud:inbox') && (
+              <RailItem mode="flex">
+                <InboxPanel frame={{ ...railPanel, height: '100%', maxHeight: '100%' }} />
+              </RailItem>
+            )}
+            {/* compact reference panels at the foot — natural height, scroll
+                inside themselves, never push onto a neighbour. The bill always
+                shows; the alerts feed yields its slot to a pinned inspector
+                (the live events still stream across the top ticker), so the rail
+                never stacks more than three panels — each keeps real room. */}
+            {showPanel('hud:bill') && (
+              <RailItem>
+                <BillPanel frame={{ ...railPanel, maxHeight: 360 }} />
+              </RailItem>
+            )}
+            {!pinned && showPanel('hud:alerts') && (
+              <RailItem>
+                <AlertsFeed frame={{ ...railPanel, maxHeight: 150 }} />
+              </RailItem>
+            )}
+          </>
         )}
       </Rail>
 
