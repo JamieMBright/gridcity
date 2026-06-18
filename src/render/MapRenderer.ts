@@ -29,7 +29,7 @@ import { farmClaimTiles, isFarmGen } from '../sim/farms';
 import { GENS, SUBS } from '../sim/catalog';
 import type { VoltageLevel } from '../sim/grid/types';
 import { sampleRoute } from '../sim/map/routes';
-import { CUSTOMERS_PER_TILE, HERO_BASE, LANDMARK, type CityMap, type Landmark, type MapAirport, type MapTown, type RouteClass, type Zone } from '../sim/map/types';
+import { CUSTOMERS_PER_TILE, HERO_BASE, LANDMARK, RC, TILE_FLAG, type CityMap, type Landmark, type MapAirport, type MapTown, type RouteClass, type Zone } from '../sim/map/types';
 import { COV, type BranchView } from '../sim/tick';
 import { getAtlas } from './atlasCache';
 import { captureError } from '../app/errorLog';
@@ -88,8 +88,13 @@ const CLICK_SLOP_PX = 6;
 // glow. Paired with a one-step-deeper night tint in grade.ts. Conservative:
 // the glow already maxes at glow=1 in deep night, so this only lifts how
 // bright the lit windows read against the (slightly deeper) cosy dusk wash.
-const WINDOW_GLOW_GAIN = 0.95; // was 0.85
-const KIT_BLOOM_GAIN = 1.0; // was 0.9
+// RE-TUNE (owner, 2026-06-18: "night-time electrification is too much … all you
+// have there is a solar glare"). The additive KIT BLOOM halos around subs/turbine
+// hubs were the headline "solar glare"; dial them right down. The energized-window
+// glow comes back to a restrained, realistic level (crisp small warm windows, not
+// a blown-out wash). Both are at/below the pre-#72 values now.
+const WINDOW_GLOW_GAIN = 0.8; // was 0.95 / 0.85 — restrained warm windows
+const KIT_BLOOM_GAIN = 0.35; // was 1.0 / 0.9 — kill the glare halos
 
 // THE HELD "DUSK-POCKET" (owner deferred idea, 2026-06-17): a subtle LOCAL
 // darken so the bulbs pop harder at night by CONTRAST — without making the world
@@ -102,13 +107,41 @@ const KIT_BLOOM_GAIN = 1.0; // was 0.9
 // dark. Strength ramps with `glow` (0 by day → full deep night) and is CAPPED so
 // the fabric never drops below the cosy floor. Set to 0 to revert completely
 // (then the fabric tint is the plain grade tint, byte-identical to before).
-//   0.0 = OFF (no pocket)   0.42 = the shipped value (design-gated across the 12
-//   cities — clearly cosier far-views + lit-area pop, none read horror-dark).
-const DUSK_POCKET = 0.42;
+//   0.0 = OFF (no pocket)   0.42 = the old shipped value.
+// RE-TUNE (owner, 2026-06-18): set to 0 — the owner found the night overcooked
+// ("too much"). The dusk-pocket amplified contrast so lit areas glared against a
+// darkened world; a cosy-EVEN night with no local darkening reads far calmer.
+const DUSK_POCKET = 0;
 // the deepest the pocket may pull the fabric toward (a deep dusk-navy with a
 // faint warm breath, NOT black) — clamps the multiply so even at full strength
 // the world stays a cosy dusk, never a horror night.
 const DUSK_POCKET_FLOOR = 0x3c3a52;
+
+// NIGHT BODY-DARKEN (owner, 2026-06-18: "Are all those white rectangles hero
+// buildings?"). Killing the glare (above) was right, but with the dusk-pocket
+// off the unlit building BODIES sit at the plain cosy night tint — they read as
+// pale daytime boxes ("white rectangles") instead of dark masses studded with
+// warm windows. The fix targets ONLY the building/structure layer: an EXTRA
+// multiply applied to `structureLayer` (a child of the `city` fabric, so it
+// stacks ON TOP of the cosy fabric tint), ramped with `glow`. Because the lit
+// windows / streetlamps / shopfronts / kit bloom all live in the ADDITIVE
+// `glowWorld` (NOT under structureLayer), darkening the bodies leaves every
+// warm point at full brightness — the night reads as DARK silhouettes with
+// bright small windows popping, which is the whole ask. The GROUND/countryside
+// keeps the plain cosy fabric tint (only the built masses sink). Capped by
+// STRUCT_NIGHT_FLOOR so even at full glow the bodies stay a deep cosy dusk-
+// charcoal, never crushed to black (heroes still read by shape + lit windows).
+// Set to 0 to revert (then the structure layer carries no night multiply,
+// byte-identical to before). Ramps only over the DEEP end of glow (dusk→night)
+// so the gentle day/golden-hour arc is untouched (anti-"flashing" doctrine).
+//   0.0 = OFF   ~0.55 = the shipped strength (design-gated: dark bodies, no glare).
+const STRUCT_NIGHT_DARKEN = 0.55;
+// the deepest the body multiply may pull a building toward at full glow — a deep
+// dusk-charcoal with a faint cool-warm breath (NOT black): silhouettes you can
+// still read, lit by their own windows. Multiplies against the fabric tint, so
+// the on-screen body is darker still (fabricTint × this), but the floor keeps it
+// off pure black so it never reads as a hole punched in the map.
+const STRUCT_NIGHT_FLOOR = 0x4b4760;
 
 export const LEVEL_COLOR: Record<VoltageLevel, number> = {
   400: 0x5ea3ff,
@@ -852,6 +885,7 @@ export class MapRenderer {
     // the network colours stay true
     if (on && this.gradeTinted) {
       for (const layer of this.gradeTargets()) layer.tint = 0xffffff;
+      this.structureLayer.tint = 0xffffff; // drop the night body-darken too
       this.gradeTinted = false;
     }
     if (!on) this.gradeKey = ''; // re-apply the grade next frame
@@ -969,6 +1003,23 @@ export class MapRenderer {
     return mixRgb(tint, DUSK_POCKET_FLOOR, DUSK_POCKET * t * t);
   }
 
+  /** NIGHT BODY-DARKEN (see STRUCT_NIGHT_DARKEN): the EXTRA multiply for the
+   *  structure layer so unlit building BODIES go dark at night (vs the plain
+   *  cosy fabric tint that left them as pale "white rectangles"). Stacks on top
+   *  of the fabric tint (structureLayer is a child of the `city` fabric), so the
+   *  ground keeps the cosy wash while only the built masses sink. The additive
+   *  windows/streetlamps/shopfronts (glowWorld) are unaffected, so they pop as
+   *  bright points against the now-dark bodies. White at day / STRUCT_NIGHT_DARKEN
+   *  0 ⇒ a no-op (byte-identical). Eases in over the DEEP end of glow only. */
+  private structNightTint(glow: number): number {
+    if (STRUCT_NIGHT_DARKEN <= 0 || glow <= 0.001) return 0xffffff;
+    // start the body-darken a touch earlier than the (retired) dusk-pocket — by
+    // mid-dusk the bodies should already be reading as silhouettes behind the
+    // first lit windows — but still keep the day/golden-hour arc fully untouched.
+    const t = Math.max(0, Math.min(1, (glow - 0.45) / 0.55));
+    return mixRgb(0xffffff, STRUCT_NIGHT_FLOOR, STRUCT_NIGHT_DARKEN * t * t);
+  }
+
   // --- atmosphere (#41 day/night grade · #42 rain & storms · #44 seasons) ----
 
   /** Gate the living-world animation rate on the sim clock speed (0/1/4/
@@ -1046,7 +1097,13 @@ export class MapRenderer {
     // are untouched — so only the unlit fabric sinks and the bulbs pop. By day
     // (glow 0) the pocket is inert ⇒ fabricTint === g.tint.
     const fabricTint = this.duskPocketTint(g.tint, g.glow);
-    const key = `${g.skyTop},${g.skyBottom},${fabricTint},${Math.round(g.wet * 40)},${w},${h}`;
+    // NIGHT BODY-DARKEN: an extra multiply for the structure layer only, so unlit
+    // building bodies go dark at night while the ground keeps the cosy fabric tint
+    // (structureLayer is a child of `city`, so this stacks under fabricTint). The
+    // lit windows/lamps/shopfronts (glowWorld) are unaffected ⇒ they pop as the
+    // bright points against dark masses. White at day ⇒ byte-identical.
+    const structTint = this.structNightTint(g.glow);
+    const key = `${g.skyTop},${g.skyBottom},${fabricTint},${structTint},${Math.round(g.wet * 40)},${w},${h}`;
     if (key !== this.gradeKey) {
       this.gradeKey = key;
       this.skyG.clear();
@@ -1060,6 +1117,9 @@ export class MapRenderer {
       // holds the engineering palette)
       if (!this.gridViewOn) {
         for (const layer of this.gradeTargets()) layer.tint = fabricTint;
+        // building bodies take the EXTRA night darken on top of the fabric tint
+        // (structureLayer ⊂ city, so its tint multiplies under fabricTint)
+        this.structureLayer.tint = structTint;
         this.gradeTinted = true;
       }
       // wet sheen: rain-damp air catches the sky and lifts the shadows
@@ -1133,10 +1193,21 @@ export class MapRenderer {
     }
   }
 
-  /** Warm-window light field: one texel per energized customer tile,
-   *  stretched onto the iso plane (the suitability-overlay trick). The
-   *  linear filter melts it into soft pools of dusk light over powered
-   *  districts; unpowered streets stay cold and dark. */
+  /** Warm-window light field: one texel per energized tile, stretched onto the
+   *  iso plane (the suitability-overlay trick). The linear filter melts it into
+   *  soft pools of dusk light over powered districts; unpowered streets stay
+   *  cold and dark.
+   *
+   *  Three cosy layers (owner, 2026-06-18: "it should just be like the windows
+   *  and street lights and shop windows etc."), all render-only + deterministic
+   *  + coverage-gated so a blank/day game shows NOTHING:
+   *   1. LIT WINDOWS — energized customer tiles (the existing warm-gold pools);
+   *   2. STREET LIGHTS — a sparse, dim warm-amber dot on a deterministic subset
+   *      of road tiles that sit in (or beside) a powered district, so roads wear
+   *      a faint dashed lamp-shimmer rather than a bright ribbon;
+   *   3. SHOP WINDOWS — a gentle warm-white lift on high-street shop frontages
+   *      that are powered/beside power (the parade glow of lit shopfronts).
+   *  Each writes via a max-blend so overlaps never stack into glare. */
   private rebuildLights(coverage: Uint8Array): void {
     const map = this.map;
     if (this.lightsSprite) {
@@ -1150,16 +1221,71 @@ export class MapRenderer {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const img = ctx.createImageData(map.width, map.height);
+    const W = map.width;
+    const H = map.height;
+    const data = img.data;
     let any = false;
+    // max-blend one warm texel so the three layers never stack into a hot spot.
+    const put = (i: number, r: number, gn: number, b: number, alpha: number): void => {
+      const o = i * 4;
+      if (alpha > (data[o + 3] ?? 0)) {
+        data[o] = r;
+        data[o + 1] = gn;
+        data[o + 2] = b;
+        data[o + 3] = alpha;
+      }
+      any = true;
+    };
+    const onAt = (i: number): boolean => coverage[i] === COV.on;
+    // a road/shop tile often carries no demand (it reads COV.empty), so light it
+    // when IT or a 4-neighbour is energized — keeps lamps to powered districts.
+    const nearPower = (x: number, y: number): boolean => {
+      const i = y * W + x;
+      if (onAt(i)) return true;
+      if (x > 0 && onAt(i - 1)) return true;
+      if (x < W - 1 && onAt(i + 1)) return true;
+      if (y > 0 && onAt(i - W)) return true;
+      if (y < H - 1 && onAt(i + W)) return true;
+      return false;
+    };
+    // 1) LIT WINDOWS — energized customer tiles glow warm gold. RE-TUNE (owner,
+    // 2026-06-18): the per-tile alpha was near-opaque for dense zones (88+cust,
+    // clamped 220), so a packed core melted into one bright warm SHEET — the
+    // "solar glare". Drop it to a translucent warm level (denser still reads
+    // brighter, but the gaps stay dark and the windows read as windows).
     for (let i = 0; i < coverage.length; i++) {
       if (coverage[i] !== COV.on) continue;
       const cust = map.customers[i] ?? 0;
       if (cust <= 0) continue;
-      any = true;
-      img.data[i * 4] = 255;
-      img.data[i * 4 + 1] = 193;
-      img.data[i * 4 + 2] = 110;
-      img.data[i * 4 + 3] = Math.min(220, 88 + cust);
+      put(i, 255, 193, 110, Math.min(150, 44 + cust * 0.45));
+    }
+    // 2) STREET LIGHTS + 3) SHOP WINDOWS — walk the road/flags rasters.
+    const road = map.road;
+    const flags = map.flags;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        const rc = road ? road[i] ?? 0 : 0;
+        const isShop = flags ? ((flags[i] ?? 0) & TILE_FLAG.shops) !== 0 : false;
+        if (rc === RC.none && !isShop) continue;
+        if (!nearPower(x, y)) continue;
+        // SHOP frontages: a soft warm-white shopfront glow (a touch brighter
+        // than a lamp, the lit-parade feel) — but still gentle.
+        if (isShop) {
+          put(i, 255, 224, 168, 70);
+          continue;
+        }
+        // STREET lamps: only a deterministic, sparse subset of carriageway
+        // tiles light, so the melt reads as scattered warm lamps not a solid
+        // bright line. Motorway/arterial get an even sparser, dimmer dusting.
+        const lampZone = rc === RC.street || rc === RC.streetTouch;
+        const bigRoad = rc === RC.arterial || rc === RC.motorway;
+        if (!lampZone && !bigRoad) continue; // skip rail
+        const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+        const gate = lampZone ? h % 5 < 2 : h % 7 === 0; // ~40% of streets, ~14% of big roads
+        if (!gate) continue;
+        put(i, 255, 198, 132, lampZone ? 44 : 34);
+      }
     }
     if (!any) return;
     ctx.putImageData(img, 0, 0);
@@ -1172,14 +1298,18 @@ export class MapRenderer {
   }
 
   /** Gentle bloom halos on substations + turbine hubs (additive, scaled
-   *  by the dusk glow — by day they vanish). */
+   *  by the dusk glow — by day they vanish). RE-TUNE (owner, 2026-06-18): these
+   *  wide warm halos were a big part of the "solar glare" — in a served core the
+   *  many overlapping sub halos pooled into a bright warm wash. Tightened: a
+   *  smaller outer ring (1.4× not 1.8×) and lower per-ring alphas, so each asset
+   *  gets a small soft glow that no longer melts its neighbours into a sheet. */
   private drawBloom(assets: PlacedAsset[]): void {
     this.bloomG.clear();
     const halo = (x: number, y: number, r: number): void => {
       for (const [mul, a] of [
-        [1.8, 0.045],
-        [1.1, 0.08],
-        [0.55, 0.13],
+        [1.4, 0.03],
+        [0.9, 0.055],
+        [0.48, 0.09],
       ] as const) {
         this.bloomG.ellipse(x, y, r * mul, r * mul * 0.55).fill({ color: 0xffc878, alpha: a });
       }
