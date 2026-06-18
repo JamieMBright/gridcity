@@ -211,14 +211,10 @@ const FGOLD = 0xffce82; // gold — secondary warm
 const FAMBER = 0xffb45e; // deep amber — warm fill / low uplight
 const COOL = 0xcfe6ff; // cool glass glint (the Shard's facets)
 const EMBER = 0xff8a52; // a SOFT warm ember (replaces the harsh red beacon)
-// soft festoon multicolour — used SPARINGLY, like a strand of party lights:
-// saturated enough to read against navy, soft enough to stay magical not garish.
-const FESTOON: readonly number[] = [0xff9a86, 0xffd27a, 0x9fe6a8, 0x8fc8ff, 0xc7a3ff];
-// the dominant warm strand most heroes wear (warm-white biased, a little gold).
+// the dominant warm strand the remaining festoon (the aerial-gallery hoop) wears
+// (warm-white biased, a little gold). RE-TUNE (owner, 2026-06-18): the garish
+// party-colour strands are gone — the night is warm window-light, not decoration.
 const WARMSTRAND: readonly number[] = [FWHITE, FGOLD, FWHITE, FAMBER, FWHITE, FGOLD];
-// a cheerful strand for ordinary powered buildings: warm-dominant with a SPARING
-// sprinkle of the soft festoon party colours threaded through the middle.
-const PARTYSTRAND: readonly number[] = [FWHITE, FGOLD, ...FESTOON, FWHITE, FAMBER, FGOLD];
 
 /** Deterministic hash → [0,1) (no runtime RNG; phases must be stable). */
 function frac(n: number): number {
@@ -230,9 +226,12 @@ function frac(n: number): number {
  *  reads as a crisp point of light, never a soft wash. The atom of the whole
  *  fairy-light language — every string and field is made of these. */
 function bulb(g: Graphics, x: number, y: number, r: number, color: number, a: number): void {
-  g.circle(x, y, r * 2.3).fill({ color, alpha: a * 0.22 }); // soft outer bloom
-  g.circle(x, y, r * 1.15).fill({ color, alpha: a * 0.72 }); // the coloured bulb
-  g.circle(x, y, Math.max(0.7, r * 0.52)).fill({ color: 0xffffff, alpha: Math.min(1, a * 1.05) }); // hot core
+  // RE-TUNE (owner, 2026-06-18): the wide soft outer bloom was the "solar
+  // glare" — shrink it and drop its alpha hard so a bulb reads as a crisp
+  // little warm point, not a halo. Slightly tame the hot white core too.
+  g.circle(x, y, r * 1.6).fill({ color, alpha: a * 0.1 }); // faint outer glow
+  g.circle(x, y, r * 1.0).fill({ color, alpha: a * 0.6 }); // the coloured bulb
+  g.circle(x, y, Math.max(0.6, r * 0.46)).fill({ color: 0xffffff, alpha: Math.min(0.92, a * 0.85) }); // core
 }
 
 /** A draped FESTOON of twinkling bulbs from (x0,y0)→(x1,y1), sagging by `sag`
@@ -287,10 +286,15 @@ export function drawHeroLights(
   glow: number,
 ): void {
   g.clear();
-  // the show only blooms toward dusk/night; capped so it never neon-spams by
-  // day. A tiny floor keeps a lit landmark faintly twinkling even mid-afternoon.
+  // RE-TUNE (owner, 2026-06-18: "night-time electrification is too much … all
+  // you have there is a solar glare"). Heroes should read as LIT BUILDINGS
+  // (their windows on), not floodlit monuments — so the whole show is dialled
+  // right down to a cosy, restrained level. The ramp stays day→night (gone by
+  // day) but tops out far lower than before (was 0.22 + 0.95·lvl ≈ 1.17) and
+  // sits near-dark mid-afternoon, so a lit landmark is a quiet warm presence,
+  // never a glare. The per-effect handlers below are likewise softened.
   const lvl = Math.max(0, Math.min(1, glow));
-  const intensity = 0.22 + 0.95 * lvl;
+  const intensity = 0.06 + 0.5 * lvl;
   if (intensity <= 0.02 || heroes.length === 0) return;
   for (const h of heroes) {
     switch (h.kind) {
@@ -347,7 +351,7 @@ function eiffelSparkle(g: Graphics, h: HeroLight, t: number, k: number): void {
     const tw = 0.5 + 0.5 * Math.sin(t * 4.1 + i * 1.7 + h.phase * 6.28);
     // mostly warm-gold, an occasional white sparkle
     const col = frac(i * 8.1 + h.phase) > 0.82 ? FWHITE : FGOLD;
-    bulb(g, x, y, (0.95 + 0.8 * tw) * RES, col, (0.4 + 0.6 * tw * tw) * k);
+    bulb(g, x, y, (0.8 + 0.6 * tw) * RES, col, (0.32 + 0.45 * tw * tw) * k);
   }
   ember(g, h.cx, h.topY, t, k);
 }
@@ -365,11 +369,11 @@ function spireBeacon(g: Graphics, h: HeroLight, t: number, k: number): void {
     const half = h.w * (0.92 - f * 0.85) + 0.5 * RES; // taper to the point
     const x = h.cx + (frac(i * 6.7 + h.phase) - 0.5) * 1.9 * half;
     const sh = 0.5 + 0.5 * Math.sin(t * 2.6 + i * 1.3 + h.phase * 6.28);
-    bulb(g, x, y, (0.85 + 0.6 * sh) * RES, COOL, (0.42 + 0.5 * sh) * k);
+    bulb(g, x, y, (0.75 + 0.5 * sh) * RES, COOL, (0.32 + 0.38 * sh) * k);
   }
-  // the tip beacon (a steady, slow-breathing white-blue point)
+  // the tip beacon (a steady, slow-breathing white-blue point) — kept small
   const br = 0.6 + 0.4 * Math.sin(t * 1.6 + h.phase);
-  bulb(g, h.cx, h.topY + 2 * RES, (1.6 + 0.7 * br) * RES, 0xeaf4ff, 0.85 * k);
+  bulb(g, h.cx, h.topY + 2 * RES, (1.2 + 0.5 * br) * RES, 0xeaf4ff, 0.5 * k);
 }
 
 // --- Skyscraper heroes / grand towers: festoon crown + lit-window strings -----
@@ -378,9 +382,10 @@ function spireBeacon(g: Graphics, h: HeroLight, t: number, k: number): void {
 // in lights, not a glowing cap.
 function towerCrown(g: Graphics, h: HeroLight, t: number, k: number): void {
   const span = h.cy - h.topY;
-  const crownY = h.topY + span * 0.04;
-  // the crown festoon — a gentle swag of warm bulbs across the top
-  festoon(g, h.cx - h.w * 0.85, crownY, h.cx + h.w * 0.85, crownY, 7, t, k, h.phase * 6.28, span * 0.03, WARMSTRAND);
+  // RE-TUNE (owner, 2026-06-18): a powered tower is mostly its LIT WINDOWS. Drop
+  // the crown festoon to a faint marker bulb at the top, and let the window
+  // strings (the right idea) carry it — softened so they're crisp small dots.
+  bulb(g, h.cx, h.topY + span * 0.05, 1.0 * RES, FWHITE, 0.4 * k);
   // vertical strings of lit windows down two faces of the shaft
   const cols = 2;
   const rows = 7;
@@ -392,8 +397,8 @@ function towerCrown(g: Graphics, h: HeroLight, t: number, k: number): void {
       const halfHere = h.w * (1.0 - f * 0.18);
       const x = h.cx + sx * halfHere;
       // slow occupancy flicker (windows switch over tens of seconds)
-      const on = Math.sin(t * 0.5 + (c * rows + r) * 2.1 + h.phase * 6.28) > -0.35 ? 1 : 0.18;
-      bulb(g, x, y, 1.15 * RES, FGOLD, 0.72 * on * k);
+      const on = Math.sin(t * 0.5 + (c * rows + r) * 2.1 + h.phase * 6.28) > -0.35 ? 1 : 0.16;
+      bulb(g, x, y, 0.95 * RES, FGOLD, 0.5 * on * k);
     }
   }
 }
@@ -419,13 +424,14 @@ function pyramidFlood(g: Graphics, h: HeroLight, t: number, k: number): void {
   // gentle overall breath so the whole show pulses a touch
   const breath = 0.85 + 0.15 * Math.sin(t * 1.3 + h.phase);
 
-  // two broad coloured beams fanning from the base corners up across the faces
+  // RE-TUNE (owner, 2026-06-18): Giza's Sound-&-Light is one of the rare things
+  // ACTUALLY floodlit, so it keeps its coloured beams — but RESTRAINED (the
+  // owner found the night overcooked overall), so every alpha here is roughly
+  // halved and the ground pools/apex bloom toned right down.
+  // two soft coloured beams fanning from the base corners up across the faces
   for (const sx of [-1, 1] as const) {
     const fx = h.cx + sx * h.w * 1.05;
     const fy = h.cy - 1 * RES;
-    // wide soft beam (the light in the air) — the Sound-&-Light's signature
-    // fan; lifted a touch so the coloured shafts read against the bright sand
-    // (still warm-dominant, never a harsh searchlight).
     g.poly([
       fx,
       fy,
@@ -433,8 +439,8 @@ function pyramidFlood(g: Graphics, h: HeroLight, t: number, k: number): void {
       apexY + span * 0.06,
       h.cx + h.w * 0.34,
       apexY + span * 0.06,
-    ]).fill({ color: col, alpha: 0.28 * breath * k });
-    // a brighter inner core of the beam
+    ]).fill({ color: col, alpha: 0.13 * breath * k });
+    // a slightly brighter inner core of the beam
     g.poly([
       fx,
       fy,
@@ -442,25 +448,25 @@ function pyramidFlood(g: Graphics, h: HeroLight, t: number, k: number): void {
       apexY + span * 0.18,
       h.cx + h.w * 0.12,
       apexY + span * 0.18,
-    ]).fill({ color: mixHex(col, 0xffffff, 0.35), alpha: 0.2 * breath * k });
-    // a bright ground pool where the lamp sits + the crisp lamp head
-    g.ellipse(fx, fy, 5 * RES, 2.2 * RES).fill({ color: col, alpha: 0.4 * breath * k });
-    bulb(g, fx, fy - 6 * RES, 2.4 * RES, 0xfff2d6, Math.min(1, 1.05 * k));
+    ]).fill({ color: mixHex(col, 0xffffff, 0.35), alpha: 0.09 * breath * k });
+    // a modest ground pool where the lamp sits + the crisp lamp head
+    g.ellipse(fx, fy, 4 * RES, 1.8 * RES).fill({ color: col, alpha: 0.2 * breath * k });
+    bulb(g, fx, fy - 6 * RES, 1.8 * RES, 0xfff2d6, 0.6 * k);
   }
 
-  // a strong warm wash climbing the lower courses (brightest at the base),
-  // tinted by the live show colour so the whole face glows
+  // a soft warm wash climbing the lower courses (brightest at the base),
+  // tinted by the live show colour
   for (let i = 0; i < 6; i++) {
     const f = i / 6;
     const y = h.cy - 3 * RES - f * span * 0.82;
     const half = h.w * (1 - f * 0.55);
     g.ellipse(h.cx, y, half, span * 0.075).fill({
       color: mixHex(0xffe2b4, col, 0.55),
-      alpha: 0.2 * (1 - f * 0.8) * breath * k,
+      alpha: 0.1 * (1 - f * 0.8) * breath * k,
     });
   }
-  // a crown of light at the apex — the beams converge and bloom
-  halo(g, h.cx, apexY + span * 0.04, h.w * 0.5, mixHex(col, 0xfff2d6, 0.4), 0.38 * breath * k);
+  // a gentle crown of light at the apex
+  halo(g, h.cx, apexY + span * 0.04, h.w * 0.42, mixHex(col, 0xfff2d6, 0.4), 0.18 * breath * k);
 }
 
 // --- The Sphinx: dramatically floodlit from the front -------------------------
@@ -468,7 +474,8 @@ function sphinxFlood(g: Graphics, h: HeroLight, k: number): void {
   const span = h.cy - h.topY;
   const fx = h.cx + h.w * 0.85;
   const fy = h.cy - 1 * RES;
-  // a bright warm floodlight raking across the face + headdress
+  // RE-TUNE (owner, 2026-06-18): the Sphinx IS floodlit at night, so it keeps a
+  // single warm rake across the face — but restrained (alphas roughly halved).
   g.poly([
     fx,
     fy,
@@ -476,8 +483,8 @@ function sphinxFlood(g: Graphics, h: HeroLight, k: number): void {
     h.cy - span * 0.95,
     h.cx - h.w * 0.1,
     h.cy - span * 0.35,
-  ]).fill({ color: 0xffcf96, alpha: 0.26 * k });
-  // a brighter inner cone
+  ]).fill({ color: 0xffcf96, alpha: 0.13 * k });
+  // a slightly brighter inner cone
   g.poly([
     fx,
     fy,
@@ -485,32 +492,38 @@ function sphinxFlood(g: Graphics, h: HeroLight, k: number): void {
     h.cy - span * 0.8,
     h.cx - h.w * 0.05,
     h.cy - span * 0.45,
-  ]).fill({ color: 0xfff0d0, alpha: 0.18 * k });
-  // ground pool + crisp lamp head at the floodlight, glow on the lit face
-  g.ellipse(fx, fy, 4 * RES, 1.8 * RES).fill({ color: 0xffcf96, alpha: 0.4 * k });
-  bulb(g, fx, fy - 4 * RES, 2.2 * RES, 0xfff2d6, Math.min(1, 1.0 * k));
-  halo(g, h.cx - h.w * 0.1, h.cy - span * 0.55, h.w * 0.6, FAMBER, 0.28 * k);
+  ]).fill({ color: 0xfff0d0, alpha: 0.09 * k });
+  // a modest ground pool + crisp lamp head, soft glow on the lit face
+  g.ellipse(fx, fy, 3.4 * RES, 1.5 * RES).fill({ color: 0xffcf96, alpha: 0.2 * k });
+  bulb(g, fx, fy - 4 * RES, 1.7 * RES, 0xfff2d6, 0.55 * k);
+  halo(g, h.cx - h.w * 0.1, h.cy - span * 0.55, h.w * 0.55, FAMBER, 0.13 * k);
 }
 
-// --- Cathedrals / domes / parliament: outlined crown + lit lantern ------------
-// The defining edge picked out in warm bulbs — a festoon along the eaves/roofline
-// and a warm lantern bulb at the dome/spire crown, with a gentle low uplight at
-// the base corners. Outlines the silhouette in light instead of washing it.
+// --- Cathedrals / domes / parliament / grand civic blocks: LIT WINDOWS ---------
+// RE-TUNE (owner, 2026-06-18: "it should just be like the windows … not floods;
+// all you have there is a solar glare"). This is the workhorse kind (most heroes
+// resolve to it), so it must read as a BUILDING WITH ITS LIGHTS ON, never
+// floodlit. Gone: the base-corner floodlight bulbs, the facade up-graze, and the
+// big breathing lantern. Left: a scatter of small warm lit windows across the
+// facade, a faint warm dome/rose lantern (gentle, not the brightest thing on the
+// map), and an OPTIONAL whisper of a roofline string at deep night only.
 function facadeFlood(g: Graphics, h: HeroLight, t: number, k: number): void {
   const span = h.cy - h.topY;
-  // a festoon along the roofline (eaves), sagging gently
-  const eaveY = h.cy - span * 0.5;
-  festoon(g, h.cx - h.w * 0.92, eaveY, h.cx + h.w * 0.92, eaveY, 9, t, k, h.phase * 6.28, span * 0.05, WARMSTRAND);
-  // two small warm floodlight bulbs grazing up from the base corners
-  for (const sx of [-1, 1] as const) {
-    bulb(g, h.cx + sx * h.w * 0.8, h.cy - 2 * RES, 1.5 * RES, 0xfff0d0, 0.5 * k);
+  // a field of small warm lit windows over the facade (most of the silhouette),
+  // each on a slow occupancy flicker so the building feels occupied not static.
+  const N = 14;
+  for (let i = 0; i < N; i++) {
+    const fx = frac(i * 3.7 + h.phase);
+    const fy = frac(i * 6.1 + h.phase * 1.7);
+    const y = h.cy - span * (0.12 + fy * 0.6);
+    const x = h.cx + (fx - 0.5) * 1.7 * h.w;
+    const on = Math.sin(t * 0.45 + i * 2.1 + h.phase * 6.28) > -0.45 ? 1 : 0.18;
+    bulb(g, x, y, 0.95 * RES, i % 5 === 0 ? FWHITE : FGOLD, 0.5 * on * k);
   }
-  // a faint warm graze up the lower facade (small, base-only — not a column)
-  g.ellipse(h.cx, h.cy - span * 0.18, h.w * 0.9, span * 0.07).fill({ color: FAMBER, alpha: 0.08 * k });
-  // the glowing rose window / lit dome lantern near the crown — a warm bulb that
-  // breathes very gently (the brightest single point, the building's "eye")
-  const br = 0.75 + 0.25 * Math.sin(t * 1.1 + h.phase);
-  bulb(g, h.cx, h.topY + span * 0.1, (2.0 + 0.8 * br) * RES, 0xffe6b0, 0.85 * k);
+  // a faint warm dome/rose-window lantern near the crown (the building's "eye"),
+  // breathing very gently — soft, NOT a beacon.
+  const br = 0.7 + 0.3 * Math.sin(t * 1.0 + h.phase);
+  bulb(g, h.cx, h.topY + span * 0.12, (1.2 + 0.4 * br) * RES, 0xffe6b0, 0.4 * k);
 }
 
 // --- BT Tower / masts: aerial-gallery ring + lit bands + warm ember tip --------
@@ -524,12 +537,12 @@ function aerialBeacon(g: Graphics, h: HeroLight, t: number, k: number): void {
     const y = h.cy - 8 * RES - f * span * 0.8;
     const tw = 0.5 + 0.5 * Math.sin(t * 2.2 + i * 1.5 + h.phase * 6.28);
     for (const sx of [-1, 1] as const) {
-      bulb(g, h.cx + sx * h.w * 0.6, y, (0.85 + 0.5 * tw) * RES, COOL, (0.45 + 0.3 * tw) * k);
+      bulb(g, h.cx + sx * h.w * 0.6, y, (0.75 + 0.4 * tw) * RES, COOL, (0.34 + 0.22 * tw) * k);
     }
   }
-  // the aerial-gallery ring just below the top (a festoon hoop of warm bulbs)
+  // the aerial-gallery ring just below the top (a faint hoop of warm bulbs)
   const galleryY = h.topY + span * 0.14;
-  festoon(g, h.cx - h.w * 0.75, galleryY, h.cx + h.w * 0.75, galleryY, 6, t, k, h.phase * 6.28, span * 0.02, WARMSTRAND);
+  festoon(g, h.cx - h.w * 0.75, galleryY, h.cx + h.w * 0.75, galleryY, 6, t, k * 0.7, h.phase * 6.28, span * 0.02, WARMSTRAND);
   // a small warm ember at the very top (the aircraft marker — NOT a harsh red)
   ember(g, h.cx, h.topY, t, k);
 }
@@ -566,9 +579,9 @@ function archGlow(g: Graphics, h: HeroLight, t: number, k: number): void {
     const m = 1 - f;
     const x = m * m * aL.x + 2 * m * f * apex.x + f * f * aR.x;
     const y = m * m * aL.y + 2 * m * f * apex.y + f * f * aR.y;
-    // a bright wave travels along the arch
+    // a gentle wave travels along the arch
     const wave = 0.5 + 0.5 * Math.sin(t * 2.2 - f * 6.0 + h.phase);
-    bulb(g, x, y, (1.05 + 0.8 * wave) * RES, FWHITE, (0.45 + 0.5 * wave) * k);
+    bulb(g, x, y, (0.9 + 0.6 * wave) * RES, FWHITE, (0.34 + 0.34 * wave) * k);
   }
 }
 
@@ -576,32 +589,35 @@ function archGlow(g: Graphics, h: HeroLight, t: number, k: number): void {
 function stadiumFlood(g: Graphics, h: HeroLight, t: number, k: number): void {
   const span = h.cy - h.topY;
   const rimY = h.cy - span * 0.5;
-  // a ring of warm-white floodlight bulbs around the rim (the masts)
+  // RE-TUNE (owner, 2026-06-18): a stadium pitch IS floodlit, so the rim mast
+  // ring stays — but as restrained warm-white points, not a glaring ring.
   const N = 10;
   for (let i = 0; i < N; i++) {
     const a = (i / N) * Math.PI * 2;
     const x = h.cx + Math.cos(a) * h.w * 1.0;
     const y = rimY + Math.sin(a) * h.w * 0.5;
     const tw = 0.6 + 0.4 * Math.sin(t * 2.4 + i * 1.3 + h.phase * 6.28);
-    bulb(g, x, y, (1.25 + 0.5 * tw) * RES, 0xf3f0e0, (0.6 + 0.35 * tw) * k);
+    bulb(g, x, y, (1.05 + 0.4 * tw) * RES, 0xf3f0e0, (0.4 + 0.22 * tw) * k);
   }
   // the pitch glows faintly from the spilled floodlight (one soft pool)
-  halo(g, h.cx, rimY, h.w * 0.55, 0xeae6d2, 0.07 * k);
+  halo(g, h.cx, rimY, h.w * 0.5, 0xeae6d2, 0.045 * k);
 }
 
-// --- Generic fallback: a warm festoon + lit windows (EVERY hero lights up) -----
+// --- Generic fallback: lit windows (EVERY hero lights up) ----------------------
+// RE-TUNE (owner, 2026-06-18): just the windows — a quiet scatter of small warm
+// lit windows so an ordinary powered hero reads as occupied, not floodlit. The
+// party-colour festoon is gone (it read as decoration/glare); a faint warm
+// roofline string survives only as a whisper.
 function genericGlow(g: Graphics, h: HeroLight, t: number, k: number): void {
   const span = Math.max(h.cy - h.topY, h.w);
-  // a festoon swag draped across the roofline (a sprinkle of party colour)
-  const roofY = h.cy - span * 0.55;
-  festoon(g, h.cx - h.w * 0.85, roofY, h.cx + h.w * 0.85, roofY, 7, t, k, h.phase * 6.28, span * 0.08, PARTYSTRAND);
-  // a few lit windows below so it reads as an occupied, powered building
-  for (let i = 0; i < 6; i++) {
-    const f = frac(i * 4.1 + h.phase);
-    const y = h.cy - span * (0.16 + f * 0.34);
-    const x = h.cx + (frac(i * 9.3 + h.phase) - 0.5) * 1.4 * h.w;
-    const on = Math.sin(t * 0.6 + i * 2.3 + h.phase * 6.28) > -0.4 ? 1 : 0.22;
-    bulb(g, x, y, 1.0 * RES, FGOLD, 0.62 * on * k);
+  // a scatter of small warm lit windows over the silhouette
+  for (let i = 0; i < 10; i++) {
+    const fx = frac(i * 4.1 + h.phase);
+    const fy = frac(i * 7.3 + h.phase * 1.3);
+    const y = h.cy - span * (0.14 + fy * 0.5);
+    const x = h.cx + (fx - 0.5) * 1.6 * h.w;
+    const on = Math.sin(t * 0.5 + i * 2.3 + h.phase * 6.28) > -0.4 ? 1 : 0.2;
+    bulb(g, x, y, 0.9 * RES, i % 4 === 0 ? FWHITE : FGOLD, 0.45 * on * k);
   }
 }
 
@@ -610,7 +626,7 @@ function genericGlow(g: Graphics, h: HeroLight, t: number, k: number): void {
  *  "just a red light"). */
 function ember(g: Graphics, x: number, y: number, t: number, k: number): void {
   const br = 0.55 + 0.45 * (Math.sin(t * 1.8) * 0.5 + 0.5);
-  bulb(g, x, y, (1.2 + 0.5 * br) * RES, EMBER, 0.7 * br * k);
+  bulb(g, x, y, (0.9 + 0.4 * br) * RES, EMBER, 0.45 * br * k);
 }
 
 /** Lerp between two 0xRRGGBB colours. */

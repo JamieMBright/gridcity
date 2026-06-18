@@ -29,7 +29,7 @@ import { farmClaimTiles, isFarmGen } from '../sim/farms';
 import { GENS, SUBS } from '../sim/catalog';
 import type { VoltageLevel } from '../sim/grid/types';
 import { sampleRoute } from '../sim/map/routes';
-import { CUSTOMERS_PER_TILE, HERO_BASE, LANDMARK, type CityMap, type Landmark, type MapAirport, type MapTown, type RouteClass, type Zone } from '../sim/map/types';
+import { CUSTOMERS_PER_TILE, HERO_BASE, LANDMARK, RC, TILE_FLAG, type CityMap, type Landmark, type MapAirport, type MapTown, type RouteClass, type Zone } from '../sim/map/types';
 import { COV, type BranchView } from '../sim/tick';
 import { getAtlas } from './atlasCache';
 import { captureError } from '../app/errorLog';
@@ -88,8 +88,13 @@ const CLICK_SLOP_PX = 6;
 // glow. Paired with a one-step-deeper night tint in grade.ts. Conservative:
 // the glow already maxes at glow=1 in deep night, so this only lifts how
 // bright the lit windows read against the (slightly deeper) cosy dusk wash.
-const WINDOW_GLOW_GAIN = 0.95; // was 0.85
-const KIT_BLOOM_GAIN = 1.0; // was 0.9
+// RE-TUNE (owner, 2026-06-18: "night-time electrification is too much … all you
+// have there is a solar glare"). The additive KIT BLOOM halos around subs/turbine
+// hubs were the headline "solar glare"; dial them right down. The energized-window
+// glow comes back to a restrained, realistic level (crisp small warm windows, not
+// a blown-out wash). Both are at/below the pre-#72 values now.
+const WINDOW_GLOW_GAIN = 0.8; // was 0.95 / 0.85 — restrained warm windows
+const KIT_BLOOM_GAIN = 0.45; // was 1.0 / 0.9 — kill the glare halos
 
 // THE HELD "DUSK-POCKET" (owner deferred idea, 2026-06-17): a subtle LOCAL
 // darken so the bulbs pop harder at night by CONTRAST — without making the world
@@ -102,9 +107,11 @@ const KIT_BLOOM_GAIN = 1.0; // was 0.9
 // dark. Strength ramps with `glow` (0 by day → full deep night) and is CAPPED so
 // the fabric never drops below the cosy floor. Set to 0 to revert completely
 // (then the fabric tint is the plain grade tint, byte-identical to before).
-//   0.0 = OFF (no pocket)   0.42 = the shipped value (design-gated across the 12
-//   cities — clearly cosier far-views + lit-area pop, none read horror-dark).
-const DUSK_POCKET = 0.42;
+//   0.0 = OFF (no pocket)   0.42 = the old shipped value.
+// RE-TUNE (owner, 2026-06-18): set to 0 — the owner found the night overcooked
+// ("too much"). The dusk-pocket amplified contrast so lit areas glared against a
+// darkened world; a cosy-EVEN night with no local darkening reads far calmer.
+const DUSK_POCKET = 0;
 // the deepest the pocket may pull the fabric toward (a deep dusk-navy with a
 // faint warm breath, NOT black) — clamps the multiply so even at full strength
 // the world stays a cosy dusk, never a horror night.
@@ -1133,10 +1140,21 @@ export class MapRenderer {
     }
   }
 
-  /** Warm-window light field: one texel per energized customer tile,
-   *  stretched onto the iso plane (the suitability-overlay trick). The
-   *  linear filter melts it into soft pools of dusk light over powered
-   *  districts; unpowered streets stay cold and dark. */
+  /** Warm-window light field: one texel per energized tile, stretched onto the
+   *  iso plane (the suitability-overlay trick). The linear filter melts it into
+   *  soft pools of dusk light over powered districts; unpowered streets stay
+   *  cold and dark.
+   *
+   *  Three cosy layers (owner, 2026-06-18: "it should just be like the windows
+   *  and street lights and shop windows etc."), all render-only + deterministic
+   *  + coverage-gated so a blank/day game shows NOTHING:
+   *   1. LIT WINDOWS — energized customer tiles (the existing warm-gold pools);
+   *   2. STREET LIGHTS — a sparse, dim warm-amber dot on a deterministic subset
+   *      of road tiles that sit in (or beside) a powered district, so roads wear
+   *      a faint dashed lamp-shimmer rather than a bright ribbon;
+   *   3. SHOP WINDOWS — a gentle warm-white lift on high-street shop frontages
+   *      that are powered/beside power (the parade glow of lit shopfronts).
+   *  Each writes via a max-blend so overlaps never stack into glare. */
   private rebuildLights(coverage: Uint8Array): void {
     const map = this.map;
     if (this.lightsSprite) {
@@ -1150,16 +1168,67 @@ export class MapRenderer {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const img = ctx.createImageData(map.width, map.height);
+    const W = map.width;
+    const H = map.height;
+    const data = img.data;
     let any = false;
+    // max-blend one warm texel so the three layers never stack into a hot spot.
+    const put = (i: number, r: number, gn: number, b: number, alpha: number): void => {
+      const o = i * 4;
+      if (alpha > (data[o + 3] ?? 0)) {
+        data[o] = r;
+        data[o + 1] = gn;
+        data[o + 2] = b;
+        data[o + 3] = alpha;
+      }
+      any = true;
+    };
+    const onAt = (i: number): boolean => coverage[i] === COV.on;
+    // a road/shop tile often carries no demand (it reads COV.empty), so light it
+    // when IT or a 4-neighbour is energized — keeps lamps to powered districts.
+    const nearPower = (x: number, y: number): boolean => {
+      const i = y * W + x;
+      if (onAt(i)) return true;
+      if (x > 0 && onAt(i - 1)) return true;
+      if (x < W - 1 && onAt(i + 1)) return true;
+      if (y > 0 && onAt(i - W)) return true;
+      if (y < H - 1 && onAt(i + W)) return true;
+      return false;
+    };
+    // 1) LIT WINDOWS — energized customer tiles glow warm gold.
     for (let i = 0; i < coverage.length; i++) {
       if (coverage[i] !== COV.on) continue;
       const cust = map.customers[i] ?? 0;
       if (cust <= 0) continue;
-      any = true;
-      img.data[i * 4] = 255;
-      img.data[i * 4 + 1] = 193;
-      img.data[i * 4 + 2] = 110;
-      img.data[i * 4 + 3] = Math.min(220, 88 + cust);
+      put(i, 255, 193, 110, Math.min(220, 88 + cust));
+    }
+    // 2) STREET LIGHTS + 3) SHOP WINDOWS — walk the road/flags rasters.
+    const road = map.road;
+    const flags = map.flags;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        const rc = road ? road[i] ?? 0 : 0;
+        const isShop = flags ? ((flags[i] ?? 0) & TILE_FLAG.shops) !== 0 : false;
+        if (rc === RC.none && !isShop) continue;
+        if (!nearPower(x, y)) continue;
+        // SHOP frontages: a soft warm-white shopfront glow (a touch brighter
+        // than a lamp, the lit-parade feel) — but still gentle.
+        if (isShop) {
+          put(i, 255, 224, 168, 70);
+          continue;
+        }
+        // STREET lamps: only a deterministic, sparse subset of carriageway
+        // tiles light, so the melt reads as scattered warm lamps not a solid
+        // bright line. Motorway/arterial get an even sparser, dimmer dusting.
+        const lampZone = rc === RC.street || rc === RC.streetTouch;
+        const bigRoad = rc === RC.arterial || rc === RC.motorway;
+        if (!lampZone && !bigRoad) continue; // skip rail
+        const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+        const gate = lampZone ? h % 5 < 2 : h % 7 === 0; // ~40% of streets, ~14% of big roads
+        if (!gate) continue;
+        put(i, 255, 198, 132, lampZone ? 44 : 34);
+      }
     }
     if (!any) return;
     ctx.putImageData(img, 0, 0);
