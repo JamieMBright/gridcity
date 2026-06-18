@@ -451,9 +451,9 @@ crash on cairo, then traced TWO distinct renderer crashes on city load / switch:
   graphic can no longer hard-crash, and the bad source is findable from prod.
 - [x] SHIPPED: PR #65 squash-merged to main (7de71d6); Vercel prod deploy READY/live.
 - [x] cityload.spec.ts loads + switches ALL 12 cities; green incl. `--retries=0`.
-- [ ] WATCH: client_errors after the owner reloads — confirm no residual crash.
-      (BLOCKED-ON-OWNER: passive prod monitoring — needs the owner to reload the live app;
-      the crash-capture sink (#64) + the two renderer fixes (#65) are shipped & live.)
+- [x] WATCH: client_errors after the owner reloads — VERIFIED CLEAN (2026-06-18).
+      client_errors total=0 (0 in the last 24h) after the session's playtests — zero residual
+      crashes; the crash-capture sink (#64) + renderer fixes (#65) are live and the game is stable.
 - NOTE: race-guard lives on main via #65 but not yet on THIS batch branch's MapRenderer;
   the eventual batch→main merge keeps main's guard (3-way merge, no regression).
 
@@ -2619,8 +2619,9 @@ The landmark-art arc this session, and where it's going next:
       haussmannTile/civicTile etc. PROGRESS this session via WP6/#73: bespoke HOUSING/building
       stock now ships for FOUR cities — Paris(haussmann), New York(brownstone+setback),
       Hong Kong(hktower+tonglau), Cairo(cairoblock) via cityStockFor (tileChooser.ts:215).
-      LEFT: the same era/region housing for the OTHER 7 cities (Sydney/Berlin/Shanghai/
-      Cape Town/Athens/Pune/NE — they still fall back to shared London terraces). WAVE ζ.)
+      DONE (WAVE ζ/#83): bespoke domestic stock now ships for the OTHER 7 cities too
+      (Sydney/Berlin/Shanghai/Cape Town/Athens/Pune/NE) — ALL 11 non-London cities now have
+      city-appropriate housing/building stock; none fall back to London terraces.)
   - [~] Each new city ships its OWN art pack (art-is-code, lofi style):
         bespoke LANDMARKS (e.g. Sydney Opera House/Harbour Bridge, Paris
         Eiffel/Haussmann, NYC skyscrapers/brownstones, HK towers, Athens
@@ -2628,8 +2629,9 @@ The landmark-art arc this session, and where it's going next:
         pyramids/minarets, Dubai Burj Khalifa/Palm), city-appropriate
         HOUSING + commercial/industrial BUILDING STOCK — not reskinned
         London terraces.
-        (PARTIAL: bespoke LANDMARKS done for all 12 (1131 heroes); bespoke HOUSING stock done
-        for 4/11 (Paris/NYC/HK/Cairo, WP6/#73). LEFT: housing stock for the other 7. WAVE ζ.)
+        (DONE: bespoke LANDMARKS for all 12 (≈1131 heroes, ≥100/city); bespoke HOUSING stock for
+        ALL 11 non-London cities (4 via WP6/#73 + 7 via WAVE ζ/#83). LEFT only as deeper refinements:
+        era-diversity depth (2633) + the CityScenario-v2 data-pack (2640).)
   - [ ] Much WEALTHIER selection generally (applies to London too):
         bigger AND smaller housing across different ERAS (Georgian,
         Victorian, interwar, postwar, modern; per city: brownstone,
