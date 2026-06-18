@@ -2,9 +2,9 @@
 // game (skippable), ending on the Ofgem letter that names the year-1
 // allowance and the year-2 CML target — the player's first mandate.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAppStore } from '../app/store';
-import { ALLOWANCE_Y1_K, STORY_BEATS } from '../sim/scenario/story';
+import { ALLOWANCE_Y1_K, storyBeatsFor } from '../sim/scenario/story';
 import { initialTargets } from '../sim/regulation/riio';
 import { fmtMoneyK, theme } from './theme';
 
@@ -16,25 +16,46 @@ export function StoryIntro() {
   const scenarioId = useAppStore((s) => s.scenarioId);
   const [beat, setBeat] = useState(-1);
 
-  // London-only fiction: campaign missions must never letterbox. The
-  // pending flag is consumed (not deferred) so it can't leak into a
-  // later mission → london transition.
-  const isLondon = scenarioId === 'london';
+  // A fresh sandbox (ANY of the cities) flags the pending letterbox; campaign
+  // missions never set the flag, so they never letterbox. The pending flag is
+  // consumed (not deferred) so it can't leak into a later transition. Each city
+  // draws its own beats (its real operator + the bespoke nature of its grid).
   useEffect(() => {
     if (!menuOpen && sessionStorage.getItem(STORY_KEY) === '1') {
       sessionStorage.removeItem(STORY_KEY);
-      if (isLondon) setBeat(0);
+      setBeat(0);
     }
-  }, [menuOpen, isLondon]);
+  }, [menuOpen]);
 
-  if (menuOpen || beat < 0 || !isLondon) return null;
-  const current = STORY_BEATS[beat];
+  // Measure + scale-to-fit on a short phone-landscape so the opening letter
+  // never needs scrolling (owner, 2026-06-18). Re-runs each render (transform
+  // doesn't change scrollHeight, so it settles without looping).
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState(1);
+  const short =
+    typeof window !== 'undefined' && window.innerWidth > window.innerHeight && window.innerHeight < 480;
+  useLayoutEffect(() => {
+    const el = cardRef.current;
+    if (!short || !el) {
+      if (fit !== 1) setFit(1);
+      return;
+    }
+    const natural = el.scrollHeight;
+    const avail = window.innerHeight - 16;
+    const next = natural > avail ? Math.max(0.5, (avail * 0.985) / natural) : 1;
+    if (Math.abs(next - fit) > 0.005) setFit(next);
+  });
+
+  const beats = storyBeatsFor(scenarioId);
+  if (menuOpen || beat < 0) return null;
+  const current = beats[beat];
   if (!current) return null;
-  const last = beat === STORY_BEATS.length - 1;
+  const last = beat === beats.length - 1;
   const targets = initialTargets();
 
   return (
     <div
+      data-story-intro
       style={{
         position: 'absolute',
         inset: 0,
@@ -46,16 +67,27 @@ export function StoryIntro() {
         // letter pushed "rebuild it" off-screen and blocked mobile play)
         alignItems: 'flex-start',
         justifyContent: 'center',
-        overflowY: 'auto',
-        padding: '24px 0',
+        overflowY: short ? 'hidden' : 'auto',
+        padding: short ? '8px 0' : '24px 0',
         fontFamily: theme.font,
       }}
     >
-      <div style={{ width: 'min(520px, 92vw)', margin: 'auto', color: theme.offWhite }}>
+      <div
+        ref={cardRef}
+        style={{
+          width: short ? 'min(660px, 95vw)' : 'min(520px, 92vw)',
+          margin: 'auto',
+          color: theme.offWhite,
+          transform: fit < 1 ? `scale(${fit})` : undefined,
+          transformOrigin: 'center center',
+        }}
+      >
         <div style={{ color: theme.orange, fontSize: 12, letterSpacing: '0.18em' }}>
           {current.title.toUpperCase()}
         </div>
-        <div style={{ fontSize: 16, lineHeight: 1.7, marginTop: 12 }}>{current.body}</div>
+        <div style={{ fontSize: short ? 14 : 16, lineHeight: short ? 1.5 : 1.7, marginTop: short ? 8 : 12 }}>
+          {current.body}
+        </div>
         {last && (
           <div
             style={{
@@ -77,7 +109,7 @@ export function StoryIntro() {
             </div>
           </div>
         )}
-        <div style={{ display: 'flex', gap: 10, marginTop: 22, justifyContent: 'center' }}>
+        <div style={{ display: 'flex', gap: 10, marginTop: short ? 12 : 22, justifyContent: 'center' }}>
           <button
             onClick={() => setBeat(last ? -1 : beat + 1)}
             style={{
@@ -95,7 +127,7 @@ export function StoryIntro() {
           </button>
           {!last && (
             <button
-              onClick={() => setBeat(STORY_BEATS.length - 1)}
+              onClick={() => setBeat(beats.length - 1)}
               style={{
                 padding: '6px 14px',
                 borderRadius: 6,
