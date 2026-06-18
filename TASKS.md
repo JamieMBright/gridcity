@@ -4551,3 +4551,19 @@ turned out to need custom SMTP. Grouped by area.
 ### Legal / trust (accounts collect emails)
 - [ ] **Privacy policy + terms** (short) linked from the start menu — you store
       emails, usernames, saves and a public leaderboard.
+
+---
+
+### 🛠️ NE-MAP + UX FLURRY (owner, 2026-06-18 playtest)
+- [x] **Loading bar continuous + a message every second** (#96): driven off elapsed
+  time on an asymptotic ease toward 96% (always inching, no 90% park → no "stuck
+  then jump"), a travelling sheen on the fill, status line rotates every 1s.
+- [x] **NE central label NORTHEAST → NEWCASTLE**: MapRenderer.primaryCityLabel now
+  names the principal city by its biggest town (Newcastle), not the region fabric.
+- [x] **NE buildings out of the water**: the de-ponded Tyne was a ~5-tile "lake"
+  through the Newcastle/Gateshead quayside, floating 22 heroes. Narrowed the core
+  Tyne to ~1.5–1.7 half-width + a land-halo drain around every non-bridge named
+  place (bridges keep their water; thin bridge channel re-asserted). Heroes on
+  water 22→3 (all 3 bridges). Design-gated (preview/ne-far/mid/close-ingame.png).
+- [ ] **Inspect a named building/hero → stats + a bit of HISTORY** (owner: e.g.
+  "The Glasshouse"). Source: docs/heroes/<city>/*.md research. NEXT.

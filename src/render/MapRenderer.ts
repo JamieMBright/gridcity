@@ -766,7 +766,14 @@ export class MapRenderer {
     for (const t of map.towns ?? []) {
       if (t.kind === 'town' && (!biggest || t.r > biggest.r)) biggest = t;
     }
-    if (biggest) return { x: biggest.x, y: biggest.y, name };
+    if (biggest) {
+      // Name the principal city by its OWN name, not the region fabric (owner,
+      // 2026-06-18: the NE map's heart should read "NEWCASTLE", not the region
+      // "NORTHEAST"). Trim a long "X upon Y" suffix so the big label stays tight
+      // ("Newcastle upon Tyne" → "NEWCASTLE").
+      const cityName = biggest.name.replace(/\s+upon\s+.*$/i, '').toUpperCase();
+      return { x: biggest.x, y: biggest.y, name: cityName };
+    }
     // otherwise: centroid of the densest built tiles (urbanCore, falling back
     // to CBD) — the visual middle of a single-centre city.
     let sx = 0;
