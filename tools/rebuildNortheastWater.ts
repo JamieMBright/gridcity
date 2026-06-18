@@ -117,24 +117,29 @@ function carveRiver(pts: WPt[]): void {
 // bridge gorge → Wallsend/Jarrow → the mouth at Tynemouth(N)/South Shields(S) →
 // the North Sea. Wide + dominant trunk (half ≈ 2.2 tiles ⇒ ~4–5 tiles across)
 // through the conurbation, tapering inland to the western edge.
+// Half-widths kept MODERATE through the Newcastle/Gateshead conurbation: a wide
+// "lake" channel floated the quayside heroes (owner, 2026-06-18: "all the
+// buildings are in the water"). ~1.5–1.7 reads as a dominant trunk river (~3
+// tiles across) without drowning the banks; the §3b halo drain then keeps any
+// individual building on dry land, and the mouth still flares to the sea.
 const TYNE: WPt[] = [
   [-2, 67, 1.1],
-  [16, 66, 1.3],
-  [31, 65, 1.4], // Corbridge
-  [52, 67, 1.5],
-  [70, 71, 1.6],
-  [86, 73, 1.7], // Prudhoe
-  [110, 75, 1.9],
-  [130, 76, 2.1],
-  [143, 76, 2.2], // Blaydon (Derwent joins here)
-  [154, 73, 2.3],
-  [162, 71, 2.4],
-  [167, 70, 2.5], // the bridges (Tyne/High Level/Swing/Millennium) — widest
-  [176, 67, 2.4],
-  [188, 63, 2.3],
-  [200, 57, 2.2],
-  [210, 53, 2.1],
-  [217, 51, 2.0],
+  [16, 66, 1.2],
+  [31, 65, 1.3], // Corbridge
+  [52, 67, 1.4],
+  [70, 71, 1.5],
+  [86, 73, 1.5], // Prudhoe
+  [110, 75, 1.6],
+  [130, 76, 1.6],
+  [143, 76, 1.7], // Blaydon (Derwent joins here)
+  [154, 73, 1.6],
+  [162, 71, 1.6],
+  [167, 70, 1.7], // the bridges (Tyne/High Level/Swing/Millennium)
+  [176, 67, 1.6],
+  [188, 63, 1.6],
+  [200, 57, 1.7],
+  [210, 53, 1.8],
+  [217, 51, 1.9],
   [221, 49, 2.0], // the narrows at the piers
   [226, 47, 2.4], // opening to the sea
   [232, 45, 3.2],
@@ -182,6 +187,46 @@ carveRiver(TYNE);
 carveRiver(WEAR);
 carveRiver(DERWENT);
 carveRiver(TEAM);
+
+// --- 3b) keep the principal buildings OUT of the water -----------------------
+// A dominant Tyne/Wear through the dense quaysides still floated ~22 hero
+// buildings on the channel (owner, 2026-06-18: "all the buildings are in the
+// water"). Drain a small LAND halo around every NAMED place that is NOT a bridge
+// (bridges legitimately span the river) so the principal buildings sit on the
+// bank. Water→land only, so the rivers stay contiguous wherever a building
+// isn't; the bridge channel is re-asserted afterwards so the crossings keep
+// their water.
+const isBridge = (name: string): boolean => /\bbridge\b/i.test(name);
+function drainHalo(cx: number, cy: number, r: number): void {
+  const r2 = r * r;
+  const x0 = Math.max(0, Math.floor(cx - r));
+  const x1 = Math.min(W - 1, Math.ceil(cx + r));
+  const y0 = Math.max(0, Math.floor(cy - r));
+  const y1 = Math.min(H - 1, Math.ceil(cy + r));
+  for (let iy = y0; iy <= y1; iy++) {
+    for (let ix = x0; ix <= x1; ix++) {
+      const dx = ix - cx;
+      const dy = iy - cy;
+      if (dx * dx + dy * dy <= r2 && out[idx(ix, iy)] === TERRAIN.water) {
+        out[idx(ix, iy)] = TERRAIN.land;
+      }
+    }
+  }
+}
+for (const p of NORTHEAST_CITY.named) {
+  if (isBridge(p.name)) continue;
+  // hero footprints are SW-anchored (extend E +x, N −y); a radius-2 halo around
+  // the anchor clears the small footprints + a one-tile dry bank.
+  drainHalo(p.x, p.y, 2);
+}
+// re-assert a SLENDER channel under the four central bridges so the crossings
+// still span open water after the quayside halos (their neighbours' halos can
+// nibble the bridge tiles). Thin (half ≈ 1) — just the gorge, not a lake.
+carveRiver([
+  [167, 70, 1.0],
+  [169, 71, 1.0],
+  [171, 73, 1.0],
+]);
 
 // --- 4) report + write -------------------------------------------------------
 function stats(t: Uint8Array): { water: number; trees: number; comps: number; ponds: number; top: number } {
