@@ -135,10 +135,10 @@ test.describe('phone landscape', () => {
     if ((await billOpen.count()) > 0) await billOpen.dispatchEvent('click');
     await page.waitForTimeout(300);
     await page.screenshot({ path: 'preview/hud/phone-bill.png' });
-    // close the sheet
-    await page.keyboard.press('Escape').catch(() => undefined);
-    await page.mouse.click(420, 200).catch(() => undefined);
-    await page.waitForTimeout(200);
+    // close the sheet by tapping its scrim (NOT Escape — that would open the
+    // pause menu over the clean-map grab we want next)
+    if ((await billChip.count()) > 0) await billChip.dispatchEvent('click');
+    await page.waitForTimeout(250);
 
     // HUD hidden via Spacebar (works on mobile chrome too)
     await page.keyboard.press(' ');
