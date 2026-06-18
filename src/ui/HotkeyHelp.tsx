@@ -61,12 +61,12 @@ const OVERLAY_GROUP: Group = {
   title: 'Overlays & panels',
   rows: [
     { keys: ['G'], label: 'Grid view (dim city, light the network)' },
-    { keys: ['B'], label: 'Grid balance (demand vs supply)' },
+    { keys: ['L'], label: 'Grid balance (demand vs supply)' },
     { keys: ['H'], label: 'Headroom heatmap' },
     { keys: ['N'], label: 'N-1 security rings' },
     { keys: ['F'], label: '5-year demand forecast' },
     { keys: ['K'], label: 'RIIO KPIs / report card' },
-    { keys: ['C'], label: 'The network business (directorates)' },
+    { keys: ['O'], label: 'The network business (cOmpany / directorates)' },
   ],
 };
 
@@ -77,11 +77,30 @@ const EDIT_GROUP: Group = {
     { keys: ['scroll', 'pinch'], label: 'Zoom' },
     { keys: ['U'], label: 'Toggle overhead / underground (line tool)' },
     { keys: ['A'], label: 'Toggle auto-connect on placement' },
-    { keys: ['Space'], label: 'Pause / resume the clock' },
+    { keys: ['Space'], label: 'Hide / show the whole HUD' },
+    { keys: ['P'], label: 'Pause / resume the clock' },
     { keys: ['Ctrl', 'Z'], label: 'Undo' },
     { keys: ['Ctrl', 'Y'], label: 'Redo' },
-    { keys: ['Esc'], label: 'Cancel route · clear pin · back to inspect' },
     { keys: ['?'], label: 'This cheat sheet' },
+  ],
+};
+
+// Panel-scoped keys: only live while an inspector card is pinned (clicking an
+// asset). Mirrors the App.tsx keyboard hook's pinned-panel branch.
+const PINNED_GROUP: Group = {
+  title: 'Pinned inspector (after clicking an asset)',
+  rows: [
+    { keys: ['−'], label: 'Smaller — step capacity down (sub MVA / farm MW)' },
+    { keys: ['+'], label: 'Larger — step capacity up (sub MVA / farm MW)' },
+    { keys: ['Esc'], label: 'Unpin the card · hand the keyboard back to the map' },
+  ],
+};
+
+// Esc is the universal close — its own row so the priority reads clearly.
+const ESC_GROUP: Group = {
+  title: 'Escape (closes the topmost open thing)',
+  rows: [
+    { keys: ['Esc'], label: 'Close a panel/modal → clear a pin → cancel a route → disarm a tool → clear overlays' },
   ],
 };
 
@@ -169,7 +188,7 @@ export function HotkeyHelp() {
   }, [open, setOpen]);
 
   if (!open) return null;
-  const groups = [...buildGroups(), OVERLAY_GROUP, EDIT_GROUP];
+  const groups = [...buildGroups(), OVERLAY_GROUP, EDIT_GROUP, PINNED_GROUP, ESC_GROUP];
 
   return (
     <div

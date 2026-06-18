@@ -231,7 +231,7 @@ test.describe('sweep · in-game HUD clusters', () => {
       if (i % 6 === 0) await assertNoCrash(page, watch, `directorate dial seg ${i}`);
     }
     await assertNoCrash(page, watch, 'directorates dials swept');
-    await page.keyboard.press('c');
+    await page.keyboard.press('o'); // the network business toggle (moved off C)
     await assertNoCrash(page, watch, 'regulator cluster swept');
   });
 
@@ -241,7 +241,7 @@ test.describe('sweep · in-game HUD clusters', () => {
 
     // overlays: each flips a store flag on (assert it really did), then key off
     for (const [label, flag, key] of [
-      ['grid balance', 'balanceOpen', 'b'],
+      ['grid balance', 'balanceOpen', 'l'],
       ['headroom heatmap', 'headroom', 'h'],
       ['N-1 security', 'n1', 'n'],
       ['demand forecast', 'forecastOn', 'f'],

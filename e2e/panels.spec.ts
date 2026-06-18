@@ -140,18 +140,19 @@ test.describe('in-game HUD panels', () => {
     await page.getByRole('button', { name: 'close net-zero dashboard' }).first().dispatchEvent('click');
     await expect.poll(() => page.evaluate(() => window.__ec?.getState().netZeroOpen)).toBe(false);
 
-    // directorates / the network business (button title + the C key)
+    // directorates / the network business (button title + the O key — moved
+    // off C, which now arms the 33 kV cable build tool)
     await page.getByRole('button', { name: /the network business/i }).first().dispatchEvent('click');
     await expect(page.getByText('THE NETWORK BUSINESS')).toBeVisible();
     await assertNoCrash(page, watch, 'directorates open');
-    await page.keyboard.press('c');
+    await page.keyboard.press('o');
     await expect.poll(() => page.evaluate(() => window.__ec?.getState().directoratesOpen)).toBe(false);
   });
 
   test('directorates: nudge the directorate + pay + safety dials', async ({ page }) => {
     const watch = await bootWatched(page);
     await pauseSim(page);
-    await page.keyboard.press('c');
+    await page.keyboard.press('o'); // open directorates (the network business — moved off C)
     await expect(page.getByText('THE NETWORK BUSINESS')).toBeVisible();
     // every dial is a row of segmented level buttons; each segment shows its
     // number as text but carries title="level {i}" (the peak marker has a

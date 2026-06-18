@@ -60,6 +60,11 @@ export function describeCommand(cmd: Command, before: GameState): string {
       if (cmd.auto) return `set ${name} to auto-reinforce`;
       return `resized ${name} to ${cmd.mva ?? '?'} MVA`;
     }
+    case 'resizeFarm': {
+      const a = before.assets.get(cmd.assetId);
+      const name = a && a.kind === 'gen' ? GENS[a.gen]?.name ?? 'farm' : 'farm';
+      return `${cmd.dir > 0 ? 'expanded' : 'shrank'} ${name}`;
+    }
     case 'setBatteryPolicy':
       return `set battery policy to ${cmd.policy}`;
     case 'replaceAsset':

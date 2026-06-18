@@ -195,6 +195,15 @@ interface AppState {
   setDirectoratesOpen: (open: boolean) => void;
   setUndoListOpen: (open: boolean) => void;
   setSavesOpen: (open: boolean) => void;
+  /** Universal "close the topmost open thing" (ESC). Walks a fixed priority
+   *  order — any open modal/panel/overlay first, then a pinned inspector
+   *  selection, then an armed build tool's in-progress route, then the armed
+   *  tool itself, then the map overlays — and closes exactly the highest one.
+   *  Returns true if it closed something, false if nothing was open (so the
+   *  caller can decide what a "bare" ESC does). Deterministic + unit-tested
+   *  (tests/escClose.test.ts). The start menu (menuOpen) is deliberately NOT
+   *  in scope — it's the shell, not an in-game overlay. */
+  closeTopmost: () => boolean;
   /** A time-skip is running on the worker (disables the HUD skip buttons
    *  until its final snapshot lands). */
   skipping: boolean;
@@ -407,7 +416,7 @@ export const linePeaks = new Map<number, number>();
  *  subs simply re-register). */
 let seenSubIds = new Set<number>();
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   workerStatus: 'connecting',
   workerError: undefined,
   snapshot: undefined,
@@ -583,6 +592,56 @@ export const useAppStore = create<AppState>((set) => ({
   setDirectoratesOpen: (directoratesOpen) => set({ directoratesOpen }),
   setUndoListOpen: (undoListOpen) => set({ undoListOpen }),
   setSavesOpen: (savesOpen) => set({ savesOpen }),
+  closeTopmost: () => {
+    const s = get();
+    // PRIORITY ORDER (highest first). The first matching rung closes and we
+    // stop — one ESC press = close one thing. Modals/panels precede map
+    // state because they sit visually on top. Order is mirrored in the
+    // HotkeyHelp cheat-sheet copy + asserted in tests/escClose.test.ts.
+    const close = (patch: Partial<AppState>): boolean => {
+      set(patch);
+      return true;
+    };
+    // 1) full-screen / pop-over MODALS & PANELS
+    if (s.gameMenuOpen) return close({ gameMenuOpen: false });
+    if (s.helpOpen) return close({ helpOpen: false });
+    if (s.guideOpen) return close({ guideOpen: false, guideFocus: undefined });
+    if (s.lessonsOpen) return close({ lessonsOpen: false });
+    if (s.kpiOpen) return close({ kpiOpen: false });
+    if (s.netZeroOpen) return close({ netZeroOpen: false });
+    if (s.directoratesOpen) return close({ directoratesOpen: false });
+    if (s.eventLogOpen) return close({ eventLogOpen: false });
+    if (s.savesOpen) return close({ savesOpen: false });
+    if (s.balanceOpen) return close({ balanceOpen: false, highlightCouncil: undefined });
+    if (s.undoListOpen) return close({ undoListOpen: false });
+    if (s.tourActive) return close({ tourActive: false });
+    // 2) a build-template paste armed (a click would stamp it) — disarm it
+    if (s.pasteTemplate !== undefined) return close({ pasteTemplate: undefined });
+    // 3) the compare-pick arming (#31): cancel the pick, keep the primary pin
+    if (s.comparePicking) return close({ comparePicking: false });
+    // 4) a second pinned (compare) inspector card — drop it before the primary
+    if (s.compareAsset !== undefined || s.compareLine !== undefined) {
+      return close({ compareAsset: undefined, compareLine: undefined, compareLineAt: undefined });
+    }
+    // 5) the PINNED inspector selection (sticky card)
+    if (s.selectedAsset !== undefined || s.selectedLine !== undefined) {
+      return close({ selectedAsset: undefined, selectedLine: undefined, selectedLineAt: undefined });
+    }
+    // 6) an armed LINE tool mid-route: unwind one waypoint, then the anchor
+    if (s.tool.t === 'line' && (s.tool.waypoints?.length ?? 0) > 0) {
+      return close({ tool: { ...s.tool, waypoints: s.tool.waypoints?.slice(0, -1) } });
+    }
+    if (s.tool.t === 'line' && s.tool.fromAssetId !== undefined) {
+      return close({ tool: { ...s.tool, fromAssetId: undefined } });
+    }
+    // 7) any armed build tool: return to the inspect tool
+    if (s.tool.t !== 'inspect') return close({ tool: { t: 'inspect' } });
+    // 8) map OVERLAYS toggled on — clear them last
+    if (s.headroom || s.n1 || s.forecastOn || s.gridView) {
+      return close({ headroom: false, n1: false, forecastOn: false, gridView: false });
+    }
+    return false;
+  },
   skipping: false,
   setSkipping: (skipping) => set({ skipping }),
   hudCollapsed: loadCollapsed(),

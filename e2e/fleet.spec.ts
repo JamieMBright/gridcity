@@ -13,6 +13,9 @@ test.describe('field fleet panel', () => {
     await expect
       .poll(() => store<number>(page, '(s) => s.snapshot.fleet.fleetSize'))
       .toBe(start);
+    // the 'field fleet' bill row lives in the collapsible breakdown (collapsed
+    // by default since the #92 HUD redesign) — open it before asserting the row
+    await page.getByRole('button', { name: 'show bill breakdown' }).first().dispatchEvent('click');
     await expect(page.getByText('field fleet', { exact: true })).toBeVisible(); // bill row
   });
 

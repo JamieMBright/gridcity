@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyCommand } from '../src/sim/commands';
 import { TERRAIN, ZONE } from '../src/sim/map/types';
 import { newGame } from '../src/sim/state';
-import { makeTestMap, mustApply, setZone } from './helpers';
+import { directBuildGen, makeTestMap, mustApply, setZone } from './helpers';
 
 describe('build validation', () => {
   it('rejects generators on water', () => {
@@ -110,5 +110,40 @@ describe('build validation', () => {
     const ugLine = lines[1];
     if (ohLine?.kind !== 'line' || ugLine?.kind !== 'line') throw new Error('expected lines');
     expect(ugLine.capexK).toBeGreaterThan(ohLine.capexK * 3);
+  });
+});
+
+describe('resizeFarm (panel-scoped capacity ±)', () => {
+  it('steps a wind farm up/down by a tile of MW and rejects fixed plant', () => {
+    // a gen normally arrives via the tender market; directBuildGen places the
+    // asset the way an awarded bid would, so we can exercise the resize.
+    const map = makeTestMap(14, 14);
+    const state = newGame();
+    const id = directBuildGen(state, map, 'windOnshore', 4, 4);
+    const farm = state.assets.get(id);
+    if (!farm || farm.kind !== 'gen') throw new Error('expected a placed farm');
+    farm.mw = 10; // start small so the clean (all-land) test map has room to grow
+    // resizeFarm mutates the asset in place, so snapshot the NUMBER each step
+    const mwOf = (): number => {
+      const a = state.assets.get(id);
+      return a && a.kind === 'gen' ? a.mw ?? 0 : 0;
+    };
+    const beforeMw = mwOf();
+
+    // grow by one tile's worth (free land all around in a clean test map)
+    expect(applyCommand(state, map, { type: 'resizeFarm', assetId: id, dir: 1 }).ok).toBe(true);
+    const grownMw = mwOf();
+    expect(grownMw).toBeGreaterThan(beforeMw);
+
+    // shrink back down
+    expect(applyCommand(state, map, { type: 'resizeFarm', assetId: id, dir: -1 }).ok).toBe(true);
+    expect(mwOf()).toBeLessThan(grownMw);
+
+    // a fixed-footprint plant (gas) cannot be resized
+    const gid = directBuildGen(state, map, 'gasCCGT', 10, 10);
+    expect(applyCommand(state, map, { type: 'resizeFarm', assetId: gid, dir: 1 }).ok).toBe(false);
+
+    // a non-existent asset is rejected, not thrown
+    expect(applyCommand(state, map, { type: 'resizeFarm', assetId: 99999, dir: 1 }).ok).toBe(false);
   });
 });
