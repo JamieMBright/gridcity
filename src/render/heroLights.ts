@@ -503,15 +503,18 @@ function sphinxFlood(g: Graphics, h: HeroLight, k: number): void {
 // RE-TUNE (owner, 2026-06-18: "it should just be like the windows … not floods;
 // all you have there is a solar glare"). This is the workhorse kind (most heroes
 // resolve to it), so it must read as a BUILDING WITH ITS LIGHTS ON, never
-// floodlit. Gone: the base-corner floodlight bulbs, the facade up-graze, and the
-// big breathing lantern. Left: a scatter of small warm lit windows across the
-// facade, a faint warm dome/rose lantern (gentle, not the brightest thing on the
-// map), and an OPTIONAL whisper of a roofline string at deep night only.
+// floodlit. Gone: the base-corner floodlight bulbs, the facade up-graze, the
+// roofline festoon, and the big breathing lantern. Left: a scatter of small warm
+// lit windows across the facade, plus a faint warm dome/rose lantern (gentle, not
+// the brightest thing on the map).
 function facadeFlood(g: Graphics, h: HeroLight, t: number, k: number): void {
   const span = h.cy - h.topY;
   // a field of small warm lit windows over the facade (most of the silhouette),
   // each on a slow occupancy flicker so the building feels occupied not static.
-  const N = 14;
+  // Count scales with the silhouette size so a big cathedral/dome reads clearly
+  // LIT up close (more small windows), not under-populated — per-window alpha is
+  // unchanged, so bigger doesn't mean brighter, just more windows.
+  const N = Math.round(Math.max(14, Math.min(40, (h.w + span * 0.5) / RES / 6)));
   for (let i = 0; i < N; i++) {
     const fx = frac(i * 3.7 + h.phase);
     const fy = frac(i * 6.1 + h.phase * 1.7);
@@ -610,8 +613,10 @@ function stadiumFlood(g: Graphics, h: HeroLight, t: number, k: number): void {
 // roofline string survives only as a whisper.
 function genericGlow(g: Graphics, h: HeroLight, t: number, k: number): void {
   const span = Math.max(h.cy - h.topY, h.w);
-  // a scatter of small warm lit windows over the silhouette
-  for (let i = 0; i < 10; i++) {
+  // a scatter of small warm lit windows over the silhouette (count scales with
+  // size so a big block reads lit up close, per-window alpha unchanged).
+  const N = Math.round(Math.max(10, Math.min(34, (h.w + span * 0.5) / RES / 6)));
+  for (let i = 0; i < N; i++) {
     const fx = frac(i * 4.1 + h.phase);
     const fy = frac(i * 7.3 + h.phase * 1.3);
     const y = h.cy - span * (0.14 + fy * 0.5);
