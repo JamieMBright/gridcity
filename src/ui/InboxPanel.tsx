@@ -17,6 +17,7 @@ import {
 } from '../sim/events/developers';
 import { CONSTRAINT_COMP_K } from '../sim/market/dispatch';
 import { FirmFlexCompare } from './FirmFlexCompare';
+import { IconInbox } from './icons';
 import { fmtMoneyK, panelStyle, theme } from './theme';
 
 const btn = (color: string): React.CSSProperties => ({
@@ -39,6 +40,12 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   // a clicked map pin snaps the inbox to its message: open, scroll, flash
   const [flashKey, setFlashKey] = useState<string | undefined>(undefined);
   const itemRefs = useRef(new Map<string, HTMLDivElement>());
+  // attention animation when the inbox gains something new (owner, 2026-06-18:
+  // "the inbox should have an animation when needed … a slide-in animation
+  // when the inbox has something new"). We watch the actionable count and,
+  // when it rises, auto-open the panel and pulse its frame once.
+  const [attn, setAttn] = useState(false);
+  const prevCount = useRef<number | undefined>(undefined);
   useEffect(() => {
     if (!inboxFocus) return;
     setOpen(true);
@@ -55,6 +62,29 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
     const timer = setTimeout(() => setFlashKey(undefined), 2200);
     return () => clearTimeout(timer);
   }, [inboxFocus]);
+
+  // actionable count, recomputed each render — drives both the unread dot and
+  // the new-item attention pulse. (Kept null-safe so it can run before the
+  // early return below.)
+  const actionable = snapshot
+    ? snapshot.inbox.applications.filter((a) => a.status === 'open').length +
+      snapshot.inbox.applications.filter((a) => a.status === 'appeal').length +
+      snapshot.inbox.tenders.filter((t) => t.status === 'open').length +
+      (snapshot.claims?.length ?? 0) +
+      snapshot.inbox.pitches.filter((p) => p.status === 'open').length
+    : 0;
+  useEffect(() => {
+    const prev = prevCount.current;
+    prevCount.current = actionable;
+    if (prev === undefined) return; // first observation — don't fire on mount
+    if (actionable > prev) {
+      setOpen(true);
+      setAttn(true);
+      const t = setTimeout(() => setAttn(false), 1300);
+      return () => clearTimeout(t);
+    }
+  }, [actionable]);
+
   if (!snapshot) return null;
 
   const flashStyle = (key: string): React.CSSProperties =>
@@ -188,6 +218,7 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   return (
     <div
       data-tour="inbox"
+      className="ec-anim"
       style={{
         ...panelStyle,
         position: 'absolute',
@@ -204,6 +235,8 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
         // card with the firm/flex comparison overlaps the alerts band, so
         // it must win the stack (matches the pinned-inspector doctrine)
         zIndex: 5,
+        // a single orange pulse when something new arrives (owner)
+        animation: attn ? 'ec-attn 1.3s ease' : undefined,
         ...frame,
       }}
     >
@@ -215,16 +248,37 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
           letterSpacing: '0.12em',
           cursor: 'pointer',
           display: 'flex',
+          alignItems: 'center',
           justifyContent: 'space-between',
         }}
       >
-        <span>
-          INBOX{count > 0 && <span style={{ color: theme.orange }}> ({count})</span>}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          {/* mail/inbox glyph + an unread dot when actionable items wait */}
+          <span style={{ position: 'relative', display: 'inline-flex' }}>
+            <IconInbox size={14} color={count > 0 ? theme.orange : theme.slate} />
+            {count > 0 && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: -2,
+                  right: -3,
+                  width: 6,
+                  height: 6,
+                  borderRadius: 3,
+                  background: theme.orange,
+                  boxShadow: '0 0 5px rgba(255,138,30,0.9)',
+                }}
+              />
+            )}
+          </span>
+          <span>
+            INBOX{count > 0 && <span style={{ color: theme.orange }}> ({count})</span>}
+          </span>
         </span>
-        <span>{open ? '▾' : '▸'}</span>
+        <span style={{ color: theme.orangeSoft }}>{open ? '▾' : '▸'}</span>
       </div>
       {open && (
-        <>
+        <div className="ec-anim" style={{ animation: 'ec-slide-in 0.24s ease both' }}>
           {apps.length + tenders.length + pitches.length + overdue.length + claims.length === 0 && (
             <div style={{ color: theme.slate, fontSize: 11 }}>nothing waiting</div>
           )}
@@ -452,7 +506,7 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
           <div style={{ color: theme.slate, fontSize: 11, marginTop: 8 }}>
             innovation fund {fmtMoneyK(snapshot.inbox.innovationFundK)}
           </div>
-        </>
+        </div>
       )}
     </div>
   );
