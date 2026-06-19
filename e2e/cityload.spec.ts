@@ -84,7 +84,7 @@ test.describe('city load — every map loads without crashing', () => {
 // start). A few representative cities keep runtime sane while covering Euro +
 // non-Euro art.
 test.describe('city load — cold-boot (hard refresh) into a saved city', () => {
-  for (const city of ['paris', 'cairo', 'northeast']) {
+  for (const city of ['paris', 'newyork', 'cairo', 'northeast']) {
     test(`cold-boots into ${city}`, async ({ page }) => {
       const watch = watchForCrashes(page);
       await page.goto('/');

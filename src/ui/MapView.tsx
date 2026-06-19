@@ -6,6 +6,7 @@ import { setActiveRenderer } from '../render/rendererRegistry';
 import { installTestHook } from '../app/testHook';
 import { useAppStore, type Tool } from '../app/store';
 import { requestForecast, sendCommand, setWatch } from '../app/workerBridge';
+import { beginCityLoad, endCityLoad } from '../app/bootBreadcrumb';
 import { assetAtTile, checkBuild, pylonTilesOf, siteErrorAt, type BuildSpec } from '../sim/commands';
 import { farmClaimTiles, farmFitMW, isFarmGen } from '../sim/farms';
 import { reservedTiles } from '../sim/events/developers';
@@ -257,6 +258,10 @@ export function MapView() {
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
+    // breadcrumb: a hard OOM/GPU kill during this (memory-heavy) load leaves no
+    // JS error to capture; this crumb survives the kill and is reported on the
+    // next boot (cleared again the moment the build succeeds, just below).
+    beginCityLoad(scenarioId);
     // a data-backed city (Paris…) must have its lazily-imported artifact in
     // hand before setActiveScenario builds the map synchronously; London +
     // missions are code-drawn so this resolves instantly. `cancelled` guards
@@ -287,6 +292,9 @@ export function MapView() {
       };
       const active = renderer;
       void active.init(host, getLondonMap()).then(() => {
+        // init resolved ⇒ we survived the atlas/texture build (the memory peak),
+        // so clear the load breadcrumb.
+        endCityLoad();
         // StrictMode double-mounts: only the surviving renderer gets the hook
         if (rendererRef.current !== active) return;
         installTestHook(active);
