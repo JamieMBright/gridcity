@@ -15,7 +15,7 @@ async function waitReady(page: import('@playwright/test').Page): Promise<void> {
 test.describe('start menu, tutorial, KPI dashboard', () => {
   test('new game enters play; menu closes', async ({ page }) => {
     await waitReady(page);
-    await expect(page.getByText('power a stylized London')).toBeVisible();
+    await expect(page.getByText('power the city')).toBeVisible();
     await clickButton(page, 'new game');
     // New Game now opens the city picker — choose London (the default sandbox)
     const london = page.getByTitle('power London', { exact: true });

@@ -204,7 +204,7 @@ export function StartMenu() {
       />
       {!short && (
         <div style={{ color: theme.slate, marginTop: 8, fontSize: 12.5 }}>
-          power a stylized London — keep the lights on, the bills down, the carbon low
+          power the city — keep the lights on, the bills down, the carbon low
         </div>
       )}
       {!ready && <div style={{ color: theme.gold, marginTop: 18 }}>starting the grid…</div>}
