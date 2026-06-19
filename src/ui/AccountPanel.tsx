@@ -148,6 +148,15 @@ export function AccountPanel({ showBoard = true }: { showBoard?: boolean } = {})
     void fetchLeaderboard(8).then(setBoard);
   }, []);
 
+  // Race an auth call against a timeout so a hung/unreachable backend surfaces
+  // feedback instead of leaving the form stuck on "busy" forever (owner,
+  // 2026-06-18: "no negative feedback on an unrecognised sign-in attempt").
+  const withTimeout = <T,>(p: Promise<T>, ms = 12000): Promise<T> =>
+    Promise.race([
+      p,
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+    ]);
+
   // Shared: finish a successful auth — claim username if given, hydrate
   // the signed-in state, sync settings.
   const completeSignIn = async (claimName: boolean): Promise<void> => {
@@ -162,6 +171,10 @@ export function AccountPanel({ showBoard = true }: { showBoard?: boolean } = {})
       pushSettings(getAudioSettings());
       // reconcile this device's operator rank with the cloud on sign-in
       void syncRank();
+    } else {
+      // auth returned no error but no session materialised — never leave the
+      // player staring at a form that did nothing
+      setError((e) => e ?? 'that didn’t sign you in — check your details and try again');
     }
   };
 
@@ -169,32 +182,42 @@ export function AccountPanel({ showBoard = true }: { showBoard?: boolean } = {})
     setPhase('busy');
     setError(undefined);
     setNotice(undefined);
-    const err = await signInWithPassword(email, password);
-    if (err) {
-      setError(err);
+    try {
+      const err = await withTimeout(signInWithPassword(email, password));
+      if (err) {
+        setError(err);
+        setPhase('idle');
+        return;
+      }
+      await completeSignIn(false);
+    } catch {
+      setError('couldn’t reach the server — check your connection and try again');
       setPhase('idle');
-      return;
     }
-    await completeSignIn(false);
   };
 
   const doSignUp = async (): Promise<void> => {
     setPhase('busy');
     setError(undefined);
     setNotice(undefined);
-    const err = await signUpWithPassword(email, password, username.trim());
-    if (err === CONFIRM_EMAIL) {
-      setNotice(`account created — check ${email} to confirm, then sign in`);
-      setMode('signin');
+    try {
+      const err = await withTimeout(signUpWithPassword(email, password, username.trim()));
+      if (err === CONFIRM_EMAIL) {
+        setNotice(`account created — check ${email} to confirm, then sign in`);
+        setMode('signin');
+        setPhase('idle');
+        return;
+      }
+      if (err) {
+        setError(err);
+        setPhase('idle');
+        return;
+      }
+      await completeSignIn(true);
+    } catch {
+      setError('couldn’t reach the server — check your connection and try again');
       setPhase('idle');
-      return;
     }
-    if (err) {
-      setError(err);
-      setPhase('idle');
-      return;
-    }
-    await completeSignIn(true);
   };
 
   const doReset = async (): Promise<void> => {
@@ -204,34 +227,48 @@ export function AccountPanel({ showBoard = true }: { showBoard?: boolean } = {})
       setError('enter your email first, then tap forgot password');
       return;
     }
-    const err = await resetPassword(email);
-    if (err) setError(err);
-    else setNotice(`reset link sent — check ${email}`);
+    try {
+      const err = await withTimeout(resetPassword(email));
+      if (err) setError(err);
+      else setNotice(`reset link sent — check ${email}`);
+    } catch {
+      setError('couldn’t reach the server — check your connection and try again');
+    }
   };
 
   const sendCode = async (): Promise<void> => {
     setPhase('busy');
     setError(undefined);
     setNotice(undefined);
-    const err = await requestCode(email);
-    if (err) {
-      setError(err);
+    try {
+      const err = await withTimeout(requestCode(email));
+      if (err) {
+        setError(err);
+        setPhase('idle');
+      } else {
+        setPhase('codeSent');
+      }
+    } catch {
+      setError('couldn’t reach the server — check your connection and try again');
       setPhase('idle');
-    } else {
-      setPhase('codeSent');
     }
   };
 
   const confirm = async (): Promise<void> => {
     setPhase('busy');
     setError(undefined);
-    const err = await verifyCode(email, code);
-    if (err) {
-      setError(err);
+    try {
+      const err = await withTimeout(verifyCode(email, code));
+      if (err) {
+        setError(err);
+        setPhase('codeSent');
+        return;
+      }
+      await completeSignIn(true);
+    } catch {
+      setError('couldn’t reach the server — check your connection and try again');
       setPhase('codeSent');
-      return;
     }
-    await completeSignIn(true);
   };
 
   const switchMode = (m: 'signin' | 'signup' | 'otp'): void => {

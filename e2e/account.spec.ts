@@ -61,12 +61,17 @@ test.describe('account panel (start menu)', () => {
     await page.getByLabel('password').fill('definitely-wrong-pw');
     // Enter in the password field triggers the same handler as the button. With
     // no matching account (or no backend reachable in CI/sandbox) the auth call
-    // returns an error string, which proves the submission FIRED — not just that
-    // the field swallowed a keystroke. Match the specific auth errors only (not
-    // the page's "NETWORK ACCESS" chrome).
+    // surfaces an error string, which proves the submission FIRED — not just that
+    // the field swallowed a keystroke. Accept either a server-returned error (a
+    // fast fetch failure / bad credentials) OR the client-side timeout fallback
+    // (if the unreachable backend hangs past 12s), so the gate is robust to the
+    // network timing. Match the specific auth errors only (not the "NETWORK
+    // ACCESS" chrome).
     await page.getByLabel('password').press('Enter');
     await expect(
-      page.getByText(/Failed to fetch|password is incorrect|please confirm|not configured/i),
+      page.getByText(
+        /Failed to fetch|password is incorrect|please confirm|not configured|reach the server|sign you in/i,
+      ),
     ).toBeVisible({ timeout: 20_000 });
   });
 
