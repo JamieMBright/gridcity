@@ -4,6 +4,7 @@ import { App } from './app/App';
 import { ErrorBoundary } from './ui/ErrorBoundary';
 import { installErrorHandlers, setCityResolver } from './app/errorLog';
 import { installErrorSink } from './online/errorSink';
+import { installCleanExitGuard, reportPriorLoadDeath } from './app/bootBreadcrumb';
 import { useAppStore } from './app/store';
 
 // Crash capture, installed FIRST so a fault anywhere downstream (even during
@@ -20,6 +21,12 @@ setCityResolver(() => {
 });
 installErrorSink();
 installErrorHandlers();
+// Catch the crashes JS can't see: a breadcrumb that survives a hard tab kill
+// (OOM/GPU) during a city load and is reported on the NEXT boot. Installed
+// after the sink so the report can actually send; the clean-exit guard makes a
+// graceful close clear the crumb, so only true crashes survive to be reported.
+installCleanExitGuard();
+reportPriorLoadDeath();
 
 const root = document.getElementById('root');
 if (!root) throw new Error('missing #root element');

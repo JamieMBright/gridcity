@@ -22,6 +22,7 @@ import {
   Sprite,
   Text,
   Texture,
+  TextureSource,
 } from 'pixi.js';
 import { riverCenterY, riverHalfWidth } from '../data/londonMap';
 import { assetLevels, type PlacedAsset } from '../sim/assets';
@@ -3267,6 +3268,10 @@ export class MapRenderer {
     // byte-identical. getAtlas folds the active fabric into its cache key.
     applyCityFabric(this.map?.fabric ?? 'london');
     const atlas = await getAtlas();
+    // a city switch can destroy() this renderer while getAtlas() awaits; baking
+    // textures into a torn-down renderer would leak them (and draw to a dead
+    // context), so bail if we were destroyed mid-bake.
+    if (this.destroyed) return;
     const canvas = document.createElement('canvas');
     canvas.width = atlas.width;
     canvas.height = atlas.height;
@@ -3428,6 +3433,26 @@ export class MapRenderer {
     }
     this.bandCache.clear();
     if (this.app.renderer) this.app.destroy(true);
+    // Free the atlas textures. app.destroy(true) tears down the renderer + its
+    // canvas, but it does NOT destroy the Texture.from() sources we hold in
+    // this.textures: the shared sheet (~62MB) plus up to ~100 BESPOKE per-hero
+    // textures. Left alone they leak on every city switch, and that retained
+    // GPU/CPU memory is exactly what can OOM a mobile tab mid-load. Destroy each
+    // UNIQUE source once — all frame sub-textures share the one sheet source;
+    // each hero owns its own.
+    const sources = new Set<TextureSource>();
+    for (const t of this.textures.values()) {
+      const src = t.source as TextureSource | undefined;
+      if (src) sources.add(src);
+    }
+    for (const s of sources) {
+      try {
+        if (!s.destroyed) s.destroy();
+      } catch {
+        // a double-free / already-torn-down source must never break teardown
+      }
+    }
+    this.textures.clear();
   }
 }
 
