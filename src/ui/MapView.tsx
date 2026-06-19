@@ -6,7 +6,7 @@ import { setActiveRenderer } from '../render/rendererRegistry';
 import { installTestHook } from '../app/testHook';
 import { useAppStore, type Tool } from '../app/store';
 import { requestForecast, sendCommand, setWatch } from '../app/workerBridge';
-import { beginCityLoad, endCityLoad } from '../app/bootBreadcrumb';
+import { beginCityLoad, endCityLoad, setLoadPhase } from '../app/bootBreadcrumb';
 import { assetAtTile, checkBuild, pylonTilesOf, siteErrorAt, type BuildSpec } from '../sim/commands';
 import { farmClaimTiles, farmFitMW, isFarmGen } from '../sim/farms';
 import { reservedTiles } from '../sim/events/developers';
@@ -270,6 +270,9 @@ export function MapView() {
     let renderer: MapRenderer | undefined;
     void loadScenarioData(scenarioId).then(() => {
       if (cancelled) return;
+      // the city artifact is imported; next is the synchronous map build +
+      // renderer init (the atlas/texture memory peak — see buildTextures).
+      setLoadPhase('scenario-data');
       setActiveScenario(scenarioId);
       renderer = new MapRenderer();
       rendererRef.current = renderer;
