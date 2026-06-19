@@ -34,6 +34,7 @@ import { CUSTOMERS_PER_TILE, HERO_BASE, LANDMARK, RC, TILE_FLAG, type CityMap, t
 import { COV, type BranchView } from '../sim/tick';
 import { getAtlas } from './atlasCache';
 import { captureError } from '../app/errorLog';
+import { setLoadPhase } from '../app/bootBreadcrumb';
 import { AIR_MAX_BAND, emitFlightArcs, emitPlanes } from './airLayer';
 import {
   clipPolylineToBounds,
@@ -3266,18 +3267,32 @@ export class MapRenderer {
     // mutates the global sprite palette BEFORE getAtlas bakes; London ('london'
     // / undefined) restores the exact defaults, so its atlas stays
     // byte-identical. getAtlas folds the active fabric into its cache key.
+    //
+    // This method is the LOAD MEMORY PEAK (the iOS Safari OOM the breadcrumb
+    // caught at "loading london"): a ~W·H·4 sheet buffer + a same-size canvas +
+    // its GPU copy, then ~100 bespoke-hero canvases + GPU copies. We (1) drop
+    // each source pixel buffer the instant it's copied into its canvas, so the
+    // CPU buffers don't sit alongside the canvas+GPU copies, and (2) advance a
+    // breadcrumb phase at each milestone so a hard kill pinpoints the exact spot.
+    setLoadPhase('atlas-build');
     applyCityFabric(this.map?.fabric ?? 'london');
     const atlas = await getAtlas();
     // a city switch can destroy() this renderer while getAtlas() awaits; baking
     // textures into a torn-down renderer would leak them (and draw to a dead
     // context), so bail if we were destroyed mid-bake.
     if (this.destroyed) return;
+    setLoadPhase('sheet-upload');
     const canvas = document.createElement('canvas');
     canvas.width = atlas.width;
     canvas.height = atlas.height;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('no 2d context');
     ctx.putImageData(this.safeImageData(atlas.pixels, atlas.width, atlas.height, 'sheet'), 0, 0);
+    // the sheet pixels are now in the canvas backing store; release the buffer
+    // (~62MB for a 3966² sheet) before we allocate ~100 hero canvases below. The
+    // atlas object is local + uncached (getAtlas already wrote the IndexedDB copy
+    // synchronously), so dropping it here is safe.
+    atlas.pixels = new Uint8ClampedArray(0);
     const base = Texture.from(canvas);
     base.source.scaleMode = 'linear';
     for (const [name, f] of atlas.frames) {
@@ -3292,19 +3307,27 @@ export class MapRenderer {
     // a city can carry up to ~100 bespoke heroes without overflowing the 4096
     // atlas (2 already pushed Paris's sheet to 4014/4096). Sparse + static, so
     // per-hero textures cost negligibly vs the batched tile layer.
+    const heroTotal = atlas.heroes.size;
+    let heroI = 0;
     for (const [name, hb] of atlas.heroes) {
+      heroI += 1;
+      // checkpoint ~every 10 heroes so a hard kill in this canvas-heavy loop
+      // tells us how far it got (e.g. "hero-upload 57/108").
+      if (heroI === 1 || heroI % 10 === 0) setLoadPhase(`hero-upload ${heroI}/${heroTotal}`);
       const hc = document.createElement('canvas');
       hc.width = hb.w;
       hc.height = hb.h;
       const hctx = hc.getContext('2d');
       if (!hctx) continue;
       hctx.putImageData(this.safeImageData(hb.pixels, hb.w, hb.h, name), 0, 0);
+      hb.pixels = new Uint8ClampedArray(0); // copied into the canvas; free the source now
       const tex = Texture.from(hc);
       tex.source.scaleMode = 'linear';
       this.textures.set(name, tex);
       this.frameSize.set(name, { w: hb.w, h: hb.h });
       this.frameOffset.set(name, { ox: hb.ox, oy: hb.oy, headroom: hb.headroom });
     }
+    setLoadPhase('textures-done');
   }
 
   private tileFromClient(map: CityMap, clientX: number, clientY: number): TileHover | undefined {
