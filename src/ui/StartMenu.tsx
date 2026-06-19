@@ -7,7 +7,7 @@
 // network access on the right — with a small logo + tight controls, so the
 // whole front door sits inside a ~360px-tall landscape viewport.
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAppStore } from '../app/store';
 import { newGameCommand } from '../app/workerBridge';
 import { currentUser } from '../online/auth';
@@ -106,21 +106,42 @@ export function StartMenu() {
       live = false;
     };
   }, [menuOpen]);
-  // measure + scale-to-fit (short landscape only); re-runs each render so it
-  // tracks content + viewport changes. Transform doesn't change scrollHeight,
-  // so this settles in one extra render (no loop).
-  useLayoutEffect(() => {
+  // measure + scale-to-fit (short landscape only). Transform doesn't change
+  // scrollHeight, so this settles in one extra render (no loop).
+  const measureFit = useCallback(() => {
     if (!short) {
-      if (fit !== 1) setFit(1);
+      setFit((f) => (f !== 1 ? 1 : f));
       return;
     }
     const el = cardRef.current;
     if (!el) return;
     const natural = el.scrollHeight;
-    const avail = window.innerHeight - 10;
-    const next = natural > avail ? Math.max(0.55, (avail * 0.985) / natural) : 1;
-    if (Math.abs(next - fit) > 0.005) setFit(next);
+    // Scale is the SOLE fit mechanism on short-landscape (the card drops its
+    // maxHeight there), so target a margin'd viewport and scale whenever the
+    // content — including a freshly-appeared sign-in error — exceeds it. The
+    // 16px keeps the bottom-most line off the very edge; centring splits it.
+    const avail = window.innerHeight - 16;
+    const next = natural > avail ? Math.max(0.55, avail / natural) : 1;
+    setFit((f) => (Math.abs(next - f) > 0.005 ? next : f));
+  }, [short]);
+  // re-run each render so it tracks the obvious content + viewport changes…
+  useLayoutEffect(() => {
+    measureFit();
   });
+  // …AND on any LATE content-height change inside the card. A sign-in error
+  // (or notice) appears AFTER the click — a child re-render that StartMenu never
+  // sees — so without this the grown card spills past the no-scroll fold and the
+  // error renders below the bottom edge, reading as "nothing happened" (owner,
+  // 2026-06-18: "no negative feedback on an unrecognised sign-in"). A
+  // ResizeObserver re-fits whenever the card's own (untransformed) box grows;
+  // the scale transform doesn't alter the observed size, so there's no loop.
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => measureFit());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [measureFit, menuOpen]);
   if (!menuOpen) return null;
   const hasSave = localStorageStore.load() !== undefined;
   const slotCount = listSlots().length;
@@ -271,7 +292,11 @@ export function StartMenu() {
           transform: fit < 1 ? `scale(${fit})` : undefined,
           transformOrigin: 'center center',
           width: short ? 'min(880px, 97vw)' : 'min(440px, 94vw)',
-          maxHeight: 'calc(100dvh - 12px)',
+          // On short-landscape the scale-to-fit (measureFit) is the sole height
+          // governor — a competing maxHeight created a dead zone where content
+          // (e.g. a late sign-in error) overflowed the card and spilled past its
+          // bottom border. Tall/desktop keeps the scroll-cap.
+          maxHeight: short ? undefined : 'calc(100dvh - 12px)',
           borderRadius: short ? 16 : 22,
           padding: short ? '12px 18px' : '28px 28px 16px',
           textAlign: 'center',
