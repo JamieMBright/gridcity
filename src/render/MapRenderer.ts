@@ -537,12 +537,22 @@ export class MapRenderer {
 
   async init(host: HTMLElement, map: CityMap): Promise<void> {
     this.map = map;
+    // Mobile GPUs / Safari run a tight memory budget — the breadcrumb caught a
+    // hard OOM during the first full-map paint on iPhone. MSAA + a DPR-3
+    // framebuffer is a big, avoidable chunk of it (the main render target is
+    // allocated HERE, up front), so drop antialias and cap the render
+    // resolution on mobile. The HUD is DOM (stays crisp); only the lofi map
+    // softens slightly, and the auto-fit camera keeps the layout identical.
+    const dpr = window.devicePixelRatio || 1;
+    const mobile =
+      (typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) ||
+      (typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches);
     await this.app.init({
       background: '#1b1430',
       resizeTo: host,
-      antialias: true,
+      antialias: !mobile,
       autoDensity: true,
-      resolution: window.devicePixelRatio || 1,
+      resolution: mobile ? Math.min(dpr, 2) : dpr,
     });
     if (this.destroyed) {
       this.app.destroy(true);
@@ -557,6 +567,9 @@ export class MapRenderer {
     // `this.boatLayer.addChild(...)` hit a null layer and crashed the app on a
     // city switch ("Cannot read properties of null (reading 'addChild')").
     if (this.destroyed) return;
+    // scene graph build (the ~W·H tile sprites + route ribbons) runs
+    // synchronously before the first paint — the breadcrumb's next checkpoint.
+    setLoadPhase('scene-world');
     this.buildRoutePaths(map);
     this.buildWorld(map);
     this.drawShore(map);
@@ -629,6 +642,7 @@ export class MapRenderer {
     this.glowWorld.addChild(this.bloomG);
     this.glowWorld.addChild(this.gleamG);
     this.glowWorld.addChild(this.heroLightsG);
+    setLoadPhase('scene-glow');
     this.buildGleamHeroes();
     this.buildHeroLightAnchors();
     this.vignette = new Sprite(makeVignetteTexture());
@@ -678,6 +692,7 @@ export class MapRenderer {
     if (this.lastAssets.length > 0) {
       this.rebuildAssetSprites(this.lastAssets, this.lastSimTimeMin);
     }
+    setLoadPhase('init-done');
   }
 
   /** Town / landmark names that fade in as the camera pulls out and hold
