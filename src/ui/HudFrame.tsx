@@ -43,10 +43,13 @@ import { theme } from './theme';
 // 1280 (234 + 300 = 534 of chrome, ~700 of clear map). On a tighter desktop
 // window (a non-touch laptop between the mobile breakpoint and 1200) the
 // rails step down so the map keeps a usable centre.
-const LEFT_W_WIDE = 234;
-const RIGHT_W_WIDE = 300;
-const LEFT_W_TIGHT = 198;
-const RIGHT_W_TIGHT = 250;
+// Widened (owner, 2026-06-20: "starting size too small" + inner-edge clipping):
+// roomier rails so the build palette's labelled rows + the bill/inbox detail
+// breathe, paired with label wrapping in BuildPalette so nothing truncates.
+const LEFT_W_WIDE = 258;
+const RIGHT_W_WIDE = 324;
+const LEFT_W_TIGHT = 220;
+const RIGHT_W_TIGHT = 272;
 // COLLAPSED: both rails become slim icon-only pills. The track only needs
 // to fit the 52px CollapsedRail pill (glyph + off-white hotkey + padding);
 // the rest of the width is handed back to the map (owner: cleaner look).
