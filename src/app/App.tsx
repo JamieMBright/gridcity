@@ -222,8 +222,37 @@ function useKeyboard(): void {
         s.setTool(t);
       }
     };
+
+    // SHIFT-TAP → collapse / expand ALL the HUD menus (owner, 2026-06-20). A
+    // *clean* tap (Shift pressed and released with no other key in between)
+    // toggles hudCollapsed; Shift held as a modifier (Ctrl+Shift+Z, etc.) is
+    // untouched because any other keydown disarms the pending tap. Kept separate
+    // from onKey so the main handler's early-returns can't swallow it.
+    let shiftArmed = false;
+    const onArmDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Shift') {
+        if (!e.repeat) shiftArmed = true;
+      } else {
+        shiftArmed = false; // a real key while Shift is held ⇒ it was a modifier
+      }
+    };
+    const onShiftUp = (e: KeyboardEvent): void => {
+      if (e.key !== 'Shift' || !shiftArmed) return;
+      shiftArmed = false;
+      const s = useAppStore.getState();
+      if (s.menuOpen || s.helpOpen || s.gameMenuOpen) return;
+      const t = document.activeElement as HTMLElement | null;
+      if (t && /^(input|textarea|select)$/i.test(t.tagName)) return;
+      s.setHudCollapsed(!s.hudCollapsed);
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keydown', onArmDown);
+    window.addEventListener('keyup', onShiftUp);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keydown', onArmDown);
+      window.removeEventListener('keyup', onShiftUp);
+    };
   }, []);
 
   // every button click gets the soft lofi tick
