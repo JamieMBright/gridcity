@@ -114,7 +114,10 @@ function ToolButton({
             {key}
           </span>
         )}
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {/* wrap long catalog names onto a second line rather than truncating
+            them with an ellipsis (owner: render the boxes fully, no hscroll —
+            "Interconnecto…" / "Pole-mounted tr…" were being cut off). */}
+        <span style={{ overflowWrap: 'anywhere', lineHeight: 1.25, textAlign: 'left' }}>
           {label}
         </span>
       </span>

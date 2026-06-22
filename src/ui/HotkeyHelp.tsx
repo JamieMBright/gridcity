@@ -78,6 +78,7 @@ const EDIT_GROUP: Group = {
     { keys: ['U'], label: 'Toggle overhead / underground (line tool)' },
     { keys: ['A'], label: 'Toggle auto-connect on placement' },
     { keys: ['Space'], label: 'Hide / show the whole HUD' },
+    { keys: ['Shift'], label: 'Collapse / expand all the menus (tap)' },
     { keys: ['P'], label: 'Pause / resume the clock' },
     { keys: ['Ctrl', 'Z'], label: 'Undo' },
     { keys: ['Ctrl', 'Y'], label: 'Redo' },
