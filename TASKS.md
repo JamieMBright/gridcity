@@ -26,11 +26,13 @@ the texture-build peak + phase telemetry), #109 (mobile resolution cap + MSAA of
   yellow hazard HUD while active (owner 2026-06-22 chose "Full yellow hazard HUD").
   Implemented (systemPrepare command + snapshot.systemPreparing + SystemPrepare.tsx
   hazard recolour/banner/toggle); gating this PR.
-- [ ] **(E) Weather** — owner (2026-06-22): leave seasonal pacing as-is; instead
-  put a STORM SIMULATOR in the TUTORIAL (so the player sees the warning + rain/wind
-  effects + System Prepare) AND a HEATWAVE that pushes cable thermal ratings
-  (weather.ts thermalDerate exists — make it occur + visible). Rendering + forecast
-  already work; gap is they don't occur in early play.
+- [x] **(E) Weather** — owner (2026-06-22): leave seasonal pacing as-is. STORM
+  simulator already in the tutorial (mission `m3-storm`: Met-Office warning →
+  landfall with rain/wind → tree-down fault → clearance) — left as-is per owner.
+  HEATWAVE now pushes CABLE thermal ratings: buildBranchViews folds `thermalDerate`
+  into every line/cable ratingMW (mirrors the transformer derate in dispatch), so a
+  summer heatwave shrinks line headroom → overloads; the heatwave warning now names
+  lines/cables. Identity outside a heatwave. +tests/heatwaveDerate.test.ts.
 
 ### 🎮 PLAYTEST FEEDBACK (owner, 2026-06-17 20:20)
 Four rendering/map bugs from the owner's playtest. Isolated worktree; London stays
