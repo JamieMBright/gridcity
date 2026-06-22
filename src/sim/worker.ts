@@ -455,7 +455,12 @@ async function handleMessage(msg: MainToWorker): Promise<void> {
           state.goalIndex = GOALS.length;
           mission.seed?.(state, ctx);
         } else {
-          seedScenario(state, ctx);
+          // per-game RANDOM starter seed so each new game opens with a different
+          // mix of connection applications (owner, 2026-06-20). Only the picks
+          // vary — the tick stream stays seeded/deterministic; the chosen
+          // starters are persisted in the save, so reload replays identically.
+          const starterSeed = (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0;
+          seedScenario(state, ctx, { starterSeed });
         }
         derived = undefined;
         history.clear();

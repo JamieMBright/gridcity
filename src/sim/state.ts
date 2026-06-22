@@ -5,7 +5,7 @@ import { GENS, SUBS, type GenType, type SubType, type VegPolicy } from './catalo
 import { TERRAIN, ZONE, type CityMap } from './map/types';
 import { buildDemandField, type DemandField } from './map/demand';
 import { newWeather, type WeatherState } from './events/weather';
-import type { Application } from './events/applications';
+import { type Application, NAMES as APP_NAMES } from './events/applications';
 import { newDevMood, nextRoundOpensMin, type Tender } from './events/developers';
 import type { OrgState } from './events/directorates';
 import type { Claim } from './events/litigation';
@@ -369,7 +369,16 @@ export function newContext(scenarioId = 'london'): SimContext {
  *  therefore opens on a TRULY BLANK grid — the player builds everything from
  *  scratch, which is fully playable and matches the blank-grid doctrine; its
  *  own bespoke seeding lands with its FR/etc mechanics in a later wave. */
-export function seedScenario(state: GameState, ctx: SimContext): void {
+/** Deterministic default seed for the starter-application draw — used by unit
+ *  tests and any caller that omits a seed, so the suite stays reproducible. The
+ *  worker passes a per-game RANDOM seed for production variety. */
+const STARTER_SEED_DEFAULT = 0x57a27e7;
+
+export function seedScenario(
+  state: GameState,
+  ctx: SimContext,
+  opts?: { starterSeed?: number },
+): void {
   if (state.scenarioId !== 'london') return;
   const { map } = ctx;
 
@@ -411,49 +420,65 @@ export function seedScenario(state: GameState, ctx: SimContext): void {
     }
     return undefined;
   };
-  const starters: Array<{
-    kind: Application['kind'];
-    name: string;
-    mw: number;
-    site: { x: number; y: number } | undefined;
-  }> = [
-    {
-      kind: 'solarFarm',
-      name: 'Estuary Sun Co-op',
-      mw: 50,
-      site: findTile((i) => map.zone[i] === ZONE.solarSite),
+  // Randomly SEEDED so each new game opens with a different mix (owner,
+  // 2026-06-20: the same three every game — Estuary Sun / Marsh Ridge /
+  // GridStore — because the whole game ran off a fixed seed). A DEDICATED rng
+  // keeps it OFF the tick stream: the worker passes a per-game random starterSeed
+  // for variety, while tests omit it and get the deterministic default. We
+  // shuffle a flat (kind, name) pool and take 2–3 — so WHICH developers turn up,
+  // how MANY, and how BIG all vary game to game.
+  const sRng = new Rng(opts?.starterSeed ?? STARTER_SEED_DEFAULT);
+  const STARTER_KINDS = ['solarFarm', 'windOnshore', 'battery'] as const;
+  type StarterKind = (typeof STARTER_KINDS)[number];
+  const placer: Record<
+    StarterKind,
+    { mwMin: number; mwMax: number; ok: (i: number, x: number, y: number) => boolean }
+  > = {
+    solarFarm: { mwMin: 30, mwMax: 80, ok: (i) => map.zone[i] === ZONE.solarSite },
+    windOnshore: {
+      mwMin: 60,
+      mwMax: 150,
+      ok: (i, x) => map.zone[i] === ZONE.none && map.terrain[i] === TERRAIN.land && x > 110,
     },
-    {
-      kind: 'windOnshore',
-      name: 'Marsh Ridge Wind',
-      mw: 100,
-      site: findTile(
-        (i, x) => map.zone[i] === ZONE.none && map.terrain[i] === TERRAIN.land && x > 110,
-      ),
+    battery: {
+      mwMin: 50,
+      mwMax: 150,
+      ok: (i, x) => map.zone[i] === ZONE.none && map.terrain[i] === TERRAIN.land && x > 120,
     },
-    {
-      kind: 'battery',
-      name: 'GridStore Ltd',
-      mw: 100,
-      site: findTile(
-        (i, x) => map.zone[i] === ZONE.none && map.terrain[i] === TERRAIN.land && x > 120,
-      ),
-    },
-  ];
-  for (const s of starters) {
-    if (!s.site) continue;
+  };
+  const pool: Array<{ kind: StarterKind; name: string }> = [];
+  for (const kind of STARTER_KINDS) for (const name of APP_NAMES[kind]) pool.push({ kind, name });
+  // Fisher–Yates on the seeded rng so both the picks AND their order vary
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = sRng.int(i + 1);
+    const tmp = pool[i]!;
+    pool[i] = pool[j]!;
+    pool[j] = tmp;
+  }
+  const starterCount = 2 + sRng.int(2); // 2 or 3 developers at kickoff
+  for (const cand of pool.slice(0, starterCount)) {
+    const p = placer[cand.kind];
+    const site = findTile((i, x, y) => p.ok(i, x, y));
+    if (!site) continue;
+    const mw = p.mwMin + sRng.int((p.mwMax - p.mwMin) / 10 + 1) * 10; // tidy 10 MW step
     state.applications.push({
       id: state.nextAppId++,
-      kind: s.kind,
-      name: s.name,
-      x: s.site.x,
-      y: s.site.y,
-      mw: s.mw,
+      kind: cand.kind,
+      name: cand.name,
+      x: site.x,
+      y: site.y,
+      mw,
       customers: 0,
       decideByMin: state.simTimeMin + 30 * 1440,
       status: 'open',
     });
-    pushEvent(state, 'warn', `connection application: ${s.name} (${s.mw} MW generation)`, s.site.x, s.site.y);
+    pushEvent(
+      state,
+      'warn',
+      `connection application: ${cand.name} (${mw} MW generation)`,
+      site.x,
+      site.y,
+    );
   }
 
   // (c) schedule the bespoke once-per-game Heathrow PV+BESS scheme at a

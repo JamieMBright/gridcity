@@ -405,11 +405,18 @@ describe('scenario seeding', () => {
       expect(sub?.kind === 'sub' && sub.mvaAuto).toBe(false);
     }
 
+    // randomly-seeded starters (#B): 2–3 generation developers, drawn here off
+    // the deterministic default seed (no starterSeed passed) so this is stable.
     const apps = state.applications.filter((a) => a.status === 'open');
     expect(apps.length).toBeGreaterThanOrEqual(2);
     expect(apps.length).toBeLessThanOrEqual(3);
-    expect(apps.some((a) => a.kind === 'solarFarm')).toBe(true);
+    const genKinds = new Set(['solarFarm', 'windOnshore', 'battery']);
+    const names = new Set(apps.map((a) => a.name));
+    expect(names.size).toBe(apps.length); // distinct developers, no repeats
     for (const a of apps) {
+      expect(genKinds.has(a.kind)).toBe(true);
+      expect(a.name.length).toBeGreaterThan(0);
+      expect(a.mw).toBeGreaterThan(0);
       expect(a.decideByMin).toBe(30 * 1440);
       expect(ctx.map.zone[a.y * ctx.map.width + a.x]).toBeDefined();
     }
