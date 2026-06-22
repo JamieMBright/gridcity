@@ -26,7 +26,7 @@ import {
 } from './events/directorates';
 import { applyClaimResponse, type ClaimResponse } from './events/litigation';
 import { applyReplaceAsset, applyScheduleMaintenance } from './reliability/ageing';
-import { applyStormPrep } from './reliability/stormprep';
+import { applyStormPrep, applySystemPrepare } from './reliability/stormprep';
 import { applySetSmartCharging } from './customers/smartCharging';
 import {
   bumpMood,
@@ -133,6 +133,15 @@ export type Command =
       type: 'stormPrep';
       action: 'surge' | 'shifts' | 'scouts' | 'callHandling' | 'vegCut';
       lineId?: number;
+      days?: number;
+    }
+  /** One-click SYSTEM PREPARE (owner, 2026-06-22): enact the WHOLE storm plan
+   *  (extra shifts + scouts + wider call handling) at once, or stand it down.
+   *  The HUD reads snapshot.systemPreparing (derived) to switch to its full
+   *  hazard-yellow scheme while any lever is live. */
+  | {
+      type: 'systemPrepare';
+      on: boolean;
       days?: number;
     }
   /** Fund (or wind down) a council's smart-charging programme (ROADMAP
@@ -1006,6 +1015,8 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
 
     case 'stormPrep':
       return applyStormPrep(state, cmd);
+    case 'systemPrepare':
+      return applySystemPrepare(state, cmd.on, cmd.days);
 
     case 'setSmartCharging':
       return applySetSmartCharging(state, map, cmd);

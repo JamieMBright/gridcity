@@ -326,7 +326,11 @@ export function MobileChrome() {
   }, [tool]);
 
   return (
-    <>
+    <div data-chrome-mobile style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      {/* the floating bits manage their own taps; this wrapper is a single
+          recolour target for System Prepare's hazard filter (#D). pointer-events
+          pass through the gaps to the map, children re-enable via the rule. */}
+      <style>{'[data-chrome-mobile]>*{pointer-events:auto}'}</style>
       <BuildRail />
       <ExpandToggle open={sheet === 'build'} onToggle={() => toggle('build')} />
       <div
@@ -420,6 +424,6 @@ export function MobileChrome() {
         />
       )}
       {sheet === undefined && <MobileInspector />}
-    </>
+    </div>
   );
 }

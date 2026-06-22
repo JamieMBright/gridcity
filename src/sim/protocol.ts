@@ -265,6 +265,10 @@ export interface SimSnapshot {
         draftedHandlers: number;
       }
     | undefined;
+  /** Operator is in SYSTEM PREPARE mode — any storm-prep lever (shifts / scouts
+   *  / wider call handling) is currently active. The HUD switches to its full
+   *  hazard-yellow scheme while true (owner, 2026-06-22). Derived; absent ⇒ false. */
+  systemPreparing?: boolean | undefined;
   /** The network business (#53): directorate dials, pay/safety
    *  investment, engagement scores and the £/yr cost. */
   org: OrgView;

@@ -101,6 +101,8 @@ export function describeCommand(cmd: Command, before: GameState): string {
           : cmd.action === 'callHandling'
             ? 'opened wider call handling'
             : 'cut vegetation';
+    case 'systemPrepare':
+      return cmd.on ? 'engaged system prepare' : 'stood down system prepare';
     case 'setSmartCharging':
       return cmd.on ? 'funded smart charging' : 'wound down smart charging';
     case 'setDirectorate':

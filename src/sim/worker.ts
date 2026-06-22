@@ -20,7 +20,7 @@ import {
   type WorkerToMain,
 } from './protocol';
 import { networkHealthPct } from './reliability/ageing';
-import { callHandlingView, forecastStorms } from './reliability/stormprep';
+import { callHandlingView, forecastStorms, isSystemPreparing } from './reliability/stormprep';
 import { safetyEngagement, safetyView } from './reliability/safety';
 import { orgView } from './events/directorates';
 import { openClaims } from './events/litigation';
@@ -294,6 +294,7 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
       state,
       Math.max(0, (state.everServedCustomers ?? 0) - out.servedCustomers),
     ),
+    systemPreparing: isSystemPreparing(state),
     org: orgView(state.org, safetyEngagement(state.org?.safety ?? 0)),
     safety: safetyView(state),
     claims: openClaims(state),

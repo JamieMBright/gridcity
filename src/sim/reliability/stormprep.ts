@@ -393,6 +393,46 @@ export function applyStormPrep(
 }
 
 // ----------------------------------------------------------------------
+// System Prepare (owner, 2026-06-22): the one-click storm-response mode.
+
+/** True when ANY storm-prep lever (surge shifts / scouts / wider call handling)
+ *  is currently active — i.e. the operator is in System-Prepare mode. The HUD
+ *  reads this (via snapshot.systemPreparing) to switch to its hazard scheme. */
+export function isSystemPreparing(state: GameState): boolean {
+  const t = state.simTimeMin;
+  return (
+    t < (state.surgeUntilMin ?? 0) ||
+    t < (state.scoutsUntilMin ?? 0) ||
+    t < (state.callHandlersUntilMin ?? 0)
+  );
+}
+
+/** One-click System Prepare: ENACT the whole storm plan at once — extra crew
+ *  shifts (surge), scouts on the lines, and wider call handling — for a default
+ *  window; or STAND DOWN, releasing the active windows now (spend already
+ *  charged). Triggerable any time. */
+export function applySystemPrepare(state: GameState, on: boolean, days?: number): CommandResult {
+  if (!on) {
+    const t = state.simTimeMin;
+    if ((state.surgeUntilMin ?? 0) > t) state.surgeUntilMin = t;
+    if ((state.scoutsUntilMin ?? 0) > t) state.scoutsUntilMin = t;
+    if ((state.callHandlersUntilMin ?? 0) > t) state.callHandlersUntilMin = t;
+    pushEvent(state, 'info', 'system prepare stood down — storm-response levers released');
+    return { ok: true };
+  }
+  const d = days ?? SURGE_DEFAULT_DAYS;
+  applySurgeCrews(state, d);
+  applyScouts(state, d);
+  applyWiderCallHandling(state, d);
+  pushEvent(
+    state,
+    'warn',
+    `SYSTEM PREPARE engaged — extra shifts, scouts & wider call handling for ${d} day${d > 1 ? 's' : ''}`,
+  );
+  return { ok: true };
+}
+
+// ----------------------------------------------------------------------
 // Bill integration.
 
 /** Decay tau: one game-year, so ∫rate·dt ≈ the £k charged. */

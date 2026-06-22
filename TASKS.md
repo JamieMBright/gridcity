@@ -15,21 +15,22 @@ Context: iPhone "keeps crashing" → diagnosed via the boot breadcrumb (a hard O
 during the city load). Shipped #107 (catch + texture-free-on-switch), #108 (cut
 the texture-build peak + phase telemetry), #109 (mobile resolution cap + MSAA off
 + DPR/phase telemetry). Then a desktop-HUD + mechanics flurry:
-- [ ] **(A) HUD boxes clip on the INNER (centre-facing) edge.** Panels have a
-  rounded OUTER corner but the inner edge is clipped, truncating text (left
-  BuildPalette labels "Interconnecto…", "Hydrogen elect…"; "save a motif (e.g.
-  grid sub +"). Owner: do NOT add hscroll — render the boxes fully. Also the
-  STARTING size is too small (zooming the browser out makes them fit better).
-- [ ] **(B) Starting applications are always the same 3** (Estuary Sun Co-op /
-  Marsh Ridge Wind / …). Randomly SEED them (from a pool, deterministic per game seed).
-- [ ] **(C) Collapse-ALL-menus toggle hotkey** (owner suggests Shift). Distinct
-  from Space (which hides the whole HUD) — this collapses panels to headers.
-- [ ] **(D) System-prepare (storm prep) — user-triggerable ANY time.** Auto-enacts
-  the storm plan (shift work, scale up call centre, …). When active the HUD
-  switches to a HAZARD-YELLOW colour scheme. (Existing infra: reliability/stormprep.ts.)
-- [ ] **(E) Weather warnings + weather EFFECTS never seen in-game.** Investigate
-  events/weather.ts — are storms too rare / not warned / effects (rain/flash/sheen)
-  not rendering? Make them actually appear.
+- [x] **(A) HUD inner-edge clip** — #110: rails widened + labels wrap (no ellipsis,
+  no hscroll); boxes render fully.
+- [x] **(B) Same 3 starter apps every game** — #111: seedScenario draws 2–3 starters
+  off a per-game random seed (kinds/names/MW vary); tick stream stays deterministic.
+- [x] **(C) Collapse-ALL-menus hotkey** — #110: Shift-tap collapses all rails
+  (distinct from Space = hide the whole HUD).
+- [~] **(D) System Prepare** — one-click (any time) enacts the whole storm plan
+  (stormprep.ts applyStormPrep: shifts + scouts + wider call handling) + FULL
+  yellow hazard HUD while active (owner 2026-06-22 chose "Full yellow hazard HUD").
+  Implemented (systemPrepare command + snapshot.systemPreparing + SystemPrepare.tsx
+  hazard recolour/banner/toggle); gating this PR.
+- [ ] **(E) Weather** — owner (2026-06-22): leave seasonal pacing as-is; instead
+  put a STORM SIMULATOR in the TUTORIAL (so the player sees the warning + rain/wind
+  effects + System Prepare) AND a HEATWAVE that pushes cable thermal ratings
+  (weather.ts thermalDerate exists — make it occur + visible). Rendering + forecast
+  already work; gap is they don't occur in early play.
 
 ### 🎮 PLAYTEST FEEDBACK (owner, 2026-06-17 20:20)
 Four rendering/map bugs from the owner's playtest. Isolated worktree; London stays
