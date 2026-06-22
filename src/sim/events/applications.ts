@@ -104,7 +104,7 @@ export const CONNECT_DAYS = 90;
 /** Days an open application waits in the inbox. */
 export const DECIDE_DAYS = 30;
 
-const NAMES: Record<AppKind, string[]> = {
+export const NAMES: Record<AppKind, string[]> = {
   solarFarm: ['Meadow Light Solar', 'Three Fields Energy', 'Estuary Sun Co-op'],
   windOnshore: ['Marsh Ridge Wind', 'Greenway Turbines'],
   battery: ['GridStore Ltd', 'Peak Shift Storage'],
