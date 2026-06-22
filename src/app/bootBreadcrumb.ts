@@ -30,8 +30,12 @@ interface Crumb {
   city: string;
   ts: number;
   /** Furthest load phase reached before the kill (e.g. 'sheet-upload',
-   *  'hero-upload 57/100', 'first-frame'). */
+   *  'hero-upload 57/100', 'scene-world', 'first-frame'). */
   phase: string;
+  /** Device pixel ratio + viewport at load start — the framebuffer/texture
+   *  memory math hinges on these (a DPR-3 phone renders 9× the pixels). */
+  dpr?: number | undefined;
+  vp?: string | undefined;
 }
 
 // Kept in memory so setLoadPhase() is a cheap property update + write, with no
@@ -56,7 +60,17 @@ function persist(): void {
 
 /** Record that a (memory-heavy) city load has STARTED. */
 export function beginCityLoad(city: string): void {
-  current = { city, ts: Date.now(), phase: 'start' };
+  let dpr: number | undefined;
+  let vp: string | undefined;
+  try {
+    if (typeof window !== 'undefined') {
+      dpr = window.devicePixelRatio;
+      vp = `${window.innerWidth}x${window.innerHeight}`;
+    }
+  } catch {
+    // ignore — context fields are best-effort.
+  }
+  current = { city, ts: Date.now(), phase: 'start', dpr, vp };
   persist();
 }
 
@@ -106,7 +120,13 @@ export function reportPriorLoadDeath(): void {
         `previous session died while loading "${city}" at phase "${phase}" — no JS error ` +
         `was captured, which points to a hard browser/GPU/out-of-memory crash that killed ` +
         `the tab before it could report.`,
-      extra: { deadCity: city, deadPhase: phase, crumbAgeMs: ageMs },
+      extra: {
+        deadCity: city,
+        deadPhase: phase,
+        crumbAgeMs: ageMs,
+        dpr: crumb?.dpr,
+        viewport: crumb?.vp,
+      },
     });
   } catch {
     // never break the boot path over a diagnostic.
