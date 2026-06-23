@@ -15,7 +15,7 @@ import type { Network, PowerFlowResult } from './grid/types';
 import { V_BROWNOUT, V_COLLAPSE } from './grid/voltage';
 import { runDispatch, underConstruction, type DispatchResult } from './market/dispatch';
 import { systemFrequencyHz } from './market/frequency';
-import { stepWeather, sunFactor, windFactor } from './events/weather';
+import { stepWeather, sunFactor, thermalDerate, windFactor } from './events/weather';
 import { LONDON_PROFILE, type WeatherProfile } from './powerProfile';
 import {
   buildHeathrowScheme,
@@ -898,7 +898,7 @@ export function solveTick(
     callCsat,
   );
 
-  const branches = buildBranchViews(state, pf, lossOfBranch);
+  const branches = buildBranchViews(state, pf, lossOfBranch, ctx.profile.weather);
   const volts: Array<[number, number, number]> = [];
   for (const bus of derived.net.buses) {
     const asset = state.assets.get(assetOfId(bus.id));
@@ -1634,8 +1634,15 @@ function buildBranchViews(
   state: GameState,
   pf: PowerFlowResult,
   lossOfBranch: Map<number, number>,
+  wp: WeatherProfile,
 ): BranchView[] {
   const lineMul = state.tech.dlr ? DLR_RATING_MUL : 1;
+  // A heatwave robs overhead lines + cables of cooling margin, so their thermal
+  // rating falls and flows that were fine now run them hot (owner, 2026-06-22:
+  // "a heat wave where thermal ratings on cables get pushed"). thermalDerate is
+  // 1.0 outside a heatwave ⇒ byte-identical in normal play, and it mirrors the
+  // transformer derate already applied to substations in dispatch.
+  const heatMul = thermalDerate(state.simTimeMin, state.weather, wp);
   const views: BranchView[] = [];
   for (const a of state.assets.values()) {
     if (a.kind === 'line') {
@@ -1644,7 +1651,7 @@ function buildBranchViews(
         assetId: a.id,
         kind: 'line',
         flowMW: pf.flowMW.get(id) ?? 0,
-        ratingMW: LINES[a.level].ratingMW * lineMul * (a.uprated ? LINE_UPRATE_MUL : 1),
+        ratingMW: LINES[a.level].ratingMW * lineMul * (a.uprated ? LINE_UPRATE_MUL : 1) * heatMul,
         lossMW: lossOfBranch.get(id),
         outMin: state.outages.get(id),
         cause: state.outageCause.get(id),

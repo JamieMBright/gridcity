@@ -116,7 +116,7 @@ export function stepIncidents(
       pushEvent(
         state,
         'warn',
-        'Heatwave warning — cooling demand surges and transformers derate in the heat',
+        'Heatwave warning — cooling demand surges and overhead lines, cables & transformers all derate in the heat: watch for overloads',
       );
       w.incidentKeyMin = key;
     } else if (regime === 'windy-wet') {
