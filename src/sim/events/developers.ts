@@ -51,7 +51,7 @@ export const DEVELOPERS: Developer[] = [
     name: 'Thames Estuary Renewables',
     blurb: 'Wind and tide specialists; happiest with salt on the blades.',
     conglomerate: false,
-    appetite: { windOffshore: 1.4, windOnshore: 1.2, tidal: 1.2, solarFarm: 0.8 },
+    appetite: { windOffshore: 1.4, windOnshore: 1.2, tidal: 1.2, hydro: 1.2, solarFarm: 0.8 },
     curtailPriceK: 0.07,
   },
   {
@@ -95,6 +95,7 @@ export const DEVELOPERS: Developer[] = [
       biomass: 0.6,
       battery: 0.8,
       tidal: 0.4,
+      hydro: 0.8,
       electrolyser: 0.6,
     },
   },
@@ -114,6 +115,7 @@ export const DEVELOPERS: Developer[] = [
       solarFarm: 0.6,
       battery: 1.0,
       tidal: 0.4,
+      hydro: 0.9,
     },
   },
 ];

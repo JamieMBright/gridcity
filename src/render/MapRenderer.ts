@@ -173,6 +173,7 @@ const GEN_SPRITE: Record<string, string> = {
   windOnshore: 'gen_windon',
   windOffshore: 'gen_windoff',
   tidal: 'gen_tidal',
+  hydro: 'gen_hydro',
   biomass: 'gen_biomass',
   battery: 'gen_battery',
   interconnector: 'gen_interconnector',

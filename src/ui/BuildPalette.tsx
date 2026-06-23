@@ -571,6 +571,7 @@ const GEN_ORDER: GenType[] = [
   'windOnshore',
   'windOffshore',
   'tidal',
+  'hydro',
   'biomass',
   'nuclear',
   'battery',

@@ -208,6 +208,25 @@ export function IconTidal(p: IconProps) {
   );
 }
 
+/** Hydro dam — a concrete wall arcing across the valley, impounded water
+ *  above it and the spillway streams falling to the tailrace below. */
+export function IconHydro(p: IconProps) {
+  return (
+    <Svg {...p}>
+      {/* the dam crest: a curved wall spanning bank to bank */}
+      <path d="M3 9c4-2.4 14-2.4 18 0" />
+      {/* the two abutments dropping to the river bed */}
+      <path d="M3 9v4M21 9v4" />
+      {/* impounded reservoir behind the crest */}
+      <path d="M4.5 8.2c3.2-1.4 11.8-1.4 15 0" strokeWidth="1.2" />
+      {/* spillway: water falling from the crest to the tailrace */}
+      <path d="M8 9.4V16M12 9.6V17M16 9.4V16" />
+      {/* the churned tailrace at the foot */}
+      <path d="M5 18c1.6 0 1.6-1.4 3.2-1.4S9.8 18 11.4 18 13 16.6 14.6 16.6 16.2 18 17.8 18" />
+    </Svg>
+  );
+}
+
 /** Nuclear — the trefoil hazard ring, simplified to read at size. */
 export function IconNuclear(p: IconProps) {
   return (
@@ -665,6 +684,7 @@ export const GEN_ICONS: Record<string, IconComponent> = {
   windOnshore: IconWind,
   windOffshore: IconWindSea,
   tidal: IconTidal,
+  hydro: IconHydro,
   biomass: IconPlant,
   nuclear: IconNuclear,
   battery: IconBattery,

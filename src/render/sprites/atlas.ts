@@ -127,6 +127,7 @@ import {
   subPoleTile,
   subVaultTile,
   tidalTile,
+  damTile,
   vanTile,
   windTurbineTile,
 } from './networkSprites';
@@ -525,6 +526,7 @@ function buildSpriteCells(): Map<string, Cell> {
   set('gen_windoff', windTurbineTile(194, true));
   set('gen_solar', solarFarmTile(195));
   set('gen_tidal', tidalTile(231));
+  set('gen_hydro', damTile(233), 2, 2);
   set('gen_biomass', biomassTile(232));
   set('gen_battery', batteryTile(196));
   set('gen_interconnector', interconnectorTile(246));

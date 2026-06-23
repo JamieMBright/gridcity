@@ -367,6 +367,57 @@ function nearWater(map: CityMap, x: number, y: number, r: number): boolean {
   return false;
 }
 
+/** A dam needs a river broad enough to be worth impounding. The minimum
+ *  contiguous river width, in tiles, the hydro siting rule enforces. */
+export const MIN_HYDRO_RIVER_WIDTH = 3;
+
+const isWater = (map: CityMap, x: number, y: number): boolean =>
+  x >= 0 && y >= 0 && x < map.width && y < map.height && map.terrain[y * map.width + x] === TERRAIN.water;
+
+/** Length of the contiguous run of water through (x,y) along one axis
+ *  (dx,dy ∈ {±1,0}); 0 if the tile itself is not water. Counts the tile
+ *  plus every water tile reached stepping forwards and backwards. */
+function waterRun(map: CityMap, x: number, y: number, dx: number, dy: number): number {
+  if (!isWater(map, x, y)) return 0;
+  let n = 1;
+  for (let s = 1; isWater(map, x + dx * s, y + dy * s); s++) n++;
+  for (let s = 1; isWater(map, x - dx * s, y - dy * s); s++) n++;
+  return n;
+}
+
+/** Width of the river a dam built near the LAND tile (x,y) could impound.
+ *  The dam stands on the bank and throws its wall ACROSS the channel, so
+ *  the width that matters is how far the water extends in the direction the
+ *  bank faces the water — NOT along the river's course (a long thin stream
+ *  flowing past the bank is LONG, not WIDE, and must read as narrow).
+ *
+ *  We cast the four orthogonal rays out to `reach` tiles; the first water
+ *  hit on a ray is a watercourse the dam could reach across, and its width
+ *  is the contiguous run measured along that same ray's axis. `reach` > 1
+ *  lets every tile of a multi-tile dam campus qualify as "by the river"
+ *  even though only its riverside row actually abuts the bank. Pure: reads
+ *  the terrain only. */
+function riverWidthNear(map: CityMap, x: number, y: number, reach: number): number {
+  let widest = 0;
+  for (const [dx, dy] of [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ] as const) {
+    for (let s = 1; s <= reach; s++) {
+      const wx = x + dx * s;
+      const wy = y + dy * s;
+      if (!isWater(map, wx, wy)) continue;
+      // run measured along the bank→water axis: E/W ray ⇒ horizontal span,
+      // N/S ray ⇒ vertical span. abs() keeps the axis, drops the sign.
+      widest = Math.max(widest, waterRun(map, wx, wy, Math.abs(dx), Math.abs(dy)));
+      break; // only the nearest water on each ray is the bank we reach across
+    }
+  }
+  return widest;
+}
+
 /** Static siting rule for a tile build (terrain/zone/landmark only — no
  *  occupancy). Shared by checkBuild and the green/red suitability overlay.
  *  Returns undefined when the ground itself is suitable. */
@@ -413,6 +464,20 @@ export function siteErrorAt(
     }
     if (siting === 'water') {
       if (t !== TERRAIN.water) return 'tidal turbines sit in the water';
+      return undefined;
+    }
+    if (siting === 'river') {
+      // a dam stands on the bank and throws its wall across the river, so
+      // it sits on DRY LAND that abuts a watercourse wide enough to impound.
+      // The campus reach lets every tile of the dam's footprint qualify as
+      // riverside even though only its riverside row actually touches water.
+      if (t === TERRAIN.water) return 'the dam wall sits on the bank, not in the river';
+      if (z === ZONE.posh) return 'the conservation area will never allow that';
+      if (z === ZONE.park) return 'not in a royal park';
+      const reach = Math.max(...(GENS[spec.gen].footprint ?? [1, 1]));
+      if (riverWidthNear(map, x, y, reach) < MIN_HYDRO_RIVER_WIDTH) {
+        return `hydro dams need a river at least ${MIN_HYDRO_RIVER_WIDTH} tiles wide`;
+      }
       return undefined;
     }
     if (siting === 'edge') {
