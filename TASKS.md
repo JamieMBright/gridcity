@@ -10,6 +10,21 @@
 
 ---
 
+### 🗺️ MAP + GEN FEEDBACK (owner, 2026-06-23)
+- [~] **(1) Too many buildings on non-London maps.** Generated (OSM-seeded) cities
+  carry a far denser building fabric than curated London. structureSpriteFor now
+  thins ~35% of ORDINARY building tiles on non-London fabrics (render-only; London
+  byte-identical; sim demand untouched). Verified: NY/Cairo declutter, London
+  unchanged (screenshots) + tests/cityDensity.test.ts. Gating this PR.
+- [ ] **(2) Hydro dams buildable** (Pune famous for them). Add a HYDRO generation
+  type. Ignore water-course effects, but require a MINIMUM RIVER WIDTH (adjacent
+  water span) to place. → catalog GenType + placement rule + sprite + palette +
+  capacity profile.
+
+### ⚠️ OPEN (owner, 2026-06-22): "Got errors on mobile trying to load map" — NOT
+yet captured by the sink/breadcrumb (0 rows in 2 days). Awaiting a screenshot /
+error text / app-reopen to diagnose. Watch client_errors.
+
 ### 📱🎮 PLAYTEST FLURRY (owner, 2026-06-20) — iPhone crash + desktop HUD/UX
 Context: iPhone "keeps crashing" → diagnosed via the boot breadcrumb (a hard OOM
 during the city load). Shipped #107 (catch + texture-free-on-switch), #108 (cut
