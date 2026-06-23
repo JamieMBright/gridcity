@@ -383,6 +383,25 @@ function cityStockFor(
 /** What stands on the tile (transparent floor), or undefined for open
  *  ground. Streets/arterials/rails through the tile centre clear it —
  *  the carriageway ribbon runs where the structure would stand. */
+/** Non-London (OSM-seeded) cities carry a much DENSER building fabric than
+ *  curated London — their streets read cluttered (owner, 2026-06-22: "too many
+ *  buildings on the maps other than London ... fewer is better"). We thin this
+ *  percentage of their ordinary building tiles in the RENDERER only; dropped
+ *  tiles fall through to open ground so the city breathes. Sim zones / customers
+ *  / demand are untouched, and London is gated out entirely (byte-identical). */
+const CITY_BUILDING_THIN_PCT = 35;
+/** Ordinary building zones that the thin applies to — the residential /
+ *  commercial / industrial fabric. Excludes rural (already sparse), newEstate
+ *  (gameplay-significant iDNO estates), parks, glasshouse and generation sites. */
+const THINNABLE_ZONES: ReadonlySet<number> = new Set<number>([
+  ZONE.urbanCore,
+  ZONE.urban,
+  ZONE.suburb,
+  ZONE.posh,
+  ZONE.cbd,
+  ZONE.industrial,
+]);
+
 export function structureSpriteFor(map: CityMap, x: number, y: number): string | undefined {
   const i = y * map.width + x;
   const terrain = map.terrain[i];
@@ -496,6 +515,20 @@ export function structureSpriteFor(map: CityMap, x: number, y: number): string |
   if (isGizaDesert(map, x, y)) return undefined;
   if (terrain === TERRAIN.hill) return `hill_${v % 2}`;
   if (terrain === TERRAIN.trees) return `trees_${v % 3}`;
+
+  // Declutter the generated (non-London) cities: drop a deterministic per-tile
+  // hash fraction of ORDINARY building tiles so the dense OSM fabric breathes.
+  // Heroes/landmarks/hills/trees above are already handled; rural, newEstate,
+  // parks and generation sites are excluded; London is gated out (byte-identical).
+  // Render-only — the sim's zones/customers/demand are unchanged.
+  if (
+    (map.fabric ?? 'london') !== 'london' &&
+    zone !== undefined &&
+    THINNABLE_ZONES.has(zone) &&
+    tileHash(x + 101, y + 53) % 100 < CITY_BUILDING_THIN_PCT
+  ) {
+    return undefined;
+  }
 
   const estate = estateOf(x, y);
   const shops = ((map.flags?.[i] ?? 0) & FLAG_SHOPS) !== 0;
