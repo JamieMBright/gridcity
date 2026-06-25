@@ -108,6 +108,11 @@ const GEN_COPY: Record<GenType, { what: string; does: string; when: string }> = 
     does: 'A small zero-carbon, zero-fuel unit sited in water. Free "fuel", but the capex means a developer still needs a healthy strike price to build it — clean energy is never truly free.',
     when: 'A clean, predictable top-up where you have suitable water — a premium niche, not a workhorse.',
   },
+  hydro: {
+    what: 'A reservoir hydro dam: a concrete wall thrown across a river to impound a head of water that drives turbines in the powerhouse below. Generational civils and a hard-fought consent, but once built it is firm, clean, and runs for a century.',
+    does: 'A large, firm, zero-carbon block on 132 kV with effectively zero fuel cost, so dispatch calls it first and it runs as dependable baseload. The dam must straddle a wide-enough river; the heavy capex annuitises onto every bill.',
+    when: 'Anchor a clean grid with dispatchable megawatts you can lean on day or night — wherever you have a broad river to dam and the patience for the long build.',
+  },
   biomass: {
     what: 'A biomass CHP plant burning wood pellets / organic matter, often capturing the waste heat. Counted as low-carbon (the carbon was recently in the air), but it still has real emissions and fuel cost.',
     does: 'A small dispatchable unit on 33 kV with modest carbon and a mid marginal cost. Firmer than wind or solar, dirtier than nuclear — a flexible middle option.',
@@ -138,6 +143,7 @@ const GEN_ORDER: GenType[] = [
   'windOnshore',
   'windOffshore',
   'tidal',
+  'hydro',
   'biomass',
   'nuclear',
   'battery',

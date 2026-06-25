@@ -508,6 +508,7 @@ export const HONGKONG_GENERATION: GenerationModel = {
     windOnshore: 0.1,
     windOffshore: 0.1,
     tidal: 0.1,
+    hydro: 0.1,
     battery: 0.1,
     electrolyser: 0.1,
   },
@@ -559,6 +560,7 @@ export const BRAZIL_GENERATION: GenerationModel = {
   hydroDriven: true,
   baseloadFloor: 0.5,
   tenderBias: {
+    hydro: 1.4, // Brazil's defining technology — the rivers lead the fleet
     solarFarm: 1.2,
     windOnshore: 1.3,
     windOffshore: 0.8,

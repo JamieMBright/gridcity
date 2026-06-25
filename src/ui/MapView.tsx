@@ -558,7 +558,7 @@ export function MapView() {
     } else {
       const sprite =
         spec.kind === 'gen'
-          ? { gasCCGT: 'gen_gas', gasPeaker: 'gen_peaker', coal: 'gen_coal', nuclear: 'gen_nuclear', solarFarm: 'gen_solar', windOnshore: 'gen_windon', windOffshore: 'gen_windoff', tidal: 'gen_tidal', biomass: 'gen_biomass', battery: 'gen_battery', interconnector: 'gen_interconnector', electrolyser: 'gen_electrolyser' }[spec.gen]
+          ? { gasCCGT: 'gen_gas', gasPeaker: 'gen_peaker', coal: 'gen_coal', nuclear: 'gen_nuclear', solarFarm: 'gen_solar', windOnshore: 'gen_windon', windOffshore: 'gen_windoff', tidal: 'gen_tidal', hydro: 'gen_hydro', biomass: 'gen_biomass', battery: 'gen_battery', interconnector: 'gen_interconnector', electrolyser: 'gen_electrolyser' }[spec.gen]
           : spec.kind === 'sub'
             ? { bulk: 'sub_bulk', grid: 'sub_grid', dist: 'sub_dist', pole: 'sub_pole', vault: 'sub_vault', tee: 'sub_dist', capbank: 'sub_capbank' }[spec.sub]
             : 'depot';

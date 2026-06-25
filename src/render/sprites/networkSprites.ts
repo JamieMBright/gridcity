@@ -694,6 +694,124 @@ export function tidalTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
+/** Hydro dam: a concrete gravity wall thrown across a river, holding back
+ *  an impounded reservoir, with a central spillway in full flood, penstocks
+ *  feeding the powerhouse at the toe, and a service gantry on the crest.
+ *  A 2x2 hero block — the wall runs along the v axis; the reservoir sits on
+ *  the upstream (low-u) side at a raised level, the dry tailrace downstream. */
+export function damTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso(2, 2);
+  void seed;
+  const conc = COLORS.concrete;
+  const H = iso.hTiles; // 2
+  // the dam wall straddles the river at this u; upstream (the reservoir) is
+  // u < wallBack, the dry tailrace is downstream (high u).
+  const wallBack = 0.62; // upstream face of the wall
+  const faceU = 0.92; // downstream (visible) face of the wall
+  const crest = 62; // crest height
+  const waterZ = 40; // impounded surface — clearly BELOW the crest
+
+  // valley floor: dry rocky tailrace + banks
+  iso.floor(darken(PAD, 0.04), darken(PAD, 0.18));
+
+  // --- IMPOUNDED RESERVOIR upstream: a body of water with real depth (a
+  //     surface plane plus dark front faces) tucked behind the wall so the
+  //     concrete crest stands clearly above the waterline.
+  iso.quad(-0.02, -0.02, wallBack, H + 0.02, waterZ, COLORS.water, COLORS.waterDeep);
+  // front-left + front-right water faces give the lake body (not a billboard)
+  iso.r.poly(
+    [iso.P(-0.02, H + 0.02, waterZ), iso.P(wallBack, H + 0.02, waterZ), iso.P(wallBack, H + 0.02, 0), iso.P(-0.02, H + 0.02, 0)],
+    COLORS.waterDeep,
+  );
+  iso.r.poly(
+    [iso.P(wallBack, -0.02, waterZ), iso.P(wallBack, H + 0.02, waterZ), iso.P(wallBack, H + 0.02, 0), iso.P(wallBack, -0.02, 0)],
+    shaded(COLORS.waterDeep, 0.1),
+  );
+  // sunset glints raking across the held water
+  for (const [u, v] of [
+    [0.18, 0.55],
+    [0.36, 1.2],
+    [0.12, 1.55],
+    [0.4, 0.32],
+  ] as const) {
+    iso.r.line(iso.P(u, v, waterZ + 0.5), iso.P(u + 0.16, v, waterZ + 0.5), 1.5 * RES, alpha(COLORS.waterGlint, 0.6));
+  }
+
+  // --- THE DAM WALL: a massive concrete gravity wall spanning the full v
+  //     width, its broad battered face turned downstream (front-right).
+  iso.shadow(wallBack, 0, faceU + 0.04, H, 0.18, 0.26);
+  iso.box(wallBack, 0, faceU, H, 0, crest, conc, {
+    leftC: shaded(conc, 0.18),
+    rightC: lit(conc, 0.05),
+    topC: lighten(conc, 0.12),
+  });
+  // crest roadway: a paler capping strip running bank to bank along the top
+  iso.quad(wallBack + 0.02, 0, faceU - 0.02, H, crest + 0.6, lighten(conc, 0.18));
+  iso.r.polyline([iso.P(wallBack + 0.02, 0, crest + 0.6), iso.P(faceU - 0.02, 0, crest + 0.6), iso.P(faceU - 0.02, H, crest + 0.6), iso.P(wallBack + 0.02, H, crest + 0.6)], INK_W, alpha(INK, 0.5));
+
+  // BUTTRESS RIBS down the downstream face (u = faceU): broad pilasters that
+  // read instantly as a dam wall, each a thin proud box on the face.
+  for (let k = 0; k < 4; k++) {
+    const v0 = 0.16 + k * 0.46;
+    iso.box(faceU - 0.04, v0, faceU + 0.03, v0 + 0.18, 0, crest - 4, lighten(conc, 0.04), {
+      leftC: shaded(conc, 0.1),
+      rightC: lit(conc, 0.12),
+      topC: lighten(conc, 0.16),
+    });
+  }
+
+  // --- SPILLWAY: a central notch in the crest with white water sheeting
+  //     down the battered face into a churned stilling basin at the toe.
+  const sv0 = H * 0.4;
+  const sv1 = H * 0.6;
+  iso.quad(wallBack + 0.02, sv0, faceU - 0.02, sv1, crest + 0.7, shaded(conc, 0.26)); // recessed sill
+  // white overspill on the downstream face
+  iso.r.poly(
+    [iso.P(faceU + 0.032, sv0, crest - 3), iso.P(faceU + 0.032, sv1, crest - 3), iso.P(faceU + 0.032, sv1, 2), iso.P(faceU + 0.032, sv0, 2)],
+    alpha(COLORS.white, 0.95),
+  );
+  for (let k = 0; k <= 5; k++) {
+    const v = sv0 + ((sv1 - sv0) * k) / 5;
+    iso.r.line(iso.P(faceU + 0.05, v, crest - 5), iso.P(faceU + 0.05, v, 4), 0.7 * RES, alpha(hex('#cfe0f0'), 0.85));
+  }
+  // stilling basin: a churned blue pool with a foam line at the toe
+  iso.quad(faceU + 0.04, sv0 - 0.06, faceU + 0.34, sv1 + 0.06, 0, COLORS.waterDeep);
+  iso.quad(faceU + 0.04, sv0 - 0.06, faceU + 0.16, sv1 + 0.06, 0, alpha(COLORS.white, 0.6));
+
+  // --- PENSTOCKS: two big steel pipes running down the face to the toe,
+  //     flanking the spillway and feeding the powerhouse.
+  for (const v of [H * 0.22, H * 0.78]) {
+    const pipe = COLORS.steel;
+    const a = iso.P(faceU + 0.04, v, crest - 10);
+    const b = iso.P(faceU + 0.2, v, 5);
+    iso.r.line(a, b, 4.4 * RES, alpha(INK, 0.5)); // dark casing/outline
+    iso.r.line(a, b, 3.2 * RES, shaded(pipe, 0.06));
+    iso.r.line(a, b, 1.3 * RES, lit(pipe, 0.16)); // top highlight
+  }
+
+  // --- POWERHOUSE at the toe: a low steel-roofed hall hard against the
+  //     downstream face where the penstocks land.
+  iso.shadow(faceU + 0.14, 0.2, faceU + 0.5, H - 0.2, 0.12, 0.18);
+  iso.box(faceU + 0.14, 0.2, faceU + 0.5, H - 0.2, 0, 17, NAVY);
+  iso.gable(faceU + 0.14, 0.2, faceU + 0.5, H - 0.2, 17, 6, 'v', darken(NAVY, 0.1), NAVY);
+  iso.windowsLeft(H - 0.2, faceU + 0.18, faceU + 0.46, 5, 13, 4, COLORS.glassLit, COLORS.white);
+
+  // --- service gantry crane spanning the crest + an orange brand band on
+  //     the downstream parapet so the dam keeps the kit's UKPN orange.
+  for (const v of [0.2, H - 0.2]) {
+    iso.box(wallBack + 0.06, v - 0.03, wallBack + 0.12, v + 0.03, crest, crest + 13, COLORS.steel);
+    iso.box(faceU - 0.12, v - 0.03, faceU - 0.06, v + 0.03, crest, crest + 13, COLORS.steel);
+  }
+  iso.r.line(iso.P(faceU - 0.09, 0.2, crest + 13), iso.P(faceU - 0.09, H - 0.2, crest + 13), 1.5 * RES, COLORS.steelDark);
+  iso.r.line(iso.P(wallBack + 0.09, 0.2, crest + 13), iso.P(wallBack + 0.09, H - 0.2, crest + 13), 1.5 * RES, COLORS.steelDark);
+  // orange hazard band along the downstream crest edge (the parapet rail)
+  iso.r.poly(
+    [iso.P(faceU + 0.001, 0, crest), iso.P(faceU + 0.001, H, crest), iso.P(faceU + 0.001, H, crest - 3), iso.P(faceU + 0.001, 0, crest - 3)],
+    alpha(COLORS.orange, 0.95),
+  );
+  return iso.build();
+}
+
 /** Biomass CHP: twin silver silos, a fuel shed and a stack. */
 export function biomassTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   const iso = new Iso();

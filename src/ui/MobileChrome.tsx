@@ -52,6 +52,7 @@ const RAIL: RailItem[] = [
   { Icon: GEN_ICONS.windOnshore, tool: { t: 'gen', gen: 'windOnshore' }, label: 'Onshore wind' },
   { Icon: GEN_ICONS.windOffshore, tool: { t: 'gen', gen: 'windOffshore' }, label: 'Offshore wind' },
   { Icon: GEN_ICONS.tidal, tool: { t: 'gen', gen: 'tidal' }, label: 'Tidal stream' },
+  { Icon: GEN_ICONS.hydro, tool: { t: 'gen', gen: 'hydro' }, label: 'Hydro dam' },
   { Icon: GEN_ICONS.biomass, tool: { t: 'gen', gen: 'biomass' }, label: 'Biomass CHP' },
   { Icon: GEN_ICONS.nuclear, tool: { t: 'gen', gen: 'nuclear' }, label: 'Nuclear' },
   { Icon: GEN_ICONS.battery, tool: { t: 'gen', gen: 'battery' }, label: 'Battery' },

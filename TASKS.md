@@ -16,10 +16,25 @@
   thins ~35% of ORDINARY building tiles on non-London fabrics (render-only; London
   byte-identical; sim demand untouched). Verified: NY/Cairo declutter, London
   unchanged (screenshots) + tests/cityDensity.test.ts. Gating this PR.
-- [ ] **(2) Hydro dams buildable** (Pune famous for them). Add a HYDRO generation
+- [x] **(2) Hydro dams buildable** (Pune famous for them). Add a HYDRO generation
   type. Ignore water-course effects, but require a MINIMUM RIVER WIDTH (adjacent
   water span) to place. → catalog GenType + placement rule + sprite + palette +
   capacity profile.
+  → DONE (feat/hydro-gen): new `'hydro'` GenType — a clean, dispatchable baseload
+  dam (200 MW @ 132 kV, ~£3.5m/MW capex, 0 carbon, ~0 marginal cost so it sits
+  first in the merit order; long 365+540-day lead, 2×2 footprint). New `'river'`
+  siting: `siteErrorAt` now requires the (dry-land) build to abut a river ≥
+  `MIN_HYDRO_RIVER_WIDTH` (=3) tiles WIDE — `riverWidthNear` measures the water
+  run along the bank→water axis (so a long thin stream reads as narrow, not wide)
+  out to the campus reach. Dispatch un-cased ⇒ full availability (water-course
+  effects ignored). Bespoke code-art `damTile` sprite (concrete gravity wall +
+  buttress ribs + white spillway + penstocks + powerhouse + orange parapet),
+  registered `gen_hydro`; bespoke `IconHydro`; wired into BuildPalette / mobile
+  rail / asset-guide. Developers can actually bid on it (Thames Estuary 1.2,
+  Consolidated 0.8, Albion 0.9; Brazil tenderBias 1.4, Hong Kong 0.1). Tests:
+  `tests/hydro.test.ts` (catalog shape + min-width placement on both axes incl.
+  the long-thin-stream trap). Screenshot gate: in-game dam on the Thames
+  (preview/hydro-hero.png) reads clearly as a dam.
 
 ### ⚠️ OPEN (owner, 2026-06-22): "Got errors on mobile trying to load map" — NOT
 yet captured by the sink/breadcrumb (0 rows in 2 days). Awaiting a screenshot /

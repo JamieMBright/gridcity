@@ -14,6 +14,7 @@ export type GenType =
   | 'windOnshore'
   | 'windOffshore'
   | 'tidal'
+  | 'hydro'
   | 'biomass'
   | 'battery'
   | 'interconnector'
@@ -34,8 +35,9 @@ export interface GenSpec {
   /** gCO2 per kWh. */
   carbonG: number;
   /** Where it may be sited ('edge' = on land within 2 tiles of the map
-   *  boundary — interconnector landfalls). */
-  siting: 'land' | 'solarSite' | 'windSite' | 'nuclearSite' | 'water' | 'edge';
+   *  boundary — interconnector landfalls; 'river' = on land abutting a
+   *  river at least MIN_HYDRO_RIVER_WIDTH tiles wide — hydro dams). */
+  siting: 'land' | 'solarSite' | 'windSite' | 'nuclearSite' | 'water' | 'river' | 'edge';
   /** Planning consultation, game-days before construction starts. */
   planningDays: number;
   /** Construction, game-days until the plant is commissioned. */
@@ -149,6 +151,25 @@ export const GENS: Record<GenType, GenSpec> = {
     siting: 'water',
     planningDays: 60,
     buildDays: 90,
+  },
+  hydro: {
+    // Conventional reservoir dam: a clean, dispatchable baseload that runs
+    // on free water (~0 marginal cost, 0 carbon) so it sits at the very
+    // bottom of the merit order and is dispatched first. Civils-heavy and
+    // slow to consent + build — a dam is a generational project — so the
+    // capex lands at offshore-wind/nuclear scale per MW. Needs a river of
+    // at least MIN_HYDRO_RIVER_WIDTH tiles to impound (commands.ts).
+    name: 'Hydro dam',
+    capacityMW: 200,
+    level: 132,
+    capexK: 700_000, // ~£3.5m/MW — a major dam, on the nuclear/offshore tier
+    opexFrac: 0.015, // no fuel handling: cheap to run once built
+    marginalCostK: 0, // water is free
+    carbonG: 0,
+    siting: 'river',
+    planningDays: 365, // a dam fights a long consent battle
+    buildDays: 540, // and takes years of civils to raise the wall
+    footprint: [2, 2],
   },
   biomass: {
     name: 'Biomass CHP',
@@ -438,6 +459,7 @@ export const CAPACITY_FACTOR: Record<GenType, number> = {
   windOnshore: 0.3,
   windOffshore: 0.45,
   tidal: 0.35,
+  hydro: 0.4, // reservoir dam run dispatchably across the year
   biomass: 0.7,
   battery: 0.15,
   // imports run baseload-ish; never tendered, kept for Record totality
