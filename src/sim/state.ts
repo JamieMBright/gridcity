@@ -5,7 +5,7 @@ import { GENS, SUBS, type GenType, type SubType, type VegPolicy } from './catalo
 import { TERRAIN, ZONE, type CityMap } from './map/types';
 import { buildDemandField, type DemandField } from './map/demand';
 import { newWeather, type WeatherState } from './events/weather';
-import { type Application, NAMES as APP_NAMES } from './events/applications';
+import { type Application, NAMES as APP_NAMES, APP_SEED_DEFAULT } from './events/applications';
 import { newDevMood, nextRoundOpensMin, type Tender } from './events/developers';
 import type { OrgState } from './events/directorates';
 import type { Claim } from './events/litigation';
@@ -214,6 +214,16 @@ export interface GameState {
    *  it fires exactly once per game. Additive optional. */
   heathrowSchemeMin?: number | undefined;
   heathrowSchemeFired?: boolean | undefined;
+  /** Per-game seed that varies WHICH developer name each ongoing connection
+   *  application draws (events/applications.nameFor), so two games no longer
+   *  open with the identical "Marsh Ridge Wind" / "Peak Shift Storage" mix
+   *  (owner). RANDOM in production (worker newGame) and a FIXED default in
+   *  tests/seed paths — exactly mirroring the starter seed. It does NOT touch
+   *  the tick rng stream (names are a pure hash of appSeed + app id), so within
+   *  a game it is 100% deterministic (same save ⇒ same names) while across games
+   *  it differs. Persisted in the save (SAVE_VERSION 17); a pre-feature save
+   *  hydrates it to the default. */
+  appSeed: number;
   /** DEV/TEST ONLY (the night-electrification design-gate): force tiles to read
    *  as POWERED in the coverage array, so a screenshot helper can show an
    *  ENERGISED city at night without wiring up its whole grid by hand.
@@ -331,6 +341,9 @@ export function newGame(scenarioId = 'london'): GameState {
     period: newPeriod(1, 0, initialTargets()),
     lastReport: undefined,
     rav: newRav(),
+    // fixed default here (deterministic for unit fixtures); the worker assigns a
+    // per-game RANDOM appSeed in its production newGame path, mirroring starterSeed
+    appSeed: APP_SEED_DEFAULT,
   };
 }
 
@@ -504,7 +517,15 @@ export function seedScenario(
 // and the King's Cross Coal Drops. New hero footprints stamp more London
 // tiles ⇒ map geometry + the baked heroTable changed again; bump so old saves
 // rebuild their hero placement from the committed names.
-export const SAVE_VERSION = 16;
+// v17 (per-game application variety): a new persisted `appSeed` field varies
+// WHICH developer name each ongoing connection application draws, so two London
+// games no longer open with the identical names (owner). Purely additive +
+// self-healing — a v16 (or older accepted) save has no `appSeed` and hydrates it
+// to the fixed default (its already-spawned apps keep their stored names; future
+// apps name off the default pool deterministically). No map geometry changes, so
+// the accepted-version FLOOR stays 14 (old saves still load); the number is
+// bumped so the new field is explicit and the guard can't silently drift.
+export const SAVE_VERSION = 17;
 
 /** Guard for untrusted save payloads; lives beside SAVE_VERSION so the two
  *  can never drift apart again (a stale guard silently discarded saves). */
@@ -549,7 +570,7 @@ export function isSaveData(d: unknown): d is SaveData {
 }
 
 export interface SaveData {
-  v: 16;
+  v: 17;
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;
@@ -642,6 +663,9 @@ export interface SaveData {
   /** Heathrow PV+BESS scheme schedule (Wave 9, additive). */
   heathrowSchemeMin?: number;
   heathrowSchemeFired?: boolean;
+  /** Per-game application-naming seed (v17, additive). Absent on a pre-feature
+   *  save → deserialize hydrates it to the fixed default. */
+  appSeed?: number;
 }
 
 export function serialize(s: GameState): SaveData {
@@ -735,6 +759,9 @@ export function serialize(s: GameState): SaveData {
     ...(s.groupOutageCustMin !== undefined ? { groupOutageCustMin: s.groupOutageCustMin } : {}),
     ...(s.heathrowSchemeMin !== undefined ? { heathrowSchemeMin: s.heathrowSchemeMin } : {}),
     ...(s.heathrowSchemeFired !== undefined ? { heathrowSchemeFired: s.heathrowSchemeFired } : {}),
+    // always persisted so a reload replays the SAME developer names (within-game
+    // determinism); a pre-v17 save lacks it and hydrates to the default on load
+    appSeed: s.appSeed,
     // scenario tag only when off the default: london saves stay
     // byte-identical to pre-campaign ones
     ...(s.scenarioId !== 'london' ? { scenarioId: s.scenarioId } : {}),
@@ -855,6 +882,9 @@ export function deserialize(d: SaveData): GameState {
     groupOutageCustMin: d.groupOutageCustMin,
     heathrowSchemeMin: d.heathrowSchemeMin,
     heathrowSchemeFired: d.heathrowSchemeFired,
+    // pre-v17 saves have no appSeed → the fixed default (their stored apps keep
+    // their names; new apps name off the default pool deterministically)
+    appSeed: d.appSeed ?? APP_SEED_DEFAULT,
   };
 }
 
