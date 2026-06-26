@@ -95,7 +95,7 @@ import {
   gradeOf,
   newPeriod,
   nextTargets,
-  regulatorFraming,
+  resolveFraming,
   resolveWeights,
   PERIOD_MIN,
   PERIOD_YEARS,
@@ -999,8 +999,10 @@ export function solveTick(
       pushEvent(
         state,
         card.composite >= 55 ? 'info' : 'bad',
-        // W8 Part-2b: name the close in the country's regulatory scheme
-        `${regulatorFraming(ctx.profile.regulator.model).scheme}-${card.index} closed: grade ${card.grade} (${card.composite}/100)`,
+        // name the close in the country's OWN regulatory scheme (resolved
+        // framing, so a per-country scheme override — Anreizregulierung, MYT,
+        // rate case — names its own close, not a leaked British "RIIO")
+        `${resolveFraming(ctx.profile.regulator.model, ctx.profile.regulator.framing).scheme}-${card.index} closed: grade ${card.grade} (${card.composite}/100)`,
       );
       const next = newPeriod(p.index + 1, p.startMin + PERIOD_MIN, nextTargets(p.targets, actuals));
       next.ciStart = state.reliability.ciCustomers;

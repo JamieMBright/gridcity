@@ -14,6 +14,11 @@ export const STORY_KEY = 'ec-story-pending';
 export function StoryIntro() {
   const menuOpen = useAppStore((s) => s.menuOpen);
   const scenarioId = useAppStore((s) => s.scenarioId);
+  // the grace-period note names the active country's reliability metric +
+  // scheme (GB "CI/CML … RIIO"; Germany "SAIDI/SAIFI … Anreizregulierung"; …)
+  // so no British term leaks into a non-GB opening. Falls back to neutral
+  // wording before the first snapshot lands.
+  const regulator = useAppStore((s) => s.snapshot?.riio.regulator);
   const [beat, setBeat] = useState(-1);
 
   // A fresh sandbox (ANY of the cities) flags the pending letterbox; campaign
@@ -103,9 +108,10 @@ export function StoryIntro() {
             {' · '}customer minutes lost below{' '}
             <b style={{ color: theme.offWhite }}>{targets.cml} CML</b> by year 2.
             <div style={{ marginTop: 6, color: theme.gold }}>
-              Grace period: all performance metrics — reliability (CI/CML), constraint
-              costs and the RIIO report card — are <b>frozen for your first 3 months</b>{' '}
-              while you rebuild.
+              Grace period: all performance metrics — reliability (
+              {regulator?.reliabilityMetric ?? 'supply continuity'}), curtailment
+              costs and the {regulator?.scheme ?? 'regulator'} report card — are{' '}
+              <b>frozen for your first 3 months</b> while you rebuild.
             </div>
           </div>
         )}

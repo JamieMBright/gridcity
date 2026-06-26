@@ -364,7 +364,17 @@ export function MobileChrome() {
           <Chip Icon={IconLedger} label="alerts" active={sheet === 'alerts'} onClick={() => toggle('alerts')} />
         )}
         {show('hud:kpi') && (
-          <Chip Icon={IconReport} label="RIIO KPIs" active={kpiOpen} onClick={() => setKpiOpen(!kpiOpen)} />
+          <Chip
+            Icon={IconReport}
+            // active scheme tag when short (GB "RIIO KPIs"); else neutral "KPIs"
+            label={
+              snapshot && snapshot.riio.regulator.scheme.length <= 6
+                ? `${snapshot.riio.regulator.scheme} KPIs`
+                : 'KPIs'
+            }
+            active={kpiOpen}
+            onClick={() => setKpiOpen(!kpiOpen)}
+          />
         )}
         {show('hud:kpi') && (
           <Chip

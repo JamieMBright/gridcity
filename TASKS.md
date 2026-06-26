@@ -10,6 +10,50 @@
 
 ---
 
+### 🌍 PER-COUNTRY REGULATOR & POLICY LOCALIZATION (owner, 2026-06-26)
+Owner (UKPN DSO manager): "We still have RIIO report card in the Pune game —
+RIIO/Ofgem are British concepts. Even in London RIIO isn't spelled out. Country-
+specific policy & law should proliferate and MATERIALLY change the targets /
+metrics / framing per country (London + North East can share GB laws)."
+Branch: feat/regulator-localization.
+- [x] **(1) No British terms outside GB.** RIIO/Ofgem/DUoS/CI-CML/HSE no longer
+  leak into any non-GB city. Audited every occurrence; the user-facing leaks were
+  in BillPanel (DUoS ×3 + CI/CML rows), KpiDashboard (KPI teach "constraint
+  payments", "3.34% WACC", "beating CI/CML", "HSE notice"), StoryIntro (grace
+  text), Hud (Ofgem allowance tooltip + "RIIO" button), MobileChrome ("RIIO
+  KPIs" chip), HudTour, LoadingScreen, HotkeyHelp, directorates blurb — all now
+  driven by the active regulator framing or neutralised. (news.ts Ofgem/National-
+  Grid headlines were already London-gated; story.ts STORY_BEATS Ofgem is London-
+  only via storyBeatsFor.) Guard test asserts NO British term in any non-GB
+  profile's framing strings, and that GB DOES use them (caught 2 real leaks:
+  AU "DUOS" + inherited HSE).
+- [x] **(2) Per-country regulator/policy that MATERIALLY changes the game.** New
+  country profiles wired (powerProfile.ts COUNTRY_PROFILES): DE (BNetzA /
+  Anreizregulierung — SAIDI/SAIFI, Netzentgelte, carbon+hosting KPI lean),
+  US (NYPSC / cost-of-service rate case — SAIDI/SAIFI/CAIDI, delivery charge,
+  CLCPA lean, 60 Hz), IN (MERC / Multi-Year Tariff — SAIDI/SAIFI · AT&C losses,
+  wheeling charge, affordability+reliability lean, ₹). Plus regulator+currency
+  for CN (NEA/NDRC), ZA (NERSA), EG (EgyptERA), GR (RAE) so those cities leak no
+  GB term either. RegulatorProfile now carries a `framing` override (scheme,
+  schemeGloss, review, blurb, reliabilityMetric, ci/cmlLabel, networkChargeLabel,
+  constraintLabel, returnHint, safetyBody); resolveFraming(model, override)
+  threads it through worker→snapshot.riio.regulator→KPI dashboard / report card /
+  rank panel / bill panel. KPI WEIGHTS differ materially per country (tested: the
+  same network scores differently under each regulator). Snapshot now carries
+  currency {symbol, iso} so the bill bills in local money (£/€/$/₹/¥/R/E£).
+- [x] **(3) London + North-East England share GB laws.** Both tagged country:'GB'
+  → resolve to LONDON_PROFILE (byte-identical determinism anchor). Every other
+  world city carries its real country.
+- [x] **(4) In GB, spell out RIIO.** A bordered gloss under the report-card title:
+  "RIIO — Ofgem's price control: Revenue = Incentives + Innovation + Outputs…".
+  Every country ships its own gloss (Anreizregulierung, Multi-Year Tariff, rate
+  case, …). Researched the real regulators/schemes/metrics first (deep-research
+  agent), then simplified.
+  Gates: tsc -b --force ✓ · eslint src tests e2e tools ✓ · vitest run 895 ✓
+  (+ new tests/regulatorLocalization.test.ts 33, updated cityScenario). Design
+  gate: London/Berlin/Pune KPI+bill at desktop+phone-landscape →
+  /tmp/review-regulator/ (helper e2e/regulatorshots.helper.spec.ts).
+
 ### 🗺️ MAP + GEN FEEDBACK (owner, 2026-06-23)
 - [~] **(1) Too many buildings on non-London maps.** Generated (OSM-seeded) cities
   carry a far denser building fabric than curated London. structureSpriteFor now

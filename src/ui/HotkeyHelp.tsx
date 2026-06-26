@@ -65,7 +65,7 @@ const OVERLAY_GROUP: Group = {
     { keys: ['H'], label: 'Headroom heatmap' },
     { keys: ['N'], label: 'N-1 security rings' },
     { keys: ['F'], label: '5-year demand forecast' },
-    { keys: ['K'], label: 'RIIO KPIs / report card' },
+    { keys: ['K'], label: 'Regulatory KPIs / report card' },
     { keys: ['O'], label: 'The network business (cOmpany / directorates)' },
   ],
 };

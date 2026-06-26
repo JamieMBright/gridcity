@@ -142,48 +142,119 @@ export function gradeOf(composite: number): ReportCard['grade'] {
 
 /** The regulatory framing a country runs under (mirrors
  *  powerProfile.RegulatorProfile.model; defined here to avoid an import cycle —
- *  powerProfile imports this module). Selects the report-card framing TEXT. */
+ *  powerProfile imports this module). Selects the DEFAULT report-card framing
+ *  TEXT when a profile carries no explicit override. */
 export type RegulatorModel = 'riio' | 'profit-cap' | 'cost-of-service';
 
-/** Human framing for a regulator model — surfaced on the RIIO report-card
- *  panel (W8 Part-2b) so a country's report card reads in its own regulatory
- *  language: Ofgem's RIIO incentive review (GB/AU), a Scheme-of-Control
- *  permitted-return review (Hong Kong), or a prudent-cost review (France's CRE,
- *  Brazil's ANEEL). `name` is the regulator's own name (Ofgem / AER / CRE / …).
- *  Pure presentation — no scoring change (the KPI WEIGHTS already vary per
- *  regulator via resolveWeights). */
-export function regulatorFraming(model: RegulatorModel): {
-  /** Short tag shown beside the period number ("RIIO" / "Scheme of Control"). */
+/** The fully-resolved framing the report card / dashboard speaks in. Each
+ *  string is the country's own regulatory language so NO British term (RIIO,
+ *  Ofgem, DUoS, CI/CML) ever leaks into a non-GB city. The model only provides
+ *  sensible DEFAULTS — a country profile overrides any field via
+ *  RegulatorProfile (powerProfile.ts), and that override wins here. */
+export interface RegulatorFraming {
+  /** Short tag shown beside the period number ("RIIO" / "Anreizregulierung"). */
   scheme: string;
-  /** The review's full name. */
+  /** The scheme spelled out in one line so the player understands it (owner
+   *  req: "in GB, spell out RIIO"). e.g. "RIIO — Ofgem's price control:
+   *  Revenue = Incentives + Innovation + Outputs". */
+  schemeGloss: string;
+  /** The review/order's full name ("incentive review" / "tariff order"). */
   review: string;
   /** One-line description of how this regulator judges the operator. */
   blurb: string;
-} {
+  /** The reliability metric the operator is reported on, named the country's
+   *  way: GB "CI / CML", Germany/USA "SAIDI / SAIFI", India "SAIDI / SAIFI ·
+   *  AT&C losses". Shown in the KPI teach copy + the reliability-incentive hint. */
+  reliabilityMetric: string;
+  /** Short per-row labels for the two reliability KPIs (the dashboard/bill rows).
+   *  GB keeps the CI/CML wording; elsewhere it reads in SAIDI/SAIFI terms. The
+   *  underlying number is identical — only the label localises. */
+  ciLabel: string;
+  cmlLabel: string;
+  /** The network use-of-system charge the operator actually controls, named
+   *  the country's way (GB "network use-of-system (DUoS)"; Germany "network
+   *  charges (Netzentgelte)"; USA "delivery charge"; India "wheeling charge"). */
+  networkChargeLabel: string;
+  /** What the curtailment-compensation KPI is called (GB "constraint payments";
+   *  elsewhere the neutral "curtailment compensation"). */
+  constraintLabel: string;
+  /** Hint beside "return" in the regulatory-finance block (GB "3.34% WACC";
+   *  a US rate case "allowed return on rate base"; etc.). */
+  returnHint: string;
+  /** The body that issues a safety improvement notice (GB "HSE"; generic "the
+   *  safety regulator"). */
+  safetyBody: string;
+}
+
+/** Build the default framing for a regulator MODEL (the GB/RIIO, Scheme-of-
+ *  Control profit-cap, or cost-of-service families). A country profile may
+ *  override any field via RegulatorProfile.framing — resolveFraming applies
+ *  those on top. GB/'riio' reproduces the exact prior wording, so London is
+ *  unchanged. */
+export function regulatorFraming(model: RegulatorModel): RegulatorFraming {
   switch (model) {
     case 'profit-cap':
       return {
         scheme: 'Scheme of Control',
+        schemeGloss:
+          'Scheme of Control — a regulator-agreed settlement: a permitted return on your net fixed assets, in exchange for world-class reliability.',
         review: 'permitted-return review',
         blurb:
           'A Scheme-of-Control settlement: a permitted return on net fixed assets, judged above all on world-class reliability.',
+        reliabilityMetric: 'SAIDI / SAIFI',
+        ciLabel: 'SAIFI /100 cust/yr',
+        cmlLabel: 'SAIDI min/cust/yr',
+        networkChargeLabel: 'network charge',
+        constraintLabel: 'curtailment compensation',
+        returnHint: 'permitted return on fixed assets',
+        safetyBody: 'the safety regulator',
       };
     case 'cost-of-service':
       return {
         scheme: 'cost-of-service',
+        schemeGloss:
+          'Cost-of-service — prudently-incurred costs are passed through to the tariff; affordability and service lead the review.',
         review: 'prudent-cost review',
         blurb:
           'A cost-of-service concession review: prudently-incurred costs are passed through, with affordability and service at the fore.',
+        reliabilityMetric: 'SAIDI / SAIFI',
+        ciLabel: 'SAIFI /100 cust/yr',
+        cmlLabel: 'SAIDI min/cust/yr',
+        networkChargeLabel: 'network charge',
+        constraintLabel: 'curtailment compensation',
+        returnHint: 'allowed return on the asset base',
+        safetyBody: 'the safety regulator',
       };
     case 'riio':
     default:
       return {
         scheme: 'RIIO',
+        schemeGloss:
+          "RIIO — Ofgem's price control: Revenue = Incentives + Innovation + Outputs. You're funded a totex allowance; beat it and you share the saving, miss your output targets and the bill pays.",
         review: 'incentive review',
         blurb:
           'A RIIO-style price control: outputs are incentivised against targets, and every pound of totex lands on the bill.',
+        reliabilityMetric: 'CI / CML',
+        ciLabel: 'CI /100 cust/yr',
+        cmlLabel: 'CML min/cust/yr',
+        networkChargeLabel: 'network charge (DUoS)',
+        constraintLabel: 'constraint payments',
+        returnHint: '3.34% WACC',
+        safetyBody: 'HSE',
       };
   }
+}
+
+/** Resolve the final framing: start from the model's defaults, then apply any
+ *  per-country overrides the RegulatorProfile carries (powerProfile.ts). This
+ *  is the seam that lets every country speak its OWN regulatory language while
+ *  GB stays byte-identical (GB ships no overrides). */
+export function resolveFraming(
+  model: RegulatorModel,
+  override?: Partial<RegulatorFraming>,
+): RegulatorFraming {
+  const base = regulatorFraming(model);
+  return override ? { ...base, ...override } : base;
 }
 
 export interface PeriodActuals {

@@ -37,33 +37,53 @@ const STATUS_COLOR: Record<KpiStatus, string> = {
   bad: theme.danger,
 };
 
-/** What each RIIO KPI is, and what good looks like — the teach copy. */
-const KPI_TEACH: Record<KpiKey, { what: string; goal: string }> = {
-  bill: {
-    what: 'The average household electricity bill, £/year — your headline score. Every pound you spend lands here.',
-    goal: 'Below the regulator target. Lower is better, but not at the cost of the lights.',
-  },
-  ci: {
-    what: 'Customer Interruptions per 100 customers per year — how OFTEN supply is lost.',
-    goal: 'Below target. Redundancy (N-1 loops) and tree-cutting cut it.',
-  },
-  cml: {
-    what: 'Customer Minutes Lost per customer per year — how LONG outages last once they happen.',
-    goal: 'Below target. Faster fault response (fleet, depots) cuts it.',
-  },
-  carbon: {
-    what: 'Carbon intensity of the power you dispatch, g CO₂/kWh.',
-    goal: 'Below target. Award renewables; run gas/coal last.',
-  },
-  curtailedFirm: {
-    what: 'Firm-connection generation you had to turn down, MWh/year — paid constraint payments.',
-    goal: 'Low. Reinforce the wires so you stop paying generators to switch off.',
-  },
-  satisfaction: {
-    what: 'Customer-weighted council satisfaction, 0–100 — how the public rate you.',
-    goal: 'Above target. Keep the lights on and bills sane; undergrounding helps.',
-  },
+/** The country-specific framing strings the dashboard reads, mirrored from the
+ *  snapshot's riio.regulator (protocol.ts). */
+type RegFraming = {
+  reliabilityMetric: string;
+  ciLabel: string;
+  cmlLabel: string;
+  constraintLabel: string;
+  returnHint: string;
+  safetyBody: string;
 };
+
+/** What each KPI is, and what good looks like — the teach copy. The pieces
+ *  that name a country-specific scheme/metric (the reliability metric, the
+ *  currency, the curtailment-compensation term) are filled from the active
+ *  regulator framing so the card reads in each country's regulatory language —
+ *  GB keeps "CI/CML", "£" and "constraint payments"; elsewhere it localises. */
+function kpiTeach(reg: RegFraming, sym: string): Record<
+  KpiKey,
+  { what: string; goal: string }
+> {
+  return {
+    bill: {
+      what: `The average household electricity bill, ${sym}/year — your headline score. Every ${sym} you spend lands here.`,
+      goal: 'Below the regulator target. Lower is better, but not at the cost of the lights.',
+    },
+    ci: {
+      what: `How OFTEN supply is lost, reported as ${reg.ciLabel} (${reg.reliabilityMetric}).`,
+      goal: 'Below target. Redundancy (N-1 loops) and tree-cutting cut it.',
+    },
+    cml: {
+      what: `How LONG outages last once they happen, reported as ${reg.cmlLabel} (${reg.reliabilityMetric}).`,
+      goal: 'Below target. Faster fault response (fleet, depots) cuts it.',
+    },
+    carbon: {
+      what: 'Carbon intensity of the power you dispatch, g CO₂/kWh.',
+      goal: 'Below target. Award renewables; run gas/coal last.',
+    },
+    curtailedFirm: {
+      what: `Firm-connection generation you had to turn down, MWh/year — paid ${reg.constraintLabel}.`,
+      goal: 'Low. Reinforce the wires so you stop paying generators to switch off.',
+    },
+    satisfaction: {
+      what: 'Customer-weighted council satisfaction, 0–100 — how the public rate you.',
+      goal: 'Above target. Keep the lights on and bills sane; undergrounding helps.',
+    },
+  };
+}
 
 /** A tappable/hoverable info dot that surfaces the KPI's tooltip. */
 function HelpDot({ help, label }: { help: KpiHelp; label: string }) {
@@ -174,8 +194,10 @@ function signedMoney(k: number): { text: string; color: string } {
 
 /** The price-control money block (RAV + allowed revenue + sharing +
  *  incentive). Surfaced only once the layer has phased in — plain English,
- *  reflows on desktop + phone-landscape (it's a simple two-column list). */
-function RegulatoryBlock({ reg }: { reg: RegulatoryView }) {
+ *  reflows on desktop + phone-landscape (it's a simple two-column list). The
+ *  `fr` framing localises the return hint + the reliability-incentive metric so
+ *  the block reads in the active country's regulatory language. */
+function RegulatoryBlock({ reg, fr }: { reg: RegulatoryView; fr: RegFraming }) {
   const rev = reg.revenue;
   const share = signedMoney(rev.sharingYrK);
   const inc = signedMoney(rev.incentiveYrK);
@@ -226,7 +248,7 @@ function RegulatoryBlock({ reg }: { reg: RegulatoryView }) {
         color={theme.offWhite}
         hint="depreciated network you've built"
       />
-      <Row label="return on RAV" value={`${fmtMoneyK(rev.returnYrK)}/yr`} hint="3.34% WACC" />
+      <Row label="return on RAV" value={`${fmtMoneyK(rev.returnYrK)}/yr`} hint={fr.returnHint} />
       <Row
         label="depreciation"
         value={`${fmtMoneyK(rev.depreciationYrK)}/yr`}
@@ -243,7 +265,7 @@ function RegulatoryBlock({ reg }: { reg: RegulatoryView }) {
         label="reliability incentive"
         value={inc.text}
         color={inc.color}
-        hint={rev.incentiveYrK >= 0 ? 'beating CI/CML' : 'missing CI/CML'}
+        hint={`${rev.incentiveYrK >= 0 ? 'beating' : 'missing'} ${fr.reliabilityMetric}`}
       />
       <div
         style={{
@@ -272,6 +294,14 @@ export function KpiDashboard() {
   if (!open || !snapshot) return null;
   const r = snapshot.riio;
   const yearsIn = r.elapsedMin / 525_600;
+  // per-country framing: the card reads in the active regulator's own language
+  // (GB keeps CI/CML + £; Germany SAIDI/SAIFI + €; etc.) — never a leaked term.
+  const reg = r.regulator;
+  const sym = snapshot.currency.symbol;
+  const teach = kpiTeach(reg, sym);
+  // localised reliability-row labels; the other labels are country-agnostic
+  const labelFor = (k: KpiKey): string =>
+    k === 'ci' ? reg.ciLabel : k === 'cml' ? reg.cmlLabel : KPI_LABELS[k];
 
   return (
     <div
@@ -314,14 +344,30 @@ export function KpiDashboard() {
             ✕
           </button>
         </div>
-        {/* W8 Part-2b: per-country regulator framing — the card speaks the
-            country's regulatory language (Ofgem RIIO / Scheme of Control / CRE
-            prudent-cost). */}
+        {/* Per-country regulator framing — the card speaks the country's own
+            regulatory language (Ofgem RIIO / BNetzA Anreizregulierung / NYPSC
+            rate case / MERC Multi-Year Tariff …), so no British term leaks. */}
         <div style={{ color: theme.gold, fontSize: 11, fontWeight: 700, marginTop: 3 }}>
-          {r.regulator.name} · {r.regulator.review}
+          {reg.name} · {reg.review}
         </div>
-        <div style={{ color: theme.slate, fontSize: 10.5, marginTop: 3, lineHeight: 1.4 }}>
-          {r.regulator.blurb}
+        {/* the scheme spelled out so the player understands it (owner: "in GB,
+            spell out RIIO") — bordered gloss the first thing under the title */}
+        <div
+          style={{
+            marginTop: 5,
+            padding: '5px 9px',
+            borderLeft: `2px solid ${theme.orange}`,
+            background: 'rgba(255,138,30,0.08)',
+            borderRadius: 4,
+            color: theme.offWhite,
+            fontSize: 10.5,
+            lineHeight: 1.45,
+          }}
+        >
+          {reg.schemeGloss}
+        </div>
+        <div style={{ color: theme.slate, fontSize: 10.5, marginTop: 5, lineHeight: 1.4 }}>
+          {reg.blurb}
         </div>
         <div style={{ color: theme.slate, fontSize: 10.5, marginTop: 4 }}>
           tap the <span style={{ color: theme.gold }}>?</span> on any row for why it's that colour
@@ -339,8 +385,8 @@ export function KpiDashboard() {
               const cur = r.current[k];
               const tgt = r.targets[k];
               const help = targetHelp(
-                KPI_TEACH[k].what,
-                KPI_TEACH[k].goal,
+                teach[k].what,
+                teach[k].goal,
                 cur,
                 tgt,
                 HIGHER_BETTER[k],
@@ -348,7 +394,7 @@ export function KpiDashboard() {
               return (
                 <KpiRow
                   key={k}
-                  label={KPI_LABELS[k]}
+                  label={labelFor(k)}
                   value={fmt(k, cur)}
                   target={fmt(k, tgt)}
                   help={help}
@@ -416,11 +462,11 @@ export function KpiDashboard() {
         </table>
         {snapshot.safety.noticeDaysLeft !== undefined && (
           <div style={{ marginTop: 8, fontSize: 11, color: theme.danger }}>
-            ⚠ HSE improvement notice open — lift the safety programme within{' '}
+            ⚠ {reg.safetyBody} improvement notice open — lift the safety programme within{' '}
             {snapshot.safety.noticeDaysLeft.toFixed(0)} days or face a fine
           </div>
         )}
-        {r.regulatory && <RegulatoryBlock reg={r.regulatory} />}
+        {r.regulatory && <RegulatoryBlock reg={r.regulatory} fr={reg} />}
         {r.lastReport && (
           <div
             style={{
