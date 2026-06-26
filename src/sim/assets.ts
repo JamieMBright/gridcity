@@ -63,6 +63,21 @@ export interface GenAsset {
    *  curtailPriceK personality. Absent (legacy saves, customer plant)
    *  = the flat CONSTRAINT_COMP_K / the developer fallback in dispatch. */
   curtailK?: number | undefined;
+  /** Chosen connection voltage, the modelled bus level (owner, 2026-06-26):
+   *  a generator can connect at several tiers (catalog GenTier), each with its
+   *  own MW band. This OVERRIDES GENS[gen].level for the network derivation,
+   *  bays and dispatch when the player picked a non-default tier. Additive:
+   *  absent (old saves, single-tier plant) = the catalog level, unchanged. */
+  level?: VoltageLevel | undefined;
+  /** kV label of the chosen tier (LV/11/33/132/400) — display/signage only;
+   *  the electrical connection is `level`. Absent = the default tier. */
+  tierKv?: string | undefined;
+  /** Hydro dams only: which way the impounded river runs, so the wall is
+   *  thrown ACROSS the channel bank-to-bank (owner, 2026-06-26). 'ew' = the
+   *  river runs east–west and the wall spans north–south; 'ns' = the reverse.
+   *  Detected at placement from the river the dam abuts (commands.ts) and used
+   *  to pick the oriented sprite + footprint. Absent (old saves) = 'ew'. */
+  damAxis?: 'ew' | 'ns' | undefined;
   /** Game-minute the plant is commissioned (planning + construction).
    *  Until then it exists on the network but generates nothing. */
   liveAtMin?: number | undefined;
@@ -106,6 +121,13 @@ export interface SubAsset {
 /** Effective fitted MVA of a substation. */
 export function subMva(a: SubAsset): number {
   return a.mva ?? SUBS[a.sub].txRatingMW;
+}
+
+/** Effective connection voltage of a generator — the tier the player chose
+ *  (GenAsset.level), else the catalog default. Single source of truth for the
+ *  bus level so the network, bays and dispatch all agree. */
+export function genLevel(a: GenAsset): VoltageLevel {
+  return a.level ?? GENS[a.gen].level;
 }
 
 export interface LineAsset {
@@ -152,7 +174,7 @@ export function assetOfId(id: number): number {
 
 /** Voltage levels present on an asset (gen terminal / sub buses). */
 export function assetLevels(asset: PlacedAsset): VoltageLevel[] {
-  if (asset.kind === 'gen') return [GENS[asset.gen].level];
+  if (asset.kind === 'gen') return [genLevel(asset)];
   if (asset.kind === 'sub') {
     if (asset.sub === 'tee') return asset.teeLevel !== undefined ? [asset.teeLevel] : [];
     return SUBS[asset.sub].levels;
@@ -170,7 +192,8 @@ export function deriveNetwork(assets: Iterable<PlacedAsset>, lineRatingMul = 1):
 
   for (const a of byId.values()) {
     if (a.kind === 'gen') {
-      buses.push({ id: busId(a.id, GENS[a.gen].level), x: a.x, y: a.y, level: GENS[a.gen].level });
+      const lv = genLevel(a);
+      buses.push({ id: busId(a.id, lv), x: a.x, y: a.y, level: lv });
     } else if (a.kind === 'sub') {
       const spec = SUBS[a.sub];
       const levels = assetLevels(a); // tee junctions carry the line's level

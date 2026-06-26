@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { hotkeyLabel } from '../app/hotkeys';
 import { useAppStore, type Tool } from '../app/store';
+import { GENS, GEN_PALETTE_ORDER, LOAD_PALETTE_ORDER } from '../sim/catalog';
 import { LEVEL_COLOR } from '../render/MapRenderer';
 import { AlertsFeed } from './AlertsFeed';
 import { BillPanel } from './BillPanel';
@@ -44,21 +45,18 @@ interface RailItem {
   color?: string | undefined;
 }
 
+// generation rail entries, voltage-sorted from the catalog, then the
+// demand-side loads (the electrolyser) — same single source of truth as the
+// desktop palette + hotkeys so the rail never diverges (owner, 2026-06-26).
+const GEN_RAIL: RailItem[] = [...GEN_PALETTE_ORDER, ...LOAD_PALETTE_ORDER].map((gen) => ({
+  Icon: GEN_ICONS[gen],
+  tool: { t: 'gen', gen } as Tool,
+  label: GENS[gen].name,
+}));
+
 const RAIL: RailItem[] = [
   { Icon: IconInspect, tool: { t: 'inspect' }, label: 'Inspect' },
-  { Icon: GEN_ICONS.gasCCGT, tool: { t: 'gen', gen: 'gasCCGT' }, label: 'Gas CCGT' },
-  { Icon: GEN_ICONS.gasPeaker, tool: { t: 'gen', gen: 'gasPeaker' }, label: 'Gas peaker' },
-  { Icon: GEN_ICONS.solarFarm, tool: { t: 'gen', gen: 'solarFarm' }, label: 'Solar farm' },
-  { Icon: GEN_ICONS.windOnshore, tool: { t: 'gen', gen: 'windOnshore' }, label: 'Onshore wind' },
-  { Icon: GEN_ICONS.windOffshore, tool: { t: 'gen', gen: 'windOffshore' }, label: 'Offshore wind' },
-  { Icon: GEN_ICONS.tidal, tool: { t: 'gen', gen: 'tidal' }, label: 'Tidal stream' },
-  { Icon: GEN_ICONS.hydro, tool: { t: 'gen', gen: 'hydro' }, label: 'Hydro dam' },
-  { Icon: GEN_ICONS.biomass, tool: { t: 'gen', gen: 'biomass' }, label: 'Biomass CHP' },
-  { Icon: GEN_ICONS.nuclear, tool: { t: 'gen', gen: 'nuclear' }, label: 'Nuclear' },
-  { Icon: GEN_ICONS.battery, tool: { t: 'gen', gen: 'battery' }, label: 'Battery' },
-  { Icon: GEN_ICONS.coal, tool: { t: 'gen', gen: 'coal' }, label: 'Coal station' },
-  { Icon: GEN_ICONS.interconnector, tool: { t: 'gen', gen: 'interconnector' }, label: 'Interconnector' },
-  { Icon: GEN_ICONS.electrolyser, tool: { t: 'gen', gen: 'electrolyser' }, label: 'Hydrogen electrolyser' },
+  ...GEN_RAIL,
   { Icon: SUB_ICONS.bulk, tool: { t: 'sub', sub: 'bulk' }, label: 'Bulk supply point' },
   { Icon: SUB_ICONS.grid, tool: { t: 'sub', sub: 'grid' }, label: 'Grid substation' },
   { Icon: SUB_ICONS.dist, tool: { t: 'sub', sub: 'dist' }, label: 'Distribution sub' },

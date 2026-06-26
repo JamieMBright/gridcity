@@ -22,11 +22,56 @@ export type GenType =
 export type SubType = 'bulk' | 'grid' | 'dist' | 'pole' | 'vault' | 'tee' | 'capbank';
 export type LineBuild = 'overhead' | 'underground';
 
+/** A technology that connects to ELECTRICITY (a generator) vs one that draws
+ *  FROM it (a demand-side / load asset). The electrolyser is a load: it soaks
+ *  surplus into an H₂ store and NEVER enters the merit order (market/
+ *  hydrogen.ts) — so it lives in the palette's demand section, not generation.
+ *  Pure classification; the sim already dispatches it load-only. */
+export type GenRole = 'gen' | 'load';
+
+/** Connection-voltage tier marker (owner, 2026-06-26): a generator can connect
+ *  at MORE THAN ONE voltage, each with its OWN realistic MW band — residential
+ *  solar on a distribution feeder vs a utility farm on the supergrid; a single
+ *  onshore turbine vs an offshore array. `kv` is the signage label shown in the
+ *  palette (GB tiers LV/11/33/132/400); `level` is the actual modelled bus the
+ *  connection lands on (the solved grid is 400/132/33 — LV and 11 kV both
+ *  evacuate through the 33 kV distribution bus). The MW band is ENFORCED at
+ *  build time (commands.ts) so too-big solar is refused on LV but allowed on
+ *  400 kV. Bands are GB-faithful then game-simplified (ENA G99 / Grid Code:
+ *  LV ≤~0.5, 11 kV ~0.5–5, 33 kV ~5–50, 132 kV ~30–150, 400 kV ~150+). */
+export interface GenTier {
+  /** Signage label — the kV marker the palette shows. */
+  kv: 'LV' | '11' | '33' | '132' | '400';
+  /** The modelled bus level this tier connects to (400/132/33). */
+  level: VoltageLevel;
+  /** Smallest install realistic at this tier, MW. */
+  minMW: number;
+  /** Largest install realistic at this tier, MW. */
+  maxMW: number;
+}
+
+/** Numeric kV behind a tier label, for sorting the palette by voltage. */
+export const TIER_KV: Record<GenTier['kv'], number> = {
+  LV: 0.4,
+  '11': 11,
+  '33': 33,
+  '132': 132,
+  '400': 400,
+};
+
 export interface GenSpec {
   name: string;
   capacityMW: number;
-  /** Connection voltage. */
+  /** Default / primary connection voltage (the modelled bus level). The tier
+   *  in `tiers` whose `level` matches this is the default build tier. */
   level: VoltageLevel;
+  /** Generator or demand-side load? Defaults to 'gen' when omitted (only the
+   *  electrolyser sets 'load'). */
+  role?: GenRole;
+  /** Connection-voltage tiers this technology can be built at, each with its
+   *  own MW band (owner, 2026-06-26). Ordered low→high voltage. Omitted ⇒ a
+   *  single implicit tier at `level` covering [1, capacityMW]. */
+  tiers?: GenTier[];
   capexK: number;
   /** Fixed O&M as fraction of capex per year. */
   opexFrac: number;
@@ -108,6 +153,17 @@ export const GENS: Record<GenType, GenSpec> = {
     name: 'Solar farm',
     capacityMW: 50,
     level: 33,
+    // PV connects everywhere: rooftop panels behind an LV feeder, a small
+    // array at 11 kV, a distribution farm at 33 kV (the default), up through
+    // utility-scale arrays on the 132/400 kV supergrid. The MW band steps up
+    // with the voltage — you can't hang a 200 MW farm off an LV pole.
+    tiers: [
+      { kv: 'LV', level: 33, minMW: 0.05, maxMW: 0.5 },
+      { kv: '11', level: 33, minMW: 0.5, maxMW: 5 },
+      { kv: '33', level: 33, minMW: 5, maxMW: 50 },
+      { kv: '132', level: 132, minMW: 50, maxMW: 150 },
+      { kv: '400', level: 400, minMW: 150, maxMW: 500 },
+    ],
     capexK: 35_000,
     opexFrac: 0.015,
     marginalCostK: 0.045, // PPA strike
@@ -120,6 +176,13 @@ export const GENS: Record<GenType, GenSpec> = {
     name: 'Onshore wind',
     capacityMW: 100,
     level: 33,
+    // a single farm turbine on an 11 kV spur, a small cluster at 33 kV (the
+    // default), or a full hilltop wind farm evacuated at 132 kV.
+    tiers: [
+      { kv: '11', level: 33, minMW: 0.5, maxMW: 5 },
+      { kv: '33', level: 33, minMW: 5, maxMW: 50 },
+      { kv: '132', level: 132, minMW: 50, maxMW: 200 },
+    ],
     capexK: 110_000,
     opexFrac: 0.025,
     marginalCostK: 0.05,
@@ -132,6 +195,12 @@ export const GENS: Record<GenType, GenSpec> = {
     name: 'Offshore wind',
     capacityMW: 800,
     level: 132,
+    // estuary arrays land at 132 kV (the default); the biggest fleets march
+    // straight onto the 400 kV supergrid.
+    tiers: [
+      { kv: '132', level: 132, minMW: 50, maxMW: 400 },
+      { kv: '400', level: 400, minMW: 400, maxMW: 1200 },
+    ],
     capexK: 2_000_000,
     opexFrac: 0.03,
     marginalCostK: 0.055,
@@ -199,12 +268,15 @@ export const GENS: Record<GenType, GenSpec> = {
   },
   electrolyser: {
     name: 'Hydrogen electrolyser',
-    // a LOAD, not a generator: dispatch never stacks it — it soaks energy
-    // that would otherwise be CURTAILED into an H₂ tank farm (#23). Its
+    // a LOAD, not a generator (owner, 2026-06-26): it CONSUMES electricity to
+    // split water into hydrogen, so it lives in the palette's demand-side
+    // section — never the generation list. Dispatch never stacks it; it soaks
+    // energy that would otherwise be CURTAILED into an H₂ tank farm (#23). Its
     // per-asset store level rides state.soc exactly like a battery's SoC;
     // capacityMW is the soak rate, energyMWh the tank farm. Tendered to
     // developers like any plant (the H₂ business is theirs); converted
     // peakers buy the stored hydrogen back at H2_FUEL_COST_K.
+    role: 'load',
     capacityMW: 100,
     level: 33,
     capexK: 80_000, // deliberately expensive: innovation gating is deferred
@@ -479,3 +551,95 @@ export function strikeMWh(gen: GenType): number {
   const outputMWh = g.capacityMW * 8760 * (CAPACITY_FACTOR[gen] ?? 0.4);
   return Math.max(1, Math.round((annualK * 1000) / outputMWh + g.marginalCostK * 1000));
 }
+
+/** True if a catalog technology is a demand-side LOAD (the electrolyser),
+ *  not a generator — so the palette files it under "Demand-side", never
+ *  "Generation". Pure read of GenSpec.role. */
+export function isLoadGen(gen: GenType): boolean {
+  return GENS[gen].role === 'load';
+}
+
+/** The connection-voltage tiers for a technology, ALWAYS non-empty. A spec
+ *  without explicit tiers gets one implicit tier at its catalog level/kv
+ *  covering [1, capacityMW] — so callers can treat every generator uniformly. */
+export function genTiers(gen: GenType): GenTier[] {
+  const g = GENS[gen];
+  if (g.tiers && g.tiers.length > 0) return g.tiers;
+  const kv = String(g.level) as GenTier['kv'];
+  return [{ kv, level: g.level, minMW: 1, maxMW: g.capacityMW }];
+}
+
+/** The DEFAULT build tier: the tier whose kV LABEL matches the spec's primary
+ *  `level` (e.g. solar's default is the '33' tier, not the LV tier that also
+ *  evacuates through the 33 kV bus), else the first tier whose modelled level
+ *  matches, else the first tier. */
+export function defaultTier(gen: GenType): GenTier {
+  const tiers = genTiers(gen);
+  const kv = String(GENS[gen].level) as GenTier['kv'];
+  return (
+    tiers.find((t) => t.kv === kv) ?? tiers.find((t) => t.level === GENS[gen].level) ?? tiers[0]!
+  );
+}
+
+/** Look a tier up by its kV label (undefined if the technology has no such
+ *  tier). Used to resolve a player's chosen connection tier at build time. */
+export function tierForKv(gen: GenType, kv: GenTier['kv']): GenTier | undefined {
+  return genTiers(gen).find((t) => t.kv === kv);
+}
+
+/** The lowest connection voltage (numeric kV) a technology offers — the key
+ *  the build palette sorts generators by, so distribution-friendly tech
+ *  groups above the supergrid-only plant. */
+export function lowestTierKv(gen: GenType): number {
+  return Math.min(...genTiers(gen).map((t) => TIER_KV[t.kv]));
+}
+
+/** Compact kV-range marker for the palette, e.g. "33" (single tier) or
+ *  "LV–400 kV" (multi-tier). Reads left→right low to high. */
+export function tierMarker(gen: GenType): string {
+  const tiers = genTiers(gen);
+  const lo = tiers[0]!.kv;
+  const hi = tiers[tiers.length - 1]!.kv;
+  return lo === hi ? `${lo} kV` : `${lo}–${hi} kV`;
+}
+
+/** Stable seed order for the roster (drives the within-voltage tie-break). */
+const ROSTER_SEED: GenType[] = [
+  'gasCCGT',
+  'gasPeaker',
+  'coal',
+  'nuclear',
+  'solarFarm',
+  'windOnshore',
+  'windOffshore',
+  'tidal',
+  'hydro',
+  'biomass',
+  'battery',
+  'interconnector',
+];
+
+/** The GENERATION roster for the build palette + hotkeys, SORTED BY
+ *  CONNECTION VOLTAGE (owner, 2026-06-26): the lowest tier each technology
+ *  offers, ascending, so distribution-friendly kit groups above supergrid-only
+ *  plant — ties broken by catalog capacity then a stable seed index. Loads
+ *  (the electrolyser) are excluded; they live in LOAD_PALETTE_ORDER. The
+ *  single source of truth shared by BuildPalette and hotkeys so the number-row
+ *  hotkeys always match the on-screen order (hydro now sorts in and is
+ *  numbered). */
+export const GEN_PALETTE_ORDER: GenType[] = ROSTER_SEED.filter((g) => !isLoadGen(g)).sort(
+  (a, b) => {
+    const dv = lowestTierKv(a) - lowestTierKv(b);
+    if (dv !== 0) return dv;
+    const dc = GENS[a].capacityMW - GENS[b].capacityMW;
+    if (dc !== 0) return dc;
+    return ROSTER_SEED.indexOf(a) - ROSTER_SEED.indexOf(b);
+  },
+);
+
+/** Demand-side / LOAD assets for the palette (the hydrogen electrolyser):
+ *  not generation, so they sit in their own section. Enumerated from the
+ *  whole catalog so any future load appears automatically. */
+export const LOAD_PALETTE_ORDER: GenType[] = (Object.keys(GENS) as GenType[]).filter((g) =>
+  isLoadGen(g),
+);

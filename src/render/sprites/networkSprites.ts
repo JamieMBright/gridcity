@@ -4,7 +4,7 @@
 // grid view desaturates the city around them.
 
 import { Rng } from '../../sim/rng';
-import { CELL_W, INK, INK_W, Iso, lit, P, RES, shaded } from './iso';
+import { CELL_W, INK, INK_W, Iso, lit, P, RES, shaded, SHADOW } from './iso';
 import { COLORS } from './palette';
 import { alpha, darken, hex, lighten, mix, type Pt, type RGBA } from './raster';
 
@@ -694,66 +694,86 @@ export function tidalTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
   return iso.build();
 }
 
-/** Hydro dam: a concrete gravity wall thrown across a river, holding back
- *  an impounded reservoir, with a central spillway in full flood, penstocks
- *  feeding the powerhouse at the toe, and a service gantry on the crest.
- *  A 2x2 hero block — the wall runs along the v axis; the reservoir sits on
- *  the upstream (low-u) side at a raised level, the dry tailrace downstream. */
-export function damTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
-  const iso = new Iso(2, 2);
+/** Hydro dam: a concrete gravity wall thrown bank-to-bank ACROSS a river,
+ *  blocking the channel — the impounded reservoir held high on the upstream
+ *  side, the river escaping through a central spillway into the tailrace
+ *  channel downstream, penstocks feeding the powerhouse at the toe, and a
+ *  service gantry on the crest. The wall spans the WHOLE width so the river is
+ *  visibly dammed (owner, 2026-06-26: "it needs to go from one side to the
+ *  other and 'block' the river").
+ *
+ *  Axis-aware: `axis='ew'` draws the river flowing E–W (the wall spans N–S,
+ *  a 2×3 block); `axis='ns'` flows N–S (the wall spans E–W, a 3×2 block). The
+ *  geometry is authored once in (s = along the wall span, f = along the river
+ *  flow) coordinates and mapped to tile-local (u,v) per orientation. */
+export function damTile(seed: number, axis: 'ew' | 'ns' = 'ew'): Uint8ClampedArray<ArrayBuffer> {
   void seed;
+  // 'ew': river flows along u (2 wide) and the wall spans v (3 deep) → Iso(2,3).
+  // 'ns': river flows along v (2 deep) and the wall spans u (3 wide) → Iso(3,2).
+  const ew = axis === 'ew';
+  const iso = ew ? new Iso(2, 3) : new Iso(3, 2);
+  const SPAN = 3; // tiles the wall stretches across the channel
+  const FLOW = 2; // tiles the river runs through the sprite
+  // map (s along the wall span 0..SPAN, f along the river flow 0..FLOW, z) to
+  // tile-local (u,v,z). 'ew': u=flow, v=span. 'ns': u=span, v=flow.
+  const pt = (s: number, f: number, z = 0): Pt => (ew ? iso.P(f, s, z) : iso.P(s, f, z));
+  const quadSF = (s0: number, f0: number, s1: number, f1: number, z: number, c: RGBA, sh?: RGBA): void => {
+    iso.r.poly([pt(s0, f0, z), pt(s1, f0, z), pt(s1, f1, z), pt(s0, f1, z)], c, sh);
+  };
   const conc = COLORS.concrete;
-  const H = iso.hTiles; // 2
-  // the dam wall straddles the river at this u; upstream (the reservoir) is
-  // u < wallBack, the dry tailrace is downstream (high u).
-  const wallBack = 0.62; // upstream face of the wall
-  const faceU = 0.92; // downstream (visible) face of the wall
-  const crest = 62; // crest height
-  const waterZ = 40; // impounded surface — clearly BELOW the crest
 
-  // valley floor: dry rocky tailrace + banks
+  // the dam wall blocks the channel at this band of flow; upstream (held
+  // reservoir) is low-f, the dry tailrace is downstream (high f).
+  const wallBack = 0.66; // upstream face of the wall (f)
+  const wallFace = 1.04; // downstream (visible) face of the wall (f)
+  const crest = 64; // crest height
+  const resZ = 44; // impounded surface — clearly below the crest
+
+  // valley floor: dry rocky banks
   iso.floor(darken(PAD, 0.04), darken(PAD, 0.18));
 
-  // --- IMPOUNDED RESERVOIR upstream: a body of water with real depth (a
-  //     surface plane plus dark front faces) tucked behind the wall so the
-  //     concrete crest stands clearly above the waterline.
-  iso.quad(-0.02, -0.02, wallBack, H + 0.02, waterZ, COLORS.water, COLORS.waterDeep);
-  // front-left + front-right water faces give the lake body (not a billboard)
-  iso.r.poly(
-    [iso.P(-0.02, H + 0.02, waterZ), iso.P(wallBack, H + 0.02, waterZ), iso.P(wallBack, H + 0.02, 0), iso.P(-0.02, H + 0.02, 0)],
-    COLORS.waterDeep,
-  );
-  iso.r.poly(
-    [iso.P(wallBack, -0.02, waterZ), iso.P(wallBack, H + 0.02, waterZ), iso.P(wallBack, H + 0.02, 0), iso.P(wallBack, -0.02, 0)],
-    shaded(COLORS.waterDeep, 0.1),
-  );
+  // --- IMPOUNDED RESERVOIR upstream (low f): a body of water held high
+  //     against the wall, spanning the FULL channel width so it reads as a
+  //     river backed up behind a dam, not a pond beside one.
+  quadSF(-0.02, -0.04, SPAN + 0.02, wallBack, resZ, COLORS.water, COLORS.waterDeep);
+  // upstream water face (the held head, where the lake meets the wall)
+  iso.r.poly([pt(-0.02, wallBack, resZ), pt(SPAN + 0.02, wallBack, resZ), pt(SPAN + 0.02, wallBack, 0), pt(-0.02, wallBack, 0)], shaded(COLORS.waterDeep, 0.08));
+  // the two bank-side faces of the held water (gives the reservoir body)
+  iso.r.poly([pt(SPAN + 0.02, -0.04, resZ), pt(SPAN + 0.02, wallBack, resZ), pt(SPAN + 0.02, wallBack, 0), pt(SPAN + 0.02, -0.04, 0)], COLORS.waterDeep);
   // sunset glints raking across the held water
-  for (const [u, v] of [
-    [0.18, 0.55],
-    [0.36, 1.2],
-    [0.12, 1.55],
-    [0.4, 0.32],
+  for (const [s, f] of [
+    [0.5, 0.2],
+    [1.4, 0.42],
+    [2.3, 0.18],
+    [1.9, 0.5],
+    [0.9, 0.55],
   ] as const) {
-    iso.r.line(iso.P(u, v, waterZ + 0.5), iso.P(u + 0.16, v, waterZ + 0.5), 1.5 * RES, alpha(COLORS.waterGlint, 0.6));
+    iso.r.line(pt(s, f, resZ + 0.5), pt(s + 0.22, f, resZ + 0.5), 1.5 * RES, alpha(COLORS.waterGlint, 0.6));
   }
 
-  // --- THE DAM WALL: a massive concrete gravity wall spanning the full v
-  //     width, its broad battered face turned downstream (front-right).
-  iso.shadow(wallBack, 0, faceU + 0.04, H, 0.18, 0.26);
-  iso.box(wallBack, 0, faceU, H, 0, crest, conc, {
+  // --- DOWNSTREAM TAILRACE (high f): the river continues below the dam, a
+  //     darker channel at ground level running off the front of the sprite so
+  //     the watercourse reads as continuous — dammed, not terminated.
+  quadSF(-0.02, wallFace + 0.18, SPAN + 0.02, FLOW + 0.04, 0, COLORS.waterDeep, shaded(COLORS.waterDeep, 0.12));
+
+  // --- THE DAM WALL: a massive concrete gravity wall spanning the WHOLE
+  //     channel width (s = -0.02..SPAN+0.02), its broad battered face
+  //     downstream. This is the bank-to-bank block.
+  shadowSF(iso, pt, -0.02, wallBack, SPAN + 0.02, wallFace + 0.05, 0.2, 0.26);
+  boxSF(iso, pt, -0.02, wallBack, SPAN + 0.02, wallFace, 0, crest, conc, {
     leftC: shaded(conc, 0.18),
     rightC: lit(conc, 0.05),
     topC: lighten(conc, 0.12),
   });
-  // crest roadway: a paler capping strip running bank to bank along the top
-  iso.quad(wallBack + 0.02, 0, faceU - 0.02, H, crest + 0.6, lighten(conc, 0.18));
-  iso.r.polyline([iso.P(wallBack + 0.02, 0, crest + 0.6), iso.P(faceU - 0.02, 0, crest + 0.6), iso.P(faceU - 0.02, H, crest + 0.6), iso.P(wallBack + 0.02, H, crest + 0.6)], INK_W, alpha(INK, 0.5));
+  // crest roadway: a paler capping strip running the full bank-to-bank length
+  quadSF(0.0, wallBack + 0.02, SPAN, wallFace - 0.02, crest + 0.6, lighten(conc, 0.18));
+  iso.r.polyline([pt(0, wallBack + 0.02, crest + 0.6), pt(SPAN, wallBack + 0.02, crest + 0.6), pt(SPAN, wallFace - 0.02, crest + 0.6), pt(0, wallFace - 0.02, crest + 0.6)], INK_W, alpha(INK, 0.5));
 
-  // BUTTRESS RIBS down the downstream face (u = faceU): broad pilasters that
-  // read instantly as a dam wall, each a thin proud box on the face.
-  for (let k = 0; k < 4; k++) {
-    const v0 = 0.16 + k * 0.46;
-    iso.box(faceU - 0.04, v0, faceU + 0.03, v0 + 0.18, 0, crest - 4, lighten(conc, 0.04), {
+  // BUTTRESS RIBS down the downstream face: broad pilasters along the full
+  // span that read instantly as a dam wall.
+  for (let k = 0; k < 6; k++) {
+    const s0 = 0.12 + k * 0.46;
+    boxSF(iso, pt, s0, wallFace - 0.04, s0 + 0.2, wallFace + 0.03, 0, crest - 4, lighten(conc, 0.04), {
       leftC: shaded(conc, 0.1),
       rightC: lit(conc, 0.12),
       topC: lighten(conc, 0.16),
@@ -762,54 +782,97 @@ export function damTile(seed: number): Uint8ClampedArray<ArrayBuffer> {
 
   // --- SPILLWAY: a central notch in the crest with white water sheeting
   //     down the battered face into a churned stilling basin at the toe.
-  const sv0 = H * 0.4;
-  const sv1 = H * 0.6;
-  iso.quad(wallBack + 0.02, sv0, faceU - 0.02, sv1, crest + 0.7, shaded(conc, 0.26)); // recessed sill
+  const ss0 = SPAN * 0.4;
+  const ss1 = SPAN * 0.6;
+  quadSF(ss0, wallBack + 0.02, ss1, wallFace - 0.02, crest + 0.7, shaded(conc, 0.26)); // recessed sill
   // white overspill on the downstream face
-  iso.r.poly(
-    [iso.P(faceU + 0.032, sv0, crest - 3), iso.P(faceU + 0.032, sv1, crest - 3), iso.P(faceU + 0.032, sv1, 2), iso.P(faceU + 0.032, sv0, 2)],
-    alpha(COLORS.white, 0.95),
-  );
+  iso.r.poly([pt(ss0, wallFace + 0.032, crest - 3), pt(ss1, wallFace + 0.032, crest - 3), pt(ss1, wallFace + 0.032, 2), pt(ss0, wallFace + 0.032, 2)], alpha(COLORS.white, 0.95));
   for (let k = 0; k <= 5; k++) {
-    const v = sv0 + ((sv1 - sv0) * k) / 5;
-    iso.r.line(iso.P(faceU + 0.05, v, crest - 5), iso.P(faceU + 0.05, v, 4), 0.7 * RES, alpha(hex('#cfe0f0'), 0.85));
+    const s = ss0 + ((ss1 - ss0) * k) / 5;
+    iso.r.line(pt(s, wallFace + 0.05, crest - 5), pt(s, wallFace + 0.05, 4), 0.7 * RES, alpha(hex('#cfe0f0'), 0.85));
   }
-  // stilling basin: a churned blue pool with a foam line at the toe
-  iso.quad(faceU + 0.04, sv0 - 0.06, faceU + 0.34, sv1 + 0.06, 0, COLORS.waterDeep);
-  iso.quad(faceU + 0.04, sv0 - 0.06, faceU + 0.16, sv1 + 0.06, 0, alpha(COLORS.white, 0.6));
+  // stilling basin: a churned white-foam pool at the toe where the spill lands
+  quadSF(ss0 - 0.06, wallFace + 0.04, ss1 + 0.06, wallFace + 0.3, 0, COLORS.waterDeep);
+  quadSF(ss0 - 0.06, wallFace + 0.04, ss1 + 0.06, wallFace + 0.14, 0, alpha(COLORS.white, 0.6));
 
   // --- PENSTOCKS: two big steel pipes running down the face to the toe,
   //     flanking the spillway and feeding the powerhouse.
-  for (const v of [H * 0.22, H * 0.78]) {
+  for (const s of [SPAN * 0.2, SPAN * 0.8]) {
     const pipe = COLORS.steel;
-    const a = iso.P(faceU + 0.04, v, crest - 10);
-    const b = iso.P(faceU + 0.2, v, 5);
+    const a = pt(s, wallFace + 0.04, crest - 10);
+    const b = pt(s, wallFace + 0.2, 5);
     iso.r.line(a, b, 4.4 * RES, alpha(INK, 0.5)); // dark casing/outline
     iso.r.line(a, b, 3.2 * RES, shaded(pipe, 0.06));
     iso.r.line(a, b, 1.3 * RES, lit(pipe, 0.16)); // top highlight
   }
 
   // --- POWERHOUSE at the toe: a low steel-roofed hall hard against the
-  //     downstream face where the penstocks land.
-  iso.shadow(faceU + 0.14, 0.2, faceU + 0.5, H - 0.2, 0.12, 0.18);
-  iso.box(faceU + 0.14, 0.2, faceU + 0.5, H - 0.2, 0, 17, NAVY);
-  iso.gable(faceU + 0.14, 0.2, faceU + 0.5, H - 0.2, 17, 6, 'v', darken(NAVY, 0.1), NAVY);
-  iso.windowsLeft(H - 0.2, faceU + 0.18, faceU + 0.46, 5, 13, 4, COLORS.glassLit, COLORS.white);
+  //     downstream face where the penstocks land (off to one bank).
+  shadowSF(iso, pt, SPAN * 0.62, wallFace + 0.12, SPAN * 0.98, wallFace + 0.42, 0.12, 0.18);
+  boxSF(iso, pt, SPAN * 0.62, wallFace + 0.12, SPAN * 0.98, wallFace + 0.42, 0, 17, NAVY);
 
   // --- service gantry crane spanning the crest + an orange brand band on
   //     the downstream parapet so the dam keeps the kit's UKPN orange.
-  for (const v of [0.2, H - 0.2]) {
-    iso.box(wallBack + 0.06, v - 0.03, wallBack + 0.12, v + 0.03, crest, crest + 13, COLORS.steel);
-    iso.box(faceU - 0.12, v - 0.03, faceU - 0.06, v + 0.03, crest, crest + 13, COLORS.steel);
+  for (const s of [0.3, SPAN - 0.3]) {
+    boxSF(iso, pt, s - 0.03, wallBack + 0.06, s + 0.03, wallBack + 0.12, crest, crest + 13, COLORS.steel);
+    boxSF(iso, pt, s - 0.03, wallFace - 0.12, s + 0.03, wallFace - 0.06, crest, crest + 13, COLORS.steel);
   }
-  iso.r.line(iso.P(faceU - 0.09, 0.2, crest + 13), iso.P(faceU - 0.09, H - 0.2, crest + 13), 1.5 * RES, COLORS.steelDark);
-  iso.r.line(iso.P(wallBack + 0.09, 0.2, crest + 13), iso.P(wallBack + 0.09, H - 0.2, crest + 13), 1.5 * RES, COLORS.steelDark);
+  iso.r.line(pt(0.3, wallFace - 0.09, crest + 13), pt(SPAN - 0.3, wallFace - 0.09, crest + 13), 1.5 * RES, COLORS.steelDark);
+  iso.r.line(pt(0.3, wallBack + 0.09, crest + 13), pt(SPAN - 0.3, wallBack + 0.09, crest + 13), 1.5 * RES, COLORS.steelDark);
   // orange hazard band along the downstream crest edge (the parapet rail)
-  iso.r.poly(
-    [iso.P(faceU + 0.001, 0, crest), iso.P(faceU + 0.001, H, crest), iso.P(faceU + 0.001, H, crest - 3), iso.P(faceU + 0.001, 0, crest - 3)],
-    alpha(COLORS.orange, 0.95),
-  );
+  iso.r.poly([pt(0, wallFace + 0.001, crest), pt(SPAN, wallFace + 0.001, crest), pt(SPAN, wallFace + 0.001, crest - 3), pt(0, wallFace + 0.001, crest - 3)], alpha(COLORS.orange, 0.95));
   return iso.build();
+}
+
+/** Span/flow box: an Iso.box authored in (s, f) wall-span/river-flow coords
+ *  and mapped to (u,v) by `pt`. Re-implements the box faces directly since
+ *  Iso.box hard-codes (u,v). */
+function boxSF(
+  iso: Iso,
+  pt: (s: number, f: number, z?: number) => Pt,
+  s0: number,
+  f0: number,
+  s1: number,
+  f1: number,
+  z0: number,
+  z1: number,
+  c: RGBA,
+  opts: { topC?: RGBA; leftC?: RGBA; rightC?: RGBA } = {},
+): void {
+  const leftC = opts.leftC ?? shaded(c);
+  const rightC = opts.rightC ?? lit(c);
+  const topC = opts.topC ?? lighten(c, 0.2);
+  // the four visible faces, drawn back-to-front
+  iso.r.poly([pt(s0, f1, z1), pt(s1, f1, z1), pt(s1, f1, z0), pt(s0, f1, z0)], leftC);
+  iso.r.poly([pt(s1, f0, z1), pt(s1, f1, z1), pt(s1, f1, z0), pt(s1, f0, z0)], rightC);
+  iso.r.poly([pt(s0, f0, z1), pt(s1, f0, z1), pt(s1, f1, z1), pt(s0, f1, z1)], topC);
+  if (z1 - z0 > 2) {
+    iso.r.line(pt(s0, f1, z1), pt(s0, f1, z0), INK_W, INK);
+    iso.r.line(pt(s1, f1, z1), pt(s1, f1, z0), INK_W, INK);
+    iso.r.line(pt(s1, f0, z1), pt(s1, f0, z0), INK_W, INK);
+    iso.r.polyline([pt(s0, f0, z1), pt(s1, f0, z1), pt(s1, f1, z1), pt(s0, f1, z1)], INK_W, INK, true);
+    iso.r.line(pt(s0, f1, z0), pt(s1, f1, z0), INK_W, INK);
+    iso.r.line(pt(s1, f1, z0), pt(s1, f0, z0), INK_W, INK);
+  }
+}
+
+/** Soft ground shadow under a span/flow footprint, authored in (s,f) and
+ *  mapped to (u,v) by `pt` — a translucent blob cast a touch downstream
+ *  (toward +f) so the wall sits on the valley floor at any orientation. */
+function shadowSF(
+  iso: Iso,
+  pt: (s: number, f: number, z?: number) => Pt,
+  s0: number,
+  f0: number,
+  s1: number,
+  f1: number,
+  len = 0.16,
+  a = 0.2,
+): void {
+  iso.r.poly(
+    [pt(s0, f0 + 0.02), pt(s1, f0 + 0.02), pt(s1, f1 + len), pt(s0 + len * 0.4, f1 + len)],
+    alpha(SHADOW, a),
+  );
 }
 
 /** Biomass CHP: twin silver silos, a fuel shed and a stack. */

@@ -4,7 +4,7 @@
 
 import { getLondonMap } from '../data/londonMap';
 import type { MapRenderer } from '../render/MapRenderer';
-import type { Command } from '../sim/commands';
+import { checkBuild, damAxisAt, type Command } from '../sim/commands';
 import { TERRAIN, ZONE } from '../sim/map/types';
 import { armRenderCrash } from '../ui/CrashCanary';
 import type { SkipTarget } from '../sim/protocol';
@@ -37,6 +37,11 @@ export interface EcTestApi {
   getState(): ReturnType<typeof useAppStore.getState>;
   /** First `count` open land tiles (spread out), for siting test builds. */
   openLand(count: number): Array<{ x: number; y: number }>;
+  /** TEST ONLY: a valid hydro-dam bank tile (abutting a river ≥ the minimum
+   *  width) + the wall orientation, so the design-gate can place a dam
+   *  straddling a real river without hard-coding Thames coordinates. Undefined
+   *  if the map has no dammable river. */
+  findDamSite(): { x: number; y: number; axis: 'ew' | 'ns' } | undefined;
   /** Road-class raster code at a tile (RC: 0 none … 4 motorway). Lets the
    *  van design-gate find drivable road tiles to drop test faults on. */
   getRoad(x: number, y: number): number;
@@ -109,6 +114,19 @@ export function installTestHook(renderer: MapRenderer): void {
         }
       }
       return out;
+    },
+    findDamSite: () => {
+      const assets = useAppStore.getState().snapshot?.assets ?? [];
+      // scan dry land tiles; the first one where a hydro dam actually checks
+      // out (river wide enough, span clear) is a valid straddle site
+      for (let y = 4; y < map.height - 4; y++) {
+        for (let x = 4; x < map.width - 4; x++) {
+          if (map.terrain[y * map.width + x] !== TERRAIN.land) continue;
+          const check = checkBuild(map, assets, { kind: 'gen', gen: 'hydro', x, y });
+          if (check.ok) return { x, y, axis: damAxisAt(map, x, y) };
+        }
+      }
+      return undefined;
     },
   };
 }

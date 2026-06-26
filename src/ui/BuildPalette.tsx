@@ -4,8 +4,15 @@ import { useAppStore, type Tool } from '../app/store';
 import {
   DEPOT,
   GENS,
+  GEN_PALETTE_ORDER,
   LINES,
+  LOAD_PALETTE_ORDER,
   SUBS,
+  defaultTier,
+  genTiers,
+  isLoadGen,
+  tierMarker,
+  type GenTier,
   type GenType,
   type LineBuild,
   type SubType,
@@ -59,11 +66,14 @@ function ToolButton({
   tool,
   label,
   cost,
+  marker,
   Icon,
 }: {
   tool: Tool;
   label: string;
   cost?: string;
+  /** Connection-voltage marker (kV range), shown as a chip on generators. */
+  marker?: string | undefined;
   Icon?: IconComponent | undefined;
 }) {
   const current = useAppStore((s) => s.tool);
@@ -121,7 +131,26 @@ function ToolButton({
           {label}
         </span>
       </span>
-      {cost && <span style={{ flex: 'none', color: active ? theme.navy : theme.slate }}>{cost}</span>}
+      <span style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+        {/* the kV connection-tier marker: a tiny voltage chip so the player
+            reads at a glance what voltage a generator hangs off (owner). */}
+        {marker && (
+          <span
+            style={{
+              fontSize: 8.5,
+              lineHeight: '12px',
+              padding: '0 4px',
+              borderRadius: 3,
+              border: `1px solid ${active ? theme.navy : theme.navyLight}`,
+              color: active ? theme.navy : theme.gold,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {marker}
+          </span>
+        )}
+        {cost && <span style={{ color: active ? theme.navy : theme.slate }}>{cost}</span>}
+      </span>
     </button>
   );
 }
@@ -443,21 +472,88 @@ function SizeStepper({
   );
 }
 
+/** The connection tier the player has currently chosen for a generator —
+ *  the store value if it's valid for this gen, else the catalog default. */
+function chosenTier(gen: GenType, kv: string | undefined): GenTier {
+  return genTiers(gen).find((t) => t.kv === kv) ?? defaultTier(gen);
+}
+
+/** VOLTAGE-TIER PICKER (owner, 2026-06-26): a generator can connect at more
+ *  than one voltage, each with its OWN MW band — residential solar on a
+ *  distribution feeder vs a utility array on the supergrid. Picking a tier
+ *  sets the bus level and the MW band the size picker is bounded by. */
+function TierPicker({ gen }: { gen: GenType }) {
+  const kv = useAppStore((s) => s.genTierKv);
+  const setKv = useAppStore((s) => s.setGenTierKv);
+  const setMw = useAppStore((s) => s.setGenSizeMw);
+  const tiers = genTiers(gen);
+  const cur = chosenTier(gen, kv);
+  return (
+    <div style={{ borderTop: `1px solid ${theme.navyLight}`, marginTop: 4, paddingTop: 2 }}>
+      <div style={{ color: theme.slate, fontSize: 10, letterSpacing: '0.1em', margin: '2px 9px' }}>
+        CONNECTION VOLTAGE
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, margin: '2px 9px' }}>
+        {tiers.map((t) => {
+          const on = t.kv === cur.kv;
+          return (
+            <button
+              key={t.kv}
+              onClick={() => {
+                setKv(t.kv);
+                // snap the dialled size into the new tier's band so the build
+                // is valid the instant the tier changes (farm size picker)
+                setMw(undefined);
+              }}
+              title={`${t.kv} kV — ${t.minMW}–${t.maxMW} MW`}
+              style={{
+                flex: '1 0 auto',
+                padding: '3px 6px',
+                borderRadius: 5,
+                border: `1px solid ${on ? theme.gold : theme.navyLight}`,
+                background: on ? theme.gold : 'transparent',
+                color: on ? theme.navy : theme.offWhite,
+                fontFamily: theme.font,
+                fontSize: 11,
+                fontWeight: on ? 700 : 400,
+                cursor: 'pointer',
+              }}
+            >
+              {t.kv === 'LV' ? 'LV' : `${t.kv}kV`}
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ margin: '0 9px 2px', fontSize: 10, color: theme.slate, lineHeight: 1.45 }}>
+        {cur.kv === 'LV' ? 'low voltage' : `${cur.kv} kV`} · {cur.minMW}–{cur.maxMW} MW band
+        {isFarmGen(gen) ? '' : ` · ${GENS[gen].capacityMW} MW plant`}
+      </div>
+    </div>
+  );
+}
+
 /** CAPACITY PICKER (owner playtest): dial the MW for a FARM tender. Bigger
  *  installs reserve more land and need more network to evacuate — there's
- *  a sweet spot. Shows a live "powers ~N homes" estimate. */
+ *  a sweet spot. Shows a live "powers ~N homes" estimate. The MW range is
+ *  bounded by the chosen CONNECTION-VOLTAGE tier (owner, 2026-06-26). */
 function CapacityPicker({ gen }: { gen: GenType }) {
   const mw = useAppStore((s) => s.genSizeMw);
   const setMw = useAppStore((s) => s.setGenSizeMw);
+  const kv = useAppStore((s) => s.genTierKv);
+  const tier = chosenTier(gen, kv);
   const per = FARM_MW_PER_TILE[gen] ?? 5;
-  const cap = GENS[gen].capacityMW;
+  // the chosen tier's band caps the picker (e.g. LV solar maxes at 0.5 MW,
+  // 400 kV up to 500 MW); never below one per-tile increment
+  const lo = Math.max(per, Math.ceil(tier.minMW / per) * per);
+  const cap = Math.max(lo, Math.floor(tier.maxMW / per) * per);
   // default modest: onshore wind ~15 MW (owner's Aldbrook ask), others a
-  // few tiles' worth — never the full catalog plant unless the player dials up
-  const def = gen === 'windOnshore' ? 15 : Math.min(cap, Math.max(per, per * 3));
-  const value = Math.min(cap, Math.max(per, mw ?? def));
+  // few tiles' worth — clamped into the tier band
+  const rawDef = gen === 'windOnshore' ? 15 : Math.max(per, per * 3);
+  const def = Math.min(cap, Math.max(lo, rawDef));
+  const value = Math.min(cap, Math.max(lo, mw ?? def));
   // round the working value to the per-tile grid so MW always maps to tiles
   const step = per;
-  const clamp = (v: number): number => Math.min(cap, Math.max(per, Math.round(v / step) * step));
+  const clamp = (v: number): number => Math.min(cap, Math.max(lo, Math.round(v / step) * step));
   const change = (dir: -1 | 1): void => setMw(clamp(value + dir * step));
   const homes = homesPowered(gen, value);
   // tiles claimed == ceil(MW / per): one ~5-MW turbine per square (matches the
@@ -564,21 +660,11 @@ function GuideButton() {
   );
 }
 
-const GEN_ORDER: GenType[] = [
-  'gasCCGT',
-  'gasPeaker',
-  'solarFarm',
-  'windOnshore',
-  'windOffshore',
-  'tidal',
-  'hydro',
-  'biomass',
-  'nuclear',
-  'battery',
-  'coal',
-  'interconnector',
-  'electrolyser',
-];
+// Generation sorted by connection voltage, and the demand-side loads, both
+// come from the catalog so the palette, the mobile rail and the number-row
+// hotkeys never diverge (owner, 2026-06-26).
+const GEN_ORDER = GEN_PALETTE_ORDER;
+const DEMAND_ORDER = LOAD_PALETTE_ORDER;
 const SUB_ORDER: SubType[] = ['bulk', 'grid', 'dist', 'pole', 'vault', 'capbank'];
 const LEVELS: VoltageLevel[] = [400, 132, 33];
 
@@ -592,6 +678,7 @@ export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
   // progressive disclosure: on a mission, show only the tools the steps
   // have unlocked so far (game-design-core — irrelevant until learned)
   const gens = GEN_ORDER.filter((g) => gate.tool({ t: 'gen', gen: g }));
+  const demand = DEMAND_ORDER.filter((g) => gate.tool({ t: 'gen', gen: g }));
   const subs = SUB_ORDER.filter((s) => gate.tool({ t: 'sub', sub: s }));
   const levels = LEVELS.filter((lv) => gate.tool({ t: 'line', level: lv, build }));
   const showDepot = gate.tool({ t: 'depot' });
@@ -620,10 +707,35 @@ export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
               tool={{ t: 'gen', gen: g }}
               label={GENS[g].name}
               cost={fmtMoneyK(GENS[g].capexK)}
+              marker={tierMarker(g)}
               Icon={GEN_ICONS[g]}
             />
           ))}
-          {tool.t === 'gen' && isFarmGen(tool.gen) && <CapacityPicker gen={tool.gen} />}
+          {/* the voltage-tier picker, then (for farms) the capacity picker —
+              the tier bounds the MW band the size picker dials within */}
+          {tool.t === 'gen' && !isLoadGen(tool.gen) && genTiers(tool.gen).length > 1 && (
+            <TierPicker gen={tool.gen} />
+          )}
+          {tool.t === 'gen' && !isLoadGen(tool.gen) && isFarmGen(tool.gen) && (
+            <CapacityPicker gen={tool.gen} />
+          )}
+        </Section>
+      )}
+      {demand.length > 0 && (
+        <Section title="Demand-side">
+          {demand.map((g) => (
+            <ToolButton
+              key={g}
+              tool={{ t: 'gen', gen: g }}
+              label={GENS[g].name}
+              cost={fmtMoneyK(GENS[g].capexK)}
+              marker={tierMarker(g)}
+              Icon={GEN_ICONS[g]}
+            />
+          ))}
+          <div style={{ margin: '2px 9px 4px', fontSize: 10, color: theme.slate, lineHeight: 1.45 }}>
+            a LOAD, not generation — soaks surplus power into hydrogen
+          </div>
         </Section>
       )}
       {subs.length > 0 && (

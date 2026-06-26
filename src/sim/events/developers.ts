@@ -209,6 +209,11 @@ export interface Tender {
    *  Derived at designation, serialized so a load reproduces the hold.
    *  Additive: absent (old saves) = no reservation, the old behaviour. */
   reserved?: number[] | undefined;
+  /** Chosen CONNECTION-VOLTAGE tier (catalog GenTier.kv) the player
+   *  designated this site at (owner, 2026-06-26). Carried through to the
+   *  awarded plant so its bus level + signage match the tier. Additive:
+   *  absent (old saves, default tier) = the catalog default. */
+  tierKv?: string | undefined;
 }
 
 /** Tiles every still-open tender holds (its reserved footprint) — the

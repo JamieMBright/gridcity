@@ -2966,7 +2966,11 @@ export class MapRenderer {
       const name = building
         ? constructionSpriteFor(constructionStage((liveAt ?? 0) - simTimeMin, leadMin))
         : a.kind === 'gen'
-          ? GEN_SPRITE[a.gen]
+          ? // a hydro dam picks the orientation that throws its wall across the
+            // river (damAxis stamped at placement): 'ns' uses the 3×2 sprite
+            a.gen === 'hydro' && a.damAxis === 'ns'
+            ? 'gen_hydro_ns'
+            : GEN_SPRITE[a.gen]
           : a.kind === 'sub'
             ? a.sub === 'tee'
               ? PYLON_SPRITE[a.teeLevel ?? 132] // a tee tower on the route
@@ -2998,7 +3002,11 @@ export class MapRenderer {
       }
       const [fw, fh] =
         a.kind === 'gen'
-          ? (GENS[a.gen].footprint ?? [1, 1])
+          ? a.gen === 'hydro'
+            ? a.damAxis === 'ns'
+              ? ([3, 2] as [number, number]) // wall spans E–W
+              : ([2, 3] as [number, number]) // wall spans N–S
+            : (GENS[a.gen].footprint ?? [1, 1])
           : a.kind === 'sub'
             ? (SUBS[a.sub].footprint ?? [1, 1])
             : [1, 1];

@@ -517,14 +517,20 @@ export function seedScenario(
 // and the King's Cross Coal Drops. New hero footprints stamp more London
 // tiles ⇒ map geometry + the baked heroTable changed again; bump so old saves
 // rebuild their hero placement from the committed names.
-// v17 (per-game application variety): a new persisted `appSeed` field varies
-// WHICH developer name each ongoing connection application draws, so two London
-// games no longer open with the identical names (owner). Purely additive +
-// self-healing — a v16 (or older accepted) save has no `appSeed` and hydrates it
-// to the fixed default (its already-spawned apps keep their stored names; future
-// apps name off the default pool deterministically). No map geometry changes, so
-// the accepted-version FLOOR stays 14 (old saves still load); the number is
-// bumped so the new field is explicit and the guard can't silently drift.
+// v17 (outstanding-work wave, owner 2026-06-26): TWO additive, self-healing
+// save-shape additions landed together — both hydrate to prior behaviour, so the
+// accepted-version FLOOR stays 14 (v14–v16 saves still load); the bump records
+// the new shape and keeps the guard from silently drifting.
+//  • per-game application variety — a new persisted `appSeed` varies WHICH
+//    developer name each ongoing connection application draws, so two London
+//    games no longer open with identical names. A v16 (or older) save has no
+//    `appSeed` and hydrates it to the fixed default (already-spawned apps keep
+//    their stored names; future apps name off the default pool deterministically).
+//  • generation-palette overhaul — GenAsset gains `level`/`tierKv` (a generator's
+//    chosen connection-voltage tier; absent ⇒ catalog default level, byte-
+//    identical) and `damAxis` (a hydro dam's bank-to-bank orientation; absent ⇒
+//    'ew'); the dam now spans an oriented 3×2/2×3 footprint vs the old 2×2, so a
+//    pre-existing dam reads a touch wider (harmless — one more tile of its bank).
 export const SAVE_VERSION = 17;
 
 /** Guard for untrusted save payloads; lives beside SAVE_VERSION so the two
