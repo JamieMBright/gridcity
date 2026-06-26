@@ -293,6 +293,12 @@ interface MapLabel {
   targetPx: number;
   priority: number;
   village: boolean;
+  /** Hero-landmark name (the 100 bespoke landmarks, e.g. the O2 / Wembley /
+   *  Empire State): the OPPOSITE LOD to place names — it fades IN as you zoom
+   *  toward the building and is CULLED at mid/far, so the far whole-region
+   *  overview stays uncluttered (owner, 2026-06-26: "subtle labelling on hero
+   *  buildings — nice and small and only on close zoom"). */
+  landmark: boolean;
   cx: number;
   cy: number;
 }
@@ -707,6 +713,7 @@ export class MapRenderer {
       color: number,
       priority: number,
       village: boolean,
+      landmark = false,
     ): void => {
       const t = new Text({
         text,
@@ -716,18 +723,21 @@ export class MapRenderer {
           // SUBTLE labels (owner, 2026-06-14): light weight, a thin soft
           // halo (not a fat shout), wide tracking and lowered opacity so
           // they whisper the place rather than stamp it. Just enough halo
-          // to stay legible over the fields; no more.
-          fontWeight: '400',
+          // to stay legible over the fields; no more. Hero-landmark names go
+          // a touch lighter still (a thinner halo, gentler tracking) so the
+          // restored close-zoom titles whisper the building rather than label
+          // it loudly (owner, 2026-06-26: "nice and small").
+          fontWeight: landmark ? '300' : '400',
           fill: color,
-          stroke: { color: 0x10162f, width: 5 },
-          letterSpacing: 5,
+          stroke: { color: 0x10162f, width: landmark ? 4 : 5 },
+          letterSpacing: landmark ? 3 : 5,
         },
       });
       t.anchor.set(0.5);
       const c = this.tileCentre(x, y);
       t.position.set(c.x, c.y - 20 * RES);
       this.labelLayer.addChild(t);
-      this.labels.push({ t, targetPx, priority, village, cx: c.x, cy: c.y });
+      this.labels.push({ t, targetPx, priority, village, landmark, cx: c.x, cy: c.y });
     };
     // UI screen-px floors (legible on a phone held landscape): primary city 30,
     // towns 20, villages 14, named places 13. Priority drives the collision
@@ -751,12 +761,22 @@ export class MapRenderer {
         !isTown,
       );
     }
-    // The per-landmark gold NAME labels (map.named) are deliberately NOT drawn
-    // (owner, 2026-06-18: "remove all titles of heroes — unnecessary"). The
-    // heroes/landmarks themselves still render + light from the landmark raster;
-    // only their floating titles are gone. Region/town labels (map.towns) and
-    // the primary city label remain — they are the map's legend. GLOBAL across
-    // every city (London included).
+    // Hero-landmark NAME labels (owner, 2026-06-26: "I quite miss the subtle
+    // labelling on hero buildings — nice and small and only on close zoom").
+    // Restored as a SUBTLE close-zoom population: small gold names that fade IN
+    // as you zoom toward the building and are CULLED at mid/far (the OPPOSITE
+    // LOD to place names), so the far whole-region overview stays clean (no
+    // label clutter — CLAUDE.md). A place that resolved to a BESPOKE hero
+    // (heroKey set by buildHeroTable) is hero-class even when the OSM classifier
+    // didn't flag landmark:true — otherwise the ~40 un-flagged hero names per
+    // city would wrongly behave like (faded-out) place names. Gold (0xffd277)
+    // and a small px floor keep them distinct from the off-white place names
+    // without relying on colour alone. GLOBAL across every city.
+    for (const pl of map.named ?? []) {
+      const isHero = (pl.landmark ?? false) || pl.heroKey !== undefined;
+      if (!isHero) continue;
+      add(pl.x, pl.y, pl.name, 13, 0xffd277, 10, false, true);
+    }
   }
 
   /** The big far-out city name (LONDON / PARIS …) and where to anchor it.
@@ -2371,16 +2391,29 @@ export class MapRenderer {
       // layer rides the world scale `sc`, so a child scaled to k renders at
       // 64·k·sc px on screen; k = (targetPx/64)/sc keeps the floor honest.
       //
-      // PLACE names (the primary city, towns, villages) belong to the far
-      // WHOLE-REGION overview — they fade OUT as you zoom in, so the close-up
-      // city isn't littered with text. The per-landmark gold NAME labels were
-      // removed entirely (owner, 2026-06-18: "remove all titles of heroes"), so
-      // there is now a single fade-out population — no landmark fade-in band.
+      // TWO populations with OPPOSITE LODs:
+      //  • PLACE names (the primary city, towns, villages) belong to the far
+      //    WHOLE-REGION overview — they fade OUT as you zoom in, so the close-up
+      //    city isn't littered with text.
+      //  • HERO-LANDMARK names (the 100 bespoke landmarks) belong to the CLOSE
+      //    view — they fade IN only once you've zoomed right in toward the
+      //    building, and are absent at far/mid, so the overview stays clean
+      //    (owner, 2026-06-26: "subtle labelling on hero buildings — nice and
+      //    small and only on close zoom"; CLAUDE.md: labels mustn't clutter the
+      //    far view). The two bands don't overlap: places are gone by sc≥0.3 and
+      //    heroes don't start until sc≥0.55, leaving a quiet middle band.
       const sc = this.world.scale.x;
       const DIM = 0.74; // place names whisper (owner: labels were too loud)
       // place names: full out past sc≥0.3, full in by sc≤0.22
       const placeFade = Math.max(0, Math.min(1, (0.3 - sc) / 0.08));
-      this.labelLayer.visible = placeFade > 0.02;
+      // hero-landmark names: 0 at sc≤0.55, full by sc≥0.75, then HELD all the
+      // way in (no upper cull — the title stays with you at the building). This
+      // sits well past where place names have faded, so the close view shows
+      // ONLY the subtle hero titles. A touch quieter than place names so they
+      // genuinely whisper (owner: "nice and small").
+      const HERO_DIM = 0.66;
+      const landmarkAlpha = Math.max(0, Math.min(1, (sc - 0.55) / 0.2));
+      this.labelLayer.visible = placeFade > 0.02 || landmarkAlpha > 0.02;
       if (this.labelLayer.visible) {
         // per-label alpha now carries the fade (the two populations diverge), so
         // the container itself stays at full opacity.
@@ -2395,8 +2428,11 @@ export class MapRenderer {
         for (const l of this.labels) {
           const k = (l.targetPx / 64) * inv;
           l.t.scale.set(k);
-          // places fade OUT on zoom-in; villages drop a band earlier than towns.
-          const base = (l.village ? villageAlpha : 1) * placeFade * DIM;
+          // heroes fade IN on zoom-in (held close); places fade OUT, villages a
+          // band earlier than towns.
+          const base = l.landmark
+            ? landmarkAlpha * HERO_DIM
+            : (l.village ? villageAlpha : 1) * placeFade * DIM;
           l.t.alpha = base;
           if (base <= 0.02) {
             l.t.visible = false;
