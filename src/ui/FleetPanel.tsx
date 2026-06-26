@@ -2,7 +2,8 @@ import { useAppStore } from '../app/store';
 import { sendCommand } from '../app/workerBridge';
 import { VAN_OPEX_K_YR, VEG_POLICY, type VegPolicy } from '../sim/catalog';
 import { MAX_VANS } from '../sim/fleet/fleet';
-import { panelStyle, theme } from './theme';
+import { RailPanelShell } from './RailPanelShell';
+import { theme } from './theme';
 
 export function FleetPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   const snapshot = useAppStore((s) => s.snapshot);
@@ -13,10 +14,9 @@ export function FleetPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   const noDepot = fleet.fleetSize > 0 && fleet.vans.length === 0;
 
   return (
-    <div
-      data-spot="hud:fleet"
-      style={{
-        ...panelStyle,
+    <RailPanelShell
+      rootProps={{ 'data-spot': 'hud:fleet' }}
+      base={{
         position: 'absolute',
         bottom: 56,
         left: 12,
@@ -24,8 +24,8 @@ export function FleetPanel({ frame }: { frame?: React.CSSProperties } = {}) {
         padding: '8px 12px',
         fontSize: 12,
         lineHeight: 1.6,
-        ...frame,
       }}
+      frame={frame}
     >
       <div style={{ color: theme.slate, fontSize: 10, letterSpacing: '0.12em' }}>FIELD FLEET</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -87,7 +87,7 @@ export function FleetPanel({ frame }: { frame?: React.CSSProperties } = {}) {
           worst overgrowth {snapshot.kpis.worstVegPct.toFixed(0)}%
         </div>
       )}
-    </div>
+    </RailPanelShell>
   );
 }
 

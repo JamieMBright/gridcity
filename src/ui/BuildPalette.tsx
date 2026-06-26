@@ -30,7 +30,8 @@ import {
 } from '../persistence/templateStore';
 import { FARM_MW_PER_TILE } from '../sim/catalog';
 import { homesPowered, isFarmGen } from '../sim/farms';
-import { fmtMoneyK, panelStyle, theme } from './theme';
+import { RailPanelShell } from './RailPanelShell';
+import { fmtMoneyK, theme } from './theme';
 import { useUnlockGate } from './unlocks';
 import {
   GEN_ICONS,
@@ -684,10 +685,9 @@ export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
   const showDepot = gate.tool({ t: 'depot' });
 
   return (
-    <div
-      data-tour="palette"
-      style={{
-        ...panelStyle,
+    <RailPanelShell
+      rootProps={{ 'data-tour': 'palette' }}
+      base={{
         position: 'absolute',
         top: 70,
         left: 12,
@@ -696,8 +696,8 @@ export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
         // stay clear of the fleet panel + status bar below
         maxHeight: 'calc(100vh - 330px)',
         overflowY: 'auto',
-        ...frame,
       }}
+      frame={frame}
     >
       {gens.length > 0 && (
         <Section title="Generation">
@@ -849,6 +849,6 @@ export function BuildPalette({ frame }: { frame?: React.CSSProperties } = {}) {
           </div>
         </div>
       )}
-    </div>
+    </RailPanelShell>
   );
 }

@@ -58,6 +58,12 @@ export const panelStyle: React.CSSProperties = {
   WebkitBackdropFilter: 'blur(13px) saturate(1.05)',
   border: '1px solid rgba(141, 151, 180, 0.18)',
   borderRadius: PANEL_RADIUS,
+  // border-box so a panel's width INCLUDES its border + padding — a
+  // content-box panel at width:100% in a rail track rendered ~26-30px past
+  // the viewport's right edge (no global box-sizing reset; index.html only
+  // zeroes margins). Every panel builds on panelStyle, so fixing it here
+  // fixes the inbox/bill/alerts right-edge clip in one place.
+  boxSizing: 'border-box',
   boxShadow:
     '0 14px 34px rgba(5, 7, 16, 0.42), 0 2px 8px rgba(5, 7, 16, 0.28), inset 0 1px 0 rgba(242, 239, 232, 0.05)',
   color: theme.offWhite,
