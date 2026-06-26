@@ -17,6 +17,7 @@ import {
   useAppStore,
   type EventCategory,
 } from '../app/store';
+import { RailPanelShell } from './RailPanelShell';
 import { statusColors, headingStyle, panelStyle, theme } from './theme';
 
 /** Minutes an alert stays snoozed before it re-fires. A game-hour passes
@@ -61,9 +62,8 @@ export function AlertsFeed({ frame }: { frame?: React.CSSProperties } = {}) {
     .reverse();
 
   return (
-    <div
-      style={{
-        ...panelStyle,
+    <RailPanelShell
+      base={{
         position: 'absolute',
         // docked just above the bill panel on the right rail; it sits
         // BELOW the pinned inspector (zIndex 8) so a substation card's
@@ -78,8 +78,8 @@ export function AlertsFeed({ frame }: { frame?: React.CSSProperties } = {}) {
         maxHeight: 150,
         overflowY: 'auto',
         zIndex: 4,
-        ...frame,
       }}
+      frame={frame}
     >
       <div
         style={{
@@ -149,7 +149,7 @@ export function AlertsFeed({ frame }: { frame?: React.CSSProperties } = {}) {
           </button>
         </div>
       ))}
-    </div>
+    </RailPanelShell>
   );
 }
 

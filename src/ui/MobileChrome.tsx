@@ -101,6 +101,9 @@ function BuildRail() {
   // on a mission, only the unlocked tools (inspect always available)
   const items = RAIL.filter((item) => gate.tool(item.tool));
 
+  // two-layer like RailPanelShell (the square-corner Chromium bug): the
+  // rounded + blurred OUTER must not also be the scroll container, so the
+  // button column scrolls in an INNER and the outer clips it to the radius.
   return (
     <div
       data-tour="palette"
@@ -113,13 +116,23 @@ function BuildRail() {
         width: 44,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        gap: 2,
-        padding: '4px 0',
-        overflowY: 'auto',
-        overscrollBehavior: 'contain',
+        overflow: 'hidden',
       }}
     >
+      <div
+        style={{
+          flex: '1 1 auto',
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 2,
+          padding: '4px 0',
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+          boxSizing: 'border-box',
+        }}
+      >
       {items.map((item) => {
         const active = railActive(tool, item.tool);
         const key = hotkeyLabel(item.tool);
@@ -161,6 +174,7 @@ function BuildRail() {
           {ug ? 'UG' : 'OH'}
         </button>
       )}
+      </div>
     </div>
   );
 }

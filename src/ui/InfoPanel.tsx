@@ -22,6 +22,7 @@ import { CAPBANK_BOOST_PU } from '../sim/grid/voltage';
 import { priceLine } from '../sim/cost';
 import { HERO_BASE, NO_COUNCIL, TERRAIN, ZONE, type Terrain, type Zone } from '../sim/map/types';
 import { COV } from '../sim/tick';
+import { RailPanelShell } from './RailPanelShell';
 import { fmtMoneyK, panelStyle, theme } from './theme';
 
 const ZONE_NAMES: Record<Zone, string> = {
@@ -85,14 +86,14 @@ function PinnedCard({
   const setComparePicking = useAppStore((s) => s.setComparePicking);
   const tint = slot === 'compare' ? theme.gold : theme.orange;
   return (
-    <div
-      style={{
-        ...frame,
-        // a slim coloured rail tells the two cards apart at a glance
-        borderLeft: `3px solid ${tint}`,
-      }}
+    <RailPanelShell
+      // a slim coloured rail tells the two cards apart at a glance; it lives
+      // on the rounded outer so the tint follows the corner
+      rootProps={{ style: { borderLeft: `3px solid ${tint}` } }}
+      base={frame}
+      // the close ✕ stays pinned to the card's corner while the body scrolls
+      overlay={<CloseX onClick={onClose} />}
     >
-      <CloseX onClick={onClose} />
       {slot === 'compare' && (
         <div style={{ color: theme.gold, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 2 }}>
           compare
@@ -123,7 +124,7 @@ function PinnedCard({
           {comparePicking ? '⊟ click another asset to compare…' : '⊞ compare with another'}
         </button>
       )}
-    </div>
+    </RailPanelShell>
   );
 }
 
@@ -251,9 +252,8 @@ export function InfoPanel({
     : '';
 
   return (
-    <div
-      style={{
-        ...panelStyle,
+    <RailPanelShell
+      base={{
         position: 'absolute',
         top: 28,
         right: 12,
@@ -261,8 +261,8 @@ export function InfoPanel({
         padding: '10px 14px',
         pointerEvents: 'none',
         lineHeight: 1.5,
-        ...frame,
       }}
+      frame={frame}
     >
       <div style={{ color: theme.orange, fontWeight: 700 }}>
         {placedName ??
@@ -310,7 +310,7 @@ export function InfoPanel({
         </div>
       )}
       {asset && snapshot && <AssetInfo assetId={asset.id} />}
-    </div>
+    </RailPanelShell>
   );
 }
 

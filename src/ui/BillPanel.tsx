@@ -8,7 +8,8 @@ import {
   type BillBand,
   type BillSample,
 } from '../sim/billHistory';
-import { fmtMoneyK, insetStyle, panelStyle, theme } from './theme';
+import { RailPanelShell } from './RailPanelShell';
+import { fmtMoneyK, insetStyle, theme } from './theme';
 
 /** One colour per stacked bill band (bottom → top), on the dusk ramp. */
 const BAND_COLOR: Record<BillBand, string> = {
@@ -178,10 +179,9 @@ export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
     ) : null;
 
   return (
-    <div
-      data-tour="bill"
-      style={{
-        ...panelStyle,
+    <RailPanelShell
+      rootProps={{ 'data-tour': 'bill' }}
+      base={{
         position: 'absolute',
         bottom: 12,
         right: 12,
@@ -197,8 +197,8 @@ export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
         // grows the panel upward) is never occluded on short desktops; the
         // pinned inspector still wins (zIndex 8) so its controls stay clear
         zIndex: trendOpen ? 6 : 4,
-        ...frame,
       }}
+      frame={frame}
     >
       {/* clickable header: toggles the breakdown drawer (always-visible
           headline + a chevron handle). aria-expanded drives the e2e + a11y. */}
@@ -366,7 +366,7 @@ export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
         <Row label="satisfaction" value={`${st.satisfactionAvg.toFixed(0)} / 100`} />
       </div>
       </div>
-    </div>
+    </RailPanelShell>
   );
 }
 
