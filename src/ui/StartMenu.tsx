@@ -21,6 +21,7 @@ import { RankBadge } from './RankPanel';
 import { SettingsPanel } from './SettingsPanel';
 import { STORY_KEY } from './StoryIntro';
 import { theme } from './theme';
+import { isTutorialComplete, tutorialProgress } from './tutorialGate';
 
 const bigBtn = (primary: boolean, compact = false): React.CSSProperties => ({
   display: 'block',
@@ -39,6 +40,26 @@ const bigBtn = (primary: boolean, compact = false): React.CSSProperties => ({
   fontFamily: theme.font,
   fontSize: compact ? 13 : 15,
   fontWeight: primary ? 800 : 600,
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  cursor: 'pointer',
+});
+
+/** The locked "new game" tile while the tutorial gate is closed: visibly
+ *  inert (dim, dashed border, no glow) but still tappable — a tap nudges the
+ *  player into the tutorial rather than doing nothing. */
+const lockedBtn = (compact = false): React.CSSProperties => ({
+  display: 'block',
+  width: compact ? '100%' : 320,
+  margin: compact ? '7px 0 0' : '12px auto 0',
+  padding: compact ? '8px 0' : '12px 0',
+  borderRadius: compact ? 9 : 12,
+  border: '1px dashed rgba(125, 135, 180, 0.4)',
+  background: 'rgba(255, 255, 255, 0.02)',
+  color: theme.slate,
+  fontFamily: theme.font,
+  fontSize: compact ? 13 : 15,
+  fontWeight: 600,
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
   cursor: 'pointer',
@@ -146,6 +167,14 @@ export function StartMenu() {
   const hasSave = localStorageStore.load() !== undefined;
   const slotCount = listSlots().length;
 
+  // TUTORIAL GATE (owner, 2026-06-26): free play — a "new game" on any city —
+  // is LOCKED until the tutorial sequence is complete. First-time players are
+  // routed into the tutorial; only a finished curriculum (or a grandfathered
+  // existing player — see tutorialGate.isTutorialComplete) unlocks it. The
+  // tutorial itself is of course always launchable.
+  const freePlay = isTutorialComplete();
+  const prog = tutorialProgress();
+
   // sandbox: continue a save (fresh=false) or start a clean new game
   // (fresh=true). The London tutorial step strip is RETIRED — the campaign
   // IS the tutorial now, so a sandbox new game opens clean (story + goal
@@ -178,6 +207,15 @@ export function StartMenu() {
     sessionStorage.removeItem(STORY_KEY); // the tour wants the HUD, not the letterbox
     begin(!hasSave);
     setTourActive(true);
+  };
+
+  // the gate's call-to-action: send the player INTO the tutorial (the lessons
+  // curriculum). Used by the primary "start the tutorial" button and by a tap
+  // on the locked "new game" tile, so a first-time player always has an
+  // obvious way forward.
+  const openTutorial = (): void => {
+    startMusic();
+    setLessonsOpen(true);
   };
 
   // LEFT column (compact-landscape) / TOP (tall): brand + the action buttons.
@@ -215,15 +253,65 @@ export function StartMenu() {
               continue
             </button>
           )}
-          <button style={bigBtn(!hasSave, short)} onClick={() => setPickingCity(true)}>
-            <span style={{ color: hasSave ? theme.orange : undefined }}>⚡ </span>new game
-          </button>
-          <button style={bigBtn(false, short)} onClick={() => setLessonsOpen(true)}>
-            <span style={{ color: theme.orange }}>📖 </span>tutorials
-          </button>
-          <button style={bigBtn(false, short)} onClick={() => setTour(true)}>
-            <span style={{ color: theme.orange }}>🧭 </span>tour the controls
-          </button>
+          {/* TUTORIAL GATE: until the curriculum is finished, the tutorial is
+              the PRIMARY action and "new game" is locked — a tap on the locked
+              tile nudges the player into the tutorial, never silently fails. */}
+          {!freePlay && (
+            <button
+              style={bigBtn(true, short)}
+              onClick={openTutorial}
+              data-testid="start-tutorial"
+            >
+              <span>📖 </span>start the tutorial
+            </button>
+          )}
+          {freePlay ? (
+            <button
+              style={bigBtn(!hasSave, short)}
+              onClick={() => setPickingCity(true)}
+              data-testid="new-game"
+            >
+              <span style={{ color: hasSave ? theme.orange : undefined }}>⚡ </span>new game
+            </button>
+          ) : (
+            <button
+              style={lockedBtn(short)}
+              onClick={openTutorial}
+              title="Complete the tutorial to unlock free play"
+              data-testid="new-game-locked"
+            >
+              <span>🔒 </span>new game
+            </button>
+          )}
+          {!freePlay && (
+            <div
+              style={{
+                color: theme.slate,
+                fontSize: 11,
+                lineHeight: 1.4,
+                margin: short ? '5px 2px 0' : '7px auto 0',
+                maxWidth: short ? undefined : 320,
+                textAlign: short ? 'left' : 'center',
+              }}
+              data-testid="gate-hint"
+            >
+              Complete the tutorial to unlock free play
+              <span style={{ color: theme.gold }}>
+                {' '}
+                · {prog.done}/{prog.total} lessons
+              </span>
+            </div>
+          )}
+          {freePlay && (
+            <button style={bigBtn(false, short)} onClick={() => setLessonsOpen(true)}>
+              <span style={{ color: theme.orange }}>📖 </span>tutorials
+            </button>
+          )}
+          {freePlay && (
+            <button style={bigBtn(false, short)} onClick={() => setTour(true)}>
+              <span style={{ color: theme.orange }}>🧭 </span>tour the controls
+            </button>
+          )}
           <button style={bigBtn(false, short)} onClick={() => setSavesOpen(true)}>
             <span style={{ color: theme.orange }}>💾 </span>save slots
             {slotCount > 0 && (
