@@ -299,9 +299,16 @@ export function KpiDashboard() {
   const reg = r.regulator;
   const sym = snapshot.currency.symbol;
   const teach = kpiTeach(reg, sym);
-  // localised reliability-row labels; the other labels are country-agnostic
+  // localise the reliability-row labels (CI/CML ↔ SAIFI/SAIDI) AND the bill
+  // row's currency unit; the rest are country-agnostic.
   const labelFor = (k: KpiKey): string =>
-    k === 'ci' ? reg.ciLabel : k === 'cml' ? reg.cmlLabel : KPI_LABELS[k];
+    k === 'ci'
+      ? reg.ciLabel
+      : k === 'cml'
+        ? reg.cmlLabel
+        : k === 'bill'
+          ? `avg bill ${sym}/yr`
+          : KPI_LABELS[k];
 
   return (
     <div
