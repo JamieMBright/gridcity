@@ -17,7 +17,7 @@
 // ships in cityRegistry.
 
 import type { GenType } from './catalog';
-import type { KpiKey, RegulatorModel } from './regulation/riio';
+import type { KpiKey, RegulatorFraming, RegulatorModel } from './regulation/riio';
 
 // ----------------------------------------------------------------------
 // 1. Frequency — market/frequency.ts droop literals.
@@ -278,18 +278,28 @@ export const BRAZIL_MARKET: MarketProfile = {
 // 4. Regulator framing — riio.ts hook (display + KPI-weight overrides).
 
 export interface RegulatorProfile {
-  /** Display name for chrome ("Ofgem"). */
+  /** Display name for chrome — the body that actually governs the DISTRIBUTION
+   *  operator a player runs ("Ofgem", "BNetzA", "NYPSC", "MERC"). */
   name: string;
-  /** 'riio' liberalised price-control | 'profit-cap' SoC/DEWA |
-   *  'cost-of-service' state grid. Selects the report-card FRAMING (W8 Part-2b:
-   *  the per-model framing text now surfaces on the report-card panel via
-   *  riio.ts regulatorFraming). The per-KPI scoring difference is carried
-   *  separately by kpiWeights + resolveWeights. */
+  /** 'riio' liberalised incentive/revenue-cap | 'profit-cap' SoC/permitted-
+   *  return | 'cost-of-service' rate-base/ARR. Selects the DEFAULT report-card
+   *  framing family; `framing` below overrides any individual string so each
+   *  country speaks its own regulatory language. The per-KPI scoring difference
+   *  is carried separately by kpiWeights + resolveWeights. */
   model: RegulatorModel;
   /** Per-KPI weight overrides; absent ⇒ riio.ts WEIGHTS unchanged. */
   kpiWeights?: Partial<Record<KpiKey, number>>;
+  /** Per-country framing overrides applied on top of the model's defaults
+   *  (riio.ts resolveFraming). This is what stops GB terms (RIIO/Ofgem/DUoS/
+   *  CI/CML) leaking into a non-GB city: each country names its own scheme,
+   *  gloss, reliability metric, network charge, etc. Absent ⇒ the model's
+   *  defaults (GB ships none, so London is byte-identical). */
+  framing?: Partial<RegulatorFraming>;
 }
 
+/** GB / Ofgem — RIIO-ED2. The determinism anchor; ships no framing override,
+ *  so it reads in the exact RIIO/Ofgem/DUoS/CI-CML language as before, now
+ *  with the spelled-out RIIO gloss the model carries (owner req #4). */
 export const LONDON_REGULATOR: RegulatorProfile = { name: 'Ofgem', model: 'riio' };
 
 /** France — CRE / TURPE cost-of-service. Carbon already sits near zero on
@@ -300,6 +310,18 @@ export const FRANCE_REGULATOR: RegulatorProfile = {
   name: 'CRE',
   model: 'cost-of-service',
   kpiWeights: { carbon: 0.05, bill: 0.3, satisfaction: 0.22, ci: 0.16, cml: 0.15 },
+  framing: {
+    scheme: 'TURPE',
+    schemeGloss:
+      "TURPE — the CRE's distribution tariff: prudently-incurred network costs are recovered over a multi-year period, with affordability and quality of supply at the fore.",
+    review: 'tariff review',
+    blurb:
+      "The CRE's TURPE tariff: a cost-of-service network charge over a near-zero-carbon nuclear grid, judged on affordability and continuity of supply.",
+    reliabilityMetric: 'critère B (SAIDI)',
+    ciLabel: 'interruptions /100 cust/yr',
+    cmlLabel: 'critère B min/cust/yr',
+    networkChargeLabel: 'network tariff (TURPE)',
+  },
 };
 
 /** Australia — AER revenue-cap building block. Affordability is the live
@@ -309,15 +331,38 @@ export const AUSTRALIA_REGULATOR: RegulatorProfile = {
   name: 'AER',
   model: 'riio',
   kpiWeights: { bill: 0.28, carbon: 0.18, curtailedFirm: 0.16, satisfaction: 0.18, ci: 0.1, cml: 0.1 },
+  framing: {
+    scheme: 'revenue cap',
+    schemeGloss:
+      "AER revenue cap — a building-block determination: allowed revenue = return on the RAB + depreciation + opex, with a Service Target Performance Incentive Scheme (STPIS) on reliability.",
+    review: 'revenue determination',
+    blurb:
+      "The AER's revenue-cap determination: a building-block allowance over a rooftop-PV-flooded grid, leaning on affordability and hosting headroom.",
+    reliabilityMetric: 'SAIDI / SAIFI',
+    ciLabel: 'SAIFI /100 cust/yr',
+    cmlLabel: 'SAIDI min/cust/yr',
+    networkChargeLabel: 'distribution network charge',
+    constraintLabel: 'curtailment compensation',
+    returnHint: 'allowed return on the RAB',
+    safetyBody: 'the work-safety regulator',
+  },
 };
 
-/** Hong Kong — Scheme of Control, 8% permitted return on net fixed assets.
- *  World-best reliability is the headline the SoC is judged on, so CI/CML
- *  dominate the card; carbon and curtailment matter least. */
+/** Hong Kong — Scheme of Control, ~8% permitted return on net fixed assets,
+ *  overseen by EMSD / the Environment Bureau. World-best reliability is the
+ *  headline the SoC is judged on, so reliability dominates the card; carbon
+ *  and curtailment matter least. */
 export const HONGKONG_REGULATOR: RegulatorProfile = {
-  name: 'Scheme of Control',
+  name: 'EMSD',
   model: 'profit-cap',
   kpiWeights: { ci: 0.26, cml: 0.26, satisfaction: 0.2, bill: 0.14, carbon: 0.09, curtailedFirm: 0.05 },
+  framing: {
+    scheme: 'Scheme of Control',
+    schemeGloss:
+      "Scheme of Control — the government's agreement with the vertically-integrated utility: a permitted return on net fixed assets (~8%), in exchange for among the world's most reliable supply.",
+    blurb:
+      'A Scheme-of-Control settlement overseen by EMSD: a permitted return on net fixed assets, judged above all on world-class reliability (supply unavailability of minutes per year).',
+  },
 };
 
 /** Brazil — ANEEL concession review. DEC/FEC reliability and affordability
@@ -326,6 +371,182 @@ export const BRAZIL_REGULATOR: RegulatorProfile = {
   name: 'ANEEL',
   model: 'cost-of-service',
   kpiWeights: { ci: 0.23, cml: 0.23, bill: 0.22, satisfaction: 0.16, carbon: 0.08, curtailedFirm: 0.08 },
+  framing: {
+    scheme: 'revisão tarifária',
+    schemeGloss:
+      "ANEEL concession review — a periodic tariff revision (revisão tarifária periódica) on the regulatory asset base, with DEC/FEC continuity limits per concession.",
+    review: 'tariff revision',
+    blurb:
+      "ANEEL's concession review: a tariff revision over a hydro-dominated grid, judged on DEC/FEC continuity and affordability.",
+    reliabilityMetric: 'DEC / FEC',
+    ciLabel: 'FEC /cust/yr',
+    cmlLabel: 'DEC hours/cust/yr',
+    networkChargeLabel: 'distribution tariff (TUSD)',
+  },
+};
+
+/** Germany — Bundesnetzagentur (BNetzA), incentive regulation under the
+ *  Anreizregulierungsverordnung (ARegV). A revenue cap with an efficiency
+ *  benchmark and a quality element (Qualitätselement) tying SAIDI to revenue.
+ *  The Energiewende — rooftop solar, heat pumps, EVs, grid expansion — drives
+ *  the card: carbon + hosting headroom + affordability lead. */
+export const GERMANY_REGULATOR: RegulatorProfile = {
+  name: 'BNetzA',
+  model: 'riio',
+  kpiWeights: { carbon: 0.2, curtailedFirm: 0.15, bill: 0.22, satisfaction: 0.16, ci: 0.14, cml: 0.13 },
+  framing: {
+    scheme: 'Anreizregulierung',
+    schemeGloss:
+      "Anreizregulierung — BNetzA's incentive regulation (ARegV): a revenue cap with an efficiency benchmark — beat the frontier and keep the gain — and a quality element (Q-element) tying your SAIDI to your revenue.",
+    review: 'efficiency review',
+    blurb:
+      "BNetzA's Anreizregulierung: a revenue cap with an efficiency benchmark and a quality element, over an Energiewende grid swelling with rooftop solar, heat pumps and EVs.",
+    reliabilityMetric: 'SAIDI / SAIFI',
+    ciLabel: 'SAIFI /100 cust/yr',
+    cmlLabel: 'SAIDI min/cust/yr',
+    networkChargeLabel: 'network charges (Netzentgelte)',
+    constraintLabel: 'redispatch / curtailment cost',
+    returnHint: 'efficiency revenue cap',
+    safetyBody: 'the trade-safety authority',
+  },
+};
+
+/** USA (New York) — the New York Public Service Commission (NYPSC) regulates
+ *  Con Edison's distribution; FERC governs wholesale/transmission and NYISO
+ *  runs the bulk grid. Cost-of-service rate-of-return: a rate case sets the
+ *  rate base × allowed ROE, framed by NY's Reforming the Energy Vision (REV)
+ *  performance-based regulation and the CLCPA 2050 net-zero mandate. */
+export const USA_REGULATOR: RegulatorProfile = {
+  name: 'NYPSC',
+  model: 'cost-of-service',
+  kpiWeights: { bill: 0.26, ci: 0.16, cml: 0.16, carbon: 0.16, satisfaction: 0.18, curtailedFirm: 0.08 },
+  framing: {
+    scheme: 'rate case',
+    schemeGloss:
+      "Rate case — the NYPSC sets your revenue as rate base × allowed return on equity plus costs, with performance metrics (Reforming the Energy Vision) and the CLCPA 2050 net-zero target overhead.",
+    review: 'rate case',
+    blurb:
+      "A NYPSC rate case: cost-of-service revenue on your rate base, with storm-hardening, affordability and the CLCPA clean-energy mandate front of mind.",
+    reliabilityMetric: 'SAIDI / SAIFI / CAIDI',
+    ciLabel: 'SAIFI /100 cust/yr',
+    cmlLabel: 'SAIDI min/cust/yr',
+    networkChargeLabel: 'delivery charge',
+    constraintLabel: 'curtailment compensation',
+    returnHint: 'allowed return on rate base',
+    safetyBody: 'OSHA',
+  },
+};
+
+/** India (Pune, Maharashtra) — the Maharashtra Electricity Regulatory
+ *  Commission (MERC) sets MSEDCL's tariffs under the Multi-Year Tariff (MYT)
+ *  framework (CERC is the central regulator). A cost-plus Annual Revenue
+ *  Requirement, with the defining Indian metric — AT&C losses (theft +
+ *  technical) — and reliability/electrification driving the order. */
+export const INDIA_REGULATOR: RegulatorProfile = {
+  name: 'MERC',
+  model: 'cost-of-service',
+  kpiWeights: { bill: 0.26, ci: 0.2, cml: 0.2, satisfaction: 0.16, carbon: 0.1, curtailedFirm: 0.08 },
+  framing: {
+    scheme: 'Multi-Year Tariff',
+    schemeGloss:
+      "Multi-Year Tariff (MYT) — MERC approves your Annual Revenue Requirement over a multi-year control period; affordability, reliability and cutting AT&C (aggregate technical & commercial) losses drive the order.",
+    review: 'tariff order',
+    blurb:
+      "MERC's Multi-Year Tariff order: a cost-plus Annual Revenue Requirement over a fast-growing grid, judged on affordability, reliability and AT&C loss reduction.",
+    reliabilityMetric: 'SAIDI / SAIFI · AT&C losses',
+    ciLabel: 'SAIFI /100 cust/yr',
+    cmlLabel: 'SAIDI min/cust/yr',
+    networkChargeLabel: 'wheeling charge',
+    constraintLabel: 'curtailment compensation',
+    returnHint: 'regulated return on equity',
+    safetyBody: 'the electrical inspectorate',
+  },
+};
+
+/** China (Shanghai) — the National Energy Administration (NEA) / NDRC set the
+ *  transmission-and-distribution price cap (输配电价 review); State Grid
+ *  operates. A cost-of-service permitted-cost cap over an ultra-high-voltage
+ *  system; reliability (SAIDI/SAIFI) and affordability lead. */
+export const CHINA_REGULATOR: RegulatorProfile = {
+  name: 'NEA / NDRC',
+  model: 'cost-of-service',
+  kpiWeights: { bill: 0.24, ci: 0.2, cml: 0.2, satisfaction: 0.16, carbon: 0.12, curtailedFirm: 0.08 },
+  framing: {
+    scheme: 'T&D price review',
+    schemeGloss:
+      'T&D price review — a transmission-and-distribution price review (输配电价): the NDRC/NEA set a permitted-cost price cap on the State Grid regulated asset base; reliability and affordability lead.',
+    review: 'price review',
+    blurb:
+      'A NDRC/NEA transmission-and-distribution price review: a permitted-cost cap over an ultra-high-voltage State Grid system, judged on reliability and affordability.',
+    reliabilityMetric: 'SAIDI / SAIFI',
+    ciLabel: 'SAIFI /100 cust/yr',
+    cmlLabel: 'SAIDI min/cust/yr',
+    networkChargeLabel: 'T&D charge',
+  },
+};
+
+/** South Africa (Cape Town) — the National Energy Regulator of South Africa
+ *  (NERSA) sets tariffs via a Multi-Year Price Determination (MYPD); Eskom
+ *  generates/transmits and the City distributes. Load-shedding is the live
+ *  wire — reliability and affordability dominate. */
+export const SOUTHAFRICA_REGULATOR: RegulatorProfile = {
+  name: 'NERSA',
+  model: 'cost-of-service',
+  kpiWeights: { ci: 0.24, cml: 0.24, bill: 0.22, satisfaction: 0.16, carbon: 0.08, curtailedFirm: 0.06 },
+  framing: {
+    scheme: 'MYPD',
+    schemeGloss:
+      "Multi-Year Price Determination (MYPD) — NERSA approves allowed revenue on the regulated asset base; under chronic load-shedding, reliability and affordability dominate.",
+    review: 'price determination',
+    blurb:
+      "A NERSA price determination: allowed revenue over a load-shedding-constrained grid, judged hard on keeping the lights on and on affordability.",
+    reliabilityMetric: 'SAIDI / SAIFI',
+    ciLabel: 'SAIFI /100 cust/yr',
+    cmlLabel: 'SAIDI min/cust/yr',
+    networkChargeLabel: 'use-of-system charge',
+  },
+};
+
+/** Egypt (Cairo) — EgyptERA (the Egyptian Electric Utility & Consumer
+ *  Protection Regulatory Agency) sets tariffs; subsidised, with rampant load
+ *  growth. Affordability and reliability lead. */
+export const EGYPT_REGULATOR: RegulatorProfile = {
+  name: 'EgyptERA',
+  model: 'cost-of-service',
+  kpiWeights: { bill: 0.26, ci: 0.2, cml: 0.2, satisfaction: 0.16, carbon: 0.1, curtailedFirm: 0.08 },
+  framing: {
+    scheme: 'tariff schedule',
+    schemeGloss:
+      "EgyptERA tariff schedule — a regulated, historically subsidised tariff on the distribution company's costs, with affordability and reliability under fast load growth front of mind.",
+    review: 'tariff review',
+    blurb:
+      "An EgyptERA tariff review: a subsidised cost-of-service tariff over a fast-growing Nile-valley grid, judged on affordability and reliability.",
+    reliabilityMetric: 'SAIDI / SAIFI',
+    ciLabel: 'SAIFI /100 cust/yr',
+    cmlLabel: 'SAIDI min/cust/yr',
+    networkChargeLabel: 'network charge',
+  },
+};
+
+/** Greece (Athens) — RAE/RAAEY regulates; HEDNO (DEDDIE) is the DSO. A
+ *  required-revenue methodology on the regulated asset base; fierce summer
+ *  air-conditioning peaks and a fast solar climb. */
+export const GREECE_REGULATOR: RegulatorProfile = {
+  name: 'RAE',
+  model: 'cost-of-service',
+  kpiWeights: { carbon: 0.12, curtailedFirm: 0.12, bill: 0.24, satisfaction: 0.18, ci: 0.12, cml: 0.22 },
+  framing: {
+    scheme: 'required revenue',
+    schemeGloss:
+      "Required revenue — the RAE methodology setting HEDNO's allowed distribution revenue on the regulated asset base (WACC × RAB + opex + depreciation), with a fast solar build to host.",
+    review: 'tariff review',
+    blurb:
+      "A RAE required-revenue review: allowed distribution revenue over a sun-baked island-linked grid, judged on affordability, supply quality and solar hosting.",
+    reliabilityMetric: 'SAIDI / SAIFI',
+    ciLabel: 'SAIFI /100 cust/yr',
+    cmlLabel: 'SAIDI min/cust/yr',
+    networkChargeLabel: 'network use charge',
+  },
 };
 
 // ----------------------------------------------------------------------
@@ -570,6 +791,233 @@ export const BRAZIL_GENERATION: GenerationModel = {
   },
 };
 
+// --- Germany (Berlin) — 50 Hz, Energiewende, € incentive regulation. --------
+/** 50Hertz/Stromnetz Berlin voltages: 380/220/110 kV transmission, 10/0.4 kV. */
+export const GERMANY_POWER: PowerSystemProfile = {
+  nominalHz: 50,
+  freqFloorHz: 47.5,
+  droopHz: 1.5,
+  transmissionKv: [380, 220, 110],
+  distributionKv: [10, 0.4],
+};
+/** Berlin is mildly winter-peaking (heating, increasingly electric via heat
+ *  pumps), but with a heavy rooftop-PV midday flood the duck curve bites; the
+ *  cold 'calm-cold' regime (a Dunkelflaute — windless overcast spell) is the
+ *  stress event, as in GB. */
+export const GERMANY_WEATHER: WeatherProfile = {
+  peakSeason: 'winter',
+  peakDoy: 20,
+  dayLenMaxH: 16.5,
+  dayLenMinH: 7.8,
+  ampWinterDrop: 0.5,
+  regimes: LONDON_WEATHER.regimes,
+};
+/** € / EUR; liberalised, unbundled — Netzentgelte network pot + energy pot,
+ *  GB-like shares but a higher standing charge and retail uplift (Germany's
+ *  levies/taxes are famously heavy). */
+export const GERMANY_ECONOMY: EconomyProfile = {
+  symbol: '€',
+  iso: 'EUR',
+  toGbp: 0.85,
+  domesticNetworkShare: 0.34,
+  domesticEnergyShare: 0.42,
+  retailUplift: 3.2,
+  supplyFixedYr: 170,
+};
+/** Merchant tender market — the Energiewende skews it hard to solar + wind +
+ *  battery, with coal/lignite retiring and gas as the flex backstop. */
+export const GERMANY_GENERATION: GenerationModel = {
+  ownership: 'tender',
+  tenderBias: {
+    solarFarm: 1.6,
+    windOnshore: 1.5,
+    windOffshore: 1.3,
+    battery: 1.4,
+    gasCCGT: 0.8,
+    gasPeaker: 0.8,
+    coal: 0.2,
+    nuclear: 0.1, // phased out (2023)
+  },
+};
+/** Germany: a renewables-heavy market with deep PV middays (occasionally
+ *  negative) and a Dunkelflaute scarcity spike; mid carbon (~350 g, falling as
+ *  coal exits), winter-peaking. */
+export const GERMANY_MARKET: MarketProfile = {
+  baseMWh: 44,
+  peakMWh: 90,
+  middayDipMWh: 70,
+  seasonalUplift: 0.28,
+  scarcityRegime: 'calm-cold',
+  scarcityKickMWh: 110,
+  gridCarbonG: 350,
+};
+
+// --- USA (New York) — 60 Hz, summer AC peak, $ cost-of-service rate case. ----
+/** Con Edison / NYISO voltages: 345/138/69 kV transmission, 13.8/0.12 kV
+ *  distribution (US LV is 120/240 V; the network model carries the kV tiers). */
+export const USA_POWER: PowerSystemProfile = {
+  nominalHz: 60,
+  freqFloorHz: 57,
+  droopHz: 1.8,
+  transmissionKv: [345, 138, 69],
+  distributionKv: [13.8, 0.48, 0.12],
+};
+/** New York is SUMMER-peaking (air-conditioning), with humid-heat 'heatwave'
+ *  stress events and nor'easter storms. NH summer peak ≈ late July (peakDoy
+ *  ≈ 205). */
+export const USA_WEATHER: WeatherProfile = {
+  peakSeason: 'summer',
+  peakDoy: 205,
+  dayLenMaxH: 15.0,
+  dayLenMinH: 9.3,
+  ampWinterDrop: 0.35,
+  regimes: LONDON_WEATHER.regimes,
+};
+/** $ / USD; a regulated delivery charge (rate base) + a competitive energy
+ *  supply — NYC delivery is among the priciest in the US, hence a heavy
+ *  standing charge. */
+export const USA_ECONOMY: EconomyProfile = {
+  symbol: '$',
+  iso: 'USD',
+  toGbp: 0.79,
+  domesticNetworkShare: 0.42,
+  domesticEnergyShare: 0.4,
+  retailUplift: 2.6,
+  supplyFixedYr: 220,
+};
+/** Merchant tender into a wholesale market (NYISO) — gas + nuclear today, with
+ *  the CLCPA driving a fast offshore-wind + solar + storage build. */
+export const USA_GENERATION: GenerationModel = {
+  ownership: 'tender',
+  tenderBias: {
+    solarFarm: 1.2,
+    windOffshore: 1.4,
+    windOnshore: 0.9,
+    battery: 1.3,
+    nuclear: 0.9,
+    gasCCGT: 0.9,
+    gasPeaker: 1.0,
+    coal: 0.1,
+  },
+};
+/** New York: a gas-and-nuclear market with a strong summer-aircon peak, modest
+ *  PV midday dip, and humid-heat scarcity spikes; mid carbon (~270 g), 60 Hz. */
+export const USA_MARKET: MarketProfile = {
+  baseMWh: 40,
+  peakMWh: 105,
+  middayDipMWh: 12,
+  seasonalUplift: 0.3,
+  scarcityRegime: 'heatwave',
+  scarcityKickMWh: 130,
+  gridCarbonG: 270,
+};
+
+// --- India (Pune, Maharashtra) — 50 Hz, pre-monsoon summer peak, ₹ MYT. ------
+/** MSEDCL / POWERGRID voltages: 400/220/132 kV transmission, 33/11/0.4 kV. */
+export const INDIA_POWER: PowerSystemProfile = {
+  nominalHz: 50,
+  freqFloorHz: 47.5,
+  droopHz: 1.5,
+  transmissionKv: [400, 220, 132],
+  distributionKv: [33, 11, 0.4],
+};
+/** Pune is SUMMER-peaking — the brutal pre-monsoon heat (Apr–May, peakDoy ≈
+ *  130) drives the aircon/irrigation peak; the wet monsoon storms are the
+ *  reliability stress (carried as the 'storm' regime intensity). */
+export const INDIA_WEATHER: WeatherProfile = {
+  peakSeason: 'summer',
+  peakDoy: 130,
+  dayLenMaxH: 13.2,
+  dayLenMinH: 10.8,
+  ampWinterDrop: 0.18,
+  regimes: LONDON_WEATHER.regimes,
+};
+/** ₹ / INR; a regulated wheeling charge under MYT, low absolute bills with a
+ *  small standing charge but heavy cross-subsidy and AT&C losses baked into the
+ *  energy line. */
+export const INDIA_ECONOMY: EconomyProfile = {
+  symbol: '₹',
+  iso: 'INR',
+  toGbp: 0.0095,
+  domesticNetworkShare: 0.3,
+  domesticEnergyShare: 0.45,
+  retailUplift: 2.4,
+  supplyFixedYr: 1200,
+};
+/** Tender/auction market — India's renewable push skews solar hard (the
+ *  cheapest power), with wind and storage following and new coal damped (still
+ *  the baseload incumbent). */
+export const INDIA_GENERATION: GenerationModel = {
+  ownership: 'tender',
+  tenderBias: {
+    solarFarm: 1.7,
+    windOnshore: 1.2,
+    battery: 1.2,
+    coal: 0.6, // still the baseload incumbent, but new build damped
+    gasCCGT: 0.6,
+    biomass: 1.0,
+  },
+};
+/** India: a coal-heavy market (high carbon ~650 g, falling), a strong summer
+ *  pre-monsoon peak and a fast solar midday dip; 50 Hz. */
+export const INDIA_MARKET: MarketProfile = {
+  baseMWh: 36,
+  peakMWh: 78,
+  middayDipMWh: 30,
+  seasonalUplift: 0.26,
+  scarcityRegime: 'heatwave',
+  scarcityKickMWh: 70,
+  gridCarbonG: 650,
+};
+
+// --- Lightweight economies for the remaining mapped cities (CN/ZA/EG/GR). ----
+// These four cities (Shanghai, Cape Town, Cairo, Athens) get a faithful
+// REGULATOR (above) + their own CURRENCY so NO British term leaks and the bill
+// reads in local money; their power/weather/market default to GB for now (a
+// documented, fully-playable approximation — the regulator is the owner's hard
+// requirement, and the deeper grid seams are a later wave). LONDON_* defaults
+// are reused for the un-overridden blocks via COUNTRY_PROFILES below.
+/** ¥ / CNY (Shanghai). */
+export const CHINA_ECONOMY: EconomyProfile = {
+  symbol: '¥',
+  iso: 'CNY',
+  toGbp: 0.11,
+  domesticNetworkShare: 0.32,
+  domesticEnergyShare: 0.4,
+  retailUplift: 2.4,
+  supplyFixedYr: 60,
+};
+/** R / ZAR (Cape Town). */
+export const SOUTHAFRICA_ECONOMY: EconomyProfile = {
+  symbol: 'R',
+  iso: 'ZAR',
+  toGbp: 0.043,
+  domesticNetworkShare: 0.34,
+  domesticEnergyShare: 0.4,
+  retailUplift: 2.6,
+  supplyFixedYr: 300,
+};
+/** E£ / EGP (Cairo). */
+export const EGYPT_ECONOMY: EconomyProfile = {
+  symbol: 'E£',
+  iso: 'EGP',
+  toGbp: 0.016,
+  domesticNetworkShare: 0.3,
+  domesticEnergyShare: 0.45,
+  retailUplift: 2.2,
+  supplyFixedYr: 200,
+};
+/** € / EUR (Athens). */
+export const GREECE_ECONOMY: EconomyProfile = {
+  symbol: '€',
+  iso: 'EUR',
+  toGbp: 0.85,
+  domesticNetworkShare: 0.33,
+  domesticEnergyShare: 0.42,
+  retailUplift: 3.0,
+  supplyFixedYr: 150,
+};
+
 // ----------------------------------------------------------------------
 // 5. The resolved profile carried on SimContext.
 
@@ -610,7 +1058,19 @@ export const LONDON_PROFILE: ResolvedProfile = {
  *  with a COMPLETE, committed profile are listed; cities for other countries
  *  resolve to GB until their profile lands (a deliberate, documented default
  *  — they are still fully playable, just GB-flavoured). */
-export type CountryId = 'GB' | 'FR' | 'AU' | 'HK' | 'BR';
+export type CountryId =
+  | 'GB'
+  | 'FR'
+  | 'AU'
+  | 'HK'
+  | 'BR'
+  | 'DE'
+  | 'US'
+  | 'IN'
+  | 'CN'
+  | 'ZA'
+  | 'EG'
+  | 'GR';
 
 /** Each country's fully-resolved operating model. GB is LONDON_PROFILE. The
  *  rest assemble the shipped market+regulator with the §4b power/weather/
@@ -649,6 +1109,67 @@ export const COUNTRY_PROFILES: Record<CountryId, ResolvedProfile> = {
     generation: BRAZIL_GENERATION,
     regulator: BRAZIL_REGULATOR,
     market: BRAZIL_MARKET,
+  },
+  DE: {
+    power: GERMANY_POWER,
+    weather: GERMANY_WEATHER,
+    economy: GERMANY_ECONOMY,
+    generation: GERMANY_GENERATION,
+    regulator: GERMANY_REGULATOR,
+    market: GERMANY_MARKET,
+  },
+  US: {
+    power: USA_POWER,
+    weather: USA_WEATHER,
+    economy: USA_ECONOMY,
+    generation: USA_GENERATION,
+    regulator: USA_REGULATOR,
+    market: USA_MARKET,
+  },
+  IN: {
+    power: INDIA_POWER,
+    weather: INDIA_WEATHER,
+    economy: INDIA_ECONOMY,
+    generation: INDIA_GENERATION,
+    regulator: INDIA_REGULATOR,
+    market: INDIA_MARKET,
+  },
+  // CN/ZA/EG/GR: a faithful per-country REGULATOR + local CURRENCY, with the
+  // power/weather/generation/market defaulting to GB for now (documented
+  // approximation — the regulator localisation is the hard requirement; deeper
+  // grid seams for these four are a later wave). No British term leaks: each
+  // names its own regulator, scheme, metric and money.
+  CN: {
+    power: LONDON_POWER,
+    weather: LONDON_WEATHER,
+    economy: CHINA_ECONOMY,
+    generation: LONDON_GENERATION,
+    regulator: CHINA_REGULATOR,
+    market: LONDON_MARKET,
+  },
+  ZA: {
+    power: LONDON_POWER,
+    weather: LONDON_WEATHER,
+    economy: SOUTHAFRICA_ECONOMY,
+    generation: LONDON_GENERATION,
+    regulator: SOUTHAFRICA_REGULATOR,
+    market: LONDON_MARKET,
+  },
+  EG: {
+    power: LONDON_POWER,
+    weather: LONDON_WEATHER,
+    economy: EGYPT_ECONOMY,
+    generation: LONDON_GENERATION,
+    regulator: EGYPT_REGULATOR,
+    market: LONDON_MARKET,
+  },
+  GR: {
+    power: LONDON_POWER,
+    weather: LONDON_WEATHER,
+    economy: GREECE_ECONOMY,
+    generation: LONDON_GENERATION,
+    regulator: GREECE_REGULATOR,
+    market: LONDON_MARKET,
   },
 };
 

@@ -46,7 +46,7 @@ import { forecastCatchments } from './forecast';
 import { planReinforcement, proposeLoop } from './planner';
 import { connectionStudy } from './study';
 import { buildDemandField } from './map/demand';
-import { regulatorFraming } from './regulation/riio';
+import { resolveFraming } from './regulation/riio';
 import {
   advanceTime,
   billDetailRows,
@@ -219,6 +219,7 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
     simTimeMin: state.simTimeMin,
     speed: state.speed,
     scenarioId: state.scenarioId,
+    currency: { symbol: ctx.profile.economy.symbol, iso: ctx.profile.economy.iso },
     missionComplete: state.missionComplete,
     assets: [...state.assets.values()],
     branches: out.branches,
@@ -305,12 +306,13 @@ function makeSnapshot(accumulate: boolean): SimSnapshot {
       targets: { ...state.period.targets },
       current: currentPeriodActuals(state),
       lastReport: state.lastReport,
-      // W8 Part-2b: the active country's regulator framing (name + model +
-      // human framing text) so the report-card panel speaks the right language.
+      // The active country's regulator framing (name + model + the fully-
+      // resolved per-country framing text) so the report-card panel speaks the
+      // right regulatory language and NO British term leaks into a non-GB city.
       regulator: {
         name: ctx.profile.regulator.name,
         model: ctx.profile.regulator.model,
-        ...regulatorFraming(ctx.profile.regulator.model),
+        ...resolveFraming(ctx.profile.regulator.model, ctx.profile.regulator.framing),
       },
       regulatory: out.regulatory,
     },

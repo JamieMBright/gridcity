@@ -146,6 +146,12 @@ export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   if (!snapshot) return null;
   const b = snapshot.bill;
   const st = snapshot.stats;
+  // localise the network-charge name (GB "network use-of-system (DUoS)"; DE
+  // "network charges (Netzentgelte)"; US "delivery charge"; …) + reliability
+  // row labels + currency, so the bill reads in each country's own language.
+  const reg = snapshot.riio.regulator;
+  const netLabel = reg.networkChargeLabel;
+  const sym = snapshot.currency.symbol;
 
   const toggle = (line: BillDetailLine): void => {
     if (open === line) {
@@ -219,7 +225,7 @@ export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
         <span style={{ color: theme.orangeSoft, fontSize: 11 }}>{expanded ? '▾' : '▸'}</span>
       </button>
       <div style={{ fontSize: 26, fontWeight: 800, color: theme.gold }}>
-        £{b.perCustomerYr.toFixed(0)}
+        {sym}{b.perCustomerYr.toFixed(0)}
         <span style={{ fontSize: 12, fontWeight: 400, color: theme.slate }}> /home/yr</span>
       </div>
       {/* The headline TOTAL is mostly wholesale energy the operator doesn't
@@ -239,10 +245,10 @@ export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
         }}
       >
         <span style={{ fontSize: 9, letterSpacing: '0.08em', color: theme.slate }}>
-          YOUR NETWORK CHARGE (DUoS)
+          YOUR {netLabel.toUpperCase()}
         </span>
         <span style={{ fontSize: 15, fontWeight: 800, color: theme.orange }}>
-          £{b.perCustomerDuosYr.toFixed(0)}
+          {sym}{b.perCustomerDuosYr.toFixed(0)}
         </span>
         <span style={{ fontSize: 9, color: theme.slate }}>/home/yr</span>
       </div>
@@ -250,7 +256,7 @@ export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
           strip) — a tiny at-a-glance read of network stability, always shown */}
       <NetworkHealthBar pct={st.networkHealthPct} />
       <div style={{ fontSize: 9.5, color: theme.slate, marginTop: 4, lineHeight: 1.35 }}>
-        the rest is wholesale energy — you don't set that. This DUoS line is
+        the rest is wholesale energy — you don't set that. This {netLabel} is
         the bit you control and the report card grades.
       </div>
       {!expanded && (
@@ -289,7 +295,7 @@ export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
       {trendOpen && <BillTrendChart history={snapshot.billHistory} />}
       <div style={{ fontSize: 11, marginTop: 6 }}>
         <Row
-          label="network (DUoS)"
+          label={netLabel}
           value={`${fmtMoneyK(b.capexYrK)}/yr`}
           line="capex"
           open={open}
@@ -351,8 +357,8 @@ export function BillPanel({ frame }: { frame?: React.CSSProperties } = {}) {
           value={`${st.servedMW.toFixed(1)} / ${st.totalDemandMW.toFixed(1)} MW`}
         />
         <div style={{ borderTop: `1px solid ${theme.navyLight}`, margin: '4px 0' }} />
-        <Row label="CI /100 cust/yr" value={snapshot.kpis.ciPer100PerYr.toFixed(1)} />
-        <Row label="CML min/cust/yr" value={snapshot.kpis.cmlMinPerYr.toFixed(1)} />
+        <Row label={reg.ciLabel} value={snapshot.kpis.ciPer100PerYr.toFixed(1)} />
+        <Row label={reg.cmlLabel} value={snapshot.kpis.cmlMinPerYr.toFixed(1)} />
         <Row
           label="curtailed firm/flex"
           value={`${st.curtailedFirmMWh.toFixed(0)} / ${st.curtailedFlexMWh.toFixed(0)} MWh`}

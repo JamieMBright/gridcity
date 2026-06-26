@@ -25,11 +25,36 @@ import {
 import { newContext, newGame, seedScenario, type GameState } from '../src/sim/state';
 import { advanceTime, derive, deriveKey, solveTick, type Derived } from '../src/sim/tick';
 
-// WP2: the cities whose own (non-London) operating model is now wired, and the
-// country each maps to. Everything ELSE — London, the untagged data cities, and
-// every mission — must still resolve to GB (LONDON_PROFILE), the determinism
+// The cities whose own (non-London) operating model is wired, and the country
+// each maps to. Every world city now carries its real country so no British
+// regulator term leaks outside GB; only London, GB-tagged North-East England,
+// and the tutorial missions resolve to GB (LONDON_PROFILE), the determinism
 // anchor. (See cityProfiles.test.ts for the per-dimension behaviour proofs.)
-const WIRED: Record<string, CountryId> = { paris: 'FR', sydney: 'AU', hongkong: 'HK' };
+const WIRED: Record<string, CountryId> = {
+  paris: 'FR',
+  sydney: 'AU',
+  hongkong: 'HK',
+  newyork: 'US',
+  berlin: 'DE',
+  pune: 'IN',
+  shanghai: 'CN',
+  capetown: 'ZA',
+  cairo: 'EG',
+  athens: 'GR',
+};
+
+// Cities/scenarios that resolve to GB (LONDON_PROFILE): London itself, the
+// explicitly GB-tagged North-East (shares London's laws), and every mission.
+const GB_RESOLVING = new Set<string>([
+  'london',
+  'northeast',
+  'm1-first-light',
+  'm2-step-up',
+  'm3-storm',
+  'm4-inbox',
+  'm5-bill',
+  'm6-sun-store',
+]);
 
 // --- 1. London + missions + untagged cities default to LONDON_PROFILE ------
 
@@ -48,13 +73,17 @@ describe('CityScenario v2 resolves to London by default', () => {
     expect(profileOf('london')).toEqual(LONDON_PROFILE);
   });
 
-  it('every scenario EXCEPT the WP2-wired cities resolves to London under the hood', () => {
-    // London, the untagged data cities (newyork/berlin/…/northeast) and every
-    // mission carry no country tag, so they resolve to GB — the determinism
-    // baseline. Only the three WP2-wired cities depart from it.
+  it('London, GB North-East and every mission resolve to London under the hood', () => {
+    // London, the GB-tagged North-East (shared GB laws) and every tutorial
+    // mission resolve to GB — the determinism baseline. Every OTHER world city
+    // now carries its own country (asserted below), so it must NOT be GB.
     for (const s of CITY_SCENARIOS) {
-      if (s.id in WIRED) continue;
-      expect(resolveProfile(s)).toEqual(LONDON_PROFILE);
+      if (GB_RESOLVING.has(s.id)) {
+        expect(resolveProfile(s)).toEqual(LONDON_PROFILE);
+      } else {
+        expect(s.id in WIRED).toBe(true);
+        expect(resolveProfile(s)).not.toEqual(LONDON_PROFILE);
+      }
     }
     // the roster: the 12 playable cities + the 6 tutorial missions
     expect(CITY_SCENARIOS.map((s) => s.id)).toEqual([

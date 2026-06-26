@@ -64,7 +64,7 @@ const STEPS: TourStep[] = [
   {
     target: 'kpi',
     title: 'Regulatory KPIs',
-    text: 'Reliability, carbon and satisfaction against Ofgem’s targets, graded every five years in a RIIO report card.',
+    text: 'Reliability, carbon and satisfaction against your regulator’s targets, graded each period in a report card — in whatever scheme your country runs (RIIO, Anreizregulierung, a rate case…).',
   },
   {
     target: 'map',
