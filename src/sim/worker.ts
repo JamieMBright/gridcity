@@ -455,6 +455,9 @@ async function handleMessage(msg: MainToWorker): Promise<void> {
           // estates, existing plants, starter applications)
           state.goalIndex = GOALS.length;
           mission.seed?.(state, ctx);
+          // (missions never spawn unsolicited applications — the inMission guard
+          // in tick.ts skips maybeSpawnApplications — so appSeed stays at the
+          // fixed default here; it's irrelevant to a scripted lesson.)
         } else {
           // per-game RANDOM starter seed so each new game opens with a different
           // mix of connection applications (owner, 2026-06-20). Only the picks
@@ -462,6 +465,14 @@ async function handleMessage(msg: MainToWorker): Promise<void> {
           // starters are persisted in the save, so reload replays identically.
           const starterSeed = (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0;
           seedScenario(state, ctx, { starterSeed });
+          // per-game RANDOM app-naming seed so ONGOING connection applications no
+          // longer draw the identical developer names every London game (owner:
+          // "identical applications — Marsh Ridge Wind / Peak Shift Storage every
+          // game. Should be random seeds."). Mirrors the starter seed: random in
+          // production, fixed default in tests/seed paths. Varies names only — NOT
+          // the tick rng — so within-game determinism (and the spawn cadence/
+          // count) is untouched, and it's persisted so a reload replays the names.
+          state.appSeed = (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0;
         }
         derived = undefined;
         history.clear();

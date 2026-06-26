@@ -574,6 +574,9 @@ export function solveTick(
           state.nextAppId,
           taken,
           satOf,
+          // per-game app-naming seed: varies WHICH developer name appears across
+          // games, off the tick rng, so within-game determinism is untouched
+          state.appSeed,
         );
     for (const app of apps) {
       state.nextAppId++;
