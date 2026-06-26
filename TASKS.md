@@ -10,6 +10,36 @@
 
 ---
 
+### 🏙️ CITY BUILDING VARIETY (owner, 2026-06, screenshots) — feat/city-variety
+Owner: Berlin "wtf is this" (a huge homogenous dark mass of identical dark
+tower blocks + grey sprawl); Pune "just a homogenous layering of tower blocks —
+if that is the truth of the city, some variety needed." Generated (non-London)
+cities render as monotonous blocks. This is about VARIETY of what remains, not
+density (#114's ~35% thin stays).
+- [x] **Investigated zones:** Berlin/Pune zones are NOT over-set to one type
+  (Berlin suburb 25% / none 23% / urban 20% / urbanCore 16%; Pune suburb 38% /
+  none 24% / urban 21% / urbanCore 13%). The monotony was in the SPRITES, not
+  the data: Berlin urbanCore+urban (36%) all → `altbau_${(estate+v%2)%4}` (one
+  5-6-storey block, 4 variants, keyed on estate ⇒ whole 8×8 blocks identical);
+  Pune urban+suburb (58%!) all → `puneflat_${...%5}` (one 5-9-storey flat). So
+  vast swaths were the same handful of medium-height blocks → no height mix, no
+  low/tall accents, monotone palette. Left the zone data untouched.
+- [x] **buildingSprites.ts — height + colour + form variety inside archetypes:**
+  altbau/plattenbau/puneflat now derive storeys/skin/roof/cornice from the
+  variant across a much wider range (low 3 → tall 11), so neighbouring tiles
+  differ in scale, not just hue. Added NEW low-rise + tall companion archetypes
+  per city so a district reads as a MIX of scales.
+- [x] **tileChooser.ts cityStockFor — per-tile mix + variant:** Berlin/Pune (and
+  the other dense-uniform cities) now mix low/mid/tall archetypes per-tile by
+  `th`, and key the variant on `th` blended with estate so neighbours differ
+  rather than whole-block-identical. Tall accents seed the cores; low-rise
+  fills the suburbs. Kept the #114 35% thin (density) untouched.
+- [x] **atlas.ts:** registered the expanded variant counts + new archetypes
+  (off-atlas buffers, cheap — like the heroes). London byte-identical.
+- [x] **DESIGN GATE:** `e2e/variety-shots.helper.spec.ts` (SHOTS-gated) loads
+  Berlin/Pune/London at mid+close, before/after copied to /tmp/review-variety/,
+  judged on the images. London unchanged (atlas byte-identical via fabric gate).
+
 ### 🗺️ MAP + GEN FEEDBACK (owner, 2026-06-23)
 - [~] **(1) Too many buildings on non-London maps.** Generated (OSM-seeded) cities
   carry a far denser building fabric than curated London. structureSpriteFor now

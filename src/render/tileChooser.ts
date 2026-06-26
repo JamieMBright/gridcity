@@ -280,15 +280,37 @@ function cityStockFor(
       return undefined;
     }
     case 'berlin': {
-      // the ornate stucco Altbau perimeter-block fills the dense inner fabric
-      // (Mitte/Kreuzberg); the GDR Plattenbau panel slab fills the outer estates
-      // (Marzahn). Potsdamer-Platz CBD keeps the generic glass supertalls.
+      // VARIETY (owner: Berlin read as one homogenous dark mass of identical
+      // blocks): MIX the archetypes per-TILE so a district reads as low + mid +
+      // tall, and key the variant on the per-tile hash blended with the estate
+      // (not estate alone) so neighbouring tiles differ rather than whole 8×8
+      // blocks being identical. Altbau (3–7 storeys) + Plattenbau (4–11) form the
+      // body; a tall point-block tower punctuates, a low corner house breaks the
+      // wall. Potsdamer-Platz CBD keeps the generic glass supertalls.
       void shops;
-      if (zone === ZONE.urbanCore || zone === ZONE.urban) {
-        return `altbau_${(estate + (v % 2)) % 4}`;
+      const va = (th + estate) % 6; // altbau/plattenbau variant (6 each)
+      if (zone === ZONE.urbanCore) {
+        // dense inner Mitte/Kreuzberg: Altbau-led, the odd tall tower + low house
+        const k = th % 12;
+        if (k === 0) return `berlintower_${(th >> 3) % 5}`;
+        if (k === 1) return `berlinlow_${(th >> 4) % 4}`;
+        if (k < 4) return `plattenbau_${va}`;
+        return `altbau_${va}`;
+      }
+      if (zone === ZONE.urban) {
+        const k = th % 12;
+        if (k === 0) return `berlintower_${(th >> 3) % 5}`;
+        if (k < 3) return `berlinlow_${(th >> 4) % 4}`;
+        if (k < 7) return `altbau_${va}`;
+        return `plattenbau_${va}`;
       }
       if (zone === ZONE.suburb) {
-        return th % 3 === 0 ? `altbau_${(estate + (v % 2)) % 4}` : `plattenbau_${(estate + (v % 2)) % 4}`;
+        // outer estates (Marzahn): Plattenbau-led with low houses + the rare tower
+        const k = th % 14;
+        if (k === 0) return `berlintower_${(th >> 3) % 5}`;
+        if (k < 5) return `berlinlow_${(th >> 4) % 4}`;
+        if (k < 8) return `altbau_${va}`;
+        return `plattenbau_${va}`;
       }
       return undefined;
     }
@@ -329,15 +351,34 @@ function cityStockFor(
       return undefined;
     }
     case 'pune': {
-      // warm-ochre RCC mid-rise flats blanket the residential fabric; heritage
-      // Maratha wadas (carved-timber verandah under red Mangalore-tile) seed the
-      // dense old core (Kasba/Shaniwar Peth). Hinjewadi-style IT CBD keeps glass.
+      // VARIETY (owner: Pune read as a homogenous layering of identical tower
+      // blocks): MIX the archetypes per-TILE and key the variant on the per-tile
+      // hash blended with the estate, so the RCC flats (now 3–12 storeys) read as
+      // a true skyline rhythm rather than equal towers. A tall IT/residential
+      // highrise punctuates; a low older pukka house breaks the run; heritage
+      // Maratha wadas seed the old core. Hinjewadi-style IT CBD keeps glass.
       void shops;
+      const vf = (th + estate) % 7; // puneflat variant (7, stepping 3–12 storeys)
       if (zone === ZONE.urbanCore) {
-        return th % 6 === 0 ? `wada_${(estate + (v % 2)) % 3}` : `puneflat_${(estate + (v % 2)) % 5}`;
+        // dense old core (Kasba/Shaniwar Peth): flats + wadas + low houses + tower
+        const k = th % 12;
+        if (k === 0) return `punetower_${(th >> 3) % 5}`;
+        if (k < 3) return `wada_${(th >> 4) % 3}`;
+        if (k < 5) return `punelow_${(th >> 5) % 4}`;
+        return `puneflat_${vf}`;
       }
-      if (zone === ZONE.urban || zone === ZONE.suburb) {
-        return `puneflat_${(estate + (v % 2)) % 5}`;
+      if (zone === ZONE.urban) {
+        const k = th % 11;
+        if (k === 0) return `punetower_${(th >> 3) % 5}`;
+        if (k < 4) return `punelow_${(th >> 5) % 4}`;
+        return `puneflat_${vf}`;
+      }
+      if (zone === ZONE.suburb) {
+        // outer suburbs: lower-led — more low houses, fewer/occasional towers
+        const k = th % 13;
+        if (k === 0) return `punetower_${(th >> 3) % 5}`;
+        if (k < 6) return `punelow_${(th >> 5) % 4}`;
+        return `puneflat_${vf}`;
       }
       return undefined;
     }
