@@ -127,6 +127,10 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const [pwBusy, setPwBusy] = useState(false);
   const [pwErr, setPwErr] = useState<string | undefined>(undefined);
   const [pwOk, setPwOk] = useState(false);
+  // sign-out state — so a failed sign-out shows feedback instead of silently
+  // leaving the player signed in (owner bug: "sign out failed, kept me in").
+  const [signOutBusy, setSignOutBusy] = useState(false);
+  const [signOutErr, setSignOutErr] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     void currentUser().then((u) => {
@@ -136,6 +140,19 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   }, []);
 
   const audio = getAudioSettings();
+
+  // Sign out, then drop the signed-in view. signOut() now clears the LOCAL
+  // session even if the server revoke fails, so we always return to the guest
+  // state; an error message is surfaced only as a heads-up. Awaited (not a
+  // bare .then) so a thrown rejection can't skip the state clear.
+  const doSignOut = async (): Promise<void> => {
+    setSignOutErr(undefined);
+    setSignOutBusy(true);
+    const err = await signOut();
+    setSignOutBusy(false);
+    setUser(undefined); // local session is gone regardless — show signed-out
+    if (err) setSignOutErr(err);
+  };
 
   const doChangePassword = async (): Promise<void> => {
     setPwErr(undefined);
@@ -206,11 +223,11 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                 </button>
                 <button
                   style={outlineBtn}
-                  onClick={() => {
-                    void signOut().then(() => setUser(undefined));
-                  }}
+                  disabled={signOutBusy}
+                  aria-label="sign out"
+                  onClick={() => void doSignOut()}
                 >
-                  sign out
+                  {signOutBusy ? 'signing out…' : 'sign out'}
                 </button>
               </div>
             ) : (
@@ -278,6 +295,12 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           <div style={{ color: theme.slate, fontSize: 12, lineHeight: 1.4 }}>
             playing as a guest — sign in from the start menu to sync saves and
             change your password here.
+          </div>
+        )}
+
+        {signOutErr && (
+          <div style={{ color: theme.warn, fontSize: 12, marginTop: 8, lineHeight: 1.4 }}>
+            signed out on this device, but the server couldn’t be reached ({signOutErr})
           </div>
         )}
 

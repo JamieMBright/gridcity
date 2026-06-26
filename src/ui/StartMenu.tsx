@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAppStore } from '../app/store';
 import { newGameCommand } from '../app/workerBridge';
-import { currentUser } from '../online/auth';
+import { currentUser, onAuthChange } from '../online/auth';
 import { startMusic } from '../audio/audio';
 import { localStorageStore } from '../persistence/localStorageStore';
 import { listSlots } from '../persistence/slotStore';
@@ -99,11 +99,18 @@ export function StartMenu() {
   const [signedIn, setSignedIn] = useState<boolean | undefined>(undefined);
   useEffect(() => {
     let live = true;
-    void currentUser().then((u) => {
-      if (live) setSignedIn(!!u);
-    });
+    const check = (): void => {
+      void currentUser().then((u) => {
+        if (live) setSignedIn(!!u);
+      });
+    };
+    check();
+    // also re-check when the Settings popup signs the user out, so the guest
+    // nudge + rank badge flip immediately rather than after a menu remount.
+    const off = onAuthChange(check);
     return () => {
       live = false;
+      off();
     };
   }, [menuOpen]);
   // measure + scale-to-fit (short landscape only). Transform doesn't change

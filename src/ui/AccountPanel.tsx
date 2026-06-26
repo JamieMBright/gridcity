@@ -9,6 +9,7 @@ import {
   CONFIRM_EMAIL,
   currentUser,
   ensureUsername,
+  onAuthChange,
   requestCode,
   resetPassword,
   signInWithPassword,
@@ -146,6 +147,11 @@ export function AccountPanel({ showBoard = true }: { showBoard?: boolean } = {})
       }
     });
     void fetchLeaderboard(8).then(setBoard);
+    // Re-check on a sign-out elsewhere (e.g. the Settings popup) so this card
+    // doesn't keep announcing "signed in as …" after the user signed out.
+    return onAuthChange(() => {
+      void currentUser().then(setUser);
+    });
   }, []);
 
   // Race an auth call against a timeout so a hung/unreachable backend surfaces

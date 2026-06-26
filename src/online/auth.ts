@@ -17,6 +17,32 @@ export interface OnlineUser {
  *  error. */
 export const CONFIRM_EMAIL = 'confirm-email';
 
+// Auth-change fan-out. Several panels mount at once (the start-menu
+// AccountPanel and the SettingsPanel overlay each hold their OWN cached
+// `currentUser()`), so a sign-out in one would leave the others showing a
+// stale "signed in" until a remount — the player reads that as "it kept me
+// signed in". signOut() notifies every subscriber so they all re-check at
+// once. Tiny and dependency-free (no EventTarget — works in any env).
+type AuthListener = () => void;
+const authListeners = new Set<AuthListener>();
+
+/** Subscribe to auth changes (currently: sign-out). Returns an unsubscribe.
+ *  Listeners must re-read currentUser() themselves — this only nudges. */
+export function onAuthChange(fn: AuthListener): () => void {
+  authListeners.add(fn);
+  return () => authListeners.delete(fn);
+}
+
+function notifyAuthChange(): void {
+  for (const fn of [...authListeners]) {
+    try {
+      fn();
+    } catch {
+      /* a broken listener must not stop the others from re-checking */
+    }
+  }
+}
+
 export async function currentUser(): Promise<OnlineUser | undefined> {
   const sb = supabase();
   if (!sb) return undefined;
@@ -176,6 +202,58 @@ export async function ensureUsername(username: string): Promise<string | undefin
   return error?.message;
 }
 
-export async function signOut(): Promise<void> {
-  await supabase()?.auth.signOut();
+/** Sign the user out. Returns undefined on success or a friendly error
+ *  string (mirroring the other auth fns) so the caller can surface it.
+ *
+ *  Uses `scope: 'local'` deliberately: the player tapped "sign out" and
+ *  must be signed out on THIS device immediately. The default global scope
+ *  makes a network round-trip to revoke the refresh token server-side and,
+ *  if that call fails (offline, an already-expired/stale token returning
+ *  403, a proxy hiccup), can leave the persisted local session in place —
+ *  which is exactly the "it kept me signed in" bug. A local sign-out clears
+ *  the device session without depending on the server.
+ *
+ *  Belt-and-braces: if the SDK still reports an error, force-clear the
+ *  persisted session so getSession() can never resurrect the signed-in
+ *  user, and only THEN return the message. */
+export async function signOut(): Promise<string | undefined> {
+  const sb = supabase();
+  if (!sb) return undefined; // never configured → already "signed out"
+  try {
+    const { error } = await sb.auth.signOut({ scope: 'local' });
+    if (error) {
+      // signOut already drops the in-memory session; make sure the persisted
+      // copy is gone too so a reload / next getSession() stays signed out.
+      clearPersistedSession();
+      return error.message;
+    }
+    return undefined;
+  } catch (e) {
+    clearPersistedSession();
+    return e instanceof Error ? e.message : 'could not sign out';
+  } finally {
+    // the local session is gone on every path — tell every mounted panel to
+    // re-check so none of them keeps showing the old signed-in identity.
+    notifyAuthChange();
+  }
+}
+
+/** Remove supabase-js's persisted auth token from storage as a last resort,
+ *  so a failed signOut() can never leave a session that getSession() reads
+ *  back. supabase-js keys it `sb-<project-ref>-auth-token`; we clear any
+ *  matching key rather than recompute the ref. No-ops if storage is
+ *  unavailable (SSR / private mode) — there's nothing persisted to clear. */
+function clearPersistedSession(): void {
+  try {
+    const ls = globalThis.localStorage;
+    if (!ls) return;
+    for (let i = ls.length - 1; i >= 0; i--) {
+      const key = ls.key(i);
+      if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+        ls.removeItem(key);
+      }
+    }
+  } catch {
+    /* storage unavailable — nothing persisted to clear */
+  }
 }
