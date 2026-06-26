@@ -211,7 +211,7 @@ function StormBanner() {
   );
 }
 
-/** Year-1 rebuild allowance: network capex committed vs Ofgem's letter. */
+/** Year-1 rebuild allowance: network capex committed vs the regulator's letter. */
 function AllowanceChip() {
   const snapshot = useAppStore((s) => s.snapshot);
   if (!snapshot || !inRebuildYear(snapshot.simTimeMin)) return null;
@@ -224,7 +224,7 @@ function AllowanceChip() {
   const color = frac > 1 ? theme.danger : frac > 0.8 ? theme.warn : theme.slate;
   return (
     <span
-      title="Ofgem's year-1 allowance for the rebuild (network capex committed)"
+      title={`${snapshot.riio.regulator.name}'s year-1 allowance for the rebuild (network capex committed)`}
       style={{ color, fontSize: 11, whiteSpace: 'nowrap' }}
     >
       rebuild {fmtMoneyK(spentK)} / {fmtMoneyK(ALLOWANCE_Y1_K)}
@@ -673,6 +673,12 @@ function ForecastButton() {
 function RiioButton() {
   const kpiOpen = useAppStore((s) => s.kpiOpen);
   const setKpiOpen = useAppStore((s) => s.setKpiOpen);
+  // label with the active country's scheme tag when it's short enough for the
+  // compact HUD (GB "RIIO"); a long scheme (Anreizregulierung, Multi-Year
+  // Tariff) falls back to the neutral "KPIs" so no British term is forced and
+  // the button never overflows. The full scheme is always in the dashboard.
+  const scheme = useAppStore((s) => s.snapshot?.riio.regulator.scheme);
+  const label = scheme && scheme.length <= 6 ? scheme : 'KPIs';
   return (
     <button
       data-tour="kpi"
@@ -695,7 +701,7 @@ function RiioButton() {
       }}
     >
       <IconReport size={14} />
-      RIIO
+      {label}
     </button>
   );
 }

@@ -14,6 +14,7 @@ import type {
 import { isSaveData } from '../sim/state';
 import { computeStars, recordLessonResult } from '../ui/lessonProgress';
 import { addPeriodResult } from '../ui/rank';
+import { allLessonsDone, markTutorialComplete } from '../ui/tutorialGate';
 import { captureError } from './errorLog';
 import { useAppStore } from './store';
 
@@ -98,6 +99,10 @@ export function initWorker(): void {
         if (s.scenarioId !== sid) s.setScenarioId(sid);
         if (msg.snapshot.missionComplete && sid !== 'london') {
           recordMissionComplete(sid);
+          // finishing the LAST outstanding lesson completes the tutorial
+          // sequence → latch the sticky flag that unlocks free play (the
+          // CityPicker / "new game" gate). Cheap + idempotent.
+          if (allLessonsDone()) markTutorialComplete();
           // grade the lesson off the completion snapshot: per-home network
           // charge, total assets, and whether anything ever ran hot. Both
           // recorders are idempotent / max-keeping, so re-firing each

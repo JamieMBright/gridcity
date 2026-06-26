@@ -9,6 +9,8 @@ import { activeFabric } from './buildingSprites';
 import { bespokeHeroesFor, frameIdFor } from './heroes/registry';
 import {
   altbauTile,
+  berlinlowTile,
+  berlintowerTile,
   bokaapTile,
   brickterraceTile,
   brownstoneTile,
@@ -31,6 +33,8 @@ import {
   plattenbauTile,
   polykatoikiaTile,
   puneflatTile,
+  punelowTile,
+  punetowerTile,
   semiTile,
   setbackTile,
   shikumenTile,
@@ -344,9 +348,14 @@ function buildCityStockBufs(): Map<string, HeroBuf> {
       for (let i = 0; i < 4; i++) add(`sydbungalow_${i}`, sydbungalowTile(421 + i, i));
       break;
     case 'berlin':
-      // ornate stucco Altbau mietshaus blocks + GDR Plattenbau panel slabs
-      for (let i = 0; i < 4; i++) add(`altbau_${i}`, altbauTile(431 + i, i));
-      for (let i = 0; i < 4; i++) add(`plattenbau_${i}`, plattenbauTile(441 + i, i));
+      // VARIETY: a real height/era MIX, not one repeated mid-rise — ornate stucco
+      // Altbau blocks (now 6 variants stepping 3–7 storeys) + GDR Plattenbau slabs
+      // (6 variants, 4–11 storeys) + tall modern point-block towers (the vertical
+      // accent) + low 2–3 storey corner houses (the low end).
+      for (let i = 0; i < 6; i++) add(`altbau_${i}`, altbauTile(431 + i, i));
+      for (let i = 0; i < 6; i++) add(`plattenbau_${i}`, plattenbauTile(441 + i, i));
+      for (let i = 0; i < 5; i++) add(`berlintower_${i}`, berlintowerTile(631 + i, i));
+      for (let i = 0; i < 4; i++) add(`berlinlow_${i}`, berlinlowTile(641 + i, i));
       break;
     case 'shanghai':
       // grey-brick shikumen stone-gate lane houses + concrete/glassy walk-ups
@@ -363,9 +372,14 @@ function buildCityStockBufs(): Map<string, HeroBuf> {
       for (let i = 0; i < 6; i++) add(`polykatoikia_${i}`, polykatoikiaTile(491 + i, i));
       break;
     case 'pune':
-      // warm-ochre RCC concrete-frame mid-rise flats + heritage Maratha wadas
-      for (let i = 0; i < 5; i++) add(`puneflat_${i}`, puneflatTile(501 + i, i));
+      // VARIETY: warm-ochre RCC mid-rise flats (now 7 variants stepping 3–12
+      // storeys) + heritage Maratha wadas + tall modern IT/residential highrises
+      // (the vertical accent) + low 2–3 storey older pukka houses (the low end),
+      // so Pune reads as a varied skyline, not a homogenous layering of towers.
+      for (let i = 0; i < 7; i++) add(`puneflat_${i}`, puneflatTile(501 + i, i));
       for (let i = 0; i < 3; i++) add(`wada_${i}`, wadaTile(507 + i, i));
+      for (let i = 0; i < 5; i++) add(`punetower_${i}`, punetowerTile(651 + i, i));
+      for (let i = 0; i < 4; i++) add(`punelow_${i}`, punelowTile(661 + i, i));
       break;
     case 'northeast':
       // a VARIED Tyneside/Wearside street: paired-door Tyneside flats + interwar
@@ -526,7 +540,11 @@ function buildSpriteCells(): Map<string, Cell> {
   set('gen_windoff', windTurbineTile(194, true));
   set('gen_solar', solarFarmTile(195));
   set('gen_tidal', tidalTile(231));
-  set('gen_hydro', damTile(233), 2, 2);
+  // two orientations so the dam wall is thrown ACROSS the river bank-to-bank
+  // whichever way the channel runs (commands.ts stamps GenAsset.damAxis):
+  // 'ew' (river E–W, wall spans N–S, a 2×3 block) and 'ns' (a 3×2 block).
+  set('gen_hydro', damTile(233, 'ew'), 2, 3);
+  set('gen_hydro_ns', damTile(233, 'ns'), 3, 2);
   set('gen_biomass', biomassTile(232));
   set('gen_battery', batteryTile(196));
   set('gen_interconnector', interconnectorTile(246));

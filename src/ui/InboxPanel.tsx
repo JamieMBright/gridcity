@@ -18,7 +18,8 @@ import {
 import { CONSTRAINT_COMP_K } from '../sim/market/dispatch';
 import { FirmFlexCompare } from './FirmFlexCompare';
 import { IconInbox } from './icons';
-import { fmtMoneyK, panelStyle, theme } from './theme';
+import { RailPanelShell } from './RailPanelShell';
+import { fmtMoneyK, theme } from './theme';
 
 const btn = (color: string): React.CSSProperties => ({
   padding: '2px 8px',
@@ -216,11 +217,9 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
   };
 
   return (
-    <div
-      data-tour="inbox"
-      className="ec-anim"
-      style={{
-        ...panelStyle,
+    <RailPanelShell
+      rootProps={{ 'data-tour': 'inbox', className: 'ec-anim' }}
+      base={{
         position: 'absolute',
         top: 240,
         right: 12,
@@ -237,8 +236,8 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
         zIndex: 5,
         // a single orange pulse when something new arrives (owner)
         animation: attn ? 'ec-attn 1.3s ease' : undefined,
-        ...frame,
       }}
+      frame={frame}
     >
       <div
         onClick={() => setOpen(!open)}
@@ -508,6 +507,6 @@ export function InboxPanel({ frame }: { frame?: React.CSSProperties } = {}) {
           </div>
         </div>
       )}
-    </div>
+    </RailPanelShell>
   );
 }

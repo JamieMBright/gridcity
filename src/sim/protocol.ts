@@ -141,6 +141,10 @@ export interface SimSnapshot {
   speed: SimSpeed;
   /** Active scenario ('london' or a tutorial-mission id; additive). */
   scenarioId?: string | undefined;
+  /** The active country's currency, so every money figure (bill, finance,
+   *  KPI £-targets) reads in local money — GB "£"/GBP, Germany "€"/EUR, USA
+   *  "$"/USD, India "₹"/INR, etc. Sourced from the economy profile. */
+  currency: { symbol: string; iso: string };
   /** Tutorial missions: the win predicate has fired (sticky). */
   missionComplete?: boolean | undefined;
   assets: PlacedAsset[];
@@ -289,16 +293,25 @@ export interface SimSnapshot {
     targets: PeriodTargets;
     current: PeriodActuals;
     lastReport?: ReportCard | undefined;
-    /** The active regulator framing (W8 Part-2b): the country's regulator name
-     *  + price-control model + the human framing text the report-card panel
-     *  shows, so a country's card reads in its own regulatory language
-     *  (Ofgem RIIO / Hong Kong Scheme-of-Control / CRE/ANEEL prudent-cost). */
+    /** The active regulator framing: the country's regulator name + price-
+     *  control model + the fully-resolved per-country framing strings the
+     *  report-card / dashboard / bill panels read, so a country's card reads in
+     *  its OWN regulatory language and NO British term (RIIO/Ofgem/DUoS/CI-CML)
+     *  leaks into a non-GB city. Spread from riio.ts RegulatorFraming. */
     regulator: {
       name: string;
       model: RegulatorModel;
       scheme: string;
+      schemeGloss: string;
       review: string;
       blurb: string;
+      reliabilityMetric: string;
+      ciLabel: string;
+      cmlLabel: string;
+      networkChargeLabel: string;
+      constraintLabel: string;
+      returnHint: string;
+      safetyBody: string;
     };
     /** The price-control money (regulation/rav.ts): RAV, allowed revenue
      *  vs actual totex, sharing + incentive. Present ONLY once the layer

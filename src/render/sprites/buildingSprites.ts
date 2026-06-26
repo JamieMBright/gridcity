@@ -1340,7 +1340,12 @@ export function altbauTile(seed: number, variant: number): Uint8ClampedArray<Arr
   const u1 = 1;
   const v0 = 0.08;
   const v1 = 0.84;
-  const floors = 5 + (variant % 2); // 5–6 storeys
+  // VARIETY (owner: Berlin reads as one homogenous mass): the Berlin perimeter
+  // block is built to a mix of eras/heights, so step the storeys across the
+  // variant range (3 modest Gründerzeit → 7 tall Wilhelmine) instead of a flat
+  // 5–6. Neighbouring tiles take different variants ⇒ a varied street wall, not
+  // graph paper.
+  const floors = ([4, 6, 5, 7, 3, 6] as const)[variant % 6] ?? 5;
   const fh = 8.8;
   const H = Math.round(10 + floors * fh); // cornice height
   const shop = variant % 3 === 0;
@@ -1430,7 +1435,10 @@ export function plattenbauTile(seed: number, variant: number): Uint8ClampedArray
   const u1 = 0.93;
   const v0 = 0.22;
   const v1 = 0.74;
-  const floors = 5 + (variant % 3); // 5–7 storeys
+  // VARIETY: the GDR Plattenbau ranged from low 5-storey WBS-70 rows to 11-storey
+  // point-block towers — step the storeys hard across the variants so a Marzahn
+  // estate reads as a true mix of slab heights, not one repeated block.
+  const floors = ([6, 9, 5, 11, 7, 4] as const)[variant % 6] ?? 6;
   const fh = 10;
   const H = floors * fh + 3;
   const panelsU = 6; // precast panels across the long face
@@ -1475,6 +1483,109 @@ export function plattenbauTile(seed: number, variant: number): Uint8ClampedArray
   iso.box(u0 + 0.1, v0 + 0.08, u0 + 0.24, v0 + 0.2, H + 2.5, H + 12, shaded(skin, 0.1)); // lift overrun
   for (const vu of [0.55, 0.74]) {
     iso.box(vu, v0 + 0.1, vu + 0.04, v0 + 0.16, H + 2.5, H + 8, COLORS.steelDark, { ink: false });
+  }
+  return iso.build();
+}
+
+/**
+ * Bespoke BERLIN stock — a tall MODERN point-block / Plattenbau tower (the
+ * 11–17 storey Wohnhochhaus that punctuates the estates and the western
+ * Hochhaus quarters). A slim rendered shaft with a relentless window grid,
+ * recessed loggia balconies stacked up one bay, a flat roof with a lift
+ * over-run + plant. Gives the Berlin fabric a vertical ACCENT against the
+ * mid-rise Altbau/Plattenbau sea, so a district reads with a skyline.
+ */
+export function berlintowerTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 48817 + variant * 173 + 31);
+  const skinSet: RGBA[] = [hex('#cbc7bb'), hex('#bcbab2'), hex('#c8bfa8'), hex('#aeb4b2'), hex('#d2cdbf')];
+  const skin = skinSet[variant % skinSet.length] ?? skinSet[0]!;
+  const accent = ([hex('#d98a4a'), hex('#5fa3a0'), hex('#c75d6e'), hex('#6f9a5a')] as RGBA[])[(seed + variant) % 4]!;
+  const seam = darken(skin, 0.14);
+  const u0 = 0.24;
+  const u1 = 0.72;
+  const v0 = 0.3;
+  const v1 = 0.64;
+  const floors = ([12, 15, 11, 17, 13] as const)[variant % 5] ?? 13;
+  const fh = 8.2;
+  const H = floors * fh + 4;
+  iso.shadow(u0, v0, u1, v1, 0.3, 0.28);
+  iso.box(u0, v0, u1, v1, 0, H, skin);
+  const bays = 4;
+  // floor-slab seams + a stack of recessed loggia balconies up one bay
+  const lbay = 1 + (seed % (bays - 1));
+  const lu0 = u0 + ((u1 - u0) * lbay) / bays;
+  const lu1 = u0 + ((u1 - u0) * (lbay + 1)) / bays;
+  for (let f = 0; f < floors; f++) {
+    const z = f * fh;
+    iso.r.line(P(u0, v1, z), P(u1, v1, z), INK_W * 0.45, alpha(seam, 0.8));
+    iso.windowsLeft(v1, u0 + 0.02, u1 - 0.02, z + 2, z + fh - 2, bays, glass(rng, 0.46), undefined);
+    iso.windowsRight(u1, v0 + 0.02, v1 - 0.02, z + 2, z + fh - 2, 3, glass(rng, 0.4), undefined);
+    if (f >= 1) {
+      iso.r.poly([P(lu0 + 0.005, v1, z + fh - 2), P(lu1 - 0.005, v1, z + fh - 2), P(lu1 - 0.005, v1, z + 1.5), P(lu0 + 0.005, v1, z + 1.5)], shaded(skin, 0.2));
+      iso.r.line(P(lu0 + 0.005, v1, z + 3), P(lu1 - 0.005, v1, z + 3), INK_W * 0.45, alpha(accent, 0.85));
+    }
+  }
+  // ground-floor entrance band (glazed lobby + a coloured canopy)
+  iso.windowsLeft(v1, u0 + 0.04, u1 - 0.04, 1.5, fh, bays, COLORS.glassLit, undefined);
+  iso.r.poly([P(u0 + 0.02, v1, fh + 1), P(u1 - 0.02, v1, fh + 1), P(u1 - 0.02, v1 + 0.03, fh - 1), P(u0 + 0.02, v1 + 0.03, fh - 1)], alpha(accent, 0.8));
+  // flat roof: parapet, lift over-run, plant box, aerials
+  iso.box(u0, v0, u1, v1, H, H + 2.5, skin, { ink: false, topC: shaded(hex('#5b6068'), 0.05) });
+  iso.box(u0 + 0.06, v0 + 0.06, u0 + 0.2, v0 + 0.18, H + 2.5, H + 14, shaded(skin, 0.12));
+  iso.box(u1 - 0.18, v0 + 0.08, u1 - 0.08, v0 + 0.16, H + 2.5, H + 7, COLORS.steelDark, { ink: false });
+  iso.r.line(P(u1 - 0.13, v0 + 0.12, H + 7), P(u1 - 0.13, v0 + 0.12, H + 17), INK_W * 0.55, alpha(INK, 0.7));
+  return iso.build();
+}
+
+/**
+ * Bespoke BERLIN stock — a LOW 2–3 storey older corner house / Vorstadt
+ * Gründerzeit row (the modest scale that survives between the big perimeter
+ * blocks). A short stucco building with a pitched or shallow roof, a shop in
+ * the ground floor, a couple of windows per floor. Provides the LOW end of the
+ * height mix so a Berlin street isn't a wall of equal-height blocks.
+ */
+export function berlinlowTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 50341 + variant * 109 + 17);
+  const stoneSet: RGBA[] = [hex('#d2cdbf'), hex('#c2b58e'), hex('#b9a578'), hex('#cfc9bb'), hex('#c8bfa8')];
+  const stone = stoneSet[variant % stoneSet.length] ?? stoneSet[0]!;
+  const frame = lighten(COLORS.white, 0.02);
+  const band = darken(stone, 0.14);
+  const v0 = 0.14;
+  const v1 = 0.78;
+  const floors = 2 + (variant % 2); // 2–3 storeys
+  const fh = 9.5;
+  const H = 6 + floors * fh;
+  const shop = variant % 2 === 0;
+  iso.shadow(0, v0, 1, v1, 0.22, 0.22);
+  iso.box(0, v0, 1, v1, 0, H, stone);
+  for (let f = 1; f <= floors; f++) {
+    const z = 6 + f * fh;
+    iso.r.line(P(0, v1, z), P(1, v1, z), INK_W * 0.5, alpha(band, 0.85));
+  }
+  for (let f = (shop ? 1 : 0); f < floors; f++) {
+    const zb = 6 + f * fh + 1.5;
+    const zt = 6 + f * fh + fh - 1.5;
+    iso.windowsLeft(v1, 0.06, 0.94, zb, zt, 4, glass(rng, 0.4), frame);
+    iso.windowsRight(1, v0 + 0.06, v1 - 0.06, zb, zt, 3, glass(rng, 0.36), frame);
+  }
+  if (shop) {
+    iso.windowsLeft(v1, 0.05, 0.95, 1.5, 6 + fh - 2, 4, COLORS.glassLit, frame);
+    const awn = ([COLORS.orange, hex('#3f8f8a'), hex('#b5485f')] as RGBA[])[(seed + variant) % 3]!;
+    iso.r.poly([P(0.04, v1, 6 + fh - 1), P(0.96, v1, 6 + fh - 1), P(0.96, v1 + 0.04, 6 + fh - 3.5), P(0.04, v1 + 0.04, 6 + fh - 3.5)], awn);
+  }
+  // crowning cornice + a shallow pitched / flat roof (variant decides)
+  iso.box(-0.02, v0 - 0.02, 1.02, v1 + 0.02, H - 2, H + 2, lighten(stone, 0.06), { topC: top(stone, 0.3) });
+  iso.edge(P(0, v1 + 0.02, H + 2), P(1, v1 + 0.02, H + 2), INK_W * 0.7);
+  if (variant % 3 === 2) {
+    iso.box(0, v0, 1, v1, H + 2, H + 5, stone, { ink: false, topC: shaded(SLATE, 0.06) });
+  } else {
+    iso.gable(0, v0, 1, v1, H + 2, 11, 'u', SLATE, stone);
+    for (const du of [0.22, 0.55, 0.82]) {
+      const dz = H + 2 + 4.4;
+      iso.box(du, (v0 + v1) / 2 + 0.06, du + 0.07, (v0 + v1) / 2 + 0.13, dz, dz + 4.5, lighten(stone, 0.08), { ink: false });
+      iso.windowsLeft((v0 + v1) / 2 + 0.13, du + 0.012, du + 0.058, dz + 1, dz + 4, 1, glass(rng, 0.5), frame);
+    }
   }
   return iso.build();
 }
@@ -1809,7 +1920,11 @@ export function puneflatTile(seed: number, variant: number): Uint8ClampedArray<A
   const u1 = 0.84;
   const v0 = 0.2;
   const v1 = 0.66;
-  const floors = 5 + (variant % 5); // 5–9 storeys
+  // VARIETY (owner: Pune reads as a homogenous layering of identical tower
+  // blocks): the RCC flat ranges from 3-storey older pukka blocks to 12-storey
+  // new mid-rises — step the storeys right across the variants so neighbouring
+  // tiles differ in scale, giving the fabric a real skyline rhythm.
+  const floors = ([4, 7, 3, 9, 5, 12, 6] as const)[variant % 7] ?? 6;
   const fh = 9.5;
   const H = floors * fh + 3;
   iso.shadow(u0, v0, u1, v1, 0.26, 0.26);
@@ -1917,6 +2032,103 @@ export function wadaTile(seed: number, variant: number): Uint8ClampedArray<Array
   iso.hip(-0.03, v0 - 0.03, 1.03, v1 + 0.03, H, 13, tile);
   // a small ridge finial + chajja eave line shadow
   iso.edge(P(0, v1 + 0.03, H), P(1, v1 + 0.03, H), INK_W * 0.7);
+  return iso.build();
+}
+
+/**
+ * Bespoke PUNE stock — a TALL modern IT / residential HIGHRISE (the 12–20
+ * storey glass-and-render towers of Hinjewadi / Baner / Kharadi that loom over
+ * the mid-rise flats). A slim shaft with broad blue-grey glazing bands, a
+ * coloured spandrel grid, the odd projecting balcony stack, a flat roof with a
+ * water tank + lift over-run. Gives the Pune fabric the vertical ACCENT it was
+ * missing, so the city reads as a varied skyline rather than equal flats.
+ */
+export function punetowerTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 57793 + variant * 181 + 23);
+  const skinSet: RGBA[] = [hex('#d9c39a'), hex('#cabb92'), hex('#e7e0ce'), hex('#c9a86a'), hex('#d4b378')];
+  const skin = skinSet[variant % skinSet.length] ?? skinSet[0]!;
+  const glassBand = ([hex('#8fa9b0'), hex('#a8b0b2'), hex('#7f9aa2')] as RGBA[])[(seed + variant) % 3]!;
+  const spandrel = ([hex('#3f6e8a'), hex('#5e7a45'), hex('#b5485f'), hex('#8a5a3a')] as RGBA[])[variant % 4]!;
+  const u0 = 0.26;
+  const u1 = 0.7;
+  const v0 = 0.3;
+  const v1 = 0.62;
+  const floors = ([13, 16, 12, 20, 15] as const)[variant % 5] ?? 15;
+  const fh = 8.0;
+  const H = floors * fh + 4;
+  iso.shadow(u0, v0, u1, v1, 0.3, 0.28);
+  iso.box(u0, v0, u1, v1, 0, H, skin);
+  const bays = 4;
+  // a continuous glazing band per floor with a coloured spandrel under it,
+  // plus a projecting balcony stack on one bay (the Indian-highrise tell)
+  const bbay = 1 + (seed % (bays - 1));
+  const bu0 = u0 + ((u1 - u0) * bbay) / bays;
+  const bu1 = u0 + ((u1 - u0) * (bbay + 1)) / bays;
+  for (let f = 0; f < floors; f++) {
+    const z = f * fh;
+    // spandrel band
+    iso.r.poly([P(u0 + 0.01, v1, z + 2.2), P(u1 - 0.01, v1, z + 2.2), P(u1 - 0.01, v1, z + 0.4), P(u0 + 0.01, v1, z + 0.4)], alpha(spandrel, 0.65));
+    iso.windowsLeft(v1, u0 + 0.02, u1 - 0.02, z + 2.6, z + fh - 1.4, bays, alpha(glassBand, 0.9), undefined);
+    iso.windowsRight(u1, v0 + 0.02, v1 - 0.02, z + 2.6, z + fh - 1.4, 3, alpha(glassBand, 0.82), undefined);
+    if (f >= 1) {
+      const out = v1 + 0.04;
+      iso.r.poly([P(bu0, v1, z + 0.6), P(bu1, v1, z + 0.6), P(bu1, out, z + 0.6), P(bu0, out, z + 0.6)], lit(skin, 0.04));
+      iso.r.poly([P(bu0, out, z + 3.4), P(bu1, out, z + 3.4), P(bu1, out, z + 0.8), P(bu0, out, z + 0.8)], alpha(spandrel, 0.8));
+    }
+  }
+  // glazed ground-floor lobby + a coloured fascia
+  iso.windowsLeft(v1, u0 + 0.04, u1 - 0.04, 1.5, fh, bays, COLORS.glassLit, undefined);
+  iso.r.poly([P(u0 + 0.02, v1, fh + 1), P(u1 - 0.02, v1, fh + 1), P(u1 - 0.02, v1 + 0.03, fh - 1), P(u0 + 0.02, v1 + 0.03, fh - 1)], alpha(spandrel, 0.85));
+  // flat roof: parapet, tank, lift over-run + an aerial mast
+  iso.box(u0, v0, u1, v1, H, H + 2.5, skin, { ink: false, topC: shaded(hex('#8a7c6a'), 0.05) });
+  iso.box(u0 + 0.05, v0 + 0.06, u0 + 0.18, v0 + 0.17, H + 2.5, H + 13, shaded(skin, 0.1));
+  roofTank(iso, u1 - 0.14, v0 + 0.12, H + 2.5, 0.03, 'tank', rng);
+  iso.r.line(P(u1 - 0.08, v0 + 0.1, H + 2.5), P(u1 - 0.08, v0 + 0.1, H + 15), INK_W * 0.55, alpha(INK, 0.7));
+  return iso.build();
+}
+
+/**
+ * Bespoke PUNE stock — a LOW 2–3 storey older PUKKA house / chawl-scale row
+ * (the modest cement-render building, often with a small pitched Mangalore-tile
+ * porch and a parapet, that fills the gaps between the RCC mid-rises). Provides
+ * the LOW end of the Pune height mix so a street isn't a wall of equal flats.
+ */
+export function punelowTile(seed: number, variant: number): Uint8ClampedArray<ArrayBuffer> {
+  const iso = new Iso();
+  const rng = new Rng(seed * 59341 + variant * 113 + 19);
+  const wallSet: RGBA[] = [hex('#d9c39a'), hex('#c9a86a'), hex('#e7e0ce'), hex('#cabb92'), hex('#b29464')];
+  const wall = wallSet[variant % wallSet.length] ?? wallSet[0]!;
+  const rail = ([hex('#3f6e8a'), hex('#8a5a3a'), hex('#5e7a45'), hex('#b5485f')] as RGBA[])[(seed + variant) % 4]!;
+  const tile = hex('#a4452e');
+  const v0 = 0.16;
+  const v1 = 0.74;
+  const floors = 2 + (variant % 2); // 2–3 storeys
+  const fh = 10;
+  const H = floors * fh + 2;
+  iso.shadow(0, v0, 1, v1, 0.2, 0.22);
+  iso.box(0, v0, 1, v1, 0, H, wall);
+  // plinth
+  iso.r.poly([P(0, v1, 4), P(1, v1, 4), P(1, v1, 0), P(0, v1, 0)], shaded(wall, 0.14));
+  for (let f = 0; f < floors; f++) {
+    const zb = f * fh + 5;
+    const zt = f * fh + fh + 1.5;
+    iso.windowsLeft(v1, 0.06, 0.94, zb, zt, 3, glass(rng, 0.38), COLORS.white);
+    iso.windowsRight(1, v0 + 0.06, v1 - 0.06, zb, zt, 2, glass(rng, 0.34), COLORS.white);
+    // a slim projecting balcony with a painted rail on the upper floor
+    if (f >= 1) {
+      const out = v1 + 0.04;
+      iso.r.poly([P(0.1, v1, f * fh + 4.5), P(0.6, v1, f * fh + 4.5), P(0.6, out, f * fh + 4.5), P(0.1, out, f * fh + 4.5)], lit(wall, 0.04));
+      iso.r.poly([P(0.1, out, f * fh + 8), P(0.6, out, f * fh + 8), P(0.6, out, f * fh + 5), P(0.1, out, f * fh + 5)], alpha(rail, 0.85));
+    }
+  }
+  // flat parapet roof with a small water tank + a pitched tile porch over the door
+  iso.box(0, v0, 1, v1, H, H + 3, wall, { ink: false, topC: shaded(hex('#8a7c6a'), 0.05) });
+  roofTank(iso, 0.78, v0 + 0.12, H + 3, 0.028, 'tank', rng);
+  iso.box(0.06, v0 + 0.08, 0.18, v0 + 0.18, H + 3, H + 10, shaded(wall, 0.1));
+  // a Mangalore-tile entrance porch canopy at the street
+  iso.r.poly([P(0.3, v1, 8), P(0.6, v1, 8), P(0.64, v1 + 0.07, 5.5), P(0.26, v1 + 0.07, 5.5)], tile);
+  iso.edge(P(0.26, v1 + 0.07, 5.5), P(0.64, v1 + 0.07, 5.5), INK_W * 0.6);
   return iso.build();
 }
 

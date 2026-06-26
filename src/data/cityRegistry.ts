@@ -116,13 +116,16 @@ export const CITY_SCENARIOS: CityScenario[] = [
   {
     // New York — second DATA-backed playable city (OSM artifact
     // src/data/cities/newyork.ts): Manhattan between the Hudson and East River,
-    // Central Park, the boroughs across the water. Like Paris it resolves to
-    // LONDON_PROFILE for now (the US 60 Hz / NEM-style seams land later);
-    // fully PLAYABLE — open to all for testing.
+    // Central Park, the boroughs across the water. WP2: wired to the USA
+    // operating model (country 'US') — a 60 Hz gas-and-nuclear NYISO market
+    // with a summer air-conditioning peak (USA_MARKET), the NYPSC cost-of-
+    // service rate case (USA_REGULATOR: SAIDI/SAIFI, delivery charge, CLCPA
+    // clean-energy lean), and the $ bill.
     id: 'newyork',
     name: 'New York & the Harbor',
     tagline: 'The grid, the boroughs, two rivers, and a skyline to power.',
     build: () => buildCityFromData(cityDataFor('newyork')),
+    country: 'US',
     difficulty: 6,
     unlockAtRank: 6,
   },
@@ -164,68 +167,85 @@ export const CITY_SCENARIOS: CityScenario[] = [
   {
     // Berlin — OSM artifact (src/data/cities/berlin.ts): the Spree threading a
     // landlocked metropolis, Mitte's core, lakes and forests at the edge.
-    // Resolves to LONDON_PROFILE for now (the DE 50 Hz seams land later);
-    // fully PLAYABLE — open to all for testing.
+    // WP2: wired to the GERMANY operating model (country 'DE') — a renewables-
+    // heavy Energiewende market with deep PV middays + a Dunkelflaute spike
+    // (GERMANY_MARKET), the BNetzA Anreizregulierung revenue cap (GERMANY_
+    // REGULATOR: SAIDI/SAIFI, Netzentgelte, carbon/hosting lean), and the € bill.
     id: 'berlin',
     name: 'Berlin & the Spree',
     tagline: 'A flat city on a slow river, ringed by lakes and woods.',
     build: () => buildCityFromData(cityDataFor('berlin')),
+    country: 'DE',
     difficulty: 4,
     unlockAtRank: 8,
   },
   {
     // Shanghai — OSM artifact (src/data/cities/shanghai.ts): the Huangpu
-    // winding past Pudong's towers, a dense megacity grid. Resolves to
-    // LONDON_PROFILE for now; fully PLAYABLE — open to all for testing.
+    // winding past Pudong's towers, a dense megacity grid. WP2: wired to the
+    // CHINA operating model (country 'CN') — the NDRC/NEA transmission-and-
+    // distribution price review over a State Grid UHV system, and the ¥ bill.
     id: 'shanghai',
     name: 'Shanghai & the Huangpu',
     tagline: 'A megacity on a winding river, towers crowding the Bund.',
     build: () => buildCityFromData(cityDataFor('shanghai')),
+    country: 'CN',
     difficulty: 8,
     unlockAtRank: 9,
   },
   {
     // Cape Town — OSM artifact (src/data/cities/capetown.ts): Table Bay and the
-    // Atlantic, the City Bowl below the mountain, the Cape Flats sprawl.
-    // Resolves to LONDON_PROFILE for now; fully PLAYABLE — open to all.
+    // Atlantic, the City Bowl below the mountain, the Cape Flats sprawl. WP2:
+    // wired to the SOUTH AFRICA operating model (country 'ZA') — the NERSA
+    // Multi-Year Price Determination over a load-shedding-constrained grid, and
+    // the R bill.
     id: 'capetown',
     name: 'Cape Town & Table Bay',
     tagline: 'A city bowl under the mountain, between two oceans.',
     build: () => buildCityFromData(cityDataFor('capetown')),
+    country: 'ZA',
     difficulty: 6,
     unlockAtRank: 9,
   },
   {
     // Cairo — OSM artifact (src/data/cities/cairo.ts): the Nile threading a vast
-    // dense city, the Pyramids on the desert edge. Resolves to LONDON_PROFILE
-    // for now; fully PLAYABLE — open to all for testing.
+    // dense city, the Pyramids on the desert edge. WP2: wired to the EGYPT
+    // operating model (country 'EG') — the EgyptERA subsidised tariff schedule
+    // over a fast-growing Nile-valley grid, and the E£ bill.
     id: 'cairo',
     name: 'Cairo & the Nile',
     tagline: 'A vast dense city on the great river, desert at its back.',
     build: () => buildCityFromData(cityDataFor('cairo')),
+    country: 'EG',
     difficulty: 8,
     unlockAtRank: 10,
   },
   {
     // Athens — OSM artifact (src/data/cities/athens.ts): the Attic basin, the
     // Saronic coast at Piraeus, the Acropolis, mountains framing the sprawl.
-    // Resolves to LONDON_PROFILE for now; fully PLAYABLE — open to all.
+    // WP2: wired to the GREECE operating model (country 'GR') — the RAE
+    // required-revenue methodology for HEDNO over a sun-baked island-linked
+    // grid, and the € bill.
     id: 'athens',
     name: 'Athens & the Saronic Gulf',
     tagline: 'An ancient basin between the mountains and the sea.',
     build: () => buildCityFromData(cityDataFor('athens')),
+    country: 'GR',
     difficulty: 5,
     unlockAtRank: 10,
   },
   {
     // Pune — OSM artifact (src/data/cities/pune.ts): a dense Deccan-plateau
     // city, the muddy Mula-Mutha looping through, basalt forts and saffron
-    // temples in the old peths, mirror-glass IT parks on the fringes. Resolves
-    // to LONDON_PROFILE for now; fully PLAYABLE — open to all for testing.
+    // temples in the old peths, mirror-glass IT parks on the fringes. WP2:
+    // wired to the INDIA operating model (country 'IN') — a coal-heavy market
+    // with a pre-monsoon summer peak (INDIA_MARKET), the MERC Multi-Year Tariff
+    // order (INDIA_REGULATOR: SAIDI/SAIFI · AT&C losses, wheeling charge), and
+    // the ₹ bill.
     id: 'pune',
     name: 'Pune & the Mula-Mutha',
     tagline: 'A hazy plateau city of fort-stone, temples and tech towers.',
     build: () => buildCityFromData(cityDataFor('pune')),
+    country: 'IN',
     difficulty: 6,
     unlockAtRank: 11,
   },
@@ -233,11 +253,14 @@ export const CITY_SCENARIOS: CityScenario[] = [
     // North-East England — OSM artifact (src/data/cities/northeast.ts): a
     // coastal REGION, the Tyne and Wear cutting to the North Sea, Newcastle and
     // Gateshead on the gorge, the quaysides, castles and the cold grey coast.
-    // Resolves to LONDON_PROFILE for now; fully PLAYABLE — open to all.
+    // SHARES GB laws with London (owner: "London and North East can have same
+    // shared laws") — country 'GB' makes that explicit, so it reads in the same
+    // Ofgem/RIIO language and resolves to LONDON_PROFILE.
     id: 'northeast',
     name: 'North-East England & the Tyne',
     tagline: 'Honey sandstone, steel bridges and a cold North Sea coast.',
     build: () => buildCityFromData(cityDataFor('northeast')),
+    country: 'GB',
     difficulty: 4,
     unlockAtRank: 11,
   },

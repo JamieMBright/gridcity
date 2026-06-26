@@ -28,7 +28,7 @@ test.describe('mobile chrome', () => {
     await page.getByRole('button', { name: 'open build menu' }).dispatchEvent('click');
     await expect(page.getByText('Lines & cables')).toBeVisible();
     await expect(page.getByText('Gas CCGT')).toBeVisible(); // names + prices
-    await page.getByRole('button', { name: /Tidal stream £/ }).dispatchEvent('click');
+    await page.getByRole('button', { name: /Tidal stream.*£/ }).dispatchEvent('click');
     await expect
       .poll(() => store<string>(page, "(s) => s.tool.t === 'gen' ? s.tool.gen : ''"))
       .toBe('tidal');

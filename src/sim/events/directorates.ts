@@ -84,7 +84,7 @@ export const DIRECTORATE_META: Record<Directorate, DirectorateMeta> = {
   regulation: {
     key: 'regulation',
     name: 'Regulation & Finance',
-    blurb: 'RIIO submissions and keeping the regulator onside.',
+    blurb: 'Price-control submissions and keeping the regulator onside.',
   },
 };
 

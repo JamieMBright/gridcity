@@ -12,7 +12,7 @@
 // store first — both wired below, model + constants in market/hydrogen.ts.
 
 import { BATTERY_EFFICIENCY, GENS, strikeMWh, SUBS } from '../catalog';
-import { busId, subMva, type BatteryPolicy, type PlacedAsset } from '../assets';
+import { busId, genLevel, subMva, type BatteryPolicy, type PlacedAsset } from '../assets';
 import { devCurtailK } from '../events/developers';
 import {
   drainH2,
@@ -349,7 +349,9 @@ export function runDispatch(
   for (const a of assetArr) {
     if (a.kind === 'gen') {
       const spec = GENS[a.gen];
-      const bus = busId(a.id, spec.level);
+      // bus level is the asset's CHOSEN connection tier (multi-tier gens),
+      // else the catalog default — must match deriveNetwork's bus exactly
+      const bus = busId(a.id, genLevel(a));
       const gi = islandOf.get(bus);
       if (gi === undefined) continue;
       const building = underConstruction(a, inp.simTimeMin);

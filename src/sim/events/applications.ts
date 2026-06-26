@@ -104,13 +104,118 @@ export const CONNECT_DAYS = 90;
 /** Days an open application waits in the inbox. */
 export const DECIDE_DAYS = 30;
 
+/** Deterministic default for the per-game app-naming seed — used by unit tests
+ *  and any caller that omits an `appSeed`, so the suite (and seed paths) stay
+ *  reproducible. The worker passes a per-game RANDOM seed for production variety
+ *  (mirrors STARTER_SEED_DEFAULT in state.ts). */
+export const APP_SEED_DEFAULT = 0xa9913e1;
+
+// Developer name pools, deliberately LARGE (≈12–16 per kind) so the same
+// scheme name rarely recurs even within one long game — the owner kept seeing
+// the identical "Marsh Ridge Wind" / "Peak Shift Storage" every London game,
+// which was a 2-name pool drawn off a fixed seed. GB-flavoured and
+// industry-plausible: PV co-ops and "Solar"/"Light" trade names; onshore-wind
+// "Ridge"/"Marsh"/"Turbines" outfits; "Storage"/"BESS"/"Flex" battery firms;
+// hyperscaler "Data"/"Compute"/"Cloud" campuses; "EV Hub"/"Charging" forecourts.
 export const NAMES: Record<AppKind, string[]> = {
-  solarFarm: ['Meadow Light Solar', 'Three Fields Energy', 'Estuary Sun Co-op'],
-  windOnshore: ['Marsh Ridge Wind', 'Greenway Turbines'],
-  battery: ['GridStore Ltd', 'Peak Shift Storage'],
-  dataCentre: ['Thamesport Data Campus', 'Eastbox Compute'],
-  evHub: ['ChargeYard EV Hub', 'Orbital Charging'],
+  solarFarm: [
+    'Meadow Light Solar',
+    'Three Fields Energy',
+    'Estuary Sun Co-op',
+    'Brightacre Solar',
+    'Greenhill PV',
+    'Lammas Field Solar',
+    'Saxon Sun Power',
+    'Wealden Solar Co-op',
+    'Chalkdown Photovoltaics',
+    'Tilbury Sun Farms',
+    'Hartfield Solar',
+    'Maypole Renewables',
+    'Stour Valley Solar',
+    'Beacon Light Energy',
+    'Orchard Row Solar',
+    'Fenland Sun Co-op',
+  ],
+  windOnshore: [
+    'Marsh Ridge Wind',
+    'Greenway Turbines',
+    'Foulness Wind Co-op',
+    'Blackwater Onshore Wind',
+    'Crouch Valley Turbines',
+    'Saltmarsh Wind',
+    'Eastgate Wind Power',
+    'Dengie Renewables',
+    'Wallasea Wind Co-op',
+    'Ridgeline Turbines',
+    'Northbank Wind',
+    'Tempest Energy',
+    'Harwich Onshore Wind',
+    'Galeforce Renewables',
+  ],
+  battery: [
+    'GridStore Ltd',
+    'Peak Shift Storage',
+    'Voltbank Energy',
+    'Flexion Storage',
+    'Reserve Power Co',
+    'Crossfell BESS',
+    'Anchor Storage Ltd',
+    'Drawdown Energy',
+    'Capacitor Grid',
+    'Synergy Storage',
+    'Pylon Reserve',
+    'Steady State Power',
+    'Kestrel Storage',
+    'Balancing Point Ltd',
+    'Brimstone Battery',
+  ],
+  dataCentre: [
+    'Thamesport Data Campus',
+    'Eastbox Compute',
+    'Meridian Cloud',
+    'Docklands Data Works',
+    'Hyperedge Compute',
+    'Silverbyte Campus',
+    'Estuary Hyperscale',
+    'Northvault Data',
+    'Cobalt Cloud Services',
+    'Orbital Compute',
+    'Greenwich Data Halls',
+    'Quanta Cloud',
+    'Tideway Data Centre',
+    'Irongate Compute',
+  ],
+  evHub: [
+    'ChargeYard EV Hub',
+    'Orbital Charging',
+    'Voltway EV Hub',
+    'Junction 7 Charging',
+    'Sparkpoint EV',
+    'Forecourt Power',
+    'Amp Stop Charging',
+    'Greenmile EV Hub',
+    'Ringway Charging',
+    'Pitstop Power',
+    'Watt Lane EV',
+    'Transit Charge Co',
+  ],
 };
+
+/** Pick a developer name from the kind's pool by a DETERMINISTIC hash of the
+ *  per-game app-naming seed and the application id — NOT off the tick rng. So
+ *  WHICH name appears varies game-to-game (different `appSeed`) while staying
+ *  100% reproducible within a game (same save ⇒ same id ⇒ same name), and the
+ *  tick rng stream is left byte-identical (cadence/count/site/kind unchanged).
+ *  A small splitmix-style avalanche on (appSeed, id) so adjacent ids and
+ *  adjacent seeds don't correlate into a visible pattern. */
+export function nameFor(kind: AppKind, appSeed: number, id: number): string {
+  const pool = NAMES[kind];
+  let h = (appSeed ^ Math.imul(id, 0x9e3779b1)) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
+  h = (h ^ (h >>> 16)) >>> 0;
+  return pool[h % pool.length] ?? kind;
+}
 
 const SPECS: Record<AppKind, { mw: number; customers: number }> = {
   solarFarm: { mw: 50, customers: 0 },
@@ -262,10 +367,10 @@ function buildApplication(
   nextId: number,
   taken: (x: number, y: number) => boolean,
   satOf: SatOf,
+  appSeed: number,
 ): Application | undefined {
   const site = findSite(map, rng, kind, taken);
   if (!site) return undefined;
-  const names = NAMES[kind];
   const spec = SPECS[kind];
   const mw =
     kind === 'dataCentre'
@@ -273,10 +378,17 @@ function buildApplication(
       : spec.mw;
   const landType = landTypeAt(map, site.x, site.y);
   const appeal = openAppealFor(map, rng, site.x, site.y, landType, simTimeMin, satOf);
+  // Keep advancing the tick rng exactly as before (one draw per name) so the
+  // cadence/count/site/kind stream stays byte-identical across this change —
+  // but DERIVE the actual name from the per-game appSeed + id, so WHICH
+  // developer appears varies game-to-game while staying reproducible within a
+  // game. (The old code used this draw directly, which never varied because the
+  // tick rng is fixed-seeded.)
+  rng.int(NAMES[kind].length);
   return {
     id: nextId,
     kind,
-    name: names[rng.int(names.length)] ?? kind,
+    name: nameFor(kind, appSeed, nextId),
     x: site.x,
     y: site.y,
     mw,
@@ -358,6 +470,12 @@ export function maybeSpawnApplications(
   nextId: number,
   taken: (x: number, y: number) => boolean,
   satOf: SatOf = () => 50,
+  /** Per-game app-naming seed: varies WHICH developer name each application
+   *  draws, game-to-game, WITHOUT touching the tick rng stream (so cadence,
+   *  count, site and kind are unchanged). Defaults to APP_SEED_DEFAULT for
+   *  tests/seed paths (deterministic); the worker passes a per-game random one
+   *  in production. */
+  appSeed: number = APP_SEED_DEFAULT,
 ): Application[] {
   const out: Application[] = [];
   let id = nextId;
@@ -365,7 +483,7 @@ export function maybeSpawnApplications(
   if (rng.chance(dtMin / (genIntervalDays(servedCustomers) * 1440))) {
     const pool = genKindsFor(servedCustomers);
     const kind = pool[rng.int(pool.length)] ?? 'solarFarm';
-    const app = buildApplication(map, rng, kind, simTimeMin, id, taken, satOf);
+    const app = buildApplication(map, rng, kind, simTimeMin, id, taken, satOf, appSeed);
     if (app) {
       out.push(app);
       id++;
@@ -375,7 +493,7 @@ export function maybeSpawnApplications(
   if (rng.chance(dtMin / (demandIntervalDays(servedCustomers) * 1440))) {
     const pool = demandKindsFor(servedCustomers);
     const kind = pool[rng.int(pool.length)] ?? 'evHub';
-    const app = buildApplication(map, rng, kind, simTimeMin, id, taken, satOf);
+    const app = buildApplication(map, rng, kind, simTimeMin, id, taken, satOf, appSeed);
     if (app) out.push(app);
   }
   return out;

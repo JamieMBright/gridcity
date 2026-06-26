@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { hotkeyLabel } from '../app/hotkeys';
 import { useAppStore, type Tool } from '../app/store';
+import { GENS, GEN_PALETTE_ORDER, LOAD_PALETTE_ORDER } from '../sim/catalog';
 import { LEVEL_COLOR } from '../render/MapRenderer';
 import { AlertsFeed } from './AlertsFeed';
 import { BillPanel } from './BillPanel';
@@ -44,21 +45,18 @@ interface RailItem {
   color?: string | undefined;
 }
 
+// generation rail entries, voltage-sorted from the catalog, then the
+// demand-side loads (the electrolyser) — same single source of truth as the
+// desktop palette + hotkeys so the rail never diverges (owner, 2026-06-26).
+const GEN_RAIL: RailItem[] = [...GEN_PALETTE_ORDER, ...LOAD_PALETTE_ORDER].map((gen) => ({
+  Icon: GEN_ICONS[gen],
+  tool: { t: 'gen', gen } as Tool,
+  label: GENS[gen].name,
+}));
+
 const RAIL: RailItem[] = [
   { Icon: IconInspect, tool: { t: 'inspect' }, label: 'Inspect' },
-  { Icon: GEN_ICONS.gasCCGT, tool: { t: 'gen', gen: 'gasCCGT' }, label: 'Gas CCGT' },
-  { Icon: GEN_ICONS.gasPeaker, tool: { t: 'gen', gen: 'gasPeaker' }, label: 'Gas peaker' },
-  { Icon: GEN_ICONS.solarFarm, tool: { t: 'gen', gen: 'solarFarm' }, label: 'Solar farm' },
-  { Icon: GEN_ICONS.windOnshore, tool: { t: 'gen', gen: 'windOnshore' }, label: 'Onshore wind' },
-  { Icon: GEN_ICONS.windOffshore, tool: { t: 'gen', gen: 'windOffshore' }, label: 'Offshore wind' },
-  { Icon: GEN_ICONS.tidal, tool: { t: 'gen', gen: 'tidal' }, label: 'Tidal stream' },
-  { Icon: GEN_ICONS.hydro, tool: { t: 'gen', gen: 'hydro' }, label: 'Hydro dam' },
-  { Icon: GEN_ICONS.biomass, tool: { t: 'gen', gen: 'biomass' }, label: 'Biomass CHP' },
-  { Icon: GEN_ICONS.nuclear, tool: { t: 'gen', gen: 'nuclear' }, label: 'Nuclear' },
-  { Icon: GEN_ICONS.battery, tool: { t: 'gen', gen: 'battery' }, label: 'Battery' },
-  { Icon: GEN_ICONS.coal, tool: { t: 'gen', gen: 'coal' }, label: 'Coal station' },
-  { Icon: GEN_ICONS.interconnector, tool: { t: 'gen', gen: 'interconnector' }, label: 'Interconnector' },
-  { Icon: GEN_ICONS.electrolyser, tool: { t: 'gen', gen: 'electrolyser' }, label: 'Hydrogen electrolyser' },
+  ...GEN_RAIL,
   { Icon: SUB_ICONS.bulk, tool: { t: 'sub', sub: 'bulk' }, label: 'Bulk supply point' },
   { Icon: SUB_ICONS.grid, tool: { t: 'sub', sub: 'grid' }, label: 'Grid substation' },
   { Icon: SUB_ICONS.dist, tool: { t: 'sub', sub: 'dist' }, label: 'Distribution sub' },
@@ -103,6 +101,9 @@ function BuildRail() {
   // on a mission, only the unlocked tools (inspect always available)
   const items = RAIL.filter((item) => gate.tool(item.tool));
 
+  // two-layer like RailPanelShell (the square-corner Chromium bug): the
+  // rounded + blurred OUTER must not also be the scroll container, so the
+  // button column scrolls in an INNER and the outer clips it to the radius.
   return (
     <div
       data-tour="palette"
@@ -115,13 +116,23 @@ function BuildRail() {
         width: 44,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        gap: 2,
-        padding: '4px 0',
-        overflowY: 'auto',
-        overscrollBehavior: 'contain',
+        overflow: 'hidden',
       }}
     >
+      <div
+        style={{
+          flex: '1 1 auto',
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 2,
+          padding: '4px 0',
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+          boxSizing: 'border-box',
+        }}
+      >
       {items.map((item) => {
         const active = railActive(tool, item.tool);
         const key = hotkeyLabel(item.tool);
@@ -163,6 +174,7 @@ function BuildRail() {
           {ug ? 'UG' : 'OH'}
         </button>
       )}
+      </div>
     </div>
   );
 }
@@ -364,7 +376,17 @@ export function MobileChrome() {
           <Chip Icon={IconLedger} label="alerts" active={sheet === 'alerts'} onClick={() => toggle('alerts')} />
         )}
         {show('hud:kpi') && (
-          <Chip Icon={IconReport} label="RIIO KPIs" active={kpiOpen} onClick={() => setKpiOpen(!kpiOpen)} />
+          <Chip
+            Icon={IconReport}
+            // active scheme tag when short (GB "RIIO KPIs"); else neutral "KPIs"
+            label={
+              snapshot && snapshot.riio.regulator.scheme.length <= 6
+                ? `${snapshot.riio.regulator.scheme} KPIs`
+                : 'KPIs'
+            }
+            active={kpiOpen}
+            onClick={() => setKpiOpen(!kpiOpen)}
+          />
         )}
         {show('hud:kpi') && (
           <Chip

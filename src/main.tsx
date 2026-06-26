@@ -6,6 +6,14 @@ import { installErrorHandlers, setCityResolver } from './app/errorLog';
 import { installErrorSink } from './online/errorSink';
 import { installCleanExitGuard, reportPriorLoadDeath } from './app/bootBreadcrumb';
 import { useAppStore } from './app/store';
+import { autoUnlockForAutomation } from './ui/tutorialGate';
+
+// The e2e suite drives free play through "new game"; pre-unlock the tutorial
+// gate under Playwright (DEV + webdriver) so those flows aren't blocked. No-op
+// in production and in a normal `npm run dev` session, so real players are
+// still gated. A spec can set sessionStorage 'ec-force-gate-locked' to keep
+// the locked view for screenshots.
+autoUnlockForAutomation(import.meta.env.DEV);
 
 // Crash capture, installed FIRST so a fault anywhere downstream (even during
 // the initial render) is caught with a full traceback. Order: resolve the

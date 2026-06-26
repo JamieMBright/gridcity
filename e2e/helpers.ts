@@ -9,8 +9,21 @@ export interface Tile {
 }
 
 /** Wait until the app booted (sim ready, hook installed) and dismiss the
- *  start menu — continue a save when one exists, else start fresh. */
+ *  start menu — continue a save when one exists, else start fresh.
+ *
+ *  Free play is gated behind the tutorial (tutorialGate.ts); these specs
+ *  exercise sandbox gameplay, not the gate, so we pre-set the completion flag
+ *  before the app boots — exactly as a returning player who already finished
+ *  the curriculum would have it. The dedicated gate screenshot helper sets up
+ *  its OWN locked/unlocked storage and does not call boot(). */
 export async function boot(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('ec-tutorial-complete-v1', '1');
+    } catch {
+      /* private mode — the gate fails open anyway */
+    }
+  });
   await page.goto('/');
   await expect
     .poll(async () => page.evaluate(() => window.__ec?.getState().snapshot !== undefined), {
