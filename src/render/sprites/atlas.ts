@@ -526,7 +526,11 @@ function buildSpriteCells(): Map<string, Cell> {
   set('gen_windoff', windTurbineTile(194, true));
   set('gen_solar', solarFarmTile(195));
   set('gen_tidal', tidalTile(231));
-  set('gen_hydro', damTile(233), 2, 2);
+  // two orientations so the dam wall is thrown ACROSS the river bank-to-bank
+  // whichever way the channel runs (commands.ts stamps GenAsset.damAxis):
+  // 'ew' (river E–W, wall spans N–S, a 2×3 block) and 'ns' (a 3×2 block).
+  set('gen_hydro', damTile(233, 'ew'), 2, 3);
+  set('gen_hydro_ns', damTile(233, 'ns'), 3, 2);
   set('gen_biomass', biomassTile(232));
   set('gen_battery', batteryTile(196));
   set('gen_interconnector', interconnectorTile(246));

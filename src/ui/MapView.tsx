@@ -7,12 +7,20 @@ import { installTestHook } from '../app/testHook';
 import { useAppStore, type Tool } from '../app/store';
 import { requestForecast, sendCommand, setWatch } from '../app/workerBridge';
 import { beginCityLoad, endCityLoad, setLoadPhase } from '../app/bootBreadcrumb';
-import { assetAtTile, checkBuild, pylonTilesOf, siteErrorAt, type BuildSpec } from '../sim/commands';
+import {
+  assetAtTile,
+  checkBuild,
+  damAxisAt,
+  damFootprint,
+  pylonTilesOf,
+  siteErrorAt,
+  type BuildSpec,
+} from '../sim/commands';
 import { farmClaimTiles, farmFitMW, isFarmGen } from '../sim/farms';
 import { reservedTiles } from '../sim/events/developers';
 import { priceLine, pylonSiteOk } from '../sim/cost';
 import { mapBounds, missionOf } from '../sim/scenario/missions';
-import { ANNUITY_FACTOR, DEPOT, GENS, LINES, SUBS } from '../sim/catalog';
+import { ANNUITY_FACTOR, DEPOT, GENS, LINES, SUBS, tierForKv, type GenTier } from '../sim/catalog';
 import type { LineAsset, PlacedAsset } from '../sim/assets';
 import { assetLevels } from '../sim/assets';
 
@@ -21,9 +29,15 @@ function specFor(
   x: number,
   y: number,
   assets: PlacedAsset[],
-  sizes?: { mw?: number | undefined; mva?: number | undefined },
+  sizes?: { mw?: number | undefined; mva?: number | undefined; tierKv?: string | undefined },
 ): BuildSpec | undefined {
-  if (tool.t === 'gen')
+  if (tool.t === 'gen') {
+    // the chosen connection-voltage tier, if it's valid for this technology
+    // (a stale tier from another gen is ignored → that gen's default)
+    const tier =
+      sizes?.tierKv !== undefined
+        ? tierForKv(tool.gen, sizes.tierKv as GenTier['kv'])
+        : undefined;
     return {
       kind: 'gen',
       gen: tool.gen,
@@ -31,7 +45,9 @@ function specFor(
       y,
       // capacity picker: only a sizeable FARM tender carries a chosen MW
       ...(isFarmGen(tool.gen) && sizes?.mw !== undefined ? { mw: sizes.mw } : {}),
+      ...(tier ? { tierKv: tier.kv } : {}),
     };
+  }
   if (tool.t === 'sub')
     return { kind: 'sub', sub: tool.sub, x, y, ...(sizes?.mva !== undefined ? { mva: sizes.mva } : {}) };
   if (tool.t === 'depot') return { kind: 'depot', x, y };
@@ -130,7 +146,11 @@ function handleTileClick(tile: TileHover): void {
     case 'sub':
     case 'depot': {
       const st = useAppStore.getState();
-      const spec = specFor(tool, x, y, assets, { mw: st.genSizeMw, mva: st.subSizeMva });
+      const spec = specFor(tool, x, y, assets, {
+        mw: st.genSizeMw,
+        mva: st.subSizeMva,
+        tierKv: st.genTierKv,
+      });
       if (spec) {
         if (spec.kind === 'sub') spec.autoConnect = st.autoConnect;
         sendCommand({ type: 'build', spec });
@@ -532,8 +552,12 @@ export function MapView() {
       }
     }
 
-    const { genSizeMw, subSizeMva } = useAppStore.getState();
-    const spec = specFor(tool, hovered.x, hovered.y, assets, { mw: genSizeMw, mva: subSizeMva });
+    const { genSizeMw, subSizeMva, genTierKv } = useAppStore.getState();
+    const spec = specFor(tool, hovered.x, hovered.y, assets, {
+      mw: genSizeMw,
+      mva: subSizeMva,
+      tierKv: genTierKv,
+    });
     if (!spec) {
       r.setGhost(undefined);
       setGhostInfo(undefined);
@@ -556,9 +580,16 @@ export function MapView() {
         pylons: check.pylons,
       };
     } else {
+      // a hydro dam's ghost shows the oriented sprite + spanning footprint so
+      // the player sees the wall thrown across the river before they commit
+      const damAxis = spec.kind === 'gen' && spec.gen === 'hydro' ? damAxisAt(map, hovered.x, hovered.y) : undefined;
       const sprite =
         spec.kind === 'gen'
-          ? { gasCCGT: 'gen_gas', gasPeaker: 'gen_peaker', coal: 'gen_coal', nuclear: 'gen_nuclear', solarFarm: 'gen_solar', windOnshore: 'gen_windon', windOffshore: 'gen_windoff', tidal: 'gen_tidal', hydro: 'gen_hydro', biomass: 'gen_biomass', battery: 'gen_battery', interconnector: 'gen_interconnector', electrolyser: 'gen_electrolyser' }[spec.gen]
+          ? spec.gen === 'hydro'
+            ? damAxis === 'ns'
+              ? 'gen_hydro_ns'
+              : 'gen_hydro'
+            : { gasCCGT: 'gen_gas', gasPeaker: 'gen_peaker', coal: 'gen_coal', nuclear: 'gen_nuclear', solarFarm: 'gen_solar', windOnshore: 'gen_windon', windOffshore: 'gen_windoff', tidal: 'gen_tidal', hydro: 'gen_hydro', biomass: 'gen_biomass', battery: 'gen_battery', interconnector: 'gen_interconnector', electrolyser: 'gen_electrolyser' }[spec.gen]
           : spec.kind === 'sub'
             ? { bulk: 'sub_bulk', grid: 'sub_grid', dist: 'sub_dist', pole: 'sub_pole', vault: 'sub_vault', tee: 'sub_dist', capbank: 'sub_capbank' }[spec.sub]
             : 'depot';
@@ -585,7 +616,9 @@ export function MapView() {
         radius: spec.kind === 'sub' ? SUBS[spec.sub].serviceRadius : undefined,
         fp:
           spec.kind === 'gen'
-            ? GENS[spec.gen].footprint
+            ? spec.gen === 'hydro'
+              ? damFootprint(damAxis)
+              : GENS[spec.gen].footprint
             : spec.kind === 'sub'
               ? SUBS[spec.sub].footprint
               : undefined,

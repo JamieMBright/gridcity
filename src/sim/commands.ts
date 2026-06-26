@@ -9,6 +9,9 @@ import {
   LINE_UPRATE_COST_FRAC,
   LINE_UPRATE_MUL,
   SUBS,
+  defaultTier,
+  tierForKv,
+  type GenTier,
   type GenType,
   type LineBuild,
   type SubType,
@@ -180,8 +183,18 @@ export type BuildSpec =
   /** `mw`: the player's chosen size for a CAPACITY-PICKED farm tender
    *  (BuildPalette). Caps the tender's fitMW and the reserved footprint, so
    *  a modest onshore-wind ask reserves a modest plot. Absent = the full
-   *  land fit (the old behaviour), or fixed-plant catalog capacity. */
-  | { kind: 'gen'; gen: GenType; x: number; y: number; mw?: number | undefined }
+   *  land fit (the old behaviour), or fixed-plant catalog capacity.
+   *  `tierKv`: the chosen CONNECTION-VOLTAGE tier (catalog GenTier.kv), e.g.
+   *  '400' for a utility solar farm vs 'LV' for rooftop. Sets the modelled
+   *  bus level and the MW band enforced below. Absent = the default tier. */
+  | {
+      kind: 'gen';
+      gen: GenType;
+      x: number;
+      y: number;
+      mw?: number | undefined;
+      tierKv?: GenTier['kv'] | undefined;
+    }
   /** `autoConnect`: after placing, run a circuit from each of the sub's
    *  bays to the nearest asset with a matching bay (palette setting).
    *  `mva`: chosen transformer rating at build time (BuildPalette ± picker;
@@ -221,9 +234,23 @@ function tileAt(map: CityMap, x: number, y: number): number | undefined {
   return y * map.width + x;
 }
 
-/** Tile footprint of a placed asset (lines have none). */
+/** Tile footprint of a hydro dam: the wall is thrown across a ≥3-wide channel,
+ *  so the dam reserves a 3-tile span ACROSS the river (the wall) and 2 tiles
+ *  of bank depth (the river flow direction). Oriented by the river the dam
+ *  impounds — 'ns' (river flows N–S, wall spans E–W) is wide in x ⇒ [3, 2];
+ *  'ew' (river flows E–W, wall spans N–S) is wide in y ⇒ [2, 3]. Matches the
+ *  oriented sprite (gen_hydro / gen_hydro_ns) and the renderer placement. */
+export function damFootprint(axis: 'ew' | 'ns' | undefined): [number, number] {
+  return axis === 'ns' ? [3, 2] : [2, 3];
+}
+
+/** Tile footprint of a placed asset (lines have none). Hydro dams stretch to
+ *  span the river bank-to-bank in the direction the channel runs (damAxis). */
 export function assetFootprint(a: PlacedAsset): [number, number] {
-  if (a.kind === 'gen') return GENS[a.gen].footprint ?? [1, 1];
+  if (a.kind === 'gen') {
+    if (a.gen === 'hydro') return damFootprint(a.damAxis);
+    return GENS[a.gen].footprint ?? [1, 1];
+  }
   if (a.kind === 'sub') return SUBS[a.sub].footprint ?? [1, 1];
   return [1, 1];
 }
@@ -288,7 +315,10 @@ export function reservationFootprint(
   if (isFarmGen(gen) && fitMW !== undefined) {
     return farmClaimTiles(map, gen, x, y, fitMW, taken);
   }
-  const [fw, fh] = GENS[gen].footprint ?? [1, 1];
+  // hydro dams reserve their river-spanning oriented footprint (3 across the
+  // channel × 2 deep), not the catalog [2,2] rect, so the held ground matches
+  // the wall that actually lands
+  const [fw, fh] = gen === 'hydro' ? damFootprint(damAxisAt(map, x, y)) : (GENS[gen].footprint ?? [1, 1]);
   const out: number[] = [];
   for (let dy = 0; dy < fh; dy++) {
     for (let dx = 0; dx < fw; dx++) out.push((y + dy) * map.width + x + dx);
@@ -398,7 +428,28 @@ function waterRun(map: CityMap, x: number, y: number, dx: number, dy: number): n
  *  even though only its riverside row actually abuts the bank. Pure: reads
  *  the terrain only. */
 function riverWidthNear(map: CityMap, x: number, y: number, reach: number): number {
+  return riverNear(map, x, y, reach).width;
+}
+
+/** The river a dam at the LAND tile (x,y) impounds: its WIDTH (the widest
+ *  contiguous water span across the channel, measured perpendicular to flow)
+ *  and which way it RUNS. We cast the four orthogonal rays out to `reach`; the
+ *  first water hit on a ray is a bank the dam reaches across, and the run along
+ *  that ray's axis is the channel's cross-section. The widest cross-section
+ *  wins; its axis fixes the flow direction (a cross-section measured E–W means
+ *  the channel flows N–S, so the wall spans E–W = damAxis 'ns'; an N–S
+ *  cross-section ⇒ E–W flow ⇒ wall spans N–S = damAxis 'ew'). Pure terrain
+ *  read; deterministic. */
+function riverNear(
+  map: CityMap,
+  x: number,
+  y: number,
+  reach: number,
+): { width: number; axis: 'ew' | 'ns' } {
   let widest = 0;
+  // default 'ew' (a horizontal wall) when no clear river is found — harmless,
+  // the width check rejects the build anyway
+  let axis: 'ew' | 'ns' = 'ew';
   for (const [dx, dy] of [
     [1, 0],
     [-1, 0],
@@ -411,11 +462,40 @@ function riverWidthNear(map: CityMap, x: number, y: number, reach: number): numb
       if (!isWater(map, wx, wy)) continue;
       // run measured along the bank→water axis: E/W ray ⇒ horizontal span,
       // N/S ray ⇒ vertical span. abs() keeps the axis, drops the sign.
-      widest = Math.max(widest, waterRun(map, wx, wy, Math.abs(dx), Math.abs(dy)));
+      const run = waterRun(map, wx, wy, Math.abs(dx), Math.abs(dy));
+      if (run > widest) {
+        widest = run;
+        // E/W cross-section ⇒ N–S flow ⇒ 'ns'; N/S cross-section ⇒ 'ew'
+        axis = dx !== 0 ? 'ns' : 'ew';
+      }
       break; // only the nearest water on each ray is the bank we reach across
     }
   }
-  return widest;
+  return { width: widest, axis };
+}
+
+/** The river-flow axis a hydro dam at (x,y) should orient its wall across.
+ *  Exported so the build command can stamp GenAsset.damAxis. */
+export function damAxisAt(map: CityMap, x: number, y: number, reach = 2): 'ew' | 'ns' {
+  return riverNear(map, x, y, reach).axis;
+}
+
+/** Validity of a NON-anchor tile under a hydro dam's spanning footprint:
+ *  the wall crosses the channel, so WATER is allowed here (that is the dam
+ *  blocking the river), but it still can't bulldoze a protected landmark, an
+ *  active runway or a carriageway/railway. Returns undefined when clear. */
+function damSpanTileError(map: CityMap, x: number, y: number): string | undefined {
+  const i = tileAt(map, x, y);
+  if (i === undefined) return 'the dam runs off the edge of the map';
+  if (map.landmark !== undefined && (map.landmark[i] ?? 0) !== 0)
+    return 'the dam would block a protected landmark';
+  if (((map.flags?.[i] ?? 0) & 2) !== 0) return 'that is an active runway';
+  if ((map.road[i] ?? 0) >= RC.arterial) {
+    return (map.road[i] ?? 0) === RC.rail
+      ? 'the dam cannot cross the railway'
+      : 'the dam cannot cross the carriageway';
+  }
+  return undefined;
 }
 
 /** Static siting rule for a tile build (terrain/zone/landmark only — no
@@ -474,7 +554,9 @@ export function siteErrorAt(
       if (t === TERRAIN.water) return 'the dam wall sits on the bank, not in the river';
       if (z === ZONE.posh) return 'the conservation area will never allow that';
       if (z === ZONE.park) return 'not in a royal park';
-      const reach = Math.max(...(GENS[spec.gen].footprint ?? [1, 1]));
+      // reach across the dam's full span (3 tiles) so every tile of the
+      // bank-to-bank campus still reads as riverside
+      const reach = Math.max(...damFootprint(undefined));
       if (riverWidthNear(map, x, y, reach) < MIN_HYDRO_RIVER_WIDTH) {
         return `hydro dams need a river at least ${MIN_HYDRO_RIVER_WIDTH} tiles wide`;
       }
@@ -523,9 +605,35 @@ export function checkBuild(
     return fail('tee junctions are made by teeing the line tool into a circuit');
   }
   if (spec.kind === 'gen' || spec.kind === 'sub' || spec.kind === 'depot') {
+    // CONNECTION-VOLTAGE TIER (owner, 2026-06-26): a multi-tier generator
+    // must be built at one of its tiers, and its size must sit inside that
+    // tier's MW band — too-big solar is refused on LV, allowed on 400 kV.
+    if (spec.kind === 'gen') {
+      const tier = spec.tierKv !== undefined ? tierForKv(spec.gen, spec.tierKv) : defaultTier(spec.gen);
+      if (!tier) {
+        return fail(`${GENS[spec.gen].name} cannot connect at ${spec.tierKv} kV`);
+      }
+      // ENFORCE the per-tier MW band (owner: too-big solar refused on LV,
+      // allowed on 400 kV). When the player EXPLICITLY chose a tier, an
+      // out-of-band size is a hard error — that is the surfaced rejection. A
+      // fixed plant's catalog capacity must always sit in its tier. (Farms on
+      // the DEFAULT tier are CLAMPED to the band by the build below + the
+      // capacity picker, not rejected, so a "give me everything" ask still
+      // lands the largest install the voltage + land allow.)
+      const wantMW = isFarmGen(spec.gen) ? spec.mw : GENS[spec.gen].capacityMW;
+      const explicit = spec.tierKv !== undefined;
+      const enforce = explicit || !isFarmGen(spec.gen);
+      if (enforce && wantMW !== undefined && (wantMW < tier.minMW || wantMW > tier.maxMW)) {
+        return fail(
+          `${wantMW} MW is outside the ${tier.kv} kV band (${tier.minMW}–${tier.maxMW} MW) — pick another voltage tier`,
+        );
+      }
+    }
     const [fw, fh] =
       spec.kind === 'gen'
-        ? (GENS[spec.gen].footprint ?? [1, 1])
+        ? spec.gen === 'hydro'
+          ? damFootprint(damAxisAt(map, spec.x, spec.y))
+          : (GENS[spec.gen].footprint ?? [1, 1])
         : spec.kind === 'sub'
           ? (SUBS[spec.sub].footprint ?? [1, 1])
           : [1, 1];
@@ -537,11 +645,23 @@ export function checkBuild(
     for (const a of assetList) {
       for (const i of footprintTiles(map, a)) occupied.add(i);
     }
+    // a hydro dam deliberately STRADDLES the river: its wall spans across the
+    // channel, so the span legitimately covers water tiles — only the ANCHOR
+    // bank tile runs the full river-siting check; the rest of the span just
+    // has to be clear of landmarks/roads/runways and unoccupied.
+    const isHydro = spec.kind === 'gen' && spec.gen === 'hydro';
     for (let dy = 0; dy < fh; dy++) {
       for (let dx = 0; dx < fw; dx++) {
-        const i = (spec.y + dy) * map.width + spec.x + dx;
-        const siteError = siteErrorAt(map, spec, spec.x + dx, spec.y + dy);
-        if (siteError) return fail(siteError);
+        const tx = spec.x + dx;
+        const ty = spec.y + dy;
+        const i = ty * map.width + tx;
+        if (isHydro && (dx !== 0 || dy !== 0)) {
+          const err = damSpanTileError(map, tx, ty);
+          if (err) return fail(err);
+        } else {
+          const siteError = siteErrorAt(map, spec, tx, ty);
+          if (siteError) return fail(siteError);
+        }
         if (occupied.has(i)) return fail('tile already occupied');
         if (pylonTiles.has(i)) return fail('an overhead-line support stands here');
         if (reserved?.has(i)) return fail('a designated generation site is reserved here');
@@ -705,14 +825,18 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
         }
         // farm techs: developers bid what FITS — survey the contiguous open
         // land around the site now, capped by the player's CHOSEN size
-        // (capacity picker) when given, then RESERVE that whole footprint so
-        // a second side-by-side designation can't overlap and the award
-        // lands exactly here (no "explosion").
+        // (capacity picker) when given AND by the chosen voltage tier's MW
+        // ceiling (you can't evacuate a 500 MW farm down a 33 kV feeder), then
+        // RESERVE that whole footprint so a second side-by-side designation
+        // can't overlap and the award lands exactly here (no "explosion").
+        const tier = spec.tierKv !== undefined ? tierForKv(spec.gen, spec.tierKv) : defaultTier(spec.gen);
+        const tierMax = tier?.maxMW ?? Number.POSITIVE_INFINITY;
         let fitMW: number | undefined;
         let footprint: number[];
         if (isFarmGen(spec.gen)) {
           const land = farmFitMW(map, spec.gen, spec.x, spec.y, taken);
-          fitMW = spec.mw !== undefined ? Math.max(1, Math.min(spec.mw, land)) : land;
+          const asked = spec.mw !== undefined ? Math.min(spec.mw, land) : land;
+          fitMW = Math.max(1, Math.min(asked, tierMax));
           footprint = reservationFootprint(map, spec.gen, spec.x, spec.y, fitMW, taken);
         } else {
           footprint = reservationFootprint(map, spec.gen, spec.x, spec.y, undefined, taken);
@@ -728,6 +852,8 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
           status: 'open',
           reserved: footprint,
           ...(fitMW !== undefined ? { fitMW } : {}),
+          // carry the chosen connection-voltage tier through to the award
+          ...(spec.tierKv !== undefined ? { tierKv: spec.tierKv } : {}),
         };
         state.tenders.push(tender);
         pushEvent(
@@ -1225,6 +1351,16 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
         // land on exactly the reserved tiles (the held plot's free prefix)
         awardClaim = plot.slice(0, Math.max(1, Math.ceil(awardMW / per)));
       }
+      // resolve the chosen connection-voltage tier → the bus level + signage
+      // the awarded plant carries (only stamp a non-default tier, so existing
+      // single-tier plant and old saves stay byte-identical)
+      const tier =
+        tender.tierKv !== undefined
+          ? (tierForKv(tender.gen, tender.tierKv as GenTier['kv']) ?? defaultTier(tender.gen))
+          : defaultTier(tender.gen);
+      const nonDefaultTier = tier.level !== GENS[tender.gen].level || tender.tierKv !== undefined;
+      // a hydro dam orients its wall across the river it impounds
+      const damAxis = tender.gen === 'hydro' ? damAxisAt(map, tender.x, tender.y) : undefined;
       const id = state.nextAssetId++;
       state.assets.set(id, {
         id,
@@ -1237,6 +1373,8 @@ export function applyCommand(state: GameState, map: CityMap, cmd: Command): Comm
         liveAtMin: state.simTimeMin, // construction is instant: award → online
         ...(awardMW !== undefined ? { mw: awardMW } : {}),
         ...(awardClaim !== undefined ? { claim: awardClaim } : {}),
+        ...(nonDefaultTier ? { level: tier.level, tierKv: tier.kv } : {}),
+        ...(damAxis !== undefined ? { damAxis } : {}),
       });
       tender.status = 'awarded';
       for (const b of tender.bids) {

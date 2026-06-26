@@ -2,6 +2,7 @@
 // ZXC for line voltages, plus depot/bulldoze/inspect. The App keyboard
 // handler applies them; the palette renders the chips.
 
+import { GEN_PALETTE_ORDER } from '../sim/catalog';
 import type { Tool } from './store';
 
 export interface Hotkey {
@@ -9,20 +10,23 @@ export interface Hotkey {
   tool: Tool;
 }
 
+// The number-row generation hotkeys are DERIVED from the voltage-sorted
+// palette order (owner, 2026-06-26) so 1–9,0 always matches the on-screen
+// order — hydro now has a number, and the row never drifts from the palette.
+// Up to ten generators take the number row (1..9 then 0); any overflow keeps
+// its letter mnemonic below. The interconnector (iMports) keeps 'm'.
+const NUMBER_ROW = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+const NUMBERED = GEN_PALETTE_ORDER.filter((g) => g !== 'interconnector').slice(0, NUMBER_ROW.length);
+const genHotkeys: Hotkey[] = NUMBERED.map((gen, i) => ({
+  key: NUMBER_ROW[i]!,
+  tool: { t: 'gen', gen },
+}));
+
 export const HOTKEYS: Hotkey[] = [
-  // generation — number row, in palette order
-  { key: '1', tool: { t: 'gen', gen: 'gasCCGT' } },
-  { key: '2', tool: { t: 'gen', gen: 'gasPeaker' } },
-  { key: '3', tool: { t: 'gen', gen: 'solarFarm' } },
-  { key: '4', tool: { t: 'gen', gen: 'windOnshore' } },
-  { key: '5', tool: { t: 'gen', gen: 'windOffshore' } },
-  { key: '6', tool: { t: 'gen', gen: 'tidal' } },
-  { key: '7', tool: { t: 'gen', gen: 'biomass' } },
-  { key: '8', tool: { t: 'gen', gen: 'nuclear' } },
-  { key: '9', tool: { t: 'gen', gen: 'battery' } },
-  { key: '0', tool: { t: 'gen', gen: 'coal' } },
-  // the number row is full: M for iMports (the interconnector),
-  // Y for hYdrogen (the electrolyser)
+  // generation — number row, in voltage-sorted palette order (derived above)
+  ...genHotkeys,
+  // M for iMports (the interconnector); Y for hYdrogen (the electrolyser, a
+  // demand-side load — off the generation number row but still hotkeyed)
   { key: 'm', tool: { t: 'gen', gen: 'interconnector' } },
   { key: 'y', tool: { t: 'gen', gen: 'electrolyser' } },
   // substations (V = VAr support: the capacitor bank)

@@ -68,6 +68,11 @@ interface AppState {
    *  designate command so the tender's fitMW and reserved footprint use it.
    *  undefined = take the full land fit (the old behaviour). */
   genSizeMw: number | undefined;
+  /** CONNECTION-VOLTAGE TIER (owner, 2026-06-26). The kV tier the player
+   *  has chosen for the next generation build (catalog GenTier.kv) — carried
+   *  into the build command so the plant connects at that voltage with its own
+   *  MW band enforced. undefined = the technology's default tier. */
+  genTierKv: string | undefined;
   /** The MVA chosen for the next SUBSTATION build (BuildPalette ± picker);
    *  undefined = leave the transformer on auto-reinforcement. */
   subSizeMva: number | undefined;
@@ -169,6 +174,7 @@ interface AppState {
   clearCompare: () => void;
   setAutoConnect: (on: boolean) => void;
   setGenSizeMw: (mw: number | undefined) => void;
+  setGenTierKv: (kv: string | undefined) => void;
   setSubSizeMva: (mva: number | undefined) => void;
   setGridView: (on: boolean) => void;
   setGhostInfo: (info: GhostInfo | undefined) => void;
@@ -431,6 +437,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   comparePicking: false,
   autoConnect: false,
   genSizeMw: undefined,
+  genTierKv: undefined,
   subSizeMva: undefined,
   gridView: false,
   ghostInfo: undefined,
@@ -503,16 +510,24 @@ export const useAppStore = create<AppState>((set, get) => ({
   // arming a different tool drops the pinned inspector card (and the
   // compare slot / pick arming — they only make sense while inspecting)
   setTool: (tool) =>
-    set((s) => ({
-      tool,
-      selectedAsset: tool.t === 'inspect' ? s.selectedAsset : undefined,
-      selectedLine: tool.t === 'inspect' ? s.selectedLine : undefined,
-      selectedLineAt: tool.t === 'inspect' ? s.selectedLineAt : undefined,
-      compareAsset: tool.t === 'inspect' ? s.compareAsset : undefined,
-      compareLine: tool.t === 'inspect' ? s.compareLine : undefined,
-      compareLineAt: tool.t === 'inspect' ? s.compareLineAt : undefined,
-      comparePicking: tool.t === 'inspect' ? s.comparePicking : false,
-    })),
+    set((s) => {
+      // arming a DIFFERENT generator clears the chosen voltage tier so a
+      // stale tier from another technology can't leak into the next build
+      // (each gen's picker re-defaults; specFor ignores an invalid tier too)
+      const genChanged =
+        tool.t === 'gen' && !(s.tool.t === 'gen' && s.tool.gen === tool.gen);
+      return {
+        tool,
+        ...(genChanged ? { genTierKv: undefined } : {}),
+        selectedAsset: tool.t === 'inspect' ? s.selectedAsset : undefined,
+        selectedLine: tool.t === 'inspect' ? s.selectedLine : undefined,
+        selectedLineAt: tool.t === 'inspect' ? s.selectedLineAt : undefined,
+        compareAsset: tool.t === 'inspect' ? s.compareAsset : undefined,
+        compareLine: tool.t === 'inspect' ? s.compareLine : undefined,
+        compareLineAt: tool.t === 'inspect' ? s.compareLineAt : undefined,
+        comparePicking: tool.t === 'inspect' ? s.comparePicking : false,
+      };
+    }),
   setSelected: ({ assetId, lineId, at }) =>
     set((s) => {
       // compare-pick armed: the next inspect click fills the SECOND slot,
@@ -541,6 +556,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }),
   setAutoConnect: (autoConnect) => set({ autoConnect }),
   setGenSizeMw: (genSizeMw) => set({ genSizeMw }),
+  setGenTierKv: (genTierKv) => set({ genTierKv }),
   setSubSizeMva: (subSizeMva) => set({ subSizeMva }),
   setGridView: (gridView) => set({ gridView }),
   setGhostInfo: (ghostInfo) => set({ ghostInfo }),

@@ -504,7 +504,15 @@ export function seedScenario(
 // and the King's Cross Coal Drops. New hero footprints stamp more London
 // tiles ⇒ map geometry + the baked heroTable changed again; bump so old saves
 // rebuild their hero placement from the committed names.
-export const SAVE_VERSION = 16;
+// v17 (generation-palette overhaul, owner 2026-06-26): GenAsset gains three
+// ADDITIVE optional fields — `level`/`tierKv` (a generator's chosen
+// connection-voltage tier; absent ⇒ the catalog default level, byte-identical)
+// and `damAxis` (a hydro dam's bank-to-bank orientation; absent ⇒ 'ew'). The
+// dam also now spans an oriented 3×2/2×3 footprint instead of the old 2×2, so
+// a pre-existing dam in an old save reads a touch wider — harmless (it only
+// claims one more tile of its own riverbank). All fields hydrate to the prior
+// behaviour, so v14–v16 saves still load; the bump records the new shape.
+export const SAVE_VERSION = 17;
 
 /** Guard for untrusted save payloads; lives beside SAVE_VERSION so the two
  *  can never drift apart again (a stale guard silently discarded saves). */
@@ -549,7 +557,7 @@ export function isSaveData(d: unknown): d is SaveData {
 }
 
 export interface SaveData {
-  v: 16;
+  v: 17;
   tick: number;
   simTimeMin: number;
   speed: SimSpeed;

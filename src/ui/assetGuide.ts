@@ -13,11 +13,15 @@ import {
   CAPACITY_FACTOR,
   DEPOT,
   GENS,
+  GEN_PALETTE_ORDER,
   LINES,
+  LOAD_PALETTE_ORDER,
   SUBS,
   VAN_OPEX_K_YR,
+  isLoadGen,
   strikeMWh,
   subCapexK,
+  tierMarker,
   type GenType,
   type SubType,
 } from '../sim/catalog';
@@ -32,7 +36,12 @@ import {
   type IconComponent,
 } from './icons';
 
-export type GuideCategory = 'Generation' | 'Substations' | 'Lines & cables' | 'Operations';
+export type GuideCategory =
+  | 'Generation'
+  | 'Demand-side'
+  | 'Substations'
+  | 'Lines & cables'
+  | 'Operations';
 
 export interface GuideEntry {
   /** Stable id keyed to a catalog build option: `gen:<GenType>`,
@@ -135,40 +144,30 @@ const GEN_COPY: Record<GenType, { what: string; does: string; when: string }> = 
   },
 };
 
-/** The display order in the guide — mirrors the build palette’s GEN_ORDER. */
-const GEN_ORDER: GenType[] = [
-  'gasCCGT',
-  'gasPeaker',
-  'solarFarm',
-  'windOnshore',
-  'windOffshore',
-  'tidal',
-  'hydro',
-  'biomass',
-  'nuclear',
-  'battery',
-  'coal',
-  'interconnector',
-  'electrolyser',
-];
+/** The display order in the guide — generation (voltage-sorted) then the
+ *  demand-side loads, mirroring the build palette. */
+const GEN_ORDER: GenType[] = [...GEN_PALETTE_ORDER, ...LOAD_PALETTE_ORDER];
 
 function genEntry(g: GenType): GuideEntry {
   const spec = GENS[g];
   const copy = GEN_COPY[g];
+  const load = isLoadGen(g);
   const stats: Array<{ label: string; value: string }> = [
     { label: 'capex', value: fmtMoneyK(spec.capexK) },
     {
-      label: g === 'battery' || g === 'electrolyser' ? 'power' : 'capacity',
+      label: g === 'battery' || load ? 'power' : 'capacity',
       value: `${spec.capacityMW.toLocaleString()} MW`,
     },
-    { label: 'connects at', value: `${spec.level} kV` },
+    // the connection-voltage marker: a single kV for fixed plant, the tier
+    // range for a multi-tier technology (owner, 2026-06-26)
+    { label: 'connects at', value: tierMarker(g) },
     { label: 'carbon', value: `${spec.carbonG} gCO₂/kWh` },
   ];
   if (spec.energyMWh !== undefined) {
     stats.push({ label: 'store', value: `${spec.energyMWh.toLocaleString()} MWh` });
   }
   // marginal cost only reads as meaningful for fuelled / merit-order units
-  if (g !== 'electrolyser' && g !== 'interconnector') {
+  if (!load && g !== 'interconnector') {
     stats.push({ label: 'fuel/energy', value: poundsMWh(spec.marginalCostK) });
     stats.push({ label: 'capacity factor', value: cfPct(g) });
     stats.push({ label: 'developer strike', value: `~£${strikeMWh(g)}/MWh` });
@@ -179,7 +178,9 @@ function genEntry(g: GenType): GuideEntry {
   });
   return {
     key: `gen:${g}`,
-    category: 'Generation',
+    // loads file under a Demand category so the guide groups them apart from
+    // generation (owner: the electrolyser is a load, not a generator)
+    category: load ? 'Demand-side' : 'Generation',
     title: spec.name,
     Icon: GEN_ICONS[g] as IconComponent,
     what: copy.what,
@@ -334,6 +335,7 @@ export const ASSET_GUIDE: GuideEntry[] = [
 /** The category order for grouped rendering. */
 export const GUIDE_CATEGORIES: GuideCategory[] = [
   'Generation',
+  'Demand-side',
   'Substations',
   'Lines & cables',
   'Operations',
